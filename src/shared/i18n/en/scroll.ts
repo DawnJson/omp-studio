@@ -5,4 +5,5 @@ export const scroll = {
   latest: "Jump to latest",
   line: "Conversation outline",
   lineItem: "Message {n}: {text}",
+  outline: "Turns",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

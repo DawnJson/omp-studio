@@ -16,6 +16,7 @@ export const shortcut = {
   nthTask: "切到第 N 个任务",
   prevNext: "上一个或下一个任务",
   regions: "在区域间切换",
+  prevNextTurn: "对话：上一轮 / 下一轮",
   review: "打开评审",
   reviewFiles: "评审：上 / 下一个文件",
   reviewHunks: "评审：上 / 下一处改动",

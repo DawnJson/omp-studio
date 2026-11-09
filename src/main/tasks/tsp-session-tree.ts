@@ -1,7 +1,7 @@
 // 会话树、回溯、分叉（docs/architecture/session-tree.md）。
-// 树只读会话文件（tsp/session-tree-file.ts）；回溯 = 驱动 omp 自己的 `/tree`：选择器里 activate 那条用户消息。
-// 分叉成新任务由池完成（TaskPool.forkTask）：新任务用 `omp --fork=<会话文件>` 起，起来以后在新进程里同样回溯。
-import type { RestoredDraft, SessionTreeView } from "../../shared/ipc.ts";
+// 树只读会话文件（tsp/session-tree-file.ts）；回溯 = 驱动 omp 自己的 `/tree`：选择器里 activate 那条用户消息（或回答）。
+// 分叉成新任务由池完成（TaskPool.forkTask）：新任务用 `omp --fork=<会话文件>` 起，起来以后在新进程里同样移动叶子。
+import type { ForkMode, RestoredDraft, SessionTreeView } from "../../shared/ipc.ts";
 import type { TspDocument } from "../../shared/tsp/document.ts";
 import {
   SUMMARY_NO,
@@ -16,9 +16,11 @@ import {
 import type { TspSession } from "../tsp/tsp-session.ts";
 import {
   buildTreeFromEntries,
+  findAnswerEntry,
   findUserEntry,
   isLabellableEntry,
   readSessionEntries,
+  type AnswerTarget,
   type LeafOverride,
   type RewindTarget,
   type SessionEntry,
@@ -29,6 +31,10 @@ import { CONFIRM_TIMEOUT_MS, ESC_KEY, PICKER_TIMEOUT_MS } from "./tsp-commands.t
 const NAVIGATION_SETTLE_MS = 1_500;
 /** 回溯时让 omp 摘要被放弃的分支：要调一次模型，实测约 10 秒，留足余量。 */
 const SUMMARY_TIMEOUT_MS = 120_000;
+
+/** prepareFork 的分叉点：回到用户消息之前（它的文字回输入框），或停在它的回答上（输入框空着）。 */
+export type ForkPoint =
+  { mode: "before-user"; entryId: string; target: RewindTarget } | { mode: "after-answer"; answer: AnswerTarget };
 
 export interface TspSessionTreeHost {
   /** 当前会话文件；还没有为 null。 */
@@ -71,9 +77,10 @@ export class TspSessionTree {
 
   /**
    * 分叉前的检查：这一轮已结束，`entryId`（null = 当前分支最后一条用户消息）是这个会话的用户消息。
-   * 返回要分叉的会话文件、那条消息的条目 id 和回溯目标（omp 的 `--fork` 复制整份文件，条目 id 不变，新进程里直接用它回溯）。
+   * 返回要分叉的会话文件和分叉点（omp 的 `--fork` 复制整份文件，条目 id 不变，新进程里直接用它们移动）：
+   * `before-user` = 那条消息和回溯目标；`after-answer` = 它在当前分支上的回答（这一轮最后一条助手消息）。
    */
-  async prepareFork(entryId: string | null): Promise<{ sourceFile: string; entryId: string; target: RewindTarget }> {
+  async prepareFork(entryId: string | null, mode: ForkMode): Promise<{ sourceFile: string; point: ForkPoint }> {
     this.#host.assertTurnFinished();
     const file = this.#host.sessionFile();
     const entries = await this.#readTreeEntries();
@@ -85,7 +92,10 @@ export class TspSessionTree {
     if (id === undefined) throw new Error("the session has no user message to fork from");
     const target = findUserEntry(entries, id);
     if (target === null) throw new Error("that is not a user message of this session");
-    return { sourceFile: file, entryId: id, target };
+    if (mode === "before-user") return { sourceFile: file, point: { mode, entryId: id, target } };
+    const answer = findAnswerEntry(entries, id, this.#leafOverride);
+    if (answer === null) throw new Error("that message has no answer on the current branch");
+    return { sourceFile: file, point: { mode, answer } };
   }
 
   /**
@@ -100,73 +110,92 @@ export class TspSessionTree {
     return this.#host.exclusive(async () => {
       const target = known ?? findUserEntry(await this.#readTreeEntries(), entryId);
       if (target === null) throw new Error("that is not a user message of this session");
-      await this.#host.start();
-      this.#host.assertTurnFinished();
-      const composer = await this.#host.awaitComposer();
-      const session = this.#host.liveSession();
-      await this.#host.takeEditorText(session);
-      session.sendEvent({ ev: "send", sf: composer.sf, id: composer.id, text: "/tree" });
-      const picker = await this.#host.awaitDocument(
-        (document) => findTreePicker(document),
-        PICKER_TIMEOUT_MS,
-        "omp's session tree did not open in time",
-      );
-      if (!picker.items.includes(entryId) || (summarize && !picker.actions.includes("summarize"))) {
-        session.sendKeys(ESC_KEY);
-        throw new Error("omp's session tree does not offer that");
-      }
-      if (summarize) {
-        session.sendEvent({ ev: "select", sf: picker.sf, id: picker.id, item: entryId });
-        session.sendEvent({ ev: "action", sf: picker.sf, id: picker.id, act: "summarize" });
-        try {
-          await this.#host.awaitDocument(
-            (document) => (findTreePicker(document) === null && findSummaryPicker(document) === null ? true : null),
-            SUMMARY_TIMEOUT_MS,
-            "omp did not finish summarizing the abandoned branch",
-          );
-        } catch (error) {
-          session.sendKeys(ESC_KEY);
-          throw error;
-        }
-      } else {
-        session.sendEvent({ ev: "activate", sf: picker.sf, id: picker.id, item: entryId });
-        try {
-          const outcome = await this.#host.awaitDocument(
-            (document) =>
-              findSummaryPicker(document) ? "prompt" : findTreePicker(document) === null ? "closed" : null,
-            CONFIRM_TIMEOUT_MS,
-            "omp did not move to that message",
-          );
-          const prompt = outcome === "prompt" ? findSummaryPicker(session.document) : null;
-          if (prompt !== null) {
-            session.sendEvent({ ev: "activate", sf: prompt.sf, id: prompt.id, item: SUMMARY_NO });
-            await this.#host.awaitDocument(
-              (document) => (findSummaryPicker(document) === null ? true : null),
-              CONFIRM_TIMEOUT_MS,
-              "omp did not leave its summary prompt",
-            );
-          }
-        } catch (error) {
-          session.sendKeys(ESC_KEY);
-          throw error;
-        }
-      }
-      // 选择器关了；输入框的预填（或 toast）可能晚一帧到。等不到不算失败：文字取自会话文件。
-      await this.#host
-        .awaitDocument(
-          (document) =>
-            hasNavigatedToast(document) || (findComposerEditor(document)?.text ?? "") !== "" ? true : null,
-          NAVIGATION_SETTLE_MS,
-          "omp did not report the navigation",
-        )
-        .catch((error: unknown) => {
-          if (this.#host.session() !== session) throw error;
-        });
-      await this.#host.takeEditorText(session);
+      await this.#moveLeaf(entryId, summarize);
       this.#leafOverride =
         target.lastEntryId === null ? null : { afterEntryId: target.lastEntryId, leafId: target.parentId };
       return { text: target.text, summarized: summarize };
     });
+  }
+
+  /**
+   * 把叶子移到一条回答上（分叉出的新任务，`after-answer`）：omp 的 `/tree` 里 activate 助手消息，叶子移到它本身、输入框不预填
+   * （实测 omp 18.18.2，见 session-tree.md）。`--fork` 后叶子已经停在这条回答（`atFileLeaf`）时什么都不发。
+   */
+  moveToAnswer(answer: AnswerTarget): Promise<void> {
+    if (answer.atFileLeaf) return Promise.resolve();
+    return this.#host.exclusive(async () => {
+      await this.#moveLeaf(answer.entryId, false);
+      this.#leafOverride =
+        answer.lastEntryId === null ? null : { afterEntryId: answer.lastEntryId, leafId: answer.entryId };
+    });
+  }
+
+  /**
+   * `/tree` → activate（`summarize` 时 select + action summarize）`entryId` → 等选择器关闭 → 清空 omp 在输入框里的预填。
+   * 调用方已在 #exclusive 里。
+   */
+  async #moveLeaf(entryId: string, summarize: boolean): Promise<void> {
+    await this.#host.start();
+    this.#host.assertTurnFinished();
+    const composer = await this.#host.awaitComposer();
+    const session = this.#host.liveSession();
+    await this.#host.takeEditorText(session);
+    session.sendEvent({ ev: "send", sf: composer.sf, id: composer.id, text: "/tree" });
+    const picker = await this.#host.awaitDocument(
+      (document) => findTreePicker(document),
+      PICKER_TIMEOUT_MS,
+      "omp's session tree did not open in time",
+    );
+    if (!picker.items.includes(entryId) || (summarize && !picker.actions.includes("summarize"))) {
+      session.sendKeys(ESC_KEY);
+      throw new Error("omp's session tree does not offer that");
+    }
+    if (summarize) {
+      session.sendEvent({ ev: "select", sf: picker.sf, id: picker.id, item: entryId });
+      session.sendEvent({ ev: "action", sf: picker.sf, id: picker.id, act: "summarize" });
+      try {
+        await this.#host.awaitDocument(
+          (document) => (findTreePicker(document) === null && findSummaryPicker(document) === null ? true : null),
+          SUMMARY_TIMEOUT_MS,
+          "omp did not finish summarizing the abandoned branch",
+        );
+      } catch (error) {
+        session.sendKeys(ESC_KEY);
+        throw error;
+      }
+    } else {
+      session.sendEvent({ ev: "activate", sf: picker.sf, id: picker.id, item: entryId });
+      try {
+        const outcome = await this.#host.awaitDocument(
+          (document) => (findSummaryPicker(document) ? "prompt" : findTreePicker(document) === null ? "closed" : null),
+          CONFIRM_TIMEOUT_MS,
+          "omp did not move to that message",
+        );
+        const prompt = outcome === "prompt" ? findSummaryPicker(session.document) : null;
+        if (prompt !== null) {
+          session.sendEvent({ ev: "activate", sf: prompt.sf, id: prompt.id, item: SUMMARY_NO });
+          await this.#host.awaitDocument(
+            (document) => (findSummaryPicker(document) === null ? true : null),
+            CONFIRM_TIMEOUT_MS,
+            "omp did not leave its summary prompt",
+          );
+        }
+      } catch (error) {
+        session.sendKeys(ESC_KEY);
+        throw error;
+      }
+    }
+    // 选择器关了；输入框的预填（或 toast）可能晚一帧到。等不到不算失败：文字取自会话文件。
+    await this.#host
+      .awaitDocument(
+        (document) => (hasNavigatedToast(document) || (findComposerEditor(document)?.text ?? "") !== "" ? true : null),
+        NAVIGATION_SETTLE_MS,
+        "omp did not report the navigation",
+      )
+      .catch((error: unknown) => {
+        if (this.#host.session() !== session) throw error;
+      });
+    await this.#host.takeEditorText(session);
   }
 
   /**

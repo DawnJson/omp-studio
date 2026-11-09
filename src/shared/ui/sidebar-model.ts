@@ -19,10 +19,13 @@ export function projectLabels(projects: readonly Project[]): Map<ProjectId, stri
   );
 }
 
-/** 侧栏列表里的一行：studio 任务或还没挂在任务上的历史会话。 */
+/**
+ * 侧栏列表里的一行：studio 任务或还没挂在任务上的历史会话。depth：分叉出来的会话缩进在原会话下面的层数（0 = 顶层）；
+ * parent：缩进在哪一行下面（那一行的 key，顶层为 null）。
+ */
 export type SidebarItem =
-  | { kind: "task"; key: string; at: number; task: TaskState }
-  | { kind: "session"; key: string; at: number; session: SessionSummary };
+  | { kind: "task"; key: string; at: number; depth: number; parent: string | null; task: TaskState }
+  | { kind: "session"; key: string; at: number; depth: number; parent: string | null; session: SessionSummary };
 
 export interface SidebarFolder {
   /** 分组键：规范化后的路径（斜杠统一、去尾斜杠、小写），同一文件夹不同写法归一组。 */
@@ -39,6 +42,11 @@ export interface SidebarFolder {
 
 function folderKey(cwd: string): string {
   return cwd.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+/** 两个目录在侧栏里是不是同一个文件夹（不分斜杠方向、大小写，忽略末尾斜杠）。 */
+export function sameFolder(a: string, b: string): boolean {
+  return folderKey(a) === folderKey(b);
 }
 
 function folderName(cwd: string): string {
@@ -70,9 +78,13 @@ function byRecentItem(a: SidebarItem, b: SidebarItem): number {
 }
 
 export interface SidebarInput {
+  /** 全部项目，含移出列表的（hidden）：它们的任务和同一目录的历史会话都不列出。 */
   projects: readonly Project[];
   tasks: readonly TaskState[];
-  /** 历史会话；已挂在任务上的会话会被忽略（它们就是任务行）。 */
+  /**
+   * listSessions 的全部会话：挂在任务上的（taskId）不单列（它们就是任务行），只用来查任务的会话 id 和分叉关系；
+   * 已归档的（archived）不列出。
+   */
   sessions: readonly SessionSummary[];
   hidden: ReadonlySet<TaskId>;
   /** 标题搜索；空串不过滤。 */
@@ -85,37 +97,127 @@ function matches(needle: string, title: string | null): boolean {
   return needle === "" || (title ?? "").toLowerCase().includes(needle);
 }
 
-/** 时间排列：任务和会话一个平铺列表，按最近活动从新到旧。 */
-export function buildTimeline(input: SidebarInput): SidebarItem[] {
+/** 历史里单独列一行的会话：没挂在任务上、没归档。命令面板的会话列表也用它。 */
+export function isListedSession(session: Pick<SessionSummary, "taskId" | "archived">): boolean {
+  return session.taskId === null && !session.archived;
+}
+
+/** 两种排列共用：显示着的项目的任务 + 列出的历史会话（不在移出列表的文件夹里），按最近活动从新到旧，还没缩进。 */
+function collectItems(input: SidebarInput): SidebarItem[] {
   const needle = input.query.trim().toLowerCase();
-  const known = new Set(input.projects.map((project) => project.id));
+  const shown = new Set(input.projects.filter((project) => !project.hidden).map((project) => project.id));
+  const hiddenFolders = new Set(input.projects.filter((project) => project.hidden).map((p) => folderKey(p.path)));
   const items: SidebarItem[] = [];
   for (const task of input.tasks) {
-    if (input.hidden.has(task.id) || !known.has(task.projectId) || !matches(needle, taskTitle(task))) continue;
-    items.push({ kind: "task", key: `task:${task.id}`, at: lastActivityAt(task), task });
+    if (input.hidden.has(task.id) || !shown.has(task.projectId) || !matches(needle, taskTitle(task))) continue;
+    items.push({ kind: "task", key: `task:${task.id}`, at: lastActivityAt(task), depth: 0, parent: null, task });
   }
   for (const session of input.sessions) {
-    if (session.taskId !== null || !matches(needle, sessionTitle(session))) continue;
-    items.push({ kind: "session", key: `session:${session.id}`, at: session.modifiedAt, session });
+    if (!isListedSession(session) || hiddenFolders.has(folderKey(session.cwd))) continue;
+    if (!matches(needle, sessionTitle(session))) continue;
+    items.push({
+      kind: "session",
+      key: `session:${session.id}`,
+      at: session.modifiedAt,
+      depth: 0,
+      parent: null,
+      session,
+    });
   }
   return items.sort(byRecentItem);
 }
 
+/** 缩进最多几层：再深的分叉和这一层对齐，侧栏不被挤窄。 */
+const MAX_DEPTH = 3;
+
 /**
- * 文件夹排列：studio 项目和历史会话的 cwd 按文件夹键合并成一个列表。
- * 文件夹按其中最新的一行从新到旧；没有任何行的项目排在最后（保持项目顺序），搜索时不显示。
+ * 分叉的会话排在原会话后面、缩进一层（同一个列表里能找到原会话时；原会话被搜索过滤掉、在别的文件夹、没有会话文件时照常顶层）。
+ * 任务的会话 id 和父会话从 `sessions` 里挂在它上面的那一条取。一组（原会话和它下面的分叉）按组里最新的一行排位，
+ * 兄弟之间也按各自那一组最新的一行，新的在前：一直在用的分叉连同原会话排在前面，不被旧的原会话拖到后面。有环时环上的都按顶层画。
+ */
+function nestForks(items: readonly SidebarItem[], sessions: readonly SessionSummary[]): SidebarItem[] {
+  const byTask = new Map<TaskId, SessionSummary>();
+  for (const session of sessions) if (session.taskId !== null) byTask.set(session.taskId, session);
+  const summaryOf = (item: SidebarItem) => (item.kind === "session" ? item.session : byTask.get(item.task.id));
+  const bySession = new Map<string, SidebarItem>();
+  for (const item of items) {
+    const id = summaryOf(item)?.id;
+    if (id !== undefined && !bySession.has(id)) bySession.set(id, item);
+  }
+  const parentOf = (item: SidebarItem): SidebarItem | undefined => {
+    const parentId = summaryOf(item)?.parentId;
+    const parent = parentId == null ? undefined : bySession.get(parentId);
+    return parent === item ? undefined : parent;
+  };
+  const children = new Map<SidebarItem, SidebarItem[]>();
+  for (const item of items) {
+    const parent = parentOf(item);
+    if (parent !== undefined) children.set(parent, [...(children.get(parent) ?? []), item]);
+  }
+  const latest = new Map<SidebarItem, number>();
+  const latestOf = (item: SidebarItem): number => {
+    const known = latest.get(item);
+    if (known !== undefined) return known;
+    latest.set(item, item.at); // 先记自己：有环时不无限递归
+    const value = (children.get(item) ?? []).reduce((max, child) => Math.max(max, latestOf(child)), item.at);
+    latest.set(item, value);
+    return value;
+  };
+  // 置顶照旧在最前；同为置顶 / 非置顶时按组里最新的一行，一样新保持原来的顺序（sort 稳定）。
+  const byLatest = (a: SidebarItem, b: SidebarItem) => pinRank(a) - pinRank(b) || latestOf(b) - latestOf(a);
+  const out: SidebarItem[] = [];
+  const placed = new Set<SidebarItem>();
+  const place = (item: SidebarItem, depth: number, parent: string | null): void => {
+    if (placed.has(item)) return;
+    placed.add(item);
+    out.push(item.depth === depth && item.parent === parent ? item : { ...item, depth, parent });
+    for (const child of [...(children.get(item) ?? [])].sort(byLatest))
+      place(child, Math.min(depth + 1, MAX_DEPTH), item.key);
+  };
+  for (const item of items.filter((item) => parentOf(item) === undefined).sort(byLatest)) place(item, 0, null);
+  for (const item of items) place(item, 0, null);
+  return out;
+}
+
+/** 时间排列：任务和会话一个列表，按最近活动从新到旧，分叉缩进在原会话下面。 */
+export function buildTimeline(input: SidebarInput): SidebarItem[] {
+  return nestForks(collectItems(input), input.sessions);
+}
+
+/** "已归档"：归档了的会话（任务归档后它的会话，和归档的历史会话），按最近活动从新到旧；点开恢复。 */
+export function buildArchived(input: Pick<SidebarInput, "sessions" | "query">): SidebarItem[] {
+  const needle = input.query.trim().toLowerCase();
+  return input.sessions
+    .filter((session) => session.archived && matches(needle, sessionTitle(session)))
+    .map((session): SidebarItem => ({
+      kind: "session",
+      key: `session:${session.id}`,
+      at: session.modifiedAt,
+      depth: 0,
+      parent: null,
+      session,
+    }))
+    .sort(byRecentItem);
+}
+
+/**
+ * 文件夹排列：studio 项目和历史会话的 cwd 按文件夹键合并成一个列表；移出列表的项目（hidden）不列。
+ * 文件夹按其中最新的一行从新到旧；没有任何行的项目排在最后（保持项目顺序），搜索时不显示；
+ * 没有行、但有归档会话的项目也不列（里面的都归档了：归档一条还不是项目的目录里的会话会把目录加成项目，不能因此多出一个空文件夹）。
  * 默认文件夹（defaultCwd）永远第一个，不受最近活动影响；搜索时它没有匹配行就和别的文件夹一样不显示。
+ * 分叉只在同一个文件夹里缩进。
  */
 export function buildFolders(input: SidebarInput): SidebarFolder[] {
   const needle = input.query.trim().toLowerCase();
   const folders = new Map<string, SidebarFolder>();
   const projectKey = new Map<ProjectId, string>();
   for (const project of input.projects) {
+    if (project.hidden) continue;
     const key = folderKey(project.path);
     projectKey.set(project.id, key);
     if (!folders.has(key)) folders.set(key, { key, cwd: project.path, label: project.name, project, items: [] });
   }
-  for (const item of buildTimeline(input)) {
+  for (const item of collectItems(input)) {
     if (item.kind === "task") {
       folders.get(projectKey.get(item.task.projectId) ?? "")?.items.push(item);
       continue;
@@ -132,7 +234,16 @@ export function buildFolders(input: SidebarInput): SidebarFolder[] {
         items: [item],
       });
   }
-  const list = [...folders.values()].filter((folder) => needle === "" || folder.items.length > 0);
+  for (const folder of folders.values()) folder.items = nestForks(folder.items, input.sessions);
+  const pinned = input.defaultCwd == null ? null : folderKey(input.defaultCwd);
+  const archivedFolders = new Set(
+    input.sessions.filter((session) => session.archived).map((session) => folderKey(session.cwd)),
+  );
+  const list = [...folders.values()].filter((folder) =>
+    needle === ""
+      ? folder.items.length > 0 || folder.key === pinned || !archivedFolders.has(folder.key)
+      : folder.items.length > 0,
+  );
   const nameCount = new Map<string, number>();
   for (const folder of list) nameCount.set(folder.label, (nameCount.get(folder.label) ?? 0) + 1);
   for (const folder of list) {
@@ -140,15 +251,97 @@ export function buildFolders(input: SidebarInput): SidebarFolder[] {
     if (parent !== "") folder.label = `${parent}/${folder.label}`;
   }
   const newest = (folder: SidebarFolder) => folder.items.reduce((latest, item) => Math.max(latest, item.at), -1);
-  const pinned = input.defaultCwd == null ? null : folderKey(input.defaultCwd);
   const rank = (folder: SidebarFolder) => (folder.key === pinned ? 0 : 1);
   return list.sort((a, b) => rank(a) - rank(b) || newest(b) - newest(a));
 }
 
-/** 等你确认的任务，等得最久的在前。 */
-export function waitingTasks(tasks: readonly TaskState[], hidden: ReadonlySet<TaskId>): TaskState[] {
+/** 选中的任务、正在跑或等你确认的任务：不能被"显示更多"或收起的分叉藏起来。 */
+export function pinnedItem(item: SidebarItem, selectedTaskId: TaskId | null): boolean {
+  return (
+    item.kind === "task" &&
+    (item.task.id === selectedTaskId || item.task.status === "running" || item.task.status === "needs_you")
+  );
+}
+
+/** 一行下面的分叉：total = 全部后代行数，hidden = 因为收起没画出来的后代行数（展开着为 0）。 */
+export interface ForkInfo {
+  total: number;
+  hidden: number;
+}
+
+/**
+ * 收起分叉（issue #9，2026-11-09）：`collapsed` 里的行把它下面的整棵分叉藏起来；默认都展开。
+ * 选中 / 在跑 / 等你确认的行（pinnedItem）照常显示，通往它的上级也显示（等于自动展开那一条路）；同一个收起行下面别的分叉照样藏着。
+ * 返回要画的行（顺序不变）和每个有分叉的行的 ForkInfo；搜索时调用方传空集合。
+ */
+export function foldForks(
+  items: readonly SidebarItem[],
+  collapsed: ReadonlySet<string>,
+  selectedTaskId: TaskId | null,
+): { items: readonly SidebarItem[]; forks: ReadonlyMap<string, ForkInfo> } {
+  const byKey = new Map(items.map((item) => [item.key, item]));
+  const ancestors = (item: SidebarItem): SidebarItem[] => {
+    const chain: SidebarItem[] = [];
+    for (let up = item.parent === null ? undefined : byKey.get(item.parent); up !== undefined && !chain.includes(up);) {
+      chain.push(up);
+      up = up.parent === null ? undefined : byKey.get(up.parent);
+    }
+    return chain;
+  };
+  const chains = new Map(items.map((item) => [item, ancestors(item)]));
+  const keep = new Set<SidebarItem>();
+  for (const item of items) {
+    if (!pinnedItem(item, selectedTaskId)) continue;
+    keep.add(item);
+    for (const up of chains.get(item) ?? []) keep.add(up);
+  }
+  const forks = new Map<string, ForkInfo>();
+  const shown: SidebarItem[] = [];
+  for (const item of items) {
+    const chain = chains.get(item) ?? [];
+    for (const up of chain) {
+      const info = forks.get(up.key) ?? { total: 0, hidden: 0 };
+      info.total += 1;
+      forks.set(up.key, info);
+    }
+    const folded = chain.filter((up) => collapsed.has(up.key));
+    if (folded.length === 0 || keep.has(item)) {
+      shown.push(item);
+      continue;
+    }
+    for (const up of folded) {
+      const info = forks.get(up.key);
+      if (info !== undefined) info.hidden += 1;
+    }
+  }
+  return { items: collapsed.size === 0 ? items : shown, forks };
+}
+
+/** 一个列表最后画哪些行：先去掉收起的分叉（foldForks），再取前 limit 行（"显示更多"只数看得见的行）；limit 之后有需要露出的行时，上限抬到它为止。 */
+export function visibleItems(
+  items: readonly SidebarItem[],
+  limit: number,
+  selectedTaskId: TaskId | null,
+  collapsed: ReadonlySet<string>,
+): { shown: readonly SidebarItem[]; remaining: number; forks: ReadonlyMap<string, ForkInfo> } {
+  const folded = foldForks(items, collapsed, selectedTaskId);
+  let last = -1;
+  folded.items.forEach((item, index) => {
+    if (pinnedItem(item, selectedTaskId)) last = index;
+  });
+  const shown = folded.items.slice(0, Math.max(limit, last + 1));
+  return { shown, remaining: folded.items.length - shown.length, forks: folded.forks };
+}
+
+/** 等你确认的任务，等得最久的在前。移出列表的文件夹（Project.hidden）里的不算：侧栏不画它们，"下一个" / Ctrl J 不会选中看不到的任务。 */
+export function waitingTasks(
+  tasks: readonly TaskState[],
+  projects: readonly Pick<Project, "id" | "hidden">[],
+  hidden: ReadonlySet<TaskId>,
+): TaskState[] {
+  const shown = new Set(projects.filter((project) => !project.hidden).map((project) => project.id));
   return tasks
-    .filter((task) => task.status === "needs_you" && !hidden.has(task.id))
+    .filter((task) => task.status === "needs_you" && shown.has(task.projectId) && !hidden.has(task.id))
     .sort((a, b) => a.updatedAt - b.updatedAt);
 }
 
@@ -159,25 +352,22 @@ export function nextWaitingTask(waiting: readonly TaskState[], current: TaskId |
   return waiting[at === -1 ? 0 : (at + 1) % waiting.length] ?? null;
 }
 
-export type DotKind = "running" | "waiting" | "done" | "error" | "interrupted" | "none";
+export type DotKind = "running" | "waiting" | "error" | "interrupted" | "none";
 
-/** 状态点的形状：形状是第二信号（色盲友好）。"完成"= 空闲且最后一轮正常结束，看过也一直在；从没跑过、被停止的不画。 */
+/** 状态点的形状：形状是第二信号（色盲友好）。只画要留意的状态；正常结束、从没跑过、被停止的都不画（槽位留着让标题对齐）。 */
 export function dotKind(task: TaskState): DotKind {
   if (task.status === "needs_you") return "waiting";
   if (task.status === "error" || (task.status === "idle" && task.lastTurn?.status === "error")) return "error";
   if (task.status === "running" || task.status === "starting") return "running";
-  if (task.status === "idle" && task.lastTurn?.status === "completed") return "done";
   return "none";
 }
 
 /**
  * 历史会话（还没挂在任务上）的状态点：没有进程，只看会话文件最后一条消息的状态（session-index 的口径，同 omp session-listing）。
- * 画"完成"、"失败"和"中断"（轮次中途断掉：停在工具调用 / 长度上限上，可以继续）；被用户停止、最后一条是用户消息、认不出的不画。
+ * 画"失败"和"中断"（轮次中途断掉：停在工具调用 / 长度上限上，可以继续）；正常答完、被用户停止、最后一条是用户消息、认不出的不画。
  */
 export function sessionDotKind(session: Pick<SessionSummary, "lastTurn">): DotKind {
   switch (session.lastTurn) {
-    case "completed":
-      return "done";
     case "error":
       return "error";
     case "interrupted":

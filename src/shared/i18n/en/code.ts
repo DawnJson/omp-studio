@@ -6,4 +6,5 @@ export const code = {
   source: "View source",
   figure: "Figure drawn by the assistant",
   figureFailed: "This figure couldn't be drawn; its source is below",
+  quote: "Quote in message",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

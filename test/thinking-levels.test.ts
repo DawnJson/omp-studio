@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ModelOption } from "../src/shared/ipc.ts";
-import type { ThinkingLevel } from "../src/shared/omp-wire/rpc-wire.generated.ts";
+import type { ModelOption, TaskThinkingLevel } from "../src/shared/ipc.ts";
 import {
   modelContextCell,
   modelPriceCell,
@@ -24,15 +23,17 @@ const model = (patch: Partial<ModelOption> = {}): ModelOption => ({
 });
 
 describe("thinkingLevelOptions", () => {
-  it("草稿：只列模型 thinking.efforts，按强弱排序，不含 off", () => {
-    expect(thinkingLevelOptions(model({ thinkingEfforts: ["max", "low", "high"] }), [])).toEqual([
+  it("草稿：auto 在前，再按强弱列模型 thinking.efforts，不含 off", () => {
+    expect(thinkingLevelOptions(model({ thinkingEfforts: ["max", "low", "high"] }), null)).toEqual([
+      "auto",
       "low",
       "high",
       "max",
     ]);
   });
   it("草稿：omp 没给思考配置时退回全部 effort", () => {
-    expect(thinkingLevelOptions(model({ thinkingEfforts: null }), [])).toEqual([
+    expect(thinkingLevelOptions(model({ thinkingEfforts: null }), null)).toEqual([
+      "auto",
       "minimal",
       "low",
       "medium",
@@ -41,19 +42,27 @@ describe("thinkingLevelOptions", () => {
       "max",
     ]);
   });
-  it("任务：用 omp 报告的列表（含 off）原样，丢掉 inherit", () => {
-    const live: ThinkingLevel[] = ["off", "low", "high", "max"];
-    expect(thinkingLevelOptions(model(), live)).toEqual(live);
-    expect(thinkingLevelOptions(model(), ["inherit", "low"])).toEqual(["low"]);
+  it("任务：用 omp 报告的列表（含 auto、off），按界面顺序", () => {
+    expect(thinkingLevelOptions(model(), ["off", "low", "auto", "high", "max"])).toEqual([
+      "auto",
+      "off",
+      "low",
+      "high",
+      "max",
+    ]);
+  });
+  it("任务：omp 没报出档位时就是没有，不退回全部 effort（选了会被 omp 拒绝）", () => {
+    expect(thinkingLevelOptions(model({ thinkingEfforts: null }), [])).toEqual([]);
+    expect(thinkingLevelOptions(model(), [])).toEqual([]);
   });
   it("不支持思考的模型或没有模型：没有档位", () => {
     expect(thinkingLevelOptions(model({ reasoning: false }), ["off", "low"])).toEqual([]);
-    expect(thinkingLevelOptions(null, [])).toEqual([]);
+    expect(thinkingLevelOptions(null, null)).toEqual([]);
   });
 });
 
 describe("clampThinkingLevel（真实 omp 18.12.2 的实测：efforts low/high/max）", () => {
-  const supported: ThinkingLevel[] = ["low", "high", "max"];
+  const supported: TaskThinkingLevel[] = ["low", "high", "max"];
   it("支持的档位不变", () => {
     expect(clampThinkingLevel("high", supported)).toBe("high");
   });
@@ -62,26 +71,31 @@ describe("clampThinkingLevel（真实 omp 18.12.2 的实测：efforts low/high/m
     expect(clampThinkingLevel("medium", supported)).toBe("low");
     expect(clampThinkingLevel("xhigh", supported)).toBe("high");
   });
+  it("auto、off：模型支持就原样保留", () => {
+    expect(clampThinkingLevel("auto", ["auto", ...supported])).toBe("auto");
+    expect(clampThinkingLevel("off", ["off", ...supported])).toBe("off");
+  });
   it("没有可选档位或不是 effort：null", () => {
     expect(clampThinkingLevel("low", [])).toBeNull();
     expect(clampThinkingLevel("off", supported)).toBeNull();
+    expect(clampThinkingLevel("auto", supported)).toBeNull();
   });
 });
 
 describe("Alt T 轮换", () => {
-  const levels: ThinkingLevel[] = ["off", "low", "high", "max"];
-  it("依次走完整个列表再回到开头", () => {
-    const seen: ThinkingLevel[] = [];
-    let current: ThinkingLevel | null = "off";
+  const levels: TaskThinkingLevel[] = ["auto", "off", "low", "high", "max"];
+  it("依次走完整个列表（auto 也是一档）再回到开头", () => {
+    const seen: TaskThinkingLevel[] = [];
+    let current: TaskThinkingLevel | null = "auto";
     for (let i = 0; i < levels.length; i++) {
       current = nextThinkingLevel(levels, current);
-      seen.push(current as ThinkingLevel);
+      seen.push(current as TaskThinkingLevel);
     }
-    expect(seen).toEqual(["low", "high", "max", "off"]);
+    expect(seen).toEqual(["off", "low", "high", "max", "auto"]);
   });
   it("当前档不在列表里：从第一档开始；空列表：null", () => {
-    expect(nextThinkingLevel(levels, "minimal")).toBe("off");
-    expect(nextThinkingLevel(levels, null)).toBe("off");
+    expect(nextThinkingLevel(levels, "minimal")).toBe("auto");
+    expect(nextThinkingLevel(levels, null)).toBe("auto");
     expect(nextThinkingLevel([], "low")).toBeNull();
   });
 });

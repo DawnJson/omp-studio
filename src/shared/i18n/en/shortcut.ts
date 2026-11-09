@@ -17,6 +17,7 @@ export const shortcut = {
   nthTask: "Go to task N",
   prevNext: "Previous or next task",
   regions: "Move between areas",
+  prevNextTurn: "Conversation: previous / next turn",
   review: "Open review",
   reviewFiles: "Review: previous / next file",
   reviewHunks: "Review: previous / next change",

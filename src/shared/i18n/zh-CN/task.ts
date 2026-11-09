@@ -2,7 +2,6 @@ import type { MessageEntry } from "../index.ts";
 
 export const task = {
   untitled: "新任务",
-  forkTitle: "{title}（分叉）",
   rename: "重命名",
   keepAlive: "保持运行",
   keepAliveOff: "取消保持运行",
@@ -19,7 +18,7 @@ export const task = {
   runningFor: "{n} 分钟",
   noSession: "这个任务还没有会话文件。",
   restart: "重开会话",
-  restartTip: "重新加载 skill、MCP、插件和配置",
+  restartTip: "从会话文件重新载入对话，并重新加载 skill、MCP、插件和配置",
   restartBusyRunning: "任务正在运行，结束后才能重开",
   restartBusyWaiting: "任务在等你回答，答完才能重开",
   restartBusyStarting: "任务正在启动",

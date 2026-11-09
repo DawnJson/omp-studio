@@ -4,6 +4,7 @@
 import type { MouseEvent } from "react";
 import { createT } from "../../../../shared/i18n/index.ts";
 import type { DocNode } from "../../../../shared/tsp/document.ts";
+import { answerNodeIds } from "../../../../shared/tsp/last-answer.ts";
 import { currentLocale } from "../../store/settings-store.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
@@ -85,6 +86,49 @@ export function copyText(text: string): void {
   );
 }
 
+/** omp 每轮用量行里的复制回答图标（点击 = omp 的 copy-answer，复制 markdown 原文）。 */
+export const TURN_COPY_ROLE = "omp.turn.copy";
+
+/**
+ * 复制回答的纯文本（这条回答渲染出来的文字）：回答是 `from`（回答下方用量行里的按钮）所在的助手容器，正文节点按 answerNodeIds 取，
+ * 和复制 markdown 是同一段。取 innerText 时容器挂着 data-copying：代码块头不算、画成图的代码块取源码（markdown.css）；同步摘掉，界面不重绘。
+ * 用量行上的纯文本按钮和复制按钮右键菜单都走这里。
+ */
+export function copyAnswerPlainText(from: Element, ctx: Pick<TspContext, "taskId" | "sf">): void {
+  const container = from.closest<HTMLElement>('[data-role="omp.assistant"]');
+  const containerId = container?.dataset["id"];
+  const surface = peekTspDocument(ctx.taskId)?.surfaces.get(ctx.sf);
+  if (!container || containerId === undefined || !surface) return;
+  container.dataset["copying"] = "";
+  let text: string;
+  try {
+    text = answerNodeIds(surface, containerId)
+      .map((id) => container.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)?.innerText.trim() ?? "")
+      .filter((part) => part !== "")
+      .join("\n\n");
+  } finally {
+    delete container.dataset["copying"];
+  }
+  if (text !== "") copyText(text);
+}
+
+/** 回答复制按钮的右键菜单：复制 Markdown（同点击）/ 复制纯文本（copyAnswerPlainText）。不在助手容器里时不拦右键。 */
+export function showAnswerCopyMenu(
+  event: MouseEvent<Element>,
+  ctx: Pick<TspContext, "taskId" | "sf">,
+  copyMarkdown: () => void,
+): void {
+  const button = event.currentTarget;
+  if (!button.closest('[data-role="omp.assistant"]') || !peekTspDocument(ctx.taskId)?.surfaces.has(ctx.sf)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const t = createT(currentLocale());
+  showTspMenu({ x: event.clientX, y: event.clientY }, [
+    { act: "copy-markdown", label: t("tsp.copyMarkdown"), run: copyMarkdown },
+    { act: "copy-plain-text", label: t("tsp.copyPlainText"), run: () => copyAnswerPlainText(button, ctx) },
+  ]);
+}
+
 /** 执行一个动作名。 */
 export function runAction(act: string, node: DocNode, ctx: TspContext, own?: OwnActions, event?: MouseEvent): void {
   switch (act) {
@@ -156,6 +200,9 @@ export function nodeActionHandlers(node: DocNode, ctx: TspContext, own?: OwnActi
     };
   }
   if (typeof click === "string" || typeof dblclick === "string") handlers.className = "tsp-act";
+  if (node.p.role === TURN_COPY_ROLE && typeof click === "string") {
+    handlers.onContextMenu = (event) => showAnswerCopyMenu(event, ctx, () => runAction(click, node, ctx, own));
+  }
   const menu = Array.isArray(actions.menu) ? actions.menu.filter((a): a is string => typeof a === "string") : [];
   if (menu.length > 0) {
     handlers.onContextMenu = (event) => {

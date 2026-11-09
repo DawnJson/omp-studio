@@ -1,18 +1,27 @@
-// 自定义提供商对话框里的"模型"一栏：工具栏（全选方框、一键拉取、自动发现开关）、勾选、筛选、手动添加；勾选的模型在同一行选对话 / 生图，
-// 对话模型再设思考、图片输入、上下文窗口、最大输出（models.yml 模型条目或 `modelOverrides` 覆盖项的 reasoning / input / contextWindow /
-// maxTokens）。状态（rows、提示）由对话框持有。覆盖内置 provider 的对话框不传 fetch / discovery / image，工具栏里没有前两项，表里没有类型列。
+// 自定义提供商对话框里的"模型"一栏：工具栏（拉取模型、自动发现开关、移除失效的）、筛选、手动添加；表里的就是保存时写进 models.yml 的，
+// 每行末尾 × 移除（悬停 / 聚焦时显示）。每行选对话 / 生图，对话模型再设思考、图片输入、上下文窗口、最大输出（models.yml 模型条目
+// 或 `modelOverrides` 覆盖项的 reasoning / input / contextWindow / maxTokens）。状态（rows、提示、拉取结果）由对话框持有。
+// 覆盖内置 provider 的对话框传 checkable、不传 fetch / discovery / image：每行一个勾选框（勾上 = 写覆盖项），工具栏是全选方框，没有类型列。
 import { useMemo, useState } from "react";
-import { parseTokenCount, type CustomModelMeta } from "../../../../shared/custom-models.ts";
+import {
+  parseTokenCount,
+  vanishedModelIds,
+  type CustomModelMeta,
+  type FetchedModel,
+} from "../../../../shared/custom-models.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, Checkbox, Notice, NumberField, Switch, TextField } from "../../ui/controls.tsx";
+import { Close } from "../../icons.tsx";
+import { Badge, Button, Checkbox, IconButton, Notice, NumberField, Switch, TextField } from "../../ui/controls.tsx";
 import { Select } from "../../ui/Select.tsx";
 import { formatCount } from "../composer/usage-format.ts";
+import { ModelPicker } from "./ModelPicker.tsx";
 
 export interface ModelRow {
   id: string;
   /** 只有一键拉取带来的新模型才有名字（Anthropic 的 display_name）；已有的不重写。 */
   name?: string;
-  checked: boolean;
+  /** 只有覆盖内置 provider 的对话框用（checkable）：这个模型写不写覆盖项。自定义 provider 的行都要保存，不用它。 */
+  checked?: boolean;
   /** null = 自动（不写进 models.yml，omp 自己补）。 */
   reasoning: boolean | null;
   images: boolean | null;
@@ -21,6 +30,8 @@ export interface ModelRow {
   maxTokens: string;
   /** 生图模型（models.yml 里 `api: openai-images` / `kind: image`）：没有对话的四项参数。undefined = 新加的、类型还没定。 */
   image?: boolean;
+  /** 这次在对话框里手动添加的：不标"已失效"（手动加的多半是服务不列出的隐藏模型）。 */
+  manual?: boolean;
 }
 
 /** 改成生图时清掉对话的四项：生图模型用不上，留着会照样写进 models.yml。 */
@@ -44,10 +55,27 @@ interface CustomModelListProps {
   hintOf(id: string): CustomModelMeta;
   notice: FetchNotice | null;
   onNotice(notice: FetchNotice | null): void;
-  /** 一键拉取。 */
-  fetch?: { busy: boolean; disabled: boolean; run(): void };
+  /** 覆盖内置 provider：每行一个勾选框（勾上 = 写覆盖项）、工具栏有全选；不给时每行末尾 × 移除。 */
+  checkable?: boolean;
+  /** 一键拉取：成功后弹出选择浮层，选中的追加到列表；列表里拉到的列表没有的标"已失效"。 */
+  fetch?: {
+    busy: boolean;
+    disabled: boolean;
+    run(): void;
+    /** 最近一次成功拉取到的模型；还没拉取、或最近一次失败时 null（什么都不标）。 */
+    fetched: readonly FetchedModel[] | null;
+    picking: boolean;
+    onPickClose(): void;
+    onAdd(models: FetchedModel[]): void;
+  };
   /** 自动发现模型（models.yml 里写 discovery）；接口类型没有通用发现方式时开关停用。 */
-  discovery?: { on: boolean; supported: boolean; onChange(next: boolean): void };
+  discovery?: {
+    on: boolean;
+    supported: boolean;
+    onChange(next: boolean): void;
+    /** omp 现在给这个 provider 列出的模型 id（只有编辑已保存的 provider 时有）：开着时列表外的显示成灰色只读行。 */
+    listed: readonly string[];
+  };
   /** 类型列（对话 / 生图）；接口类型不能生图时只能改回对话。 */
   image?: { supported: boolean };
 }
@@ -58,12 +86,15 @@ const flagOf = (value: boolean | null): Flag => (value === null ? "auto" : value
 
 type Kind = "chat" | "image";
 
+const noIds: ReadonlySet<string> = new Set();
+
 export function CustomModelList({
   rows,
   onRows,
   hintOf,
   notice,
   onNotice,
+  checkable = false,
   fetch,
   discovery,
   image,
@@ -72,28 +103,52 @@ export function CustomModelList({
   const [filter, setFilter] = useState("");
   const [manual, setManual] = useState("");
 
-  const selectedCount = rows.filter((row) => row.checked).length;
-  const visibleRows = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
-    return needle === "" ? rows : rows.filter((row) => row.id.toLowerCase().includes(needle));
-  }, [rows, filter]);
+  const selectedCount = rows.filter((row) => row.checked === true).length;
+  const ids = useMemo(() => new Set(rows.map((row) => row.id)), [rows]);
+  const fetched = fetch?.fetched ?? null;
+  const vanished = useMemo(
+    () =>
+      fetched === null
+        ? noIds
+        : new Set(
+            vanishedModelIds(
+              rows.filter((row) => row.manual !== true).map((row) => row.id),
+              fetched,
+            ),
+          ),
+    [rows, fetched],
+  );
+  // 开着自动发现时 omp 列出、列表里没有的：omp 运行时从中转站发现的，studio 不能逐个去掉。
+  const discovered = discovery?.on === true ? discovery.listed.filter((id) => !ids.has(id)) : [];
+  const needle = filter.trim().toLowerCase();
+  const visibleRows = needle === "" ? rows : rows.filter((row) => row.id.toLowerCase().includes(needle));
+  const visibleDiscovered = needle === "" ? discovered : discovered.filter((id) => id.toLowerCase().includes(needle));
 
   const update = (id: string, patch: Partial<ModelRow>) =>
     onRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  const remove = (gone: ReadonlySet<string>) => onRows((current) => current.filter((row) => !gone.has(row.id)));
 
   const addManual = () => {
     const modelId = manual.trim();
     if (modelId === "") return;
     setManual("");
-    if (rows.some((row) => row.id === modelId)) {
-      update(modelId, { checked: true });
+    if (ids.has(modelId)) {
+      if (checkable) update(modelId, { checked: true });
       onNotice({ tone: "ok", text: t("custom.form.models.duplicate") });
       return;
     }
     onNotice(null);
     onRows((current) => [
       ...current,
-      { id: modelId, checked: true, reasoning: null, images: null, contextWindow: "", maxTokens: "" },
+      {
+        id: modelId,
+        manual: true,
+        ...(checkable && { checked: true }),
+        reasoning: null,
+        images: null,
+        contextWindow: "",
+        maxTokens: "",
+      },
     ]);
   };
 
@@ -157,26 +212,67 @@ export function CustomModelList({
     />
   );
 
+  const nameCell = (row: ModelRow) => {
+    const idText = (
+      <span className="cp-model-id" title={row.id}>
+        {row.id}
+      </span>
+    );
+    return checkable ? (
+      <Checkbox
+        checked={row.checked === true}
+        testId={`custom-model-${row.id}`}
+        onChange={(next) => update(row.id, { checked: next })}
+      >
+        {idText}
+      </Checkbox>
+    ) : (
+      <span className="cp-model-name">
+        {idText}
+        {vanished.has(row.id) && (
+          <Badge tone="warning" title={t("custom.form.models.vanished.tip")} testId={`custom-model-vanished-${row.id}`}>
+            {t("custom.form.models.vanished")}
+          </Badge>
+        )}
+      </span>
+    );
+  };
+
   return (
     <div className="cp-models">
       <div className="cp-models-bar">
-        <Checkbox
-          checked={rows.length > 0 && selectedCount === rows.length}
-          indeterminate={selectedCount > 0 && selectedCount < rows.length}
-          disabled={rows.length === 0}
-          onChange={(next) => onRows((cur) => cur.map((row) => ({ ...row, checked: next })))}
-          testId="custom-select-all"
-        >
-          {t("custom.form.models.all")}
-        </Checkbox>
-        {fetch !== undefined && (
-          <Button size="sm" loading={fetch.busy} disabled={fetch.disabled} onClick={fetch.run} testId="custom-fetch">
-            {t("custom.form.models.fetch")}
-          </Button>
+        {checkable && (
+          <Checkbox
+            checked={rows.length > 0 && selectedCount === rows.length}
+            indeterminate={selectedCount > 0 && selectedCount < rows.length}
+            disabled={rows.length === 0}
+            onChange={(next) => onRows((cur) => cur.map((row) => ({ ...row, checked: next })))}
+            testId="custom-select-all"
+          >
+            {t("custom.form.models.all")}
+          </Checkbox>
         )}
-        {/* 停用时的原因在悬停提示里，不另起一段（切接口类型时对话框大小不变）。 */}
+        {fetch !== undefined && (
+          <span className="ui-popover-anchor cp-fetch">
+            <Button size="sm" loading={fetch.busy} disabled={fetch.disabled} onClick={fetch.run} testId="custom-fetch">
+              {t("custom.form.models.fetch")}
+            </Button>
+            <ModelPicker
+              open={fetch.picking}
+              onClose={fetch.onPickClose}
+              models={fetch.fetched ?? []}
+              added={ids}
+              onAdd={fetch.onAdd}
+            />
+          </span>
+        )}
+        {/* 说明和停用原因都在悬停提示里，不另起一段（切接口类型时对话框大小不变）。 */}
         {discovery !== undefined && (
-          <label className="ui-choice" title={discovery.supported ? undefined : t("custom.form.discovery.unsupported")}>
+          <label
+            className="ui-choice"
+            title={discovery.supported ? t("custom.form.discovery.tip") : t("custom.form.discovery.unsupported")}
+            data-testid="custom-discovery-label"
+          >
             <Switch
               checked={discovery.on}
               disabled={!discovery.supported}
@@ -187,8 +283,13 @@ export function CustomModelList({
             <span>{t("custom.form.discovery")}</span>
           </label>
         )}
+        {vanished.size > 0 && (
+          <Button size="sm" onClick={() => remove(vanished)} testId="custom-remove-vanished">
+            {t("custom.form.models.removeVanished", { count: vanished.size })}
+          </Button>
+        )}
         {/* 行多到要筛选时才显示计数：少的时候勾了几个一眼看得到。 */}
-        {rows.length > 12 && (
+        {rows.length + discovered.length > 12 && (
           <>
             <TextField
               size="sm"
@@ -199,9 +300,11 @@ export function CustomModelList({
               aria-label={t("custom.form.models.filter")}
               onChange={setFilter}
             />
-            <span className="cp-count" data-testid="custom-selected-count">
-              {t("custom.form.models.selected", { selected: selectedCount, total: rows.length })}
-            </span>
+            {checkable && (
+              <span className="cp-count" data-testid="custom-selected-count">
+                {t("custom.form.models.selected", { selected: selectedCount, total: rows.length })}
+              </span>
+            )}
           </>
         )}
       </div>
@@ -210,10 +313,15 @@ export function CustomModelList({
           {notice.text}
         </Notice>
       )}
-      {rows.length === 0 ? (
+      {rows.length + discovered.length === 0 ? (
         <p className="cp-text">{t("custom.form.models.empty")}</p>
       ) : (
-        <div className="cp-model-table" data-kinds={image !== undefined || undefined} data-testid="custom-model-list">
+        <div
+          className="cp-model-table"
+          data-kinds={image !== undefined || undefined}
+          data-remove={!checkable || undefined}
+          data-testid="custom-model-list"
+        >
           {/* 列名只给看的人；每个控件自己的 aria-label 带着列名和模型 id。 */}
           <div className="cp-model-head" aria-hidden="true">
             <span />
@@ -222,20 +330,18 @@ export function CustomModelList({
             <span>{columns.images}</span>
             <span>{columns.contextWindow}</span>
             <span>{columns.maxTokens}</span>
+            {!checkable && <span />}
           </div>
           {visibleRows.map((row) => {
-            const hint = row.checked ? hintOf(row.id) : null;
+            const hint = !checkable || row.checked === true ? hintOf(row.id) : null;
             return (
-              <div key={row.id} className="cp-model-row" data-checked={row.checked || undefined}>
-                <Checkbox
-                  checked={row.checked}
-                  testId={`custom-model-${row.id}`}
-                  onChange={(next) => update(row.id, { checked: next })}
-                >
-                  <span className="cp-model-id" title={row.id}>
-                    {row.id}
-                  </span>
-                </Checkbox>
+              <div
+                key={row.id}
+                className="cp-model-row"
+                data-checked={row.checked === true || undefined}
+                data-testid={checkable ? undefined : `custom-model-${row.id}`}
+              >
+                {nameCell(row)}
                 {hint !== null && image !== undefined && kindCell(row, image.supported)}
                 {hint !== null && row.image !== true && (
                   <>
@@ -245,9 +351,33 @@ export function CustomModelList({
                     {countCell(row, "maxTokens", hint.maxTokens)}
                   </>
                 )}
+                {!checkable && (
+                  <IconButton
+                    className="cp-model-remove"
+                    label={t("custom.form.models.remove", { model: row.id })}
+                    tip={t("custom.form.models.removeTip")}
+                    testId={`custom-model-remove-${row.id}`}
+                    onClick={() => remove(new Set([row.id]))}
+                  >
+                    <Close />
+                  </IconButton>
+                )}
               </div>
             );
           })}
+          {visibleDiscovered.map((id) => (
+            <div
+              key={id}
+              className="cp-model-row"
+              data-discovered=""
+              title={t("custom.form.models.discovered")}
+              data-testid={`custom-discovered-${id}`}
+            >
+              <span className="cp-model-name">
+                <span className="cp-model-id">{id}</span>
+              </span>
+            </div>
+          ))}
         </div>
       )}
       <div className="cp-manual">

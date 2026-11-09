@@ -6,20 +6,28 @@ import type { AvailableSlashCommand } from "../src/shared/omp-wire/rpc-wire.gene
 import { fuzzyMatch } from "../src/shared/ui/fuzzy.ts";
 import { buildSections, type CommandEntry } from "../src/shared/ui/palette-model.ts";
 import {
+  buildArchived,
   buildFolders,
   buildTimeline,
   dotKind,
+  foldForks,
   nextWaitingTask,
   projectLabels,
   sessionDotKind,
   sessionTitle,
   taskTitle,
   waitingTasks,
+  visibleItems,
   type SidebarInput,
   type SidebarItem,
 } from "../src/shared/ui/sidebar-model.ts";
 
-const project = (id: string, path: string, name: string): Project => ({ id: id as ProjectId, path, name });
+const project = (id: string, path: string, name: string, hidden = false): Project => ({
+  id: id as ProjectId,
+  path,
+  name,
+  hidden,
+});
 const task = (id: string, projectId: string, patch: Partial<TaskState> = {}): TaskState =>
   ({
     id: id as TaskId,
@@ -57,7 +65,7 @@ describe("等你确认", () => {
   ];
 
   it("等得最久的在前；依次跳转并循环；当前不在等待列表时跳到最早的", () => {
-    const waiting = waitingTasks(tasks, new Set());
+    const waiting = waitingTasks(tasks, [{ id: "p" as ProjectId, hidden: false }], new Set());
     expect(waiting.map((x) => x.id)).toEqual(["b", "a"]);
     expect(nextWaitingTask(waiting, null)?.id).toBe("b");
     expect(nextWaitingTask(waiting, "b" as TaskId)?.id).toBe("a");
@@ -65,16 +73,24 @@ describe("等你确认", () => {
     expect(nextWaitingTask(waiting, "c" as TaskId)?.id).toBe("b");
     expect(nextWaitingTask([], null)).toBeNull();
   });
+
+  it("移出列表的文件夹里的任务不算在等你", () => {
+    const others = [...tasks, task("d", "q", { status: "needs_you", updatedAt: 1 })];
+    const projects = [
+      { id: "p" as ProjectId, hidden: false },
+      { id: "q" as ProjectId, hidden: true },
+    ];
+    expect(waitingTasks(others, projects, new Set()).map((x) => x.id)).toEqual(["b", "a"]);
+  });
 });
 
 describe("dotKind", () => {
-  it("等你 > 出错 > 进行中 > 完成；完成不看是否已读，被停止和从没跑过的不画", () => {
+  it("等你 > 出错 > 进行中；正常结束、被停止和从没跑过的不画", () => {
     expect(dotKind(task("t", "p", { status: "needs_you", unread: true }))).toBe("waiting");
     expect(dotKind(task("t", "p", { status: "error" }))).toBe("error");
     expect(dotKind(task("t", "p", { lastTurn: { status: "error", endedAt: 1 } }))).toBe("error");
     expect(dotKind(task("t", "p", { status: "running" }))).toBe("running");
-    expect(dotKind(task("t", "p", { unread: true, lastTurn: { status: "completed", endedAt: 1 } }))).toBe("done");
-    expect(dotKind(task("t", "p", { unread: false, lastTurn: { status: "completed", endedAt: 1 } }))).toBe("done");
+    expect(dotKind(task("t", "p", { unread: true, lastTurn: { status: "completed", endedAt: 1 } }))).toBe("none");
     expect(dotKind(task("t", "p", { lastTurn: { status: "aborted", endedAt: 1 } }))).toBe("none");
     expect(dotKind(task("t", "p"))).toBe("none");
     expect(dotKind(task("t", "p", { status: "stopped" }))).toBe("none");
@@ -82,8 +98,8 @@ describe("dotKind", () => {
 });
 
 describe("sessionDotKind（历史会话行）", () => {
-  it("完成 / 失败 / 中断各一个形状；被用户停止、最后是用户消息、认不出的不画", () => {
-    expect(sessionDotKind({ lastTurn: "completed" })).toBe("done");
+  it("失败 / 中断各一个形状；正常答完、被用户停止、最后是用户消息、认不出的不画", () => {
+    expect(sessionDotKind({ lastTurn: "completed" })).toBe("none");
     expect(sessionDotKind({ lastTurn: "error" })).toBe("error");
     expect(sessionDotKind({ lastTurn: "interrupted" })).toBe("interrupted");
     expect(sessionDotKind({ lastTurn: "aborted" })).toBe("none");
@@ -117,6 +133,8 @@ describe("buildSections", () => {
     projectId: null,
     modifiedAt: 1,
     taskId: null,
+    archived: false,
+    parentId: null,
     pinned: false,
   };
   const tasks = Array.from({ length: 7 }, (_, i) => task(`t${i}`, "p1", { title: `任务 ${i}`, updatedAt: i }));
@@ -171,6 +189,8 @@ describe("buildFolders / buildTimeline", () => {
     projectId: null,
     modifiedAt,
     taskId: null,
+    archived: false,
+    parentId: null,
     pinned: false,
     ...patch,
   });
@@ -285,5 +305,153 @@ describe("buildFolders / buildTimeline", () => {
     expect(sessionTitle(past("b", "E:/x", 1, { title: "\ue5fa", firstPrompt: "你好" }))).toBe("你好");
     expect(sessionTitle(past("c", "E:/x", 1, { title: null, firstPrompt: null }))).toBeNull();
     expect(taskTitle({ title: " \ue000 任务 " })).toBe("任务");
+  });
+
+  it("移出列表的项目：它的任务和同一目录（路径写法不同也算）的历史会话都不列，文件夹也不出现；别的文件夹不受影响", () => {
+    const base = input({
+      projects: [project("p1", "C:\\work\\app", "app", true), project("p2", "C:\\work\\lib", "lib")],
+      tasks: [task("running", "p1", { status: "running", updatedAt: 9 }), task("t2", "p2", { updatedAt: 3 })],
+      sessions: [past("s-app", "c:/work/APP/", 8), past("s-lib", "C:\\work\\lib", 7)],
+    });
+    expect(buildFolders(base).map((f) => [f.label, ids(f.items)])).toEqual([["lib", ["session:s-lib", "task:t2"]]]);
+    expect(ids(buildTimeline(base))).toEqual(["session:s-lib", "task:t2"]);
+  });
+
+  it('归档的会话不在文件夹和时间线里，只在"已归档"里（按最近活动，可搜索）', () => {
+    const sessions = [
+      past("live", "E:/x", 5),
+      past("arch-old", "E:/x", 1, { archived: true, title: "旧的 数据" }),
+      past("arch-new", "E:/y", 9, { archived: true, title: "新的" }),
+    ];
+    expect(ids(buildTimeline(input({ sessions })))).toEqual(["session:live"]);
+    expect(buildFolders(input({ sessions })).flatMap((f) => ids(f.items))).toEqual(["session:live"]);
+    expect(ids(buildArchived({ sessions, query: "" }))).toEqual(["session:arch-new", "session:arch-old"]);
+    expect(ids(buildArchived({ sessions, query: "数据" }))).toEqual(["session:arch-old"]);
+  });
+
+  it("分叉缩进在原会话后面（原会话是任务行或历史行都行），一组按组里最新的一行排位、兄弟也按各自一组最新的；原会话不在列表里就照常顶层", () => {
+    const tasks = [task("root", "p1", { updatedAt: 10 }), task("fork-task", "p1", { updatedAt: 80 })];
+    const sessions = [
+      // 挂在任务上的会话不单列，只提供任务行的会话 id 和父会话。
+      past("s-root", "C:\\work\\app", 10, { taskId: "root" as TaskId }),
+      past("s-fork-task", "C:\\work\\app", 80, { taskId: "fork-task" as TaskId, parentId: "s-root" }),
+      past("fork-a", "C:\\work\\app", 50, { parentId: "s-root" }),
+      past("grand", "C:\\work\\app", 90, { parentId: "fork-a" }),
+      past("orphan", "C:\\work\\app", 40, { parentId: "missing" }),
+    ];
+    const depths = (items: readonly SidebarItem[]) => items.map((item) => [item.key, item.depth]);
+    // root 自己最旧（10），但它下面的 grand（90）最新：整组排在 orphan（40）前面；fork-a 一组（90）排在 fork-task（80）前面。
+    const expected = [
+      ["task:root", 0],
+      ["session:fork-a", 1],
+      ["session:grand", 2],
+      ["task:fork-task", 1],
+      ["session:orphan", 0],
+    ];
+    expect(depths(buildTimeline(input({ tasks, sessions })))).toEqual(expected);
+    expect(depths(buildFolders(input({ tasks, sessions }))[0]!.items)).toEqual(expected);
+    // 原会话被搜索过滤掉：分叉回到顶层。
+    expect(depths(buildTimeline(input({ tasks, sessions, query: "fork-a" })))).toEqual([["session:fork-a", 0]]);
+  });
+
+  it("父子成环（会话文件被手改过）时每行仍只出现一次，不死循环", () => {
+    const sessions = [past("a", "E:/x", 2, { parentId: "b" }), past("b", "E:/x", 1, { parentId: "a" })];
+    expect(ids(buildTimeline(input({ sessions }))).sort()).toEqual(["session:a", "session:b"]);
+  });
+
+  it("一直在用的分叉不被旧的原会话拖到后面：整组排在中间那些会话前面", () => {
+    const sessions = [
+      past("old", "E:/x", 1),
+      ...Array.from({ length: 5 }, (_, i) => past(`mid${i}`, "E:/x", 2 + i)),
+      past("fork", "E:/x", 100, { parentId: "old" }),
+    ];
+    expect(ids(buildTimeline(input({ sessions }))).slice(0, 3)).toEqual([
+      "session:old",
+      "session:fork",
+      "session:mid4",
+    ]);
+  });
+
+  it("里面只剩归档会话的项目（归档一条历史会话时目录被加成项目）不列空文件夹；新打开的空项目、默认文件夹照常列", () => {
+    const notes = project("pn", "E:\\notes", "notes");
+    const sessions = [past("gone", "e:/notes/", 3, { archived: true })];
+    expect(buildFolders(input({ projects: [notes, ...projects], sessions })).map((f) => f.label)).toEqual([
+      "app",
+      "empty",
+    ]);
+    expect(buildFolders(input({ projects: [notes], sessions, defaultCwd: "E:/notes" })).map((f) => f.label)).toEqual([
+      "notes",
+    ]);
+  });
+
+  describe("收起分叉（foldForks）", () => {
+    // root（任务）← fork-a（会话）← grand（会话）；root ← fork-task（任务）；orphan 顶层。
+    const tasks = [task("root", "p1", { updatedAt: 10 }), task("fork-task", "p1", { updatedAt: 80 })];
+    const sessions = [
+      past("s-root", "C:\\work\\app", 10, { taskId: "root" as TaskId }),
+      past("s-fork-task", "C:\\work\\app", 80, { taskId: "fork-task" as TaskId, parentId: "s-root" }),
+      past("fork-a", "C:\\work\\app", 50, { parentId: "s-root" }),
+      past("grand", "C:\\work\\app", 90, { parentId: "fork-a" }),
+      past("orphan", "C:\\work\\app", 40),
+    ];
+    const items = buildTimeline(input({ tasks, sessions }));
+
+    it("每行记着缩进在哪一行下面；默认全部展开，有分叉的行给出全部后代行数", () => {
+      expect(items.map((item) => [item.key, item.parent])).toEqual([
+        ["task:root", null],
+        ["session:fork-a", "task:root"],
+        ["session:grand", "session:fork-a"],
+        ["task:fork-task", "task:root"],
+        ["session:orphan", null],
+      ]);
+      const folded = foldForks(items, new Set(), null);
+      expect(folded.items).toBe(items);
+      expect([...folded.forks]).toEqual([
+        ["task:root", { total: 3, hidden: 0 }],
+        ["session:fork-a", { total: 1, hidden: 0 }],
+      ]);
+    });
+
+    it("收起一行藏起它下面整棵分叉，并记下藏了几行；收起里层只藏里层", () => {
+      const outer = foldForks(items, new Set(["task:root"]), null);
+      expect(ids(outer.items)).toEqual(["task:root", "session:orphan"]);
+      expect(outer.forks.get("task:root")).toEqual({ total: 3, hidden: 3 });
+      const inner = foldForks(items, new Set(["session:fork-a"]), null);
+      expect(ids(inner.items)).toEqual(["task:root", "session:fork-a", "task:fork-task", "session:orphan"]);
+      expect(inner.forks.get("session:fork-a")).toEqual({ total: 1, hidden: 1 });
+      expect(inner.forks.get("task:root")).toEqual({ total: 3, hidden: 0 });
+    });
+
+    it("选中 / 在跑 / 等你确认的分叉和通往它的上级照常显示，同一收起行下面别的分叉照样藏着", () => {
+      const deep = buildTimeline(
+        input({
+          tasks: [
+            task("top", "p1", { updatedAt: 1 }),
+            task("mid", "p1", { updatedAt: 2 }),
+            task("leaf", "p1", { updatedAt: 3, status: "running" }),
+          ],
+          sessions: [
+            past("s-top", "E:/x", 1, { taskId: "top" as TaskId }),
+            past("s-mid", "E:/x", 2, { taskId: "mid" as TaskId, parentId: "s-top" }),
+            past("s-leaf", "E:/x", 3, { taskId: "leaf" as TaskId, parentId: "s-mid" }),
+            past("other", "E:/x", 1, { parentId: "s-top" }),
+          ],
+        }),
+      );
+      const running = foldForks(deep, new Set(["task:top", "task:mid"]), null);
+      expect(ids(running.items)).toEqual(["task:top", "task:mid", "task:leaf"]);
+      expect(running.forks.get("task:top")).toEqual({ total: 3, hidden: 1 });
+      expect(running.forks.get("task:mid")).toEqual({ total: 1, hidden: 0 });
+      // 选中的任务同理（这里 fork-task 是选中的那一个）。
+      const selected = foldForks(items, new Set(["task:root"]), "fork-task" as TaskId);
+      expect(ids(selected.items)).toEqual(["task:root", "task:fork-task", "session:orphan"]);
+    });
+
+    it('"显示更多"只数收起后还看得见的行', () => {
+      const shown = visibleItems(items, 1, null, new Set(["task:root"]));
+      expect(ids(shown.shown)).toEqual(["task:root"]);
+      expect(shown.remaining).toBe(1);
+      expect(visibleItems(items, 1, null, new Set()).remaining).toBe(4);
+    });
   });
 });

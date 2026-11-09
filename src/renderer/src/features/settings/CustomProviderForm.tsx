@@ -17,6 +17,7 @@ import {
   type CustomProviderInfo,
   type CustomProviderInput,
   type EnvSource,
+  type FetchedModel,
   type ModelCapabilities,
 } from "../../../../shared/custom-models.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
@@ -257,7 +258,6 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
     () =>
       provider?.models.map((model) => ({
         id: model.id,
-        checked: true,
         reasoning: model.reasoning,
         images: model.images,
         contextWindow: tokenText(model.contextWindow),
@@ -269,6 +269,9 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const { busy: fetching, run: runFetch } = useAsyncAction((error) =>
     setNotice({ tone: "error", text: describeError(t, error) }),
   );
+  // 最近一次成功拉取到的模型（选择浮层的内容，也用来标列表里的"已失效"）；拉取失败时清掉，什么都不标。
+  const [fetched, setFetched] = useState<FetchedModel[] | null>(null);
+  const [picking, setPicking] = useState(false);
   const [discovery, setDiscovery] = useState(provider?.discovery ?? false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const { busy: saving, run } = useAsyncAction((error) =>
@@ -364,9 +367,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   }));
   if (!apiOptions.some((option) => option.value === api)) apiOptions.push({ value: api, label: api });
 
-  const checkedRows = rows.filter((row) => row.checked);
-  const selectedCount = checkedRows.length;
-  const countsValid = checkedRows.every(
+  const countsValid = rows.every(
     (row) => parseTokenCount(row.contextWindow) !== undefined && parseTokenCount(row.maxTokens) !== undefined,
   );
   const keyReady = keyComplete(keyMode, keyText, envValue, envSource);
@@ -377,18 +378,20 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const imageSupported = imageModelField(api) !== null;
   const imageRowsOk =
     imageSupported ||
-    checkedRows.every((row) => row.image !== true || provider?.models.some((m) => m.id === row.id && m.image) === true);
+    rows.every((row) => row.image !== true || provider?.models.some((m) => m.id === row.id && m.image) === true);
   const canSave =
     (mode === "edit" || id.trim() !== "") &&
     baseUrl.trim() !== "" &&
     keyReady &&
     countsValid &&
     imageRowsOk &&
-    (selectedCount > 0 || discoveryOn);
+    (rows.length > 0 || discoveryOn);
 
   const fetchModels = () =>
     runFetch(async () => {
       setNotice(null);
+      setFetched(null);
+      setPicking(false);
       const fetchedConn = conn;
       const outcome = await window.studio.fetchProviderModels({
         baseUrl,
@@ -407,14 +410,20 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         return;
       }
       setLastFetch({ conn: fetchedConn, failure: null });
-      const known = new Set(rows.map((row) => row.id));
-      const added = outcome.models.filter((model) => !known.has(model.id));
-      setRows((current) => [
-        ...current,
-        ...added.map((model) => ({
+      setFetched(outcome.models);
+      setPicking(true);
+    });
+
+  // 选择浮层里选中的模型追加到列表。
+  const addFetched = (models: FetchedModel[]) => {
+    setPicking(false);
+    setRows((current) => [
+      ...current,
+      ...models
+        .filter((model) => !current.some((row) => row.id === model.id))
+        .map((model) => ({
           id: model.id,
           ...(model.name !== null && { name: model.name }),
-          checked: false,
           reasoning: null,
           images: null,
           contextWindow: "",
@@ -422,9 +431,8 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
           // 中转站的列表说了是不是生图模型就照它（接口类型不能生图时不标）；没说的等查公开模型目录（上面的 effect）。
           ...(model.imageModel !== null && { image: model.imageModel && imageModelField(api) !== null }),
         })),
-      ]);
-      pushToast({ level: "info", message: t("custom.form.models.fetched", { count: outcome.models.length }) });
-    });
+    ]);
+  };
 
   const save = () =>
     run(async () => {
@@ -434,7 +442,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         baseUrl,
         api,
         key: keyInput(),
-        models: checkedRows.map((row) => ({
+        models: rows.map((row) => ({
           id: row.id,
           ...(row.name !== undefined && { name: row.name }),
           reasoning: row.reasoning,
@@ -571,8 +579,18 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
               busy: fetching,
               disabled: baseUrl.trim() === "" || !isFetchableApi(api),
               run: () => void fetchModels(),
+              // 拉取之后改了地址、接口类型或 key：拉到的是旧服务的列表，不再拿它标"已失效"。
+              fetched: lastFetch?.conn === conn ? fetched : null,
+              picking,
+              onPickClose: () => setPicking(false),
+              onAdd: addFetched,
             }}
-            discovery={{ on: discoveryOn, supported: discoverySupported, onChange: setDiscovery }}
+            discovery={{
+              on: discoveryOn,
+              supported: discoverySupported,
+              onChange: setDiscovery,
+              listed: [...loaded.keys()],
+            }}
             image={{ supported: imageSupported }}
           />
         </FormField>

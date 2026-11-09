@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import {
   ASK_GATE_ROLE,
   ASK_TOOL_ROLE,
+  askDigitInGate,
+  askDigitPick,
   askItemClick,
   askItemDoubleActivates,
   askItemMarker,
@@ -183,5 +185,51 @@ describe("提问工具卡头上的题目：对话框开着时不写（openAskToo
   it("approval.jsonl：审批门不是提问对话框，一直是 null", () => {
     const steps = replayAsk("approval");
     expect(steps.every((step) => step.open === null)).toBe(true);
+  });
+});
+
+describe("askDigitPick：提问列表上按数字键选第 N 项（omp 18.18.3 自己不认数字键）", () => {
+  // omp 18.18.3 的单选题（fixtures/tsp/ask-other.jsonl）：Other… 也是 omp.ask.option，排在最后。
+  const single = ["o0", "o1", "o2", "other"].map((id) => ({ id, role: "omp.ask.option" }));
+  const multi = ["c0", "c1"].map((id) => ({ id, role: "omp.ask.check" }));
+
+  it("单选：按 2 = 点第二项（没高亮是 select，已高亮是 activate）；4 是 Other…", () => {
+    expect(askDigitPick("2", single, "o0")).toEqual({ ev: "select", item: "o1" });
+    expect(askDigitPick("2", single, "o1")).toEqual({ ev: "activate", item: "o1" });
+    expect(askDigitPick("4", single, "o0")).toEqual({ ev: "select", item: "other" });
+  });
+
+  it("多选：已高亮的那项也是 select（勾选切换），不跳页", () => {
+    expect(askDigitPick("1", multi, "c0")).toEqual({ ev: "select", item: "c0" });
+  });
+
+  it("超出项数、0、不是数字、不是提问列表（审批门、picker）：null，按键照常写给 omp", () => {
+    expect(askDigitPick("5", single, "o0")).toBeNull();
+    expect(askDigitPick("0", single, "o0")).toBeNull();
+    expect(askDigitPick("a", single, "o0")).toBeNull();
+    expect(askDigitPick("1", [{ id: "x", role: "omp.approval.option" }], null)).toBeNull();
+    expect(askDigitPick("1", [{ id: "x", role: undefined }], null)).toBeNull();
+  });
+});
+
+describe("askDigitInGate：焦点在对话框根节点上时按数字键", () => {
+  /** 回放到对话框第一次出现（选项都在）为止的文档。 */
+  function gateOf(name: string) {
+    const doc = createDocument();
+    for (const { message } of tspDocMessages(loadTspFixture(name))) {
+      applyMessage(doc, message);
+      const surface = doc.surfaces.get("s:1");
+      const gate = surface ? findNode(surface, (n) => nodeRole(n) === ASK_GATE_ROLE) : null;
+      if (surface && gate && findNode(surface, (n) => n.k === "list", gate.id)) return { surface, gate };
+    }
+    throw new Error(`${name} 里没有提问对话框`);
+  }
+
+  it("ask-other.jsonl（omp 18.18.3，一题四项）：按 4 = select Other…，按 1 是已高亮的 Red = activate，按 5 为 null", () => {
+    const { surface, gate } = gateOf("ask-other");
+    const list = "s.form/s0/0/f0";
+    expect(askDigitInGate(surface, gate.id, "4")).toEqual({ list, ev: "select", item: `${list}/other` });
+    expect(askDigitInGate(surface, gate.id, "1")).toEqual({ list, ev: "activate", item: `${list}/o0` });
+    expect(askDigitInGate(surface, gate.id, "5")).toBeNull();
   });
 });

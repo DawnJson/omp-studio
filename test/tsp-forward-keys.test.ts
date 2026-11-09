@@ -126,6 +126,18 @@ describe("shouldForwardChord", () => {
     for (const chord of defaults) expect(STUDIO_RESERVED.has(chord), chord).toBe(false);
   });
 
+  it("上一轮 / 下一轮（Ctrl+Shift+↑/↓）是 studio 的键：键帽上写着、用户把 omp 的动作绑上去也不转发", () => {
+    const turnKeys = new Set(["ctrl+shift+up", "ctrl+shift+down"]);
+    for (const key of ["ArrowUp", "ArrowDown"]) {
+      const event = ev({ key, ctrlKey: true, shiftKey: true });
+      expect(STUDIO_RESERVED.has(chordOf(event)!), key).toBe(true);
+      expect(
+        shouldForwardChord(event, turnKeys, () => turnKeys),
+        key,
+      ).toBe(false);
+    }
+  });
+
   it("文字输入和编辑键不转发：单字符、Enter、Esc、方向键、Shift+字母、Ctrl+C/V/Z", () => {
     const hinted = () => new Set(["enter", "escape", "x", "f", "up", "shift+x"]);
     const typing: Partial<ForwardKeyEvent>[] = [

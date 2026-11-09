@@ -12,7 +12,7 @@
 
 **回溯 = 在选择器里 `activate item=<用户消息的条目 id>`**：选择器关闭；叶子移到这条消息的**父条目**；omp 重画对话（只剩到新叶子为止的卡片：两轮会话回溯到 BETA 之前后只剩 ALPHA 一张 `omp.user` 卡片）；omp 自己的输入框（dock 里 `omp.editor` 下的 `editor` 节点）被填成这条消息的文字，出现 toast `Navigated to selected point`。**会话文件一个字节没动**（行数、内容不变），OSC `omp_session_file` 也不变——叶子移动只在 omp 进程内存里。之后发的第一条消息才在文件里长出新分支：它的 `parentId` 是回溯到的位置（实测 `/tree` → BETA → 发 GAMMA：`47b8e31d` 的 `parentId` = `a6b4e493`，和 BETA（`b772c2f5`）同一个父条目，两条分支在同一个文件里；`fixtures/omp-session/branched.jsonl`）。
 
-- 选**助手消息**：叶子移到它本身，输入框不预填（toast 同上）。studio 的面板只列用户消息，不用这个。
+- 选**助手消息**：叶子移到它本身，输入框不预填（toast 同上）。studio 的面板只列用户消息；回答上的"从这里分叉"用它（2026-11-09 用 omp 18.18.2 复测，见下「回答上的分叉」）。
 - 选**当前叶子**：什么都不发生（选择器留着、没有 toast）。studio 等不到选择器关闭就按 Esc 并报错（`omp did not move to that message`）。
 - omp 的预填**只在输入框为空时才写**（omp 文档 `tree.md`）：studio 回溯后把 omp 的输入框清空（`edit` 事件整段替换成空串，实测有效），否则下一次回溯拿不到文字。回溯前输入框非空也先清空。返回给界面的文字取自会话文件里那条消息的全部文本块（换行连起来），不依赖输入框里的内容。
 - **摘要提示**（`branchSummary.enabled` 打开时；实测，录制 `fixtures/tsp/session-tree-prompt.jsonl`）：`activate` 用户消息后树选择器被换成另一个 layer picker：`title:"Summarize branch?"`、`layout:"rows"`、items `0` No summary / `1` Summarize / `2` Summarize with custom prompt。`activate item=0` 直接回溯（同上，文件不变）；`activate item=1` omp 调一次模型写摘要（实测约 2 秒），在文件末尾追加一个 `branch_summary` 条目（`parentId` = 新叶子，即被选用户消息的父条目；`summary` 是"User explored another conversation branch, then returned here. …"），再回溯；`activate item=2` 出现 `omp.hook-editor` 覆盖层（"Custom summarization instructions"，`editor` + Open in editor / Cancel / Submit 按钮，`action submit`）；在摘要提示里 Esc = 回到树选择器。studio 不提供自定义指令（只提供下面两种）。
@@ -30,9 +30,9 @@
 - **回溯后"当前"的空档**：叶子移动不写文件，面板在你发新消息之前从文件看不出叶子移到了哪。`TspRunner` 在回溯成功后记 `LeafOverride{afterEntryId: 回溯时文件最后一个条目, leafId: 那条消息的父条目}`，文件最后一个条目还是它时叶子按 override 算，文件一长（新条目出现）自动失效。不是 studio 发起的回溯（比如用户在 omp 自己的界面里）看不到。
 - **摘要**：面板底部有开关"回溯时让 omp 摘要被放弃的分支"（`session-tree-summarize`，默认关，不记忆）；勾上后 Enter / 点击 = `branchTask(id, entry, true)` → `select` + `action summarize`，面板保持打开、标题换成 `tree.summarizing` 直到 omp 写完（最长 120 秒），成功后关面板；`BranchTaskResult.summarized` 回报。没勾时如果 omp 开着 `branchSummary.enabled` 弹出摘要提示，studio 自动答 No summary（所以分叉出的新任务也不会被提示卡住）。
 - **回溯**（`TspRunner.rewindTo`，`#exclusive` 串行）：校验目标是这个会话的用户消息 → `start()` → 要求这一轮已结束（`working`、有对话框、有在跑的工具/子代理都拒绝，错误文字 `the session is busy; wait for the current turn to finish`，界面 `error.sessionBusy`）→ 清空 omp 输入框 → `send "/tree"` → 等 `layout:"tree"` 的 picker，目标不在 `items` 里就 Esc 并报错 → `activate` → 等选择器关闭 → 最多等 1.5 秒预填/toast（等不到不算失败）→ 再清空输入框 → 记 `LeafOverride`。`branchTask`（面板选中）就是它：就地回溯，任务的会话文件不变，原会话文件和进程会话都在。
-- **分叉**（`TaskPool.forkTask`）：`prepareFork` 校验（这一轮已结束；有会话文件；条目是用户消息，null = 当前分支最后一条）→ 新增任务记录 `{sessionFile:null, forkFrom:<原会话文件>, 同项目/cwd/worktree/模型}` → 第一次启动 `omp --fork=<forkFrom>`（`buildTspArgs` 的 `forkSessionFile`，已有 `sessionFile` 时 `--resume` 优先）→ 新文件路径一落盘，`persistSessionFile` 记 `sessionFile` 并清掉 `forkFrom` → 在新进程里 `rewindTo(条目 id, 已查好的目标)`（目标取自原文件：`--fork` 保留条目 id，不依赖新文件路径已经报到）。`forkTask` 的第二个参数是**会话条目 id**（面板节点的 `entryId`），null = 最后一条用户消息。回溯失败时新任务保留（它是原会话的完整副本），错误照抛，不自动删。原任务全程不动、不需要进程。新任务同项目、同 cwd、同模型和思考强度（记录里复制），标题照抄原任务；worktree 任务的分叉共用同一个 worktree（omp 会话绑 cwd，分叉必须在同一目录恢复），所以新记录带同样的 `worktreePath/Branch/Base`，后果是两个任务改的是同一份工作区，`discardWorktree` 在还有别的任务（**含已归档的**）用同一个 worktree 时拒绝（`the worktree is shared with another task`，界面 `error.worktreeShared`）。
+- **分叉**（`TaskPool.forkTask`）：`prepareFork` 校验（这一轮已结束；有会话文件；条目是用户消息，null = 当前分支最后一条）→ 新增任务记录 `{sessionFile:null, forkFrom:<原会话文件>, 同项目/cwd/worktree/模型}` → 第一次启动 `omp --fork=<forkFrom>`（`buildTspArgs` 的 `forkSessionFile`，已有 `sessionFile` 时 `--resume` 优先）→ 新文件路径一落盘，`persistSessionFile` 记 `sessionFile` 并清掉 `forkFrom` → 在新进程里 `rewindTo(条目 id, 已查好的目标)`（目标取自原文件：`--fork` 保留条目 id，不依赖新文件路径已经报到）。`forkTask` 的第二个参数是**会话条目 id**（面板节点的 `entryId`），null = 最后一条用户消息；第三个参数 `mode`：面板、用户消息上的分叉、`/fork` 都是 `before-user`（上面这条路），回答上的分叉是 `after-answer`（见「回答上的分叉」）。回溯失败时新任务保留（它是原会话的完整副本），错误照抛，不自动删。原任务全程不动、不需要进程。新任务同项目、同 cwd、同模型和思考强度（记录里复制），标题照抄原任务，不加后缀（2026-11-08 起，issue #9：之前加过“（分叉）”；侧栏按新会话头的 `parentSession` 把它缩进在原会话下面，见 `session-history.md`）；worktree 任务的分叉共用同一个 worktree（omp 会话绑 cwd，分叉必须在同一目录恢复），所以新记录带同样的 `worktreePath/Branch/Base`，后果是两个任务改的是同一份工作区，`discardWorktree` 在还有别的任务（**含已归档的**）用同一个 worktree 时拒绝（`the worktree is shared with another task`，界面 `error.worktreeShared`）。
 - **用户消息的回退图标**：omp 在每张 `omp.user` 卡片的工具行里画了 `icon` 节点（`actions.click:"rewind"`、title "Rewind the conversation to an earlier message"）；studio 接管：`features/tsp/actions.ts` 的 `rewind` 打开面板，并按"这张卡片是 main 里从末尾数第几张"对位到当前分支上同序的用户消息（从末尾数，因为压缩过的会话 omp 只画压缩点之后的消息）。不会再把 `rewind` 发给 omp（omp 自己的全屏回退选择器不出现）。
-- **IPC 收窄**：`getSessionTree(taskId)`、`forkTask(taskId, entryId|null)`、`branchTask(taskId, entryId, summarize?)` 只作用于已存在的任务；entryId 限长 200，由主进程对照会话文件校验（必须是用户消息）；渲染进程不传路径。
+- **IPC 收窄**：`getSessionTree(taskId)`、`forkTask(taskId, entryId|null, mode)`（`mode` = `before-user` | `after-answer`，`validate.ts` 的 `parseOneOf`；2026-11-09 起）、`branchTask(taskId, entryId, summarize?)` 只作用于已存在的任务；entryId 限长 200，由主进程对照会话文件校验（必须是用户消息）；渲染进程不传路径。
 - **界面**（3.2 起）：面板外壳是 `ui/Dialog`（md 宽，标题 + ×，Esc / 点遮罩关闭，焦点回到打开前的元素，`data-testid="session-tree"` 在对话框上）；列表是 `data-autofocus` 的 listbox，键盘：`↑↓ Home End` 移动、`Enter` / 点击选中（回溯）、`Shift+Enter` 分叉；Tab 在对话框内循环（× → 列表 → 摘要勾选框）。每行有"从这里分叉"图标按钮（`IconButton`，悬停/选中时出现，`session-tree-fork`；任务不空闲时置灰），"当前"是 accent `Badge`；"回溯时让 omp 摘要被放弃的分支"是页脚左侧的 `Checkbox`（`session-tree-summarize`）。点后面板标题换成 `tree.forking`，成功后关面板并选中新任务、那条消息的文字进它的输入框，失败 toast `tree.forkFailed`。`/tree`、`/fork`（`studio-slash-table.ts`）和命令面板"会话树"打开面板；`/fork` = 从当前分支最后一条用户消息分叉（不是 omp 自己 `/fork` 的"复制整个会话"语义）。
 
 ## 标签、压缩点、分支摘要、搜索和回溯提示（2026-10-23，omp 18.12.6）
@@ -44,6 +44,28 @@
 - **搜索**：面板顶部搜索框（`filterTreeNodes`，`shared/session-tree-view.ts`）按消息文字和标签过滤：空白分词、全部词都要出现、不分大小写；不改节点（缩进和当前标记照旧）。不用 omp 选择器的搜索（那要在 omp 里打字、结果还得读回来，只读会话文件就够了）。
 - **回溯提示**（`discardedTurns`）：光标在一条用户消息上时提示"回到它之前，当前对话里有 N 轮会离开"。omp 的回溯把叶子移到目标的**父条目**，原来的消息仍在文件里成为另一条分支（见上「回溯 = …」），所以是"离开对话"不是删除。N = 当前分支上、不在"目标的祖先链"里的用户消息数：目标在当前分支上 = 它和它之后的用户消息；目标在别的分支上 = 当前分支里公共祖先之后的。压缩点、摘要节点不算一轮。N = 0 不提示。
 - **界面**：顶部搜索框（`session-tree-search`）在列表上方；`↑↓` / `Enter` 在搜索框里照常作用于列表，`Home` / `End` 留给搜索框的光标，`Esc` 搜索框有字时先清字、再按才关对话框；列表上 `Shift+L` 给光标所在行打标签。行上的"添加标签 / 修改标签"按钮（`Tag` 图标，`session-tree-label-edit`，和分叉按钮同一套悬停手势）让这一行就地变成输入框（`session-tree-label-input`，Enter 保存 / Esc 取消），保存期间输入框禁用，失败 toast `tree.labelFailed`；任务不空闲时标签按钮置灰（提示 `tree.labelBusy`）。压缩点行（`data-kind="compaction"`）显示 `tree.compaction` + 压缩前 token 数，摘要行（`branch_summary`）是 `Badge` + 摘要第一句；这两种行点击无事发生、没有分叉按钮。回溯提示是列表下方的一行 `session-tree-discard`（`data-count`）。
+
+## 回答上的分叉（2026-11-09，issue #9 第二轮，仓库所有者批准）
+
+**实测（omp 18.18.2：`omp --version` → `omp/18.18.2`，会话文件条目的 `runtime.version` 同；PATH 上的 omp 由 studio 管理；真实 omp 经 `TaskPool`、临时 `PI_CODING_AGENT_DIR`、`.env` 的测试模型，两轮 ALPHA / BETA；一次性探针，用完已删）**：
+- `send "/tree"` 的选择器 `items` 列出整份文件的条目，助手消息是 `node:"assistant"` 的项（`order` 里也有：`[ALPHA, ALPHA 的回答, BETA, BETA 的回答]`），`current` 是文件最后一个条目（BETA 的回答）。
+- `activate item=<ALPHA 的回答>`：选择器关闭，toast `Navigated to selected point`，**omp 的输入框为空（不预填）**；对话重画到只剩 ALPHA 一张 `omp.user` 卡片（和它的回答）。之后发 GAMMA：会话文件里 GAMMA 的 `parentId` = ALPHA 的回答，即叶子确实停在那条助手消息本身。18.12.5 的记录（上面「回溯」里"选助手消息"一条）在 18.18.2 上仍成立。
+
+**做法**：回答下方用量行里的分叉按钮 = `forkTask(id, 那一轮的用户消息条目, "after-answer")`。
+- 主进程（`TspSessionTree.prepareFork`）：按当前叶子（含 `LeafOverride`）找这条用户消息在当前分支上的回答 = 到下一条用户消息（omp 注入的 `attribution:"agent"` 消息不算）之前最后一条助手消息（`session-tree-file.ts` 的 `findAnswerEntry`；条目缓存里助手消息多留一个 `message.role`）。用户消息不在当前分支上、或这一轮没有助手消息时拒绝（`that message has no answer on the current branch`），不建任务。
+- 新任务照常 `omp --fork=<原会话文件>` 起，再 `TspSessionTree.moveToAnswer`：回答到文件最后一个条目之间只有标记（`session_exit` 之类）、没有别的消息时（`atFileLeaf`，即当前分支最后一条回答，且没有回溯过），`--fork` 后叶子已经在它这里，**什么都不发**（再 activate 当前叶子 omp 反而不动、要超时）；否则 `/tree` → `activate` 那条助手消息 → 等选择器关闭（同回溯的同一段 `#moveLeaf`），再记 `LeafOverride{leafId: 回答}`。返回 `text:""`，渲染进程不往新任务的输入框放任何东西，只选中新任务。
+- 渲染进程（`fork-actions.ts` 的 `forkAfterAnswer`）：按钮所在的助手容器 → 它后面还有几张用户消息卡片（`shared/tsp/session-tree.ts` 的 `answerTurnFromEnd`，从末尾数，同 `userCardFromEnd` 的理由）→ 会话树里当前分支上倒数同序的用户消息（`focusIndexFromEnd`）→ 它的 `entryId`。
+- 没选"回到下一条用户消息之前、丢掉它的文字"的退路：助手条目能直接 activate，结果就是要的（含这条回答、输入框空），不需要。
+- 测试：`test/task-tsp-tree.test.ts`「forkTask after-answer」（最后一条回答不发事件；更早的回答发 `/tree` + `activate <助手条目>`、不发 `edit`，新任务树里 ALPHA 是当前；不在当前分支上的拒绝）；假 omp 回放 `fixtures/tsp/session-tree-answer.jsonl`（由 `session-tree.jsonl` 改出：activate 的是 ALPHA 的回答 `42095935`，omp 回的帧里输入框为空，去掉之后的清空输入框）。e2e `test/e2e/session-tree.e2e.ts` 两条"回答下方用量行上的分叉"。
+
+## 用户消息上的"编辑"（2026-11-09，仓库所有者批准）
+
+用户消息悬停按钮行（`omp.user.tools`，`layout.tsx` 的 `UserToolsRow`）里，omp 的复制、回退后面 studio 加了"编辑"（`tsp-user-edit`，`pen` 图标）和"分叉"（`tsp-user-fork`）。
+
+- **和 omp 的回退图标不重复**：回退图标（`actions.click:"rewind"`）被 studio 接管成"打开会话树面板并对准这条消息"（上面「用户消息的回退图标」），还要在面板里再选一次才回溯；"编辑"一步就地回溯。
+- **做法**：`fork-actions.ts` 的 `editUserCard` = 卡片 → 当前分支上倒数第几条用户消息（`userCardFromEnd`，同分叉按钮）→ 会话树条目 → `branchToNode`（面板选中同一条路：`branchTask` → `TspRunner.rewindTo`，omp 收到 `/tree` + `activate` + 清空输入框的 `edit`），那条消息的文字追加进输入框，焦点给输入框、光标在末尾（`composer/insert-into-draft.ts` 的 `focusDraftEnd`）。不新建任务，不打开面板。
+- 和分叉按钮一样只在任务空闲时能点（`aria-disabled`）；点了以后到回溯结束前不再收。失败 toast（`reportErrorNow`）。
+- 测试：e2e `test/e2e/session-tree.e2e.ts`「编辑：用户消息悬停按钮行里 studio 加的编辑按钮…」（键盘 Enter 触发；事件序列同面板回溯；输入框有 BETA 的文字且聚焦；任务数不变）。
 
 ## 已知限制和没测的
 

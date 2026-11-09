@@ -20,22 +20,32 @@ function isSideContent(node: DocNode): boolean {
   );
 }
 
-/** 容器里的正文：不带 role 的 `md` 节点的 markdown 原文，按文档顺序用空行连起来；没有为空串。 */
-function answerIn(surface: DocSurface, containerId: string): string {
-  const parts: string[] = [];
+/** 容器里的正文节点：不带 role、有文字的 `md` 节点 id，按文档顺序（复制纯文本时按 id 取渲染出来的文字）。 */
+export function answerNodeIds(surface: DocSurface, containerId: string): string[] {
+  const ids: string[] = [];
   const walk = (id: string): void => {
     const node = surface.nodes.get(id);
     if (node === undefined) return;
     if (node.k === "md" && node.p["role"] === undefined) {
       const text = node.p["text"];
-      if (typeof text === "string" && text.trim() !== "") parts.push(text.trim());
+      if (typeof text === "string" && text.trim() !== "") ids.push(id);
       return;
     }
     if (isSideContent(node)) return;
     for (const child of node.c) walk(child);
   };
   for (const child of surface.nodes.get(containerId)?.c ?? []) walk(child);
-  return parts.join("\n\n");
+  return ids;
+}
+
+/**
+ * 一个助手容器的正文：markdown 原文按文档顺序用空行连起来；没有为空串。
+ * omp 的 copy-answer 也是这样取（一条助手消息里的 text 段 trim 后用空行连，实测 omp 18.18.1 二进制）。
+ */
+export function answerText(surface: DocSurface, containerId: string): string {
+  return answerNodeIds(surface, containerId)
+    .map((id) => String(surface.nodes.get(id)?.p["text"]).trim())
+    .join("\n\n");
 }
 
 /** 最后一个 inline surface（会话本体）里最后一条有正文的助手消息的 markdown 原文；没有回答时为 null。 */
@@ -48,7 +58,7 @@ export function lastAnswerText(doc: TspDocument): string | null {
     const node = session.nodes.get(id);
     if (node === undefined) return;
     if (node.p["role"] === ASSISTANT_ROLE) {
-      const text = answerIn(session, id);
+      const text = answerText(session, id);
       if (text !== "") answer = text;
       return;
     }

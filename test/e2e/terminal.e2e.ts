@@ -247,6 +247,39 @@ test("shell 退出显示提示，按任意键在同一目录重新启动；重�
   }
 });
 
+test("设置里换终端 shell：选检测列表里的 cmd 后新开的终端是 cmd；不在列表里的路径被拒；选的文件不在了显示错误，改回自动后按键重开", async () => {
+  test.skip(process.platform !== "win32", "检测列表和 cmd 只在 Windows 上测");
+  const { launched, project, cleanup } = await start();
+  try {
+    const { page } = launched;
+    const shells = await page.evaluate(() => globalThis.studio.listTerminalShells());
+    const cmd = shells.find((shell) => /\\cmd\.exe$/i.test(shell.path));
+    expect(cmd, JSON.stringify(shells)).toBeDefined();
+    await expect(page.evaluate(() => globalThis.studio.setTerminalShell("C:\\nope\\evil.exe"))).rejects.toThrow();
+    await page.evaluate((file) => globalThis.studio.setTerminalShell(file), cmd!.path);
+
+    await openPanel(page);
+    await expect(page.getByTestId("terminal-shell")).toHaveText(/^cmd\.exe$/i);
+    await run(page, "echo shell=%COMSPEC%");
+    await expectRow(page, /^shell=.*cmd\.exe$/i);
+
+    // 文件对话框选了一个后来被删掉的 shell：开终端报错（不悄悄换回默认），改回自动后按任意键重开。
+    const gone = path.join(project, "gone-shell.exe");
+    await launched.app.evaluate(({ dialog }, file) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
+    }, gone);
+    expect(await page.evaluate(() => globalThis.studio.chooseTerminalShell())).toBe(true);
+    await page.getByTestId("terminal-restart").click();
+    await expectRow(page, /终端 shell 已经不在了/);
+    await page.evaluate(() => globalThis.studio.setTerminalShell(null));
+    await page.keyboard.press("a");
+    await expect(page.getByTestId("terminal-shell")).toHaveText(shellName);
+    await waitPrompt(page);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("归档任务和退出应用都会结束终端及其子进程，不留残余", async () => {
   const { launched, taskId, cleanup } = await start();
   try {

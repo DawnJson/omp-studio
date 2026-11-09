@@ -57,6 +57,8 @@ async function start(
     }, project);
     await launched.page.getByTestId("sidebar-open-folder").click();
     await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    // 这里的用例逐张断言工具卡：先关掉"连续的工具调用合成一组"（默认开），组的行为在"连续的工具调用合成一组"里单独测。
+    await launched.page.evaluate(() => globalThis.studio.setGroupToolCalls(false));
   } catch (error) {
     await launched.close().catch(() => {});
     await rm(work, { recursive: true, force: true });
@@ -238,11 +240,11 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
       `(() => { const el = document.querySelector(".tsp-scroller"); return el.scrollHeight - el.clientHeight - el.scrollTop; })()`,
     );
     expect(distance).toBeLessThanOrEqual(2);
-    // 工具卡跑完：✓ 用描边画出来（tsp-draw），停一下淡出后卸掉，最后和打开历史任务时一样没有 ✓；淡紫的运行底用 background-color 过渡褪掉。
+    // 工具卡跑完：✓ 用描边画出来（tsp-draw），之后常驻（issue #9，照 ompweb）；淡紫的运行底用 background-color 过渡褪掉。
     expect(await page.evaluate(() => (globalThis as unknown as { drawnChecks: string[] }).drawnChecks)).toContain(
       "tsp-draw",
     );
-    await expect(page.getByTestId("tsp-view").getByTestId("tsp-tool-check")).toHaveCount(0, { timeout: 10_000 });
+    await expect(role(page, "omp.tool.bash").first().getByTestId("tsp-tool-check")).toBeVisible();
     await expect(page.locator('[data-testid="tsp-view"] .tsp-tool.card.st-done').first()).toHaveCSS(
       "transition-property",
       "background-color",
@@ -799,6 +801,40 @@ test("多题提问(omp 18.12.5 录制):多选题点高亮项是勾选不跳页;R
   }
 });
 
+test("提问(omp 18.18.3 录制):选项前有序号,按数字选第 N 项(omp 不认数字键,studio 换成 select);选 Other… 后 omp 加一个带焦点的输入框,键盘直接进去,打字写给 omp;Enter 收起", async () => {
+  const { launched, received, receivedKeys, cleanup } = await start("ask-other");
+  try {
+    const { page } = launched;
+    const prompt = recordedUserEvents(loadTspFixture("ask-other")).find((entry) => entry.event["ev"] === "send")!.event[
+      "text"
+    ] as string;
+    await sendFirst(page, prompt);
+    const item = (id: string) => page.locator(`[data-testid="tsp-view"] [data-id="${id}"]`);
+    const other = item("s.form/s0/0/f0/other");
+    await expect(other).toBeVisible({ timeout: 30_000 });
+    // 每个选项标出 1–4;刚从输入框发出消息,键盘在对话框根节点上,按 4 = 点第四项 Other…(发 select,不把 "4" 写给 omp)。
+    await expect(page.getByTestId("tspi-item-n")).toHaveText(["1", "2", "3", "4"]);
+    await expect(role(page, "omp.editor.ask")).toBeFocused();
+    await page.keyboard.press("4");
+    // omp 回 add input t + focus t:不用再点,输入框直接有键盘。
+    const field = item("t").locator("textarea");
+    await expect(field).toBeFocused();
+    expect((await receivedKeys()).join("")).not.toContain("4");
+    await page.keyboard.type("purple");
+    await expect.poll(async () => (await receivedKeys()).join("")).toContain("purple");
+    await expect(other).toContainText("Other: purple");
+    await page.keyboard.press("Enter");
+    await expect.poll(receivedKeys).toContain("\r");
+    await expect(item("t")).toHaveCount(0);
+    expect(await received()).toEqual([
+      expect.objectContaining({ ev: "send" }),
+      { ev: "select", sf: "s:1", id: "s.form/s0/0/f0", item: "s.form/s0/0/f0/other" },
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左、文字在右),代码长行折行不出横向滚动条", async () => {
   test.setTimeout(90_000);
   // cards = approval 的录制,最后一帧多加了一张 edit 卡(diff,含空行和长行上下文)和一张 eval 卡(长代码行 + 输出 + 底栏)。
@@ -836,7 +872,7 @@ test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左�
   }
 });
 
-test("设置「工具调用只显示标题」：折叠着的工具卡不画输出预览，点开才有；关掉后照 omp 的预览画", async () => {
+test("设置「工具调用只显示标题」：折叠着的工具卡不画输出预览、头上带命令那一行，点开才有；关掉后照 omp 的预览画", async () => {
   // cards 录制里 bash 卡是 omp 给的 collapsed:true + preview "children"（默认画命令和输出尾部）。
   const { launched, cleanup } = await start("cards");
   try {
@@ -850,14 +886,97 @@ test("设置「工具调用只显示标题」：折叠着的工具卡不画输�
     await expect(head).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
     await expect(bash.locator(".tsp-tool-body")).toHaveCount(0);
+    // omp 的 bash 卡没有 target，命令只在 body 里：body 藏了，头上补命令那一行。
+    await expect(head.locator(".tsp-tool-target")).toHaveText('python -c "print(1+1)"');
     await head.click();
     await expect(head).toHaveAttribute("aria-expanded", "true");
+    await expect(head.locator(".tsp-tool-target")).toHaveCount(0);
     await expect(bash.locator('[data-role="omp.tool.bash.output"]')).toBeVisible();
     await head.click();
     await expect(bash.locator(".tsp-tool-body")).toHaveCount(0);
     await page.evaluate(() => globalThis.studio.setToolHeadsOnly(false));
     await expect(head).toHaveAttribute("aria-expanded", "false");
+    await expect(head.locator(".tsp-tool-target")).toHaveCount(0);
     await expect(bash.locator('[data-role="omp.tool.bash.output"]')).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("连续的工具调用合成一组：跑完收成一行组头（N tool calls、✓）；点开 / 收起；Ctrl+O 跟着 omp 报的展开状态全部展开 / 收起；设置关掉照 omp 一张张画", async () => {
+  // cards-expand：cards 录制（同一条消息里 bash（要批准）、edit、eval 三张卡连着，后面是回答），跑完后每次 Ctrl+O
+  // omp 回 "Tool output expansion: enabled / disabled" 状态行、把卡片的 collapsed 翻过来（omp 18.18.1 实测的样子）。
+  const { launched, cleanup } = await start("cards-expand");
+  try {
+    const { page } = launched;
+    await page.evaluate(() => globalThis.studio.setGroupToolCalls(true));
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("composer-input").press("Control+Enter");
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    const head = page.getByTestId("tsp-tool-run");
+    await expect(head).toHaveCount(1);
+    await expect(head).toHaveAttribute("data-count", "3");
+    await expect(head).toContainText("3 tool calls");
+    // 跑完收起：组员不画，回答照常在下面。
+    await expect(head).toHaveAttribute("aria-expanded", "false");
+    await expect(role(page, "omp.tool.bash")).toHaveCount(0);
+    await expect(role(page, "omp.tool.eval")).toHaveCount(0);
+    await expect(role(page, "omp.assistant").last()).toBeVisible();
+    // 组头是浅底的一行，在回答左边线上。
+    const headBox = (await head.boundingBox())!;
+    const answerLeft = (await role(page, "omp.assistant").locator(".md-block").last().boundingBox())!.x;
+    expect(Math.round(headBox.x)).toBe(Math.round(answerLeft));
+    expect(headBox.height).toBeLessThan(40);
+    // 点开：三张卡都在组头下面，每张完成的卡都有常驻的 ✓。
+    await head.click();
+    await expect(head).toHaveAttribute("aria-expanded", "true");
+    for (const name of ["omp.tool.bash", "omp.tool.edit", "omp.tool.eval"])
+      await expect(role(page, name)).toBeVisible();
+    // 卡片在组头下面（对话吸底时展开照常保持贴底，组头跟着往上走，所以按展开后的位置比）。
+    expect((await role(page, "omp.tool.bash").boundingBox())!.y).toBeGreaterThan((await head.boundingBox())!.y);
+    await expect(role(page, "omp.tool.bash").getByTestId("tsp-tool-check")).toBeVisible();
+    // 键盘：Enter 收起。
+    await head.focus();
+    await page.keyboard.press("Enter");
+    await expect(head).toHaveAttribute("aria-expanded", "false");
+    await expect(role(page, "omp.tool.bash")).toHaveCount(0);
+    // Ctrl+O（焦点在输入框）：omp 报展开后组全部展开（用户刚才点的作废），omp 的卡片也展开着；再按收起。
+    await page.getByTestId("composer-input").press("Control+o");
+    await expect(head).toHaveAttribute("aria-expanded", "true");
+    await expect(role(page, "omp.tool.bash")).toBeVisible();
+    await expect(role(page, "omp.tool.bash").locator(".tsp-tool-head")).toHaveAttribute("aria-expanded", "true");
+    await page.getByTestId("composer-input").press("Control+o");
+    await expect(head).toHaveAttribute("aria-expanded", "false");
+    // 设置关掉：没有组头，三张卡照 omp 一张张画。
+    await page.evaluate(() => globalThis.studio.setGroupToolCalls(false));
+    await expect(head).toHaveCount(0);
+    await expect(role(page, "omp.tool.bash")).toBeVisible();
+    await expect(role(page, "omp.tool.eval")).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("连续的工具调用合成一组（默认开）：还在跑的那一组展开着，一轮跑完收起", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("task");
+  try {
+    const { page } = launched;
+    await page.evaluate(() => globalThis.studio.setGroupToolCalls(true));
+    await sendFirst(page, TASK_PROMPT);
+    const row = page.getByTestId("task-row").first();
+    await expect(row).toHaveAttribute("data-status", "running", { timeout: 20_000 });
+    const heads = page.getByTestId("tsp-tool-run");
+    // 第一组成形时还在往里加卡：展开，卡片照常看得见。
+    await expect(heads.first()).toHaveAttribute("aria-expanded", "true", { timeout: 30_000 });
+    await expect(row).toHaveAttribute("data-status", "running");
+    await expect(role(page, "omp.tool.read").first()).toBeVisible();
+    // 一轮跑完：两组都收起（task 录制切成 4 张、3 张两组，中间隔着等待卡）。
+    await expect(row).toHaveAttribute("data-status", "idle", { timeout: 60_000 });
+    await expect(heads).toHaveCount(2);
+    for (const head of await heads.all()) await expect(head).toHaveAttribute("aria-expanded", "false");
+    await expect(role(page, "omp.tool.wait").first()).toBeVisible();
   } finally {
     await cleanup();
   }
@@ -913,6 +1032,46 @@ test("用户消息悬停:从气泡分步移向复制按钮的整条路上按钮�
   }
 });
 
+test("用户气泡超过 12 行收起:露出前 12 行和 N more lines,悬停按钮行照常出来;点开看全,Show less 收回", async () => {
+  // user-long:cards 录制里把用户消息换成 80 行(omp 原样回显发出的文字;单换行在 markdown 里并成一段,折行后仍远超 12 行)。
+  const { launched, cleanup } = await start("user-long");
+  try {
+    const { page } = launched;
+    await page.evaluate(() => globalThis.studio.setGroupToolCalls(true));
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    const bubble = role(page, "omp.user").first();
+    await expect(bubble).toContainText("第 1 行", { timeout: 30_000 });
+    const more = bubble.locator(".tsp-more");
+    await expect(more).toHaveText(/\d+ more lines/);
+    const clamp = bubble.locator(".tsp-clamp");
+    await expect(clamp).toHaveAttribute("data-on", "true");
+    const shut = (await clamp.boundingBox())!.height;
+    // 按正文的行高数行：收起时正好露 12 行正文，"N more lines" 的 N 是展开后多出来的行数（差一行以内）。
+    const lh = await clamp
+      .locator(".md")
+      .first()
+      .evaluate((el) => Number.parseFloat((globalThis as unknown as PageStyle).getComputedStyle(el).lineHeight));
+    expect(Math.abs(shut - 12 * lh)).toBeLessThan(1);
+    const hidden = Number(/(\d+) more lines/.exec((await more.textContent()) ?? "")![1]);
+    // 悬停:按钮行在气泡上方出来;它不在收起的框里(框的渐隐遮罩会把框外的东西整个裁掉)。
+    await bubble.hover();
+    const tools = role(page, "omp.user.tools").first();
+    await expect(tools).toHaveCSS("opacity", "1");
+    expect((await tools.boundingBox())!.y).toBeLessThan((await bubble.boundingBox())!.y);
+    await expect(clamp.locator('[data-role="omp.user.tools"]')).toHaveCount(0);
+    await more.click();
+    await expect(clamp).not.toHaveAttribute("data-on", "true");
+    // 展开后比收起时（12 行）高出被藏的那几行。
+    const open = (await clamp.boundingBox())!.height;
+    expect(open).toBeGreaterThan(shut + 40);
+    expect(Math.abs(Math.round((open - shut) / lh) - hidden)).toBeLessThanOrEqual(1);
+    await bubble.getByRole("button", { name: "Show less" }).click();
+    await expect(clamp).toHaveAttribute("data-on", "true");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("恢复会话:omp 不重发的每轮用量脚注补回;history.db 里有回顾也不补(omp 恢复时不重放)", async () => {
   test.setTimeout(120_000);
   // 假 omp 回放的是 omp 18.12.4 `--resume` 一个 3 轮会话的实录:旧对话重发了,但没有 omp.turn.usage / omp.recap。
@@ -948,8 +1107,40 @@ test("恢复会话:omp 不重发的每轮用量脚注补回;history.db 里有回
     await expect(usage.nth(1)).toHaveText("47.5s · 2.8K tok · <$0.01 this turn");
     await expect(usage.nth(2)).toHaveText("4.7s · 1.1K tok · <$0.01 this turn");
     await expect(usage.nth(2)).toHaveAttribute("title", /^This turn: 4\.7s · 1,097 tokens \(838 in · 259 out\)/);
+    // 悬停里补上回答完成的时刻（会话文件的 completedAt，本地时间）。
+    await expect(usage.nth(2)).toHaveAttribute("title", /\nFinished \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/);
     // 补的行在每轮最后一个助手消息里面(和 omp 实时的位置一样),不是游离在外。
     await expect(page.locator('[data-role="omp.assistant"] > [data-role="omp.turn.usage"]')).toHaveCount(3);
+    // 补的行和 omp 画的一样以复制回答开头（issue #9：恢复的会话之前没有）：点击复制 markdown，右键可复制纯文本。
+    const copy = usage.nth(0).locator('[data-role="omp.turn.copy"]');
+    await expect(copy).toHaveCount(1);
+    const clipboard = () => launched.app.evaluate(({ clipboard }) => clipboard.readText());
+    await launched.app.evaluate(({ clipboard }) => clipboard.writeText(""));
+    await copy.click();
+    await expect.poll(clipboard).not.toBe("");
+    const markdown = await clipboard();
+    await launched.app.evaluate(({ clipboard }) => clipboard.writeText(""));
+    await copy.click({ button: "right" });
+    const items = page.getByRole("menuitem");
+    await expect(items).toHaveText(["复制 Markdown", "复制纯文本"]);
+    await items.nth(1).click();
+    await expect.poll(clipboard).not.toBe("");
+    const plain = await clipboard();
+    // 第 1 轮的回答带粗体：markdown 原样，纯文本是渲染出来的字（记号去掉、正文还在）。Windows 剪贴板读回来是 \r\n。
+    expect(markdown).toMatch(/^完成。(\r?\n){2}\*\*calc\.py\*\* — 新增/);
+    expect(plain).toMatch(/^完成。(\r?\n)+calc\.py — 新增/);
+    expect(plain).not.toContain("**");
+    // 代码块：源码在，头上的语言名（python）不混进来。
+    expect(plain).toContain("def mul(a,b):");
+    expect(plain).not.toMatch(/^python\r?$/m);
+    // 复制图标后面一直显示的"复制纯文本"按钮（issue #9 第二轮，2026-11-09）：不悬停、不右键，点它得到同一段纯文本；后面是分叉按钮。
+    const plainButton = usage.nth(0).locator('[data-role="omp.turn.copy"] + [data-testid="tsp-answer-copy-plain"]');
+    await expect(plainButton).toBeVisible();
+    await expect(plainButton).toHaveAttribute("aria-label", "复制纯文本");
+    await expect(plainButton.locator("+ [data-testid='tsp-answer-fork']")).toBeVisible();
+    await launched.app.evaluate(({ clipboard }) => clipboard.writeText(""));
+    await plainButton.click();
+    await expect.poll(clipboard).toBe(plain);
     // 回顾:history.db 里有,omp 没发,对话里就没有。
     await expect(role(page, "omp.recap")).toHaveCount(0);
   } finally {
@@ -1014,6 +1205,17 @@ test("一轮还在跑（会话文件里这一轮已有结算过的用量）时�
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
     await expect(role(page, "omp.turn.usage")).toHaveCount(1);
     await expect(restored).toHaveCount(0);
+    // omp 实时画的用量行：悬停里补上会话文件里这一轮的完成时刻（本地时间）。按页面里的时区算（测试进程的 Node 和 Chromium 认的时区可能不同）。
+    const finished = await page.evaluate((at) => {
+      const done = new Date(at);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${done.getFullYear()}/${pad(done.getMonth() + 1)}/${pad(done.getDate())} ${pad(done.getHours())}:${pad(done.getMinutes())}:${pad(done.getSeconds())}`;
+    }, userAt + 5000);
+    await expect(role(page, "omp.turn.usage")).toHaveAttribute("title", new RegExp(`\\nFinished ${finished}$`));
+    // omp 自己的复制回答图标：右键是 studio 的两项菜单（复制 Markdown / 纯文本）。
+    await role(page, "omp.turn.usage").locator('[data-role="omp.turn.copy"]').click({ button: "right" });
+    await expect(page.getByRole("menuitem")).toHaveText(["复制 Markdown", "复制纯文本"]);
+    await page.keyboard.press("Escape");
   } finally {
     await cleanup();
     await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
@@ -1189,6 +1391,146 @@ test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对
   }
 });
 
+/** resume 回放到 3 条用户消息、窗口压矮（三轮对话要滚动），返回消息卡片顶边到滚动区顶边的距离。 */
+async function openResume(page: Page, width = 1200): Promise<(nth: number) => Promise<number>> {
+  // 先在宽窗口里点开任务（窄于 1000 时侧栏是抽屉），再缩到要测的宽度。
+  await page.setViewportSize({ width: 1200, height: 600 });
+  await page.evaluate(async () => {
+    const [project] = await globalThis.studio.listProjects();
+    await globalThis.studio.createTask({ projectId: project!.id });
+  });
+  await openTaskRow(page);
+  await expect(role(page, "omp.user")).toHaveCount(3, { timeout: 30_000 });
+  await expect(page.getByTestId("conversation-line-tick")).toHaveCount(3);
+  if (width !== 1200) await page.setViewportSize({ width, height: 600 });
+  return (nth) =>
+    page.evaluate((index) => {
+      type Box = { getBoundingClientRect(): { top: number } };
+      const d = (
+        globalThis as unknown as { document: { querySelector(s: string): Box; querySelectorAll(s: string): Box[] } }
+      ).document;
+      const scroller = d.querySelector('[data-testid="tsp-view"] .tsp-scroller');
+      const card = d.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.user"]')[index]!;
+      return Math.round(card.getBoundingClientRect().top - scroller.getBoundingClientRect().top);
+    }, nth);
+}
+
+test("对话大纲：悬停对话线展开，每条消息一行（第一行文字），点行跳过去并标为当前；离开收起，Esc 收起回到刻度", async () => {
+  test.setTimeout(120_000);
+  const started = await start("resume");
+  const { launched, cleanup } = started;
+  try {
+    const { page } = launched;
+    const landing = await openResume(page);
+    const outline = page.getByTestId("conversation-outline");
+    const rows = page.getByTestId("conversation-outline-row");
+    await expect(outline).toHaveCount(0);
+    await page.getByTestId("conversation-line-tick").nth(1).hover();
+    await expect(rows).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+      const first = (await role(page, "omp.user").nth(i).locator(".md").innerText()).trim().split("\n")[0]!;
+      await expect(rows.nth(i)).toContainText(String(i + 1));
+      await expect(rows.nth(i)).toContainText(first.slice(0, 12));
+    }
+    // 从刻度移到大纲（中间有空隙）不收起；点第 1 行 = 点第 1 个刻度。
+    await rows.nth(0).click();
+    await expect.poll(() => landing(0)).toBeGreaterThanOrEqual(14);
+    expect(await landing(0)).toBeLessThanOrEqual(18);
+    await expect(rows.nth(0)).toHaveAttribute("aria-current", "location");
+    await expect(page.getByTestId("conversation-line-tick").nth(0)).toHaveAttribute("aria-current", "location");
+    // 指针离开：300ms 后收起。
+    await page.mouse.move(400, 300);
+    await expect(outline).toHaveCount(0);
+    // 键盘：聚焦刻度展开，↓ 移到下一个刻度，Esc 收起、焦点留在当前刻度，Esc 不写给 omp。
+    const keysBefore = (await started.receivedKeys()).length;
+    // 键盘用户：先有一次按键，程序聚焦才算 :focus-visible（鼠标点出来的焦点不撑开大纲）。
+    await page.keyboard.press("Shift");
+    await page.getByTestId("conversation-line-tick").nth(0).focus();
+    await expect(outline).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByTestId("conversation-line-tick").nth(1)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(outline).toHaveCount(0);
+    await expect(page.getByTestId("conversation-line-tick").nth(0)).toBeFocused();
+    expect((await started.receivedKeys()).slice(keysBefore)).not.toContain("\x1b");
+  } finally {
+    await cleanup();
+  }
+});
+
+for (const locale of ["zh-CN", "en"] as const) {
+  test(`对话大纲 900 宽（${locale}）：不越界、不盖住刻度`, async () => {
+    test.setTimeout(120_000);
+    const { launched, cleanup } = await start("resume");
+    try {
+      const { page } = launched;
+      await setLocaleTheme(page, locale, "light");
+      await openResume(page, 900);
+      await page.getByTestId("conversation-line-tick").nth(0).hover();
+      const outline = page.getByTestId("conversation-outline");
+      await expect(outline).toBeVisible();
+      await expectNoOverflow(outline);
+      const [box, view, tick] = await Promise.all([
+        outline.boundingBox(),
+        page.getByTestId("tsp-view").boundingBox(),
+        page.getByTestId("conversation-line-tick").nth(0).boundingBox(),
+      ]);
+      expect(box!.x).toBeGreaterThanOrEqual(view!.x);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(tick!.x);
+      expect(box!.width).toBeLessThanOrEqual(view!.width * 0.4 + 1);
+    } finally {
+      await cleanup();
+    }
+  });
+}
+
+test("上一轮 / 下一轮：输入框里 Ctrl+Shift+↑ 两次到第 1 条，到头不动；命令面板“对话大纲”打开后焦点在当前行", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("resume");
+  try {
+    const { page } = launched;
+    const landing = await openResume(page);
+    const ticks = page.getByTestId("conversation-line-tick");
+    // 吸底：当前是最后一条。
+    await expect(ticks.nth(2)).toHaveAttribute("aria-current", "location");
+    const input = page.getByTestId("composer-input");
+    await input.focus();
+    await page.keyboard.press("Control+Shift+ArrowUp");
+    await expect(ticks.nth(1)).toHaveAttribute("aria-current", "location");
+    await page.keyboard.press("Control+Shift+ArrowUp");
+    await expect(ticks.nth(0)).toHaveAttribute("aria-current", "location");
+    await expect.poll(() => landing(0)).toBe(16);
+    await page.keyboard.press("Control+Shift+ArrowUp");
+    await expect(ticks.nth(0)).toHaveAttribute("aria-current", "location");
+    expect(await landing(0)).toBe(16);
+    // 焦点还在输入框，输入框里没多出东西，键没写给 omp。
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("");
+    await page.keyboard.press("Control+Shift+ArrowDown");
+    await expect(ticks.nth(1)).toHaveAttribute("aria-current", "location");
+    // 输入框里有字时这组键是选到段首（Chromium 的文字编辑键），不跳轮。
+    await input.fill("ab cd");
+    await page.keyboard.press("Control+Shift+ArrowUp");
+    const selection = await input.evaluate((el) => {
+      const field = el as unknown as { selectionStart: number; selectionEnd: number };
+      return [field.selectionStart, field.selectionEnd];
+    });
+    expect(selection).toEqual([0, 5]);
+    await expect(ticks.nth(1)).toHaveAttribute("aria-current", "location");
+    await input.fill("");
+
+    await page.keyboard.press("Control+k");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await page.keyboard.type("对话大纲");
+    await page.keyboard.press("Enter");
+    const current = page.locator('[data-testid="conversation-outline-row"][aria-current="location"]');
+    await expect(current).toBeFocused();
+    await expect(current).toContainText("2");
+  } finally {
+    await cleanup();
+  }
+});
+
 // resume 里:edit 卡的 diff 带 `lang:"python"`,wait 卡有 tone:"info"(两张)和 tone:"success"(一张),bash 卡 `lang:"bash"`。
 test("过程卡片(resume 录制):diff 按 lang 有语法色并叠在增删底色上;omp 给了 info 的 wait 卡和中性卡区分开(栏色 + 描边),success 的不染", async () => {
   test.setTimeout(120_000);
@@ -1224,6 +1566,40 @@ test("过程卡片(resume 录制):diff 按 lang 有语法色并叠在增删底�
         .evaluate((el) => (globalThis as unknown as PageStyle).getComputedStyle(el).color);
     expect(await icon(0)).not.toBe(await icon(2));
     await waits.first().scrollIntoViewIfNeeded();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("回答里代码块的引用按钮:带语言的围栏代码块接在草稿后面,焦点给输入框;键盘可用", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("resume");
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    await expect(role(page, "omp.user")).toHaveCount(3, { timeout: 30_000 });
+    const blocks = page.locator('[data-testid="tsp-view"] [data-testid="codeblock"]');
+    const python = blocks.filter({ has: page.locator(".md-codelang", { hasText: /^python$/ }) }).first();
+    const quote = python.getByTestId("codeblock-quote");
+    await expect(quote).toHaveAttribute("aria-label", /\S/);
+    const input = page.getByTestId("composer-input");
+    await input.fill("看这段:");
+    await quote.click();
+    await expect(input).toHaveValue("看这段:\n\n```python\ndef mul(a,b):\n    return a*b\n```\n");
+    await expect(input).toBeFocused();
+    // 没写语言的代码块:围栏不带语言;Tab 到按钮按 Enter 同点击。
+    const plain = blocks.filter({ has: page.locator(".md-codelang", { hasText: /^text$/ }) }).first();
+    await input.fill("");
+    await plain.getByTestId("codeblock-quote").focus();
+    await page.keyboard.press("Enter");
+    await expect(input).toHaveValue(
+      "```\nREADME.md  __pycache__/  calc.py  index.html  logo.svg  overlay.yml  target/\n```\n",
+    );
+    await expect(input).toBeFocused();
   } finally {
     await cleanup();
   }
@@ -2082,8 +2458,13 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await expect(
       panel.locator('[data-testid="agents-row"][data-name="Alpha"]').getByTestId("agents-row-progress"),
     ).toHaveText("66%");
+    // 用时在进度环左边(整秒;录制里 omp 18.12 的 stats.age 一直是 0,所以是 0s);详情的统计格里不再有用时。
+    await expect(beta.getByTestId("agents-row-time")).toHaveText(/^\d+s$|^\d+m \d{2}s$/);
+    await expect(beta.locator('[data-testid="agents-row-time"] + [data-testid="agents-row-progress"]')).toHaveCount(1);
     // 同 omp 的 Agent Hub:一打开就有选中项(列表第一个)和它的详情;对话记录默认收起(工具调用的细节不摆出来),点开才显示。
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Alpha");
+    // 思考强度跟在模型后面(录制里 omp 的 agent.thinking 是 thinkingLow)。
+    await expect(panel.getByTestId("agents-detail-thinking")).toHaveText("Low");
     const recordToggle = panel.getByTestId("agents-record-toggle");
     await expect(recordToggle).toHaveAttribute("aria-expanded", "false");
     await expect(panel.locator(".agents-record .step-tool")).toHaveCount(0);

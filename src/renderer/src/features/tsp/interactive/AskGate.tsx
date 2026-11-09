@@ -7,7 +7,8 @@ import { gateKeyHint } from "../fmt.ts";
 import { encodeKey } from "../keys.ts";
 import type { NodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
-import { useTspNode } from "../tsp-store.ts";
+import { peekTspDocument, useTspNode } from "../tsp-store.ts";
+import { askDigitInGate } from "../../../../../shared/tsp/ask-gate.ts";
 import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { likeOf } from "./key-event.ts";
 
@@ -53,6 +54,15 @@ export function AskGateCol(props: NodeProps & { dom: NodeDomProps }) {
     if (e.defaultPrevented) return;
     // 里面的 list / editor 自己有处理按键的逻辑，只接没人要的键（Review 页、按钮上的键）。
     if (!(e.target instanceof Element) || e.target.closest("[data-tspi-keys]") !== e.currentTarget) return;
+    // 数字键选项（omp 不认数字键）：和 list 拿着焦点时一样，选这一题的第 N 项。
+    const surface = peekTspDocument(ctx.taskId)?.surfaces.get(ctx.sf);
+    const modified = e.ctrlKey || e.altKey || e.metaKey || e.shiftKey;
+    const pick = surface === undefined || modified ? null : askDigitInGate(surface, props.node.id, e.key);
+    if (pick !== null) {
+      e.preventDefault();
+      ctx.send({ ev: pick.ev, sf: ctx.sf, id: pick.list, item: pick.item });
+      return;
+    }
     const data = encodeKey(likeOf(e.nativeEvent));
     if (data === null) return;
     e.preventDefault();

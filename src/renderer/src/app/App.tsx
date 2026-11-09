@@ -42,7 +42,7 @@ import {
   SettingsNav,
   SettingsView,
 } from "./lazy-views.tsx";
-import { onStudioCommand } from "../features/palette/studio-command.ts";
+import { emitStudioCommand, onStudioCommand } from "../features/palette/studio-command.ts";
 import { jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
 import { addProjectAsDraft } from "../features/sidebar/sidebar-actions.ts";
 import { useLocale, useT } from "../i18n/use-t.ts";
@@ -159,6 +159,7 @@ export function App() {
   useDraftTerminalCleanup(draftKey);
   const sidebarWidth = useShellValue("sidebarWidth");
   const sidebarCollapsed = useShellValue("sidebarCollapsed");
+  const conversationWidth = useShellValue("conversationWidth");
   const drawerOpen = useShellValue("drawerOpen");
   const sidebarColumn = useRef<HTMLDivElement>(null);
   const narrow = useMediaQuery(narrowQuery);
@@ -379,6 +380,7 @@ export function App() {
       const at = order.findIndex((id) => id === taskId);
       openTask(order[at === -1 ? (delta === 1 ? 0 : order.length - 1) : (at + delta + order.length) % order.length]);
     },
+    cycleTurn: (delta) => emitStudioCommand(delta === 1 ? "nextTurn" : "prevTurn"),
     cycleRegion: focusRegion,
     togglePalette: () => setPaletteOpen(!paletteOpenRef.current),
     focusSidebarSearch: () => {
@@ -454,9 +456,10 @@ export function App() {
           data-backdrop={backdrop}
           data-backdrop-strength={backdrop && settings?.backdropStrength}
           style={
-            backdrop === "custom"
-              ? ({ "--bd-image": `url("app://studio/@backdrop/${customBackdrop}")` } as CSSProperties)
-              : undefined
+            {
+              ...(conversationWidth != null && { "--content-ratio": `${conversationWidth}cqi` }),
+              ...(backdrop === "custom" && { "--bd-image": `url("app://studio/@backdrop/${customBackdrop}")` }),
+            } as CSSProperties
           }
         >
           {!narrow && sidebarShown && <SidebarResizer width={sidebarWidth} column={sidebarColumn} />}

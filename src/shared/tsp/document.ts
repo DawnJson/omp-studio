@@ -5,7 +5,7 @@
 // 节点记录不可变：任何改动都换一个新对象（父节点的 children 变了也换父节点），渲染进程按对象身份判断要不要重画。
 // 表（Map）本身原地改。
 import { isRecord } from "../type-guards.ts";
-import { mergeStatusNotes, statusNotesIn, type StatusNote } from "./status-notes.ts";
+import { mergeStatusNotes, statusNotesIn, toolExpansionIn, type StatusNote } from "./status-notes.ts";
 import type { TspClose, TspFrame, TspNode, TspOpen, TspOp } from "./tsp.generated.ts";
 
 export interface DocNode {
@@ -35,6 +35,8 @@ export interface DocSurface {
   lastFrame: number;
   /** omp 的状态行（toast `omp.toast.status`）：节点下一帧就没了，出现那一帧记下来；同一个节点 id 换文字时替换那一条（见 status-notes.ts）。每次变化换一个新数组。 */
   statusNotes: readonly StatusNote[];
+  /** omp 的工具输出展开着没有（Ctrl+O；按它的状态行 "Tool output expansion: …" 记，见 status-notes.ts）。新的 omp 进程从收起开始。 */
+  toolsExpanded: boolean;
 }
 
 export interface DocBlob {
@@ -139,6 +141,7 @@ function openSurface(doc: TspDocument, open: TspOpen, result: ApplyResult): void
     suspended: false,
     lastFrame: 0,
     statusNotes: [],
+    toolsExpanded: false,
   });
   doc.live.add(open.id);
   changedSet(result, open.id).add(open.id);
@@ -173,7 +176,9 @@ function applyFrame(doc: TspDocument, frame: TspFrame, result: ApplyResult): voi
     if (error !== null) result.errors.push({ op: index, msg: error });
   });
   const notes = statusNotesIn(surface, frame.ops);
-  if (notes.length > 0) surface.statusNotes = mergeStatusNotes(surface.statusNotes, notes);
+  if (notes.length === 0) return;
+  surface.statusNotes = mergeStatusNotes(surface.statusNotes, notes);
+  surface.toolsExpanded = toolExpansionIn(notes) ?? surface.toolsExpanded;
 }
 
 function applyOp(doc: TspDocument, surface: DocSurface, op: TspOp, changed: Set<string>): string | null {
@@ -412,6 +417,7 @@ export interface DocumentSnapshot {
     suspended: boolean;
     lastFrame: number;
     statusNotes: readonly StatusNote[];
+    toolsExpanded: boolean;
     live: boolean;
   }[];
   /** 文档里 blob 的 id，不带字节（图片一张常有上百 KB，每次拉快照都整份复制太贵）：渲染进程用到哪张再按 id 取（`getTspBlob`）。 */
@@ -432,6 +438,7 @@ export function snapshotDocument(doc: TspDocument): DocumentSnapshot {
       suspended: surface.suspended,
       lastFrame: surface.lastFrame,
       statusNotes: surface.statusNotes,
+      toolsExpanded: surface.toolsExpanded,
       live: doc.live.has(surface.id),
     })),
     blobIds: [...doc.blobs.keys()],
@@ -453,6 +460,7 @@ export function restoreDocument(snapshot: DocumentSnapshot): TspDocument {
       suspended: surface.suspended,
       lastFrame: surface.lastFrame,
       statusNotes: surface.statusNotes,
+      toolsExpanded: surface.toolsExpanded,
     });
     if (surface.live) doc.live.add(surface.id);
   }

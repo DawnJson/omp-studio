@@ -22,6 +22,8 @@ export interface RoleIndex {
   turnCount: number;
   /** 没有用量行的轮的最后一个助手节点 id → 这一轮是第几轮（从 0 数）。 */
   lastAssistantOfBareTurn: Map<string, number>;
+  /** omp 自己画的用量行 id → 它是第几轮（从 0 数）；悬停补回答完成时刻用。 */
+  usageTurn: Map<string, number>;
   /** 对话末尾的错误卡（见 trailingErrorCardId）；没有为 null。 */
   trailingError: string | null;
 }
@@ -30,6 +32,7 @@ export function buildRoleIndex(nodes: ReadonlyMap<string, DocNode> | undefined):
   const byRole = new Map<string, string[]>(INDEXED_ROLES.map((r) => [r, []]));
   /** 按文档顺序切轮：第一个 omp.user 之前的内容不算轮。 */
   const turns: { lastAssistant: string | null; hasUsage: boolean }[] = [];
+  const usageTurn = new Map<string, number>();
   const walk = (id: string): void => {
     const node = nodes?.get(id);
     if (!node) return;
@@ -39,7 +42,10 @@ export function buildRoleIndex(nodes: ReadonlyMap<string, DocNode> | undefined):
       const turn = turns[turns.length - 1];
       if (nodeRole === USER_ROLE) turns.push({ lastAssistant: null, hasUsage: false });
       else if (turn && nodeRole === ASSISTANT_ROLE) turn.lastAssistant = id;
-      else if (turn && nodeRole === USAGE_ROLE) turn.hasUsage = true;
+      else if (turn && nodeRole === USAGE_ROLE) {
+        turn.hasUsage = true;
+        usageTurn.set(id, turns.length - 1);
+      }
     }
     for (const child of node.c) walk(child);
   };
@@ -53,6 +59,7 @@ export function buildRoleIndex(nodes: ReadonlyMap<string, DocNode> | undefined):
     byRole,
     turnCount: turns.length,
     lastAssistantOfBareTurn,
+    usageTurn,
     trailingError: nodes === undefined ? null : trailingErrorCardId(nodes),
   };
 }

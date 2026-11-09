@@ -9,4 +9,5 @@ export const conversation = {
   "todo.completed": "Completed",
   "todo.blocked": "Blocked",
   "todo.abandoned": "Abandoned",
+  resizeColumn: "Conversation width",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

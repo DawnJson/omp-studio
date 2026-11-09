@@ -277,6 +277,19 @@
   overflow: hidden;
   clip-path: inset(50%);
 }
+/* 画成图的代码块带一份源码，平时不显示；回答右键"复制纯文本"时容器挂 data-copying（同步取 innerText 后就摘掉，不重绘），
+   这时只留正文：代码块头（语言名、按钮）和画出来的图不要，图换成它的源码。 */
+.md-figure-source {
+  display: none;
+}
+[data-copying] .md-figure-source {
+  display: block;
+}
+[data-copying] .md-codehead,
+[data-copying] .md-figure,
+[data-copying] .md-figure-note {
+  display: none;
+}
 
 .md-codebody {
   margin: 0;

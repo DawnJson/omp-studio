@@ -1,5 +1,5 @@
 // 状态图标（spec §4.1）：16×16 槽位里放 14px 的图标，形状 + 颜色双信号——进行中是转动的弧，需要介入是琥珀圆底 !，
-// 已完成是圆圈里一个对勾，失败是红圆底 ×，历史会话中断（停在工具调用 / 长度上限）是虚线圈里一个暂停号。从没跑过和被停止的不画，但槽位保留让标题对齐。
+// 失败是红圆底 ×，历史会话中断（停在工具调用 / 长度上限）是虚线圈里一个暂停号。正常结束、从没跑过和被停止的不画，但槽位保留让标题对齐。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { SessionSummary, TaskState } from "../../../../shared/ipc.ts";
 import { dotKind, sessionDotKind, type DotKind } from "../../../../shared/ui/sidebar-model.ts";
@@ -21,13 +21,6 @@ function Glyph({ kind }: { kind: Kind }) {
           <circle className="sb-dot-fill" cx="8" cy="8" r="7" />
           <rect className="sb-dot-ink" x="7.1" y="3.6" width="1.8" height="5.4" rx="0.9" />
           <circle className="sb-dot-ink" cx="8" cy="11.6" r="1.05" />
-        </>
-      );
-    case "done":
-      return (
-        <>
-          <circle className="sb-dot-ring" cx="8" cy="8" r="6.25" />
-          <path className="sb-dot-stroke" d="M5.3 8.2 7.2 10.1 10.8 6.3" />
         </>
       );
     case "error":
@@ -65,21 +58,14 @@ function StatusMark({ kind, label, title }: { kind: DotKind; label: string; titl
 
 export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
   const kind = dotKind(task);
-  const label =
-    kind === "running"
-      ? t("status.running")
-      : kind === "waiting"
-        ? t("status.waiting")
-        : kind === "done"
-          ? t("status.done")
-          : t("status.error");
+  const label = kind === "running" ? t("status.running") : kind === "waiting" ? t("status.waiting") : t("status.error");
   return <StatusMark kind={kind} label={label} />;
 }
 
-/** 历史会话的状态图标：完成、失败、中断三种（见 sessionDotKind）；中断悬停说明是怎么回事。 */
+/** 历史会话的状态图标：失败、中断两种（见 sessionDotKind）；中断悬停说明是怎么回事。 */
 export function SessionStatusDot({ session, t }: { session: SessionSummary; t: TFunction }) {
   const kind = sessionDotKind(session);
   if (kind === "interrupted")
     return <StatusMark kind={kind} label={t("status.interrupted")} title={t("status.interrupted")} />;
-  return <StatusMark kind={kind} label={kind === "error" ? t("status.error") : t("status.done")} />;
+  return <StatusMark kind={kind} label={t("status.error")} />;
 }

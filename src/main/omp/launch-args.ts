@@ -1,7 +1,6 @@
 // omp 启动参数和环境的纯函数部分：不 import electron 和 omp-manager，单元测试可以直接用。
 import path from "node:path";
-import type { ModelKey } from "../../shared/ipc.ts";
-import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { ModelKey, TaskThinkingLevel } from "../../shared/ipc.ts";
 
 /** `--mode rpc-ui` 后台进程（服务进程、项目 rpc-ui 池）的启动参数；任务进程是 TSP，见 TspLaunchSpec。 */
 export interface LaunchSpec {
@@ -47,7 +46,7 @@ export function buildOmpArgs(spec: LaunchSpec): string[] {
 export interface TspLaunchSpec {
   cwd: string;
   model?: ModelKey | null;
-  thinkingLevel?: ThinkingLevel | null;
+  thinkingLevel?: TaskThinkingLevel | null;
   allowHome?: boolean;
   /** 恢复这个会话文件（omp 的 `--resume <路径>`）；新任务为 null。 */
   resumeSessionFile?: string | null;
@@ -64,7 +63,7 @@ export function buildTspArgs(spec: TspLaunchSpec): string[] {
   else if (spec.forkSessionFile) args.push(`--fork=${spec.forkSessionFile}`);
   if (spec.model) args.push("--model", `${spec.model.provider}/${spec.model.modelId}`);
   if (spec.noSession) args.push("--no-session");
-  if (spec.thinkingLevel && spec.thinkingLevel !== "inherit") args.push("--thinking", spec.thinkingLevel);
+  if (spec.thinkingLevel) args.push("--thinking", spec.thinkingLevel);
   if (spec.allowHome) args.push("--allow-home");
   return args;
 }

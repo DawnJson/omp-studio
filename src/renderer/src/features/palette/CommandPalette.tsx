@@ -17,10 +17,16 @@ import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { useHiddenTasks } from "../sidebar/archive-store.ts";
 import { useLoadedHistorySessions } from "../sidebar/use-history-sessions.ts";
 import { CommandIcon, PlusIcon, SearchIcon, SessionIcon, TaskIcon } from "../sidebar/icons.tsx";
-import { useProjects } from "../sidebar/projects-store.ts";
+import { useProjectsState } from "../sidebar/projects-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { useDraftTerminalKey } from "../terminal/index.ts";
-import { projectLabels, sessionTitle, taskTitle } from "../../../../shared/ui/sidebar-model.ts";
+import {
+  isListedSession,
+  projectLabels,
+  sameFolder,
+  sessionTitle,
+  taskTitle,
+} from "../../../../shared/ui/sidebar-model.ts";
 import { commandIcon } from "./command-icons.ts";
 import { buildCommands } from "./palette-commands.ts";
 import { useSlashCommands } from "./slash-commands.ts";
@@ -51,7 +57,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
   const listId = useId();
   const tasks = useTasks();
   const hidden = useHiddenTasks();
-  const projects = useProjects();
+  const projects = useProjectsState().list;
   const selectedTaskId = useSelectedTaskId();
   const view = useMainView();
   const draftTerminalKey = useDraftTerminalKey();
@@ -61,9 +67,21 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
   const activeRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const visibleTasks = useMemo(() => tasks.filter((task) => !hidden.has(task.id)), [tasks, hidden]);
-  // 和侧栏共用一份历史会话列表（主进程每次取都要扫会话目录）。
-  const sessions = useLoadedHistorySessions();
+  // 移出列表的文件夹（Project.hidden）里的任务和会话不列，和侧栏一致；再打开这个文件夹才回来。
+  const hiddenProjects = useMemo(() => projects.filter((project) => project.hidden), [projects]);
+  const visibleTasks = useMemo(
+    () => tasks.filter((task) => !hidden.has(task.id) && !hiddenProjects.some((p) => p.id === task.projectId)),
+    [tasks, hidden, hiddenProjects],
+  );
+  // 和侧栏共用一份历史会话列表（主进程每次取都要扫会话目录）；挂在任务上的、归档的不单列。
+  const allSessions = useLoadedHistorySessions();
+  const sessions = useMemo(
+    () =>
+      allSessions.filter(
+        (session) => isListedSession(session) && !hiddenProjects.some((p) => sameFolder(p.path, session.cwd)),
+      ),
+    [allSessions, hiddenProjects],
+  );
   const current = visibleTasks.find((task) => task.id === selectedTaskId) ?? null;
   // 终端命令：当前任务，或对话页上的新任务草稿。
   const terminalKey = current?.id ?? (selectedTaskId === null && view === "conversation" ? draftTerminalKey : null);

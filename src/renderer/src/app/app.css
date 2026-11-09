@@ -245,7 +245,9 @@ html[data-platform="darwin"] .topbar-left {
   min-width: var(--main-min-w);
   min-height: 0;
   overflow: hidden;
-  /* 对话列宽 --content-w 的 cqi 以主区面板为准（tokens.css） */
+  /* 对话列宽：cqi 以主区面板为准。--content-ratio 是用户拖出来的比例（App.tsx 写在面板上，拖动中 ColumnResizer 直接改），
+     没拖过时 80%。要在这里而不是 :root 定义：自定义属性里的 var() 在声明它的元素上就替换掉了。 */
+  --content-w: clamp(var(--content-w-min), var(--content-ratio, 80cqi), var(--content-w-max));
   container-type: inline-size;
   background: var(--bg-app);
   border: 1px solid var(--border);

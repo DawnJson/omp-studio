@@ -21,6 +21,7 @@ const agent = (name: string, status: HubAgent["status"], stats: Partial<HubAgent
   assignment: null,
   status,
   model: null,
+  thinking: null,
   tool: null,
   stats: {
     tools: null,

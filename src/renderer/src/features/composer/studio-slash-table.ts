@@ -20,7 +20,7 @@ import { toggleSlashCommands } from "../session-toggles/toggles-slash.ts";
 import { emitStudioCommand } from "../palette/studio-command.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { getTask, setPaletteOpen, setSettingsQuery, showView } from "../../store/index.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import { pickerRequestFor, resolveEffortCommand, resolveModelCommand, resolveTodoCommand } from "./slash-args.ts";
 import type { StudioSlashCommand } from "./studio-slash.ts";
 import { setUsageDialogOpen } from "./usage-store.ts";
@@ -89,7 +89,7 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
       if (action.kind === "omp") return "omp";
       if (action.kind === "picker") return emitStudioCommand("model", action.request);
       await window.studio.setTaskModel(taskId, action.key);
-      if (action.level !== null) await window.studio.setTaskThinkingLevel(taskId, action.level as ThinkingLevel);
+      if (action.level !== null) await window.studio.setTaskThinkingLevel(taskId, action.level);
     },
     // 草稿页没有模型目录可匹配：带的词原样填进选择器的搜索框。
     draft: (args) => emitStudioCommand("model", pickerRequestFor(args)),
@@ -98,7 +98,12 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
     name: "effort",
     descKey: "slash.effortDesc",
     run: async (taskId, args) => {
-      const action = resolveEffortCommand(args, getTask(taskId)?.thinkingLevels ?? []);
+      const task = getTask(taskId);
+      // 和输入框胶囊同一份档位（含 auto）。
+      const action = resolveEffortCommand(
+        args,
+        thinkingLevelOptions(task?.model ?? null, task?.thinkingLevels ?? null),
+      );
       if (action.kind === "omp") return "omp";
       if (action.kind === "picker") return openModelPicker();
       await window.studio.setTaskThinkingLevel(taskId, action.level);

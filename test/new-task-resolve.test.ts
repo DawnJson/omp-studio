@@ -26,7 +26,13 @@ describe("resolveNewTaskDefault", () => {
   it("认出模型：按模型档位钳制（medium → low）", () => {
     const result = resolveNewTaskDefault(defaults({ thinkingLevel: "medium" }), null, [model()]);
     expect(result.thinkingLevel).toBe("low");
-    expect(result.levels).toEqual(["low", "high", "max"]);
+    expect(result.levels).toEqual(["auto", "low", "high", "max"]);
+  });
+
+  it("配置的 defaultThinkingLevel 是 auto：草稿显示 auto（不退回服务进程的具体档位）", () => {
+    const global: DefaultModelInfo = { key: model().key, name: model().name, thinkingLevel: "high" };
+    const result = resolveNewTaskDefault(defaults({ thinkingLevel: "auto" }), global, [model()]);
+    expect(result.thinkingLevel).toBe("auto");
   });
 
   it("不支持思考的模型：没有档位、强度为 null", () => {

@@ -11,8 +11,8 @@ import { launchApp } from "./launch.ts";
 
 const now = Date.now();
 const minute = 60_000;
-const projectA = { id: "pa" as ProjectId, path: "E:\\研究 项目\\my app", name: "my app" };
-const projectB = { id: "pb" as ProjectId, path: "E:\\work\\api server", name: "api server" };
+const projectA = { id: "pa" as ProjectId, path: "E:\\研究 项目\\my app", name: "my app", hidden: false };
+const projectB = { id: "pb" as ProjectId, path: "E:\\work\\api server", name: "api server", hidden: false };
 
 /** 页面里量布局用到的最小类型（e2e 的类型检查没有 DOM 类型）。 */
 type PageRect = { top: number; left: number; width: number };
@@ -136,11 +136,14 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
       stub("openTask", () => undefined);
       stub("renameTask", () => undefined);
       stub("archiveTask", () => undefined);
-      stub("removeProject", () => undefined);
+      // 从列表移除 = 藏起来：之后 listProjects 带 hidden。
+      stub("removeProject", (id) => {
+        for (const project of data.projects) if (project.id === id) project.hidden = true;
+      });
       stub("createTask", () => data.tasks[0]);
       stub("listSlashCommands", () => data.slash);
       stub("getShellState", () => ({ sidebarWidth: 264, sidebarCollapsed: false, historyOrder: "folder" }));
-      stub("ensureSessionProject", () => ({ id: "pn", path: "E:\\其他 目录\\notes", name: "notes" }));
+      stub("ensureSessionProject", () => ({ id: "pn", path: "E:\\其他 目录\\notes", name: "notes", hidden: false }));
       stub("setShellState", () => undefined);
     },
     {
@@ -208,8 +211,10 @@ for (const [locale, colorScheme] of [
       await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(3);
       await expect(sidebar.getByRole("region", { name: "api server" })).toBeVisible();
       await expect(myApp.getByTestId("sidebar-session")).toContainText("在终端里排查内存泄漏");
-      // 历史会话也带状态图标：会话文件最后一轮正常答完 = 完成的对勾；没有回复的（下面的 notes）不画。
-      await expect(myApp.getByTestId("sidebar-session").locator(".sb-dot-done")).toBeVisible();
+      // 历史会话的状态图标只画失败 / 中断：最后一轮正常答完的不画，但槽位留着（标题对齐）。
+      const session = myApp.getByTestId("sidebar-session").filter({ hasText: "在终端里排查内存泄漏" });
+      await expect(session.locator(".sb-dot")).toBeVisible();
+      await expect(session.locator(".sb-dot-mark")).toHaveCount(0);
       await expect(myApp.getByTestId("task-row")).toHaveCount(4);
       await expect(sidebar.getByTestId("waiting-strip")).toContainText(words.waitingMany);
       await myApp.getByTestId("sidebar-history-more").click();
@@ -289,12 +294,11 @@ for (const [locale, colorScheme] of [
         element.style.maxHeight = "";
       });
 
-      // 状态点：形状不同，各有 aria-label。
+      // 状态点：形状不同，各有 aria-label；正常结束的任务不画（只有等你 2 + 在跑 1 + 出错 1 个图标）。
       await expect(sidebar.locator(".sb-dot-waiting")).toHaveCount(2);
       await expect(sidebar.locator(".sb-dot-running")).toHaveCount(1);
-      await expect(sidebar.getByTestId("task-row").locator(".sb-dot-done")).toHaveCount(1);
-      await expect(sidebar.getByTestId("sidebar-session").locator(".sb-dot-done")).toHaveCount(1);
       await expect(sidebar.locator(".sb-dot-error")).toHaveCount(1);
+      await expect(sidebar.locator(".sb-dot-mark")).toHaveCount(4);
       // 键盘：Tab 进入列表后方向键移动，F2 重命名，Enter 提交。
       const firstRow = sidebar.getByTestId("task-row").first().locator(".sb-row-main");
       await firstRow.focus();
@@ -421,7 +425,7 @@ test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文�
     const deploy = apiServer.getByTestId("task-row").filter({ hasText: "Deploy pipeline" });
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(deploy.locator(".sb-dot-waiting")).toBeVisible();
-    // 主进程推来：这个任务这一轮结束了（不再等你、也不在跑）。文件夹照旧展开，看得到它变成完成。
+    // 主进程推来：这个任务这一轮结束了（不再等你、也不在跑）。文件夹照旧展开，看得到它的图标没了（正常结束不画，槽位留着）。
     const finished = {
       ...tasks.find((task) => task.id === "t8")!,
       status: "idle",
@@ -430,7 +434,8 @@ test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文�
     await app.evaluate(({ BrowserWindow }, state) => {
       BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:taskState", state);
     }, finished);
-    await expect(deploy.locator(".sb-dot-done")).toBeVisible();
+    await expect(deploy.locator(".sb-dot-mark")).toHaveCount(0);
+    await expect(deploy.locator(".sb-dot")).toBeVisible();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     // 用户自己点了才折叠。
     await toggle.click();
@@ -442,15 +447,25 @@ test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文�
   }
 });
 
-test("窗口重新获得焦点时重扫历史会话；刚归档（还在撤销期）的任务不挡移除文件夹：先提交归档再移除（issue #8）", async () => {
+test('窗口重新获得焦点时重扫历史会话；从列表移除只藏起文件夹（任务不归档），历史会话可归档、在"已归档"里列出；分叉缩进（issue #8、#9）', async () => {
   const agentDir = await makeAgentDir();
+  // 从终端会话分叉出来的会话：parentSession 写父会话文件的路径（omp 从某条消息分叉时就这么写）。
+  const bucketA = path.join(agentDir, "sessions", "--E--研究 项目-my app--");
+  await writeFile(
+    path.join(bucketA, "e_fork.jsonl"),
+    `${JSON.stringify({ type: "session", version: 3, id: "sess-fork", timestamp: "2026-10-18T00:00:00.000Z", cwd: projectA.path, parentSession: path.join(bucketA, "a_terminal.jsonl") })}\n` +
+      userLine("分叉出来接着排查"),
+    "utf8",
+  );
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
   const { app, page } = launched;
   try {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await stubMain(app, "zh-CN");
     await page.reload();
-    const apiServer = page.getByTestId("sidebar").getByRole("region", { name: "api server" });
+    const sidebar = page.getByTestId("sidebar");
+    const myApp = sidebar.getByRole("region", { name: "my app" });
+    const apiServer = sidebar.getByRole("region", { name: "api server" });
     await expect(apiServer.getByTestId("task-row")).toHaveCount(2);
     await expect(apiServer.getByTestId("sidebar-session")).toHaveCount(0);
 
@@ -464,22 +479,69 @@ test("窗口重新获得焦点时重扫历史会话；刚归档（还在撤销�
     await page.evaluate(() => globalThis.dispatchEvent(new Event("focus")));
     await expect(apiServer.getByTestId("sidebar-session")).toContainText("终端里新开的会话");
 
-    for (const title of ["Deploy pipeline", "Write API docs"]) {
-      await apiServer.getByTestId("task-row").filter({ hasText: title }).locator(".sb-row-main").focus();
-      await page.keyboard.press("Delete");
-    }
-    await expect(apiServer.getByTestId("task-row")).toHaveCount(0);
+    // 从列表移除：不要求先归档，任务不归档；文件夹连同里面的任务和历史会话一起不见。
     await apiServer.locator(".sb-group-more").click();
     await page.getByRole("menuitem", { name: "从列表移除" }).click();
-    await expect
-      .poll(() =>
-        app.evaluate(() =>
-          (Reflect.get(globalThis, "__calls") as [string, unknown[]][])
-            .filter(([name]) => name === "archiveTask" || name === "removeProject")
-            .map(([name, args]) => `${name}:${String(args[0])}`),
-        ),
-      )
-      .toEqual(["archiveTask:t8", "archiveTask:t9", "removeProject:pb"]);
+    await expect(apiServer).toHaveCount(0);
+    expect(await mainCalls(app, "removeProject")).toEqual([["pb"]]);
+    expect(await mainCalls(app, "archiveTask")).toEqual([]);
+
+    // 分叉的会话排在原会话后面、缩进一层（my app 里有等你确认的任务，文件夹默认展开）。
+    const fork = myApp.getByTestId("sidebar-session").filter({ hasText: "分叉出来接着排查" });
+    const parent = myApp.getByTestId("sidebar-session").filter({ hasText: "在终端里排查内存泄漏" });
+    await expect(fork).toHaveAttribute("data-depth", "1");
+    await expect(parent).not.toHaveAttribute("data-depth");
+    const [parentBox, forkBox] = [await parent.boundingBox(), await fork.boundingBox()];
+    expect(forkBox!.y).toBeGreaterThan(parentBox!.y);
+    expect(forkBox!.x).toBeGreaterThan(parentBox!.x);
+    // 分叉行标题前有分叉图标，缩进处有引导线。
+    await expect(fork.locator(".sb-row-fork")).toBeVisible();
+    await expect(parent.locator(".sb-row-fork")).toHaveCount(0);
+
+    // 原会话那一行有收起 / 展开分叉的箭头（issue #9，2026-11-09）：点一下分叉不见了，提示里写藏了几个；再点一下回来。
+    const forkToggle = parent.getByTestId("sidebar-fork-toggle");
+    await expect(fork.getByTestId("sidebar-fork-toggle")).toHaveCount(0);
+    await expect(forkToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(forkToggle).toHaveAttribute("aria-label", "收起 1 个分叉");
+    await forkToggle.click();
+    await expect(fork).toHaveCount(0);
+    await expect(forkToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(forkToggle).toHaveAttribute("title", "展开 1 个分叉");
+    await forkToggle.click();
+    await expect(fork).toHaveCount(1);
+    await expect(forkToggle).toHaveAttribute("aria-expanded", "true");
+    // 键盘：箭头按钮 Enter 翻转；行上 ←/→ 收起 / 展开。
+    await forkToggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(fork).toHaveCount(0);
+    await page.keyboard.press("Space");
+    await expect(fork).toHaveCount(1);
+    await parent.locator(".sb-row-main").focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(fork).toHaveCount(0);
+    await page.keyboard.press("ArrowRight");
+    await expect(fork).toHaveCount(1);
+    // 搜索时收起不算数：收起后搜分叉的标题照样搜得到。
+    await forkToggle.click();
+    await expect(fork).toHaveCount(0);
+    await sidebar.getByTestId("sidebar-search").fill("排查");
+    await expect(fork).toHaveCount(1);
+    await expect(parent.getByTestId("sidebar-fork-toggle")).toHaveAttribute("aria-expanded", "true");
+    await sidebar.getByTestId("sidebar-search").fill("");
+    await expect(fork).toHaveCount(0);
+    await forkToggle.click();
+    await expect(fork).toHaveCount(1);
+
+    // 历史会话右键归档：从列表里消失，出现"已归档"，里面列着它。
+    await expect(sidebar.getByTestId("sidebar-history-by-archived")).toHaveCount(0);
+    await parent.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "归档" }).click();
+    await expect(parent).toHaveCount(0);
+    await sidebar.getByTestId("sidebar-history-by-archived").click();
+    await expect(sidebar.getByTestId("sidebar-session")).toHaveText([/在终端里排查内存泄漏/]);
+    // 归档了的会话没有菜单（点开就是恢复）。
+    await sidebar.getByTestId("sidebar-session").click({ button: "right" });
+    await expect(page.getByRole("menuitem")).toHaveCount(0);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

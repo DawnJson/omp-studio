@@ -22,8 +22,12 @@ describe("TSP 任务的启动参数和环境", () => {
       "high",
       "--allow-home",
     ]);
-    // inherit = 不传，让 omp 按自己的配置。
-    expect(buildTspArgs({ cwd: "C:/p", thinkingLevel: "inherit", resumeSessionFile: null })).toEqual([]);
+    // auto（omp 每轮按模型自选）照样传：omp 的 `--thinking` 接受它（cli-reference.md），恢复会话时不被旧的具体档位盖掉。
+    expect(buildTspArgs({ cwd: "C:/p", thinkingLevel: "auto", resumeSessionFile: "C:/s.jsonl" })).toEqual([
+      "--resume=C:/s.jsonl",
+      "--thinking",
+      "auto",
+    ]);
   });
 
   it("环境：扮演 Tern（TERM_PROGRAM=tern、版本、truecolor），保留原有变量，丢掉值为 undefined 的", () => {

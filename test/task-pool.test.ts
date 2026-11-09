@@ -35,6 +35,8 @@ const settings = (maxLiveProcesses = 6, idleClose: IdleClose = "1h"): StudioSett
   soundOnDone: false,
   copyOnSelect: true,
   toolHeadsOnly: false,
+  groupToolCalls: true,
+  terminalShell: null,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",
@@ -191,20 +193,20 @@ describe("任务池：恢复历史会话", () => {
     await h.events.until(state.id, (s) => s.status === "idle");
   }, 60_000);
 
-  it("归档：关进程、从列表移除、tasks.json 保留记录、会话回到历史列表；resume 同一会话文件把它恢复成未归档（同一 id）", async () => {
+  it("归档：关进程、从列表移除、tasks.json 保留记录、会话标成已归档；resume 同一会话文件把它恢复成未归档（同一 id）", async () => {
     const h = await harness();
     const sessionFile = path.join(scratch, "sessions", "归档.jsonl");
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
     await h.registry.updateTask(created.id, { sessionFile });
-    const linked = (): (string | null)[] => h.pool.listSessionLinks().map((link) => link.sessionFile);
-    expect(linked()).toEqual([sessionFile]);
+    const linked = () => h.pool.listSessionLinks().map((link) => [link.sessionFile, link.archived]);
+    expect(linked()).toEqual([[sessionFile, false]]);
     await h.pool.archiveTask(created.id);
     expect(h.events.removed).toEqual([created.id]);
     expect(h.pool.listTasks()).toEqual([]);
     expect(h.registry.findTask(created.id)).toMatchObject({ archived: true, sessionFile });
-    // 已归档任务的会话不算"挂在任务上"：历史列表照常列出它，点开才找得回来（issue #8）。
-    expect(linked()).toEqual([]);
+    // 已归档任务的会话标成 archived：不在列表里，只在"已归档"里，点开才找得回来（issue #8、#9）。
+    expect(linked()).toEqual([[sessionFile, true]]);
 
     const back = await h.pool.resume({
       sessionFile,
@@ -216,17 +218,42 @@ describe("任务池：恢复历史会话", () => {
     expect(back.id).toBe(created.id);
     expect(h.registry.findTask(created.id)?.archived).toBe(false);
     expect(h.pool.listTasks()).toHaveLength(1);
-    expect(linked()).toEqual([sessionFile]);
+    expect(linked()).toEqual([[sessionFile, false]]);
   }, 60_000);
 
-  it("项目下还有未归档任务时不能移除项目，归档后可以", async () => {
+  it("归档还没挂在任务上的历史会话：建一条已归档记录、不起 omp；resume 把它恢复成任务", async () => {
+    const h = await harness();
+    const sessionFile = path.join(scratch, "sessions", "终端里开的.jsonl");
+    await h.pool.archiveSession({ sessionFile, cwd: projectDir, title: "终端会话", modifiedAt: 7 });
+    expect(h.pool.listTasks()).toEqual([]);
+    expect(h.pool.listSessionLinks()).toEqual([expect.objectContaining({ sessionFile, archived: true })]);
+    const back = await h.pool.resume({
+      sessionFile,
+      cwd: projectDir,
+      projectId: h.projectId,
+      title: null,
+      modifiedAt: 7,
+    });
+    expect(h.registry.findTask(back.id)).toMatchObject({ archived: false, title: "终端会话", sessionFile });
+    expect(h.pool.listTasks().map((task) => task.id)).toEqual([back.id]);
+  }, 60_000);
+
+  it("从列表移除只把项目藏起来：任务不归档、照常运行；在这个项目里新建任务或再打开这个文件夹时重新显示", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
-    await expect(h.pool.removeProject(h.projectId)).rejects.toThrow(/still has tasks/);
-    await h.pool.archiveTask(created.id);
     await h.pool.removeProject(h.projectId);
-    expect(h.pool.listProjects()).toEqual([]);
+    expect(h.pool.listProjects()).toEqual([expect.objectContaining({ id: h.projectId, hidden: true })]);
+    expect(h.registry.findTask(created.id)?.archived).toBe(false);
+    expect(h.pool.listTasks().map((task) => [task.id, task.status])).toEqual([[created.id, "idle"]]);
+
+    const second = await h.pool.createTask({ projectId: h.projectId });
+    expect(h.pool.listProjects()[0]?.hidden).toBe(false);
+    await h.events.until(second.id, (s) => s.status === "idle");
+
+    await h.pool.removeProject(h.projectId);
+    expect((await h.pool.ensureProject(projectDir)).id).toBe(h.projectId);
+    expect(h.pool.listProjects()[0]?.hidden).toBe(false);
   }, 60_000);
 });
 

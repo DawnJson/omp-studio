@@ -155,3 +155,40 @@ export function userCardFromEnd(doc: TspDocument, sf: string, nodeId: string): n
   const position = cards.indexOf(card);
   return position < 0 ? null : cards.length - 1 - position;
 }
+
+/**
+ * 回答下方用量行（`omp.turn.usage`）上的"从这里分叉"：`nodeId`（用量行里的节点）所在的助手容器（role `omp.assistant`）属于哪一轮——
+ * 返回它后面还有几张用户消息卡片（0 = 最后一轮），即这条回答回的是当前分支上倒数第几条用户消息（同 userCardFromEnd 的口径）。
+ * 数后面的卡片而不是前面的：压缩过的会话 omp 只画压缩点之后的内容，压缩点之后的回答前面可能一张用户消息卡片都没有。
+ * 不在助手容器里返回 null。
+ */
+export function answerTurnFromEnd(doc: TspDocument, sf: string, nodeId: string): number | null {
+  const surface = doc.surfaces.get(sf);
+  if (!surface) return null;
+  let container: string | null = null;
+  for (
+    let node = surface.nodes.get(nodeId);
+    node;
+    node = node.parent === null ? undefined : surface.nodes.get(node.parent)
+  ) {
+    if (nodeRole(node) === "omp.assistant") {
+      container = node.id;
+      break;
+    }
+  }
+  if (container === null) return null;
+  let seen = false;
+  let after = 0;
+  const stack = ["main"];
+  while (stack.length > 0) {
+    const node = surface.nodes.get(stack.pop() as string);
+    if (!node) continue;
+    if (node.id === container) seen = true;
+    if (nodeRole(node) === "omp.user") {
+      if (seen) after += 1;
+      continue;
+    }
+    for (let index = node.c.length - 1; index >= 0; index -= 1) stack.push(node.c[index] as string);
+  }
+  return seen ? after : null;
+}

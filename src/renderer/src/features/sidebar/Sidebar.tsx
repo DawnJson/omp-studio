@@ -5,7 +5,7 @@ import { publishVisibleTaskIds } from "./visible-order-store.ts";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectId, TaskId, TaskState } from "../../../../shared/ipc.ts";
-import { useShellValue } from "../../app/shell-store.ts";
+import { setHistoryOrder, useShellValue } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { shortcutLabel } from "../../app/platform-keys.ts";
 import {
@@ -32,7 +32,6 @@ import {
   moreNavId,
   showMoreStep,
   timeLimitKey,
-  visibleItems,
 } from "./list-view.ts";
 import { refreshProjects, useProjectsState } from "./projects-store.ts";
 import { addProjectAsDraft, startDraftInFolder } from "./sidebar-actions.ts";
@@ -40,9 +39,11 @@ import { startDraft } from "../empty/index.ts";
 import { isDefaultFolder } from "../empty/default-folder.ts";
 import {
   buildFolders,
+  buildArchived,
   buildTimeline,
   nextWaitingTask,
   projectLabels,
+  visibleItems,
   waitingTasks,
   type SidebarFolder,
 } from "../../../../shared/ui/sidebar-model.ts";
@@ -50,6 +51,8 @@ import type { RowHandlers } from "./TaskRow.tsx";
 import { useHistorySessions } from "./use-history-sessions.ts";
 import { useSidebarMenus } from "./use-sidebar-menus.tsx";
 import "./sidebar.css";
+
+const noneCollapsed: ReadonlySet<string> = new Set();
 
 export function Sidebar() {
   const t = useT();
@@ -67,6 +70,8 @@ export function Sidebar() {
 
   const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({});
   const [limits, setLimits] = useState<Record<string, number>>({});
+  // 收起了分叉的行（SidebarItem.key）：默认都展开；和文件夹的展开状态一样只在内存，重开应用回到全部展开。
+  const [collapsedForks, setCollapsedForks] = useState<ReadonlySet<string>>(() => new Set());
   const [tabStop, setTabStop] = useState("");
   const [renamingId, setRenamingId] = useState<TaskState["id"] | null>(null);
   // 斜杠命令 /rename（不带新名字）：当前任务的行进入就地改名；侧栏收起时 App 同时把它展开。
@@ -90,7 +95,7 @@ export function Sidebar() {
     // 拖入文件夹时主进程已经把它加入项目。
     return window.studio.onProjectDropped(() => void refreshProjects());
   }, []);
-  // 恢复历史会话会让主进程自动加入新项目：任务指向列表里没有的项目时重新取一次。
+  // 恢复历史会话会让主进程自动加入新项目、重新显示移出列表的项目：任务指向列表里没有的项目时重新取一次。
   const unknownProject = useMemo(
     () =>
       projectsState.loaded &&
@@ -103,6 +108,10 @@ export function Sidebar() {
 
   const order = useShellValue("historyOrder");
   const sessions = useHistorySessions(searching, historyKey);
+  // "已归档"不记进外壳状态：重开应用回到平常的列表。最后一条归档的恢复后自己回到平常的列表。
+  const [showArchived, setShowArchived] = useState(false);
+  const hasArchived = useMemo(() => sessions.some((session) => session.archived), [sessions]);
+  const mode = showArchived && hasArchived ? "archived" : order;
   // 任务和会话合成一个列表（搜索同时过滤两者）；默认文件夹（chats 目录）叫"默认文件夹"，不露出目录名。
   const folders = useMemo(
     () =>
@@ -123,7 +132,13 @@ export function Sidebar() {
         : [],
     [order, projectsState.list, tasksState.list, sessions, hidden, query],
   );
-  const waiting = useMemo(() => waitingTasks(tasksState.list, hidden), [tasksState.list, hidden]);
+  const archived = useMemo(() => buildArchived({ sessions, query }), [sessions, query]);
+  // 平铺的列表：按时间排列，或"已归档"。
+  const flat = mode === "archived" ? archived : timeline;
+  const waiting = useMemo(
+    () => waitingTasks(tasksState.list, projectsState.list, hidden),
+    [projectsState.list, tasksState.list, hidden],
+  );
   const labelOf = (projectId: ProjectId) => {
     const project = projectsState.list.find((candidate) => candidate.id === projectId);
     if (project === undefined) return "";
@@ -137,6 +152,8 @@ export function Sidebar() {
     (folder: SidebarFolder) => searching || (openOverride[folder.key] ?? defaultOpen(folder, selectedTaskId)),
     [searching, openOverride, selectedTaskId],
   );
+  // 分叉的收起同理：搜索时全部展开。
+  const foldedForks = searching ? noneCollapsed : collapsedForks;
   // 因为选中 / 在跑 / 等你确认而展开的文件夹记成"展开"：任务跑完、换了选中项都不再自己收起，只有用户点了才折叠。
   const autoOpened = useMemo(
     () =>
@@ -155,16 +172,15 @@ export function Sidebar() {
     });
   }, [autoOpened]);
 
-  const { menu, openTaskMenu, openProjectMenu } = useSidebarMenus({
+  const { menu, openTaskMenu, openSessionMenu, openProjectMenu } = useSidebarMenus({
     t,
     selectedTaskId,
-    projectTaskIds: (project) => tasksState.list.filter((task) => task.projectId === project.id).map((task) => task.id),
     onRename: (task) => setRenamingId(task.id),
   });
 
   // 行的回调：一份稳定的对象（只在语言变了时换新），回调里读最新的选中任务和菜单，任务行的 memo 才有用。
-  const latest = useRef({ selectedTaskId, openTaskMenu });
-  latest.current = { selectedTaskId, openTaskMenu };
+  const latest = useRef({ selectedTaskId, openTaskMenu, openSessionMenu });
+  latest.current = { selectedTaskId, openTaskMenu, openSessionMenu };
   const rows = useMemo<RowHandlers>(
     () => ({
       t,
@@ -177,7 +193,14 @@ export function Sidebar() {
           })
           .catch((error: unknown) => reportError(t, error)),
       onFocusItem: setTabStop,
+      onToggleForks: (key) =>
+        setCollapsedForks((current) => {
+          const next = new Set(current);
+          if (!next.delete(key)) next.add(key);
+          return next;
+        }),
       onOpenMenu: (task, x, y, trigger) => latest.current.openTaskMenu(task, x, y, trigger),
+      onOpenSessionMenu: (session, x, y, trigger) => latest.current.openSessionMenu(session, x, y, trigger),
       onStartRename: (task) => setRenamingId(task.id),
       onCommitRename: (task, title) => {
         setRenamingId(null);
@@ -192,11 +215,12 @@ export function Sidebar() {
 
   // roving tabindex：整个列表一个停靠点，记住的那个已不存在时回到选中的任务，再不行是第一项。
   const navIds = useMemo(() => {
-    if (order === "time") {
+    if (mode !== "folder") {
       const { shown, remaining } = visibleItems(
-        timeline,
+        flat,
         searching ? Infinity : (limits[timeLimitKey] ?? initialByTime),
         selectedTaskId,
+        foldedForks,
       );
       return [...shown.map((item) => item.key), ...(remaining > 0 ? [moreNavId(timeLimitKey)] : [])];
     }
@@ -206,10 +230,11 @@ export function Sidebar() {
         folder.items,
         searching ? Infinity : (limits[folder.key] ?? initialPerFolder),
         selectedTaskId,
+        foldedForks,
       );
       return [folderNavId(folder), ...shown.map((item) => item.key), ...(remaining > 0 ? [moreNavId(folder.key)] : [])];
     });
-  }, [order, timeline, folders, searching, limits, isOpen, selectedTaskId]);
+  }, [mode, flat, folders, searching, limits, isOpen, selectedTaskId, foldedForks]);
   const selectedNav = selectedTaskId === null ? "" : `task:${selectedTaskId}`;
   const tabStopId = navIds.includes(tabStop) ? tabStop : navIds.includes(selectedNav) ? selectedNav : (navIds[0] ?? "");
   const visibleTaskKey = useMemo(
@@ -345,11 +370,18 @@ export function Sidebar() {
             </div>
           )}
           <HistorySection
+            mode={mode}
+            onModeChange={(next) => {
+              setShowArchived(next === "archived");
+              if (next !== "archived") setHistoryOrder(next);
+            }}
             folders={folders}
-            timeline={timeline}
+            flat={flat}
+            hasArchived={hasArchived}
             searching={searching}
             isOpen={isOpen}
             limits={limits}
+            collapsedForks={foldedForks}
             selectedTaskId={selectedTaskId}
             tabStopId={tabStopId}
             renamingId={renamingId}
@@ -364,7 +396,7 @@ export function Sidebar() {
             onNewTask={(folder) => void startDraftInFolder(folder, t)}
             onOpenProjectMenu={openProjectMenu}
           />
-          {searching && folders.length === 0 && timeline.length === 0 && (
+          {searching && (mode === "folder" ? folders.length === 0 : flat.length === 0) && (
             <p className="sb-note" role="status">
               {t("sidebar.searchNone")}
             </p>

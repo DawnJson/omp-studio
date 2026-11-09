@@ -15,11 +15,13 @@ import type {
   RestoredQueue,
   SessionTreeView,
   BranchTaskResult,
+  ForkMode,
   ForkResult,
   StudioSettings,
   TaskId,
   TaskNotice,
   TaskState,
+  TaskThinkingLevel,
   TspBatch,
   TspSessionExtras,
   ContextReport,
@@ -27,12 +29,14 @@ import type {
   TspSnapshot,
 } from "../../shared/ipc.ts";
 import type { DocBlob } from "../../shared/tsp/document.ts";
-import type { AvailableSlashCommand, GoalOp, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { AvailableSlashCommand, GoalOp } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "../../shared/btw.ts";
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import { titleFromPrompt } from "./convert.ts";
-import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
+import { looksLikeConsoleTitle, stripIconGlyphs } from "../../shared/ui/clean-title.ts";
+import { readSessionHead } from "../history/session-index.ts";
+import { log } from "../log/log.ts";
 import {
   TooManyTasksError,
   TspRunner,
@@ -53,6 +57,11 @@ export const IDLE_CLOSE_MS: Readonly<Record<IdleClose, number | null>> = {
 const SNAPSHOT_LRU_SIZE = 10;
 const SHUTDOWN_CLOSE_TIMEOUT_MS = 5_000;
 const SWEEP_INTERVAL_MS = 60_000;
+
+/** 历史会话建任务记录时的标题：终端里 omp 起的会话标题带图标字形（私用区字符），存进任务前去掉。 */
+function historyTitle(title: string | null): string {
+  return title === null ? "" : titleFromPrompt(stripIconGlyphs(title)) || stripIconGlyphs(title);
+}
 
 interface PoolEvents {
   state(state: TaskState): void;
@@ -79,8 +88,6 @@ export interface PoolDeps {
   worktrees?: WorktreeOps;
   /** 归档任务、丢弃 worktree 之前调用并等待（不抛错）：用来结束任务名下的内置终端，Windows 上进程占着目录就删不掉。 */
   beforeTaskClose?(id: TaskId): Promise<void>;
-  /** 分叉出的新任务的标题（原标题加“分叉”后缀）；没传时沿用原标题。空标题不会走到这里。 */
-  forkTitle?(title: string): string;
   /** 上次读到的模型目录（启动缓存）：任务进程起来之前和服务进程的目录读到之前，胶囊先按它显示名字、上下文窗口和思考档位。 */
   knownModels?(): ModelOption[];
   /**
@@ -149,14 +156,38 @@ export class TaskPool {
     };
   }
 
-  /** 载入 tasks.json，为未归档的任务建（还没有进程的）运行时，并开始定时回收。 */
+  /** 载入 tasks.json，换掉误存的控制台标题，为未归档的任务建（还没有进程的）运行时，并开始定时回收。 */
   async init(): Promise<void> {
     await this.#deps.registry.load();
+    await this.#replaceConsoleTitles();
     for (const record of this.#deps.registry.listTasks()) {
       if (!record.archived) this.#adopt(record);
     }
     this.#sweepTimer = setInterval(() => void this.sweep(Date.now()), SWEEP_INTERVAL_MS);
     this.#sweepTimer.unref();
+  }
+
+  /**
+   * 2026-11-06 之前 ConPTY 转发的控制台标题（`Administrator: C:\…\cmd.exe` 之类）被当成任务标题存进了 tasks.json（issue #9）。
+   * 启动时（还没有进程）把这些记录（含已归档的，恢复时会回来）的标题换成会话文件里 omp 的标题，没有就用第一条消息的首行，
+   * 再没有（或还没有会话文件）留空。会话文件读不了的只记日志、原样保留，打开后由 TspRunner 按会话文件换掉。
+   */
+  async #replaceConsoleTitles(): Promise<void> {
+    for (const record of this.#deps.registry.listTasks()) {
+      if (!looksLikeConsoleTitle(record.title)) continue;
+      const file = record.sessionFile;
+      try {
+        let title = "";
+        if (file !== null) {
+          const head = await readSessionHead(file, (await stat(file)).size);
+          if (head === null) throw new Error("not a session file");
+          title = stripIconGlyphs(head.title ?? "") || titleFromPrompt(head.firstPrompt ?? "");
+        }
+        await this.#deps.registry.updateTask(record.id, { title });
+      } catch (error) {
+        log.warn(`task ${record.id} replacing the console title failed`, { message: String(error) });
+      }
+    }
   }
 
   #adopt(record: TaskRecord): TspRunner {
@@ -186,27 +217,52 @@ export class TaskPool {
     return project.path;
   }
 
-  /** 已有同路径项目就返回它；会话恢复时自动加入，不弹框。 */
+  /** 已有同路径项目就返回它（移出过列表的重新显示）；会话恢复时自动加入，不弹框。 */
   ensureProject(cwd: string): Promise<Project> {
     return this.#deps.registry.addProject(cwd);
   }
 
+  /**
+   * "从列表移除"：只把项目藏起来（Project.hidden），任务不归档、在跑的照跑；这个目录的历史会话也一起不列出。
+   * 再打开这个文件夹、恢复其中的会话时重新显示（ensureProject）。
+   */
   async removeProject(projectId: ProjectId): Promise<void> {
-    if (!this.#deps.registry.findProject(projectId)) throw new Error(`unknown project ${projectId}`);
-    if (this.#deps.registry.listTasks().some((task) => task.projectId === projectId && !task.archived))
-      throw new Error("project still has tasks; archive them first");
-    await this.#deps.registry.removeProject(projectId);
+    await this.#deps.registry.setProjectHidden(projectId, true);
   }
 
   /**
-   * 未归档任务挂着的会话文件；历史列表据此填 SessionSummary.taskId（有 taskId 的不在历史里列出）。
-   * 已归档的不算：它的会话回到历史列表，点开走 resume() 恢复成同一个任务（issue #8：归档后会话再也找不到）。
+   * 任务挂着的会话文件；历史列表据此填 SessionSummary.taskId（未归档：它就是任务行）和 archived（已归档：不在列表里，
+   * 只在"已归档"里列出，点开走 resume() 恢复成同一个任务）。
    */
-  listSessionLinks(): { id: TaskId; projectId: ProjectId; sessionFile: string | null }[] {
+  listSessionLinks(): { id: TaskId; projectId: ProjectId; sessionFile: string | null; archived: boolean }[] {
     return this.#deps.registry
       .listTasks()
-      .filter((task) => !task.archived)
-      .map(({ id, projectId, sessionFile }) => ({ id, projectId, sessionFile }));
+      .map(({ id, projectId, sessionFile, archived }) => ({ id, projectId, sessionFile, archived }));
+  }
+
+  /**
+   * 归档一条还没挂在任务上的历史会话（终端里开的）：建一条已归档的任务记录，不起进程、不动会话文件。
+   * 之后它和归档的任务一样不在列表里，从"已归档"点开走 resume() 恢复。已经挂在任务上的会话按任务归档。
+   */
+  async archiveSession(input: Omit<ResumeInput, "projectId">): Promise<void> {
+    const existing = this.#deps.registry.findTaskBySessionFile(input.sessionFile);
+    if (existing && this.#runners.has(existing.id)) return this.archiveTask(existing.id);
+    if (existing) {
+      if (!existing.archived) await this.#deps.registry.updateTask(existing.id, { archived: true });
+      return;
+    }
+    // 任务记录要挂在项目上：会话的目录还不是项目时加进来（同 resume）。不能建成藏起来的：那会把同目录的其它历史会话一起藏掉。
+    const project =
+      this.#deps.registry.findProjectByPath(input.cwd) ?? (await this.#deps.registry.addProject(input.cwd));
+    const record = await this.#deps.registry.addTask({
+      projectId: project.id,
+      sessionFile: input.sessionFile,
+      title: historyTitle(input.title),
+      model: null,
+      thinkingLevel: null,
+      updatedAt: input.modifiedAt,
+    });
+    await this.#deps.registry.updateTask(record.id, { archived: true });
   }
 
   /** 任务的会话文件（含已归档的任务）；还没有会话文件时为 null，任务不存在就抛错。 */
@@ -223,8 +279,9 @@ export class TaskPool {
   }
 
   async createTask(input: CreateTaskInput): Promise<TaskState> {
-    const project = this.#deps.registry.findProject(input.projectId);
-    if (!project) throw new Error(`unknown project ${input.projectId}`);
+    const found = this.#deps.registry.findProject(input.projectId);
+    if (!found) throw new Error(`unknown project ${input.projectId}`);
+    const project = await this.#shown(found);
     // worktree 先建好再落记录：建失败（不是仓库、setup 脚本失败）时没有半成品任务。
     const worktree = input.worktree === true ? await this.#worktrees().create(project) : undefined;
     // 草稿里没选（"用于此任务"）的项不传：omp 按自己的配置（modelRoles.default、defaultThinkingLevel）选（设计原则 7）；
@@ -247,17 +304,24 @@ export class TaskPool {
     runner.start().catch(() => {});
   }
 
+  /** 在移出列表的项目里开任务、恢复会话：项目重新显示，不然任务开起来侧栏里看不到。 */
+  async #shown(project: Project): Promise<Project> {
+    return project.hidden ? this.#deps.registry.setProjectHidden(project.id, false) : project;
+  }
+
   async resume(input: ResumeInput): Promise<TaskState> {
-    const project =
-      this.#deps.registry.findProject(input.projectId) ?? (await this.#deps.registry.addProject(input.cwd));
+    const known = this.#deps.registry.findProject(input.projectId);
+    const project = known ? await this.#shown(known) : await this.#deps.registry.addProject(input.cwd);
     const existing = this.#deps.registry.findTaskBySessionFile(input.sessionFile);
     if (existing) {
       const live = this.#runners.get(existing.id);
       if (live) return live.state;
-      // 已归档的任务恢复成未归档（同一 id，侧栏的"撤销"）；它的项目可能已被移除，挂回会话自己的 cwd 对应的项目。
+      // 已归档的任务恢复成未归档（同一 id，"已归档"里点开）；它的项目可能已被移除或移出列表，挂回会话自己的 cwd 对应的项目。
+      const own = this.#deps.registry.findProject(existing.projectId);
+      if (own) await this.#shown(own);
       const revived = await this.#deps.registry.updateTask(existing.id, {
         archived: false,
-        ...(!this.#deps.registry.findProject(existing.projectId) && { projectId: project.id }),
+        ...(!own && { projectId: project.id }),
       });
       const runner = this.#adopt(revived);
       this.#deps.events.state(runner.state);
@@ -267,8 +331,7 @@ export class TaskPool {
     const record = await this.#deps.registry.addTask({
       projectId: project.id,
       sessionFile: input.sessionFile,
-      // 终端里 omp 起的会话标题带图标字形（私用区字符），存进任务前去掉。
-      title: input.title === null ? "" : titleFromPrompt(stripIconGlyphs(input.title)) || stripIconGlyphs(input.title),
+      title: historyTitle(input.title),
       model: null,
       thinkingLevel: null,
       updatedAt: input.modifiedAt,
@@ -449,18 +512,22 @@ export class TaskPool {
   /**
    * 从一条用户消息分叉出新任务（docs/architecture/session-tree.md）：`entryId` 是会话条目 id（会话树面板的节点；null = 当前分支最后一条用户消息）。
    * 新任务同项目、同 cwd（worktree 任务的分叉记同一个 worktree，由 discardWorktree 保证不被一方删掉）、同模型；第一次起进程用
-   * `omp --fork=<原会话文件>`（omp 自己复制出新会话文件，我们不写会话文件），起来后在新进程里用 `/tree` 回到那条消息之前（TspRunner.rewindTo）。
-   * 原任务不动。回溯失败时新任务保留（它是原会话的完整副本），错误照抛。
+   * `omp --fork=<原会话文件>`（omp 自己复制出新会话文件，我们不写会话文件），起来后在新进程里用 `/tree` 移到分叉点：
+   * `before-user` 回到那条消息之前（TspRunner.rewindTo，返回它的文字），`after-answer` 停在它的回答上（TspRunner.moveToAnswer，
+   * 叶子已经在那里就不动；返回空文字，输入框空着）。
+   * 原任务不动。移动失败时新任务保留（它是原会话的完整副本），错误照抛。
    */
-  async forkTask(id: TaskId, entryId: string | null): Promise<ForkResult> {
+  async forkTask(id: TaskId, entryId: string | null, mode: ForkMode): Promise<ForkResult> {
     const source = this.#runner(id);
-    const { sourceFile, entryId: target, target: known } = await source.prepareFork(entryId);
+    const { sourceFile, point } = await source.prepareFork(entryId, mode);
     const { projectId, title, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase, cwd } = source.record;
     const record = await this.#deps.registry.addTask({
       projectId,
       sessionFile: null,
       forkFrom: sourceFile,
-      title: title === "" ? title : (this.#deps.forkTitle?.(title) ?? title),
+      // 沿用原标题，不加"分叉"后缀：侧栏把分叉缩进在原会话下面（SessionSummary.parentId）。
+      // 控制台标题（见 #replaceConsoleTitles）不沿用：留空，分叉起来后用 omp 的标题。
+      title: looksLikeConsoleTitle(title) ? "" : title,
       model,
       thinkingLevel,
       // omp 里 `/move` 过的会话绑在新目录上，分叉要在同一目录起。
@@ -472,7 +539,11 @@ export class TaskPool {
     const forked = this.#adopt(record);
     this.#deps.events.state(forked.state);
     await forked.start();
-    const { text } = await forked.rewindTo(target, known);
+    if (point.mode === "after-answer") {
+      await forked.moveToAnswer(point.answer);
+      return { task: forked.state, text: "" };
+    }
+    const { text } = await forked.rewindTo(point.entryId, point.target);
     return { task: forked.state, text };
   }
 
@@ -608,7 +679,7 @@ export class TaskPool {
     return this.#runner(id).setModel(model);
   }
 
-  setTaskThinkingLevel(id: TaskId, level: ThinkingLevel): Promise<void> {
+  setTaskThinkingLevel(id: TaskId, level: TaskThinkingLevel): Promise<void> {
     return this.#runner(id).setThinkingLevel(level);
   }
 

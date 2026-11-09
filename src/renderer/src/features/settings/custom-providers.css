@@ -70,7 +70,7 @@
   min-width: 0;
 }
 
-/* 工具栏：全选方框 · 拉取模型 · 自动发现开关 · 筛选 · 已选计数（靠右，只在有筛选框时）。 */
+/* 工具栏：拉取模型 · 自动发现开关 · 移除失效的（有失效的才有）· 筛选（行多时）；覆盖内置 provider 是全选方框 · 筛选 · 已选计数（靠右）。 */
 .cp-models-bar {
   display: flex;
   flex-wrap: wrap;
@@ -84,9 +84,35 @@
   color: var(--text-3);
 }
 
+/* 拉取模型的选择浮层往下展开（上面是连接信息）；列表在浮层里滚动。 */
+.cp-fetch .ui-popover {
+  top: calc(100% + var(--space-2));
+  bottom: auto;
+}
+
+.cp-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-1-5);
+}
+
+.cp-picker-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.cp-picker-list .ui-choice {
+  min-width: 0;
+  padding: var(--space-1) var(--space-1-5);
+}
+
 /*
- * 模型表：模型 id | （类型）| 思考 | 图片输入 | 上下文窗口 | 最大输出。每行是 subgrid，各列控件上下对齐；
- * 没勾选的模型只有勾选框和 id（拉取来的几百个模型不用每行都放控件），生图模型只到类型列。
+ * 模型表：模型 id | （类型）| 思考 | 图片输入 | 上下文窗口 | 最大输出 | （×）。每行是 subgrid，各列控件上下对齐；
+ * 覆盖内置 provider 时没勾选的模型只有勾选框和 id（不用每行都放控件），生图模型只到类型列，自动发现的只读行只有 id。
  */
 .cp-model-table {
   display: grid;
@@ -103,6 +129,15 @@
 
 .cp-model-table[data-kinds] {
   grid-template-columns: minmax(0, 1fr) 88px repeat(2, 128px) repeat(2, 120px);
+}
+
+/* 自定义 provider（data-remove）：最后一列是移除 ×。 */
+.cp-model-table[data-remove] {
+  grid-template-columns: minmax(0, 1fr) repeat(2, 128px) repeat(2, 120px) var(--control-h-sm);
+}
+
+.cp-model-table[data-kinds][data-remove] {
+  grid-template-columns: minmax(0, 1fr) 88px repeat(2, 128px) repeat(2, 120px) var(--control-h-sm);
 }
 
 .cp-model-head,
@@ -142,6 +177,36 @@
 .cp-model-row .ui-choice {
   min-width: 0;
   padding: var(--space-1) 0;
+}
+
+.cp-model-name {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-1) 0;
+}
+
+.cp-model-name > .ui-badge {
+  flex: none;
+}
+
+/* 自动发现的模型：灰色只读行。 */
+.cp-model-row[data-discovered] {
+  color: var(--text-3);
+}
+
+/* 移除 × 和侧栏行的操作一样，悬停 / 聚焦这一行时才显示；生图、只有 id 的行也放在最后一列。 */
+.cp-model-remove {
+  grid-column: -2;
+  justify-self: end;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.cp-model-row:hover .cp-model-remove,
+.cp-model-row:focus-within .cp-model-remove {
+  opacity: 1;
 }
 
 .cp-model-id {

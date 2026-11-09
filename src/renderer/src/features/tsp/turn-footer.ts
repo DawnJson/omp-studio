@@ -42,7 +42,14 @@ export function formatTokens(count: number): string {
   return `${one(count / 1_000_000_000)}B`;
 }
 
-/** 脚注的文字和悬停提示（omp 的 `tLo`）。 */
+/** 回答完成的时刻，写法同 omp 用户消息时间的悬停（"2026/10/22 02:47:57"，本地时间）。 */
+export function formatFinishedAt(epochMs: number): string {
+  const d = new Date(epochMs);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** 脚注的文字和悬停提示（omp 的 `tLo`）；悬停再加一行回答完成的时刻（omp 没有，studio 补）。 */
 export function formatTurnFooter(footer: TspTurnFooter): { text: string; title: string } {
   const total = footer.input + footer.output;
   const cost = footer.cost > 0 ? formatTurnCost(footer.cost) : undefined;
@@ -50,5 +57,10 @@ export function formatTurnFooter(footer: TspTurnFooter): { text: string; title: 
   const short = [elapsed, `${formatTokens(total)} tok`, cost].filter((part) => part !== undefined).join(" · ");
   const detail = `${total.toLocaleString("en-US")} tokens (${footer.input.toLocaleString("en-US")} in · ${footer.output.toLocaleString("en-US")} out)`;
   const long = [elapsed, detail, cost].filter((part) => part !== undefined).join(" · ");
-  return { text: `${short} this turn`, title: `This turn: ${long}` };
+  return { text: `${short} this turn`, title: withFinishedAt(`This turn: ${long}`, footer.completedAt) };
+}
+
+/** 用量行的悬停加上回答完成的时刻（omp 实时画的用量行也用它）；没有时刻时原样返回。 */
+export function withFinishedAt(title: string, completedAt: number | null): string {
+  return completedAt === null ? title : `${title}\nFinished ${formatFinishedAt(completedAt)}`;
 }

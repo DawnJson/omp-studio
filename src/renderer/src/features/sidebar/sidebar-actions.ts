@@ -43,7 +43,8 @@ export async function startDraftInFolder(folder: SidebarFolder, t: TFunction): P
 /** Ctrl J：跳到等你确认的任务；已在其中一个时跳到下一个。没有等待的任务时什么也不做。 */
 export async function jumpToWaitingTask(current: TaskId | null, t: TFunction): Promise<void> {
   try {
-    const target = nextWaitingTask(waitingTasks(await window.studio.listTasks(), new Set()), current);
+    const [tasks, projects] = await Promise.all([window.studio.listTasks(), window.studio.listProjects()]);
+    const target = nextWaitingTask(waitingTasks(tasks, projects, new Set()), current);
     if (target !== null) await selectTask(target.id);
   } catch (error) {
     reportError(t, error);

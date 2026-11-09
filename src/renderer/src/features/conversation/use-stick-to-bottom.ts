@@ -3,7 +3,7 @@
 // 回调在排版之后、绘制之前，这一帧画出来就已经在底部。留到下一个 rAF 设，长出来的内容会先在底边下面画一帧再跳上来（闪一下）。
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { onStickToBottomRequest } from "./scroll-bus.ts";
+import { onLeaveBottomRequest, onStickToBottomRequest } from "./scroll-bus.ts";
 
 const STICK_THRESHOLD = 48;
 
@@ -228,6 +228,9 @@ export function useStickToBottom(
     const stopBus = onStickToBottomRequest((id) => {
       if (id === taskId) scrollToBottom();
     });
+    const stopLeave = onLeaveBottomRequest((id) => {
+      if (id === taskId) stuck.current = false;
+    });
     return () => {
       contentObserver.disconnect();
       anchorsObserver.disconnect();
@@ -240,6 +243,7 @@ export function useStickToBottom(
       window.removeEventListener("pointerup", onPointerUp, true);
       window.removeEventListener("pointercancel", onPointerUp, true);
       stopBus();
+      stopLeave();
     };
   }, [taskId, scroller, content, pinToBottom, recordAnchor, scrollToBottom]);
 

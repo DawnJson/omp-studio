@@ -53,7 +53,8 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 - omp 的 `task.completionProbe` 设置（默认开）：子代理跑了 2、5、10、30 分钟后各问它一次完成了多少，之后每小时一次。录制里约 130 秒时第一次出现。
 - 结果进 `agent` 节点 `stats.done`（0–1，Alpha `0.66`、Beta `0.55`），`listAgents` 解析成 `HubAgent.stats.done`。同时 wait 卡片的磁贴头上多一个 `meter` 节点：`role:"omp.job.tile.ring"`、`style:"ring"`、`size:"sm"`、`value`、`label:"66%"`、`title:"The agent's own completion estimate: 66%"`；studio 按 meter 正常画，CSS 只把百分比改成强调色加粗。
 - 子代理面板：只在 `running` 且有 `done` 时，行右端的状态文字换成小进度环 + 百分比，详情统计多一格"完成度"；结束后不再显示（估计已过时）。
-- 同一录制里 `agent` 节点的 `stats.age` 一直是 `0`（运行中的用时在 `tool.age`），所以详情的"用时"运行中显示 0 秒：这是 omp 给的值，没改。
+- 同一录制里 `agent` 节点的 `stats.age` 一直是 `0`（运行中的用时在 `tool.age`），所以列表行的用时（2026-11-08 起从详情统计格挪到行上、进度环左边）运行中显示 `0s`：这是 omp 给的值，没改。omp 18.18.1 下运行中的详情显示过 `2 分 7 秒`（仓库所有者 2026-11-08 截图），说明新版会给非 0 的 `stats.age`；行上按 TSP 规范只让正的 age 本地接着走（`useAge`），0 不走。[推测：18.18 多久刷新一次 `stats.age` 没录制过]
+- `agent` 节点的 `thinking` 是思考强度的颜色 token（`thinkingLow`、`thinkingHigh`，本录制和 `hub-steer.jsonl` 都有），`listAgents` 认成档位（`HubAgent.thinking`），详情头行跟在模型后面显示（`· Low`）；认不出的 token 不画。
 - 折叠默认值（omp 发的，studio 照画，没有例外）：Task 卡片（`omp.tool.task`）`collapsed:true`、`preview:"none"`，只剩标题行 `Task 2 agents`；里面每个 `agent` 节点也是 `collapsed:true`。wait 卡片（`omp.tool.wait`）同样 `collapsed:true`，但 `preview:"children"`，所以磁贴（状态点、名字、用时、进度环）收起时也一直显示：默认看得见的子代理进度就是这排磁贴。录制里约 41 秒时 Task 卡片变成 `collapsed:false`，是因为探针点了卡片头、studio 发了 `toggle`，omp 不会自己展开；`hub-steer.jsonl` 里没人点，从头到尾都是 `true`。fixture 里保留了探针那条 `toggle`，e2e 先点开卡片头才回放得下去。0.3.31 曾让 studio 默认展开 Task 卡片，是把仓库所有者说的"子代理进度默认展开"理解错了（他指的是 wait 卡片的磁贴），2026-10-22 撤回。
 
 ### 实测：运行中的记录（omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录，2026-10-22 一次性探针，未存为 fixture）

@@ -21,4 +21,5 @@ export const error = {
   statsSchema: "omp 的统计库结构和当前 omp-studio 预期的对不上，读不了。",
   backdropTooLarge: "图片超过 20 MB，换一张小一点的。",
   backdropNotImage: "这个文件不是能用的图片（PNG、JPG、WebP、GIF、AVIF），或者内容和扩展名对不上。",
+  terminalShellMissing: "设置里选的终端 shell 已经不在了，到 设置 -> 通用 里换一个。",
 } satisfies Record<string, MessageEntry>;

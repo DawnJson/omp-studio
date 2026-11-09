@@ -1,8 +1,8 @@
 # 自定义模型（第三方 API 提供商）
 
-设置 → Provider 与订阅 → 自定义提供商：添加、编辑、删除 `providers.<id>`，一键拉取第三方地址的模型列表并勾选加入。
+设置 → Provider 与订阅 → 自定义提供商：添加、编辑、删除 `providers.<id>`，一键拉取第三方地址的模型列表、在浮层里挑选加入，表里每行 × 移除。
 
-实现：`src/main/omp-config/models-file.ts`（读写 `models.yml`）、`fetch-models.ts`（拉取）、`src/main/ipc/custom-model-handlers.ts`（IPC）、`src/shared/custom-models.ts`（类型和校验，界面和主进程共用）；界面 `features/settings/CustomProviders.tsx`、`CustomProviderForm.tsx`、`CustomModelList.tsx`。
+实现：`src/main/omp-config/models-file.ts`（读写 `models.yml`）、`fetch-models.ts`（拉取）、`src/main/ipc/custom-model-handlers.ts`（IPC）、`src/shared/custom-models.ts`（类型和校验，界面和主进程共用）；界面 `features/settings/CustomProviders.tsx`、`CustomProviderForm.tsx`、`CustomModelList.tsx`、`ModelPicker.tsx`（拉取后的挑选浮层）。
 
 ## 为什么直接写 `models.yml`
 
@@ -21,7 +21,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 用 `yaml` 的 Document API，只动 `providers.<id>` 里的 `baseUrl`、`apiKey`/`auth`、`api`、`models`、`discovery`（整体增删，见「自动发现模型」），以及每个模型的 `reasoning`、`input`、`contextWindow`、`maxTokens`（见「模型的能力参数」）：
 
 - 注释、别的 provider、别的根键、条目里不认识的字段（`headers`、`compat`、模型的 `cost`、`thinking`……）原样保留。
-- 模型按 `id` 复用原来的节点（所以模型上的其它字段和行内注释不丢），按界面顺序重排，取消勾选的从列表里去掉。新增的模型写 `id`（拉取到 `display_name` 时再写 `name`），再加上界面里不是“自动”的能力参数。
+- 模型按 `id` 复用原来的节点（所以模型上的其它字段和行内注释不丢），按界面顺序重排，表里 × 掉的从列表里去掉。新增的模型写 `id`（拉取到 `display_name` 时再写 `name`），再加上界面里不是“自动”的能力参数。
 - CRLF 文件保持 CRLF；UTF-8 BOM 读入时去掉。
 - 原子写（`writeFileAtomic`）；每次写之前把旧内容复制成 `models.yml.bak`（只留最近一份）；同一进程里的写入串行（读-改-写不被另一次插入）。终端里的 omp 同时写同一个文件时仍可能互相覆盖，没有跨进程锁（omp 文档没有给 `models.yml` 的并发保护）。
 - 新增时 ID 不能已存在（`exists`），编辑时必须已存在（`not-found`：终端里被改过）；新增要至少一个模型，或者带 `discovery`（自动发现，见下）；编辑已有 `discovery` 的条目可以清空模型。
@@ -84,23 +84,29 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 响应取 `data[].id`（或顶层 `models[]`），`display_name` 当名字；去重、最多 2000 个。超时 15 秒；`redirect: "error"`（key 不会被带到别的主机）；响应体上限 8 MB。key 的解析按 omp 的规则：环境变量名先查 `process.env`，没设就把字面量当 token；`!命令` 不执行，返回 `command-key`。编辑已有提供商、key 选"保持不变"时用文件里的 key。
 
-错误都有一句人话：连不上（`network`）、超时、key 被拒（401/403）、没有这个接口（404）、别的 HTTP 状态、返回的不是模型列表。拉到的模型默认**不勾选**，用户勾选后保存才写进 `models[]`。
+错误都有一句人话：连不上（`network`）、超时、key 被拒（401/403）、没有这个接口（404）、别的 HTTP 状态、返回的不是模型列表。
+
+**挑选和移除**（2026-11-08 起，issue #9：原来拉到的模型全部进表、每行一个勾选框，取消勾选 = 保存时删除，界面上看不出来，用户以为模型删不掉）：
+
+- 拉取成功弹出挑选浮层（`ModelPicker.tsx`）：已在表里的勾着且停用，勾选其余的点 `添加 N 个` 才追加到表里；不勾就什么都不加。列表顶上的 `全部` 只勾 / 取消筛选出来、还不在表里的那些（2026-11-08）。
+- 表里就是保存时写进 `models[]` 的，每行一个 × 移除。
+- 上游下架的模型：拉取成功后，表里有、拉到的列表里没有的（`vanishedModelIds`）标 `已失效`，工具栏 `移除失效的 N 个` 一键去掉。拉取失败、还没拉取时不标；拉取之后又改了 Base URL、接口类型或 key 时不标（拉到的是旧服务的列表）；这次在对话框里手动添加的行不参与（多半是服务不列出的隐藏模型）。
 
 
 ## 自动发现模型（2026-10-23，omp 18.12.6）
 
-表单里的“自动发现模型”开关写 `providers.<id>.discovery: {type: …}`：omp 运行时从这个地址的模型列表接口读模型，新上架的模型不用再手动添加。**保留原来“拉取并手动挑选”的路径**，两者可以同时用（勾选的模型仍写进 `models[]`，发现的模型不写进文件）。
+表单里的“自动发现模型”开关写 `providers.<id>.discovery: {type: …}`：omp 运行时从这个地址的模型列表接口读模型，新上架的模型不用再手动添加、下架的自动消失。**保留原来“拉取并手动挑选”的路径**，两者可以同时用（表里的模型仍写进 `models[]`，发现的模型不写进文件）。开着时 omp 列出、表里没有的模型在表下面显示成灰色只读行（取自 `listModels`），没有 ×：发现的模型不能逐个移除（omp 没有排除单个发现模型的配置），开关的悬停说明写明，要自己挑选就关掉它。
 
 - **类型按接口类型选**（`defaultDiscoveryType`，`src/shared/custom-models.ts`；取值范围见 `omp://models.md`「Allowed auth/discovery values」和 `config/model-registry.ts`：`ollama`、`llama.cpp`、`lm-studio`、`openai-models-list`、`proxy`、`litellm`、`apple-foundation-models`）：`openai-completions`、`openai-responses` → `openai-models-list`（读 `{baseUrl}/v1/models`，不会再多加一个 `/v1`）；`anthropic-messages` → `proxy`（Anthropic + OpenAI 兼容的转发站：`GET /v1/models`，每个模型的 api 由它的 `supported_endpoint_types` 决定，没有时退回 provider 的 `api`）。别的接口类型（Google、Bedrock…）没有通用的发现方式：新开启时返回 `invalid-api`，表单里开关停用。
 - **只改这一层、只整体增删**：`discovery` 已存在时（用户在终端里写过 `ollama`、`timeoutMs`、`injectV1` 等）开着就原样保留，不覆盖类型；关掉就整个去掉。这个键仍受 [omp-boundaries.md](omp-boundaries.md) 里 models.yml 例外的全部规则约束：`yaml` Document API、注释和别的内容原样、原子写、写前 `.bak`。
-- 有 `discovery` 时可以一个模型都不选（`needs-model` 的判断看写完之后条目里有没有 `discovery`）；表单里“没有勾选模型、也没开自动发现”不能保存。
+- 有 `discovery` 时可以一个模型都不留（`needs-model` 的判断看写完之后条目里有没有 `discovery`）；表单里“表里没有模型、也没开自动发现”不能保存。
 - **输入**：`CustomProviderInput.discovery?: boolean`：`true` 确保有，`false` 去掉，缺省不动。
 - **刷新模型按钮**（设置 → Provider 与订阅 → 自定义提供商，标题行）：IPC `refreshModels`（`custom-model-handlers.ts`）在中性目录里跑 `omp models refresh`（`runOmpCommand` + `requireSuccess`，参数数组，超时 120 秒，env 带 omp-studio 存的 API key），完成后 `reloadServiceModels()`（关掉服务进程：它的模型注册表是启动时建的；并作废缓存的模型目录，见 login.md「模型目录和默认模型缓存优先」），渲染进程 `reloadAfterChange()` 重读 models.yml 和模型列表；失败时 toast 显示 omp 的 stderr 末尾。
 - **实测**（真实 omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，本地假 OpenAI 服务 `test/fake-openai/server.ts`）：models.yml 只有 `baseUrl` / `auth: none` / `api` / `discovery: {type: openai-models-list}`、没有 `models` 时，`get_available_models` 列出假服务 `/v1/models` 里的模型，`omp models refresh` 退出码 0，`omp models fake-disco` 输出含该模型；同一个假服务换成 `api: anthropic-messages` + `discovery: {type: proxy}` 也读到同一个模型。`omp models refresh` 对 `models.db` 里的目录做强制重新拉取（omp 的帮助：“Force a fresh catalog fetch”）。
 
 ## 模型的能力参数（2026-10-24，omp 18.12.6）
 
-对话框的模型表每个勾选的模型一行：思考（`reasoning`）、图片输入（`input: [text, image]` / `[text]`）、上下文窗口（`contextWindow`）、最大输出（`maxTokens`）。
+对话框的模型表每个模型一行：思考（`reasoning`）、图片输入（`input: [text, image]` / `[text]`）、上下文窗口（`contextWindow`）、最大输出（`maxTokens`）。
 
 - **“自动” = 不写这一项**，由 omp 补：按模型 `id` 查它的内置目录（例如 `gpt-5.5` → 1,050,000 上下文、支持思考和图片），查不到用默认值 **不思考、只收文字、上下文 128,000、输出 16,384**（实测：临时 agent 目录里写只有 `id` 的模型，`omp models <provider> --json` 列出的值；源码 `config/model-registry.ts` 的自定义模型合并逻辑一致）。所以中转站把官方模型名原样转发时可以全留自动；改了名或本地模型才需要手填。
 - **id 带 `kimi` 的模型思考留“自动”会让 omp 崩**（实测 omp 18.13.1、18.13.2，2026-10-28；临时 agent 目录 + 假 OpenAI 服务，`--mode rpc --thinking off`）：自定义 provider 下 `kimi-k3.1-pro` 内置目录里没有（18.13.1 只有 `kimi-k3`），omp 补成不思考；思考档位是 off 时，带强制工具调用的那一轮（`/force:todo` 复现）omp 抛 `ConfigurationError: Model <provider>/<id> has no supported reasoning efforts`，未捕获，进程以 1 退出。普通 prompt 不崩；同一模型写 `reasoning: true` 不崩（omp 补上 low/high/max）。源码：catalog 的 compat 对 id 含 kimi、非 Moonshot 官方地址的模型开 `disableReasoningOnForcedToolChoice`、关思考方式是 `lowest-effort`，`C_` 去取最低档时模型的档位列表为空就抛错。所以中转站的 kimi 新模型要把思考设成支持；表单现在按公开模型目录自动预填（见下）。
@@ -162,4 +168,4 @@ omp 的 `generate_image` 工具用模型角色 `image`（`modelRoles.image`）�
 
 ## 界面（3.2）
 
-自定义提供商是列表行（`编辑` + ⋯（删除，先 `ConfirmDialog`）；覆盖内置 provider 的条目编辑打开 `ProviderOverrideDialog`（key + 模型能力参数））；添加 / 编辑是 `xl` 对话框（`CustomProviderForm`），高度固定、不随模型多少变：连接信息两列（ID、接口类型、Base URL、key），窄到放不下两个 320 时变一列；自动发现、模型表、错误各占满一行。模型表是一个网格（`.cp-model-table`，表头吸顶，占满对话框剩下的高度、在表里滚动）：勾选 + id、思考、图片输入、上下文窗口、最大输出；没勾选的行只有勾选和 id。写 `models.yml` 的规则不变。
+自定义提供商是列表行（`编辑` + ⋯（删除，先 `ConfirmDialog`）；覆盖内置 provider 的条目编辑打开 `ProviderOverrideDialog`（key + 模型能力参数））；添加 / 编辑是 `xl` 对话框（`CustomProviderForm`），高度固定、不随模型多少变：连接信息两列（ID、接口类型、Base URL、key），窄到放不下两个 320 时变一列；模型一栏顶上是工具栏（拉取模型、自动发现开关、移除失效的、筛选），下面模型表、错误各占满一行。模型表是一个网格（`.cp-model-table`，表头吸顶，占满对话框剩下的高度、在表里滚动）：id（可带 `已失效`）、类型、思考、图片输入、上下文窗口、最大输出、×（2026-11-08 起，原来是勾选 + id，没勾选的行只有勾选和 id）。写 `models.yml` 的规则不变。

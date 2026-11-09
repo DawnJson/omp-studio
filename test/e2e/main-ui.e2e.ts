@@ -1,18 +1,20 @@
 // 阶段 2.6 主界面返工的端到端：空状态（最近任务、输入框贴底）、输入框两层布局、模型选择对话框、用量行、侧栏搜索。
 // 用 fixtures/tsp/slash-status 回放（假 omp，不调真实模型）。
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
 
 const fixture = "slash-status";
 
-async function start(): Promise<{ launched: LaunchedApp; cleanup(): Promise<void> }> {
+async function start(
+  extraEnv: Record<string, string> = {},
+): Promise<{ launched: LaunchedApp; cleanup(): Promise<void> }> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 主界面 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
-  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture) });
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture), ...extraEnv });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
@@ -128,6 +130,168 @@ test("窗口放大时对话列和输入框一起变宽：约占主区 80%，最�
     expect((await measure()).width).toBeGreaterThan(1000);
     await page.setViewportSize({ width: 2400, height: 800 });
     await expect.poll(async () => (await measure()).width).toBeCloseTo(1200, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+/** 对话列和输入框的宽度（同宽同轴才返回）和主区面板内宽（cqi 的基准）。 */
+async function columnWidths(page: Page): Promise<{ panel: number; column: number }> {
+  const [panel, col, stack] = await Promise.all([
+    page.getByTestId("main-panel").evaluate((el) => (el as unknown as { clientWidth: number }).clientWidth),
+    page.locator('[data-testid="tsp-view"] .tsp-column.tsp-main').boundingBox(),
+    page.getByTestId("composer-stack").boundingBox(),
+  ]);
+  if (col === null || stack === null) throw new Error("对话列或输入框不可见");
+  expect(Math.abs(stack.x - col.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(stack.width - col.width)).toBeLessThanOrEqual(1);
+  return { panel, column: col.width };
+}
+
+test("对话列宽度读盘：存的百分比按主区宽度换算，越界的按默认 80%", async () => {
+  // 起三次应用。
+  test.setTimeout(180_000);
+  const width = async (stored: number): Promise<{ panel: number; column: number }> => {
+    const userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-colw-"));
+    try {
+      await writeFile(
+        path.join(userData, "window-state.json"),
+        JSON.stringify({ shell: { conversationWidth: stored } }),
+        "utf8",
+      );
+      const { launched, cleanup } = await start({ STUDIO_USER_DATA: userData });
+      try {
+        const { page } = launched;
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.setViewportSize({ width: 1600, height: 900 });
+        await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
+        return await columnWidths(page);
+      } finally {
+        await cleanup();
+      }
+    } finally {
+      await rm(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    }
+  };
+  const wide = await width(95);
+  expect(Math.abs(wide.column - Math.min(1200, wide.panel * 0.95, wide.panel - 48))).toBeLessThanOrEqual(1);
+  const narrow = await width(70);
+  expect(Math.abs(narrow.column - Math.max(840, narrow.panel * 0.7))).toBeLessThanOrEqual(1);
+  const invalid = await width(5);
+  expect(Math.abs(invalid.column - Math.min(1200, Math.max(840, invalid.panel * 0.8)))).toBeLessThanOrEqual(1);
+});
+
+for (const locale of ["zh-CN", "en"] as const) {
+  test(`拖对话列右缘改宽度（${locale}）：拖动量两倍、到 1200 停、双击回默认、方向键 16px、拖动中不通知 omp、重启保留`, async () => {
+    // 起两次应用。
+    test.setTimeout(150_000);
+    const userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-colw-"));
+    try {
+      let { launched, cleanup } = await start({ STUDIO_USER_DATA: userData });
+      try {
+        let { page } = launched;
+        await setLocale(page, locale);
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.setViewportSize({ width: 1600, height: 900 });
+        // 新任务页没有拖拽条（宽度和任务页同一份）。
+        await expect(page.getByTestId("empty-state")).toBeVisible();
+        await expect(page.getByTestId("column-resizer")).toHaveCount(0);
+        await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
+        await launched.app.evaluate(({ ipcMain }) => {
+          const state = globalThis as unknown as { __resizeCalls: number };
+          state.__resizeCalls = 0;
+          ipcMain.removeHandler("studio:resizeTsp");
+          ipcMain.handle("studio:resizeTsp", () => {
+            state.__resizeCalls += 1;
+          });
+        });
+        const resizeCalls = () =>
+          launched.app.evaluate(() => (globalThis as unknown as { __resizeCalls: number }).__resizeCalls);
+        const handle = page.getByTestId("column-resizer");
+        await expect(handle).toHaveAttribute("aria-label", locale === "en" ? "Conversation width" : "对话列宽度");
+        await expect(handle).toHaveAttribute("aria-valuenow", "80");
+        const start0 = await columnWidths(page);
+
+        const dragBy = async (dx: number) => {
+          const box = (await handle.boundingBox())!;
+          const x = box.x + box.width / 2;
+          const y = box.y + box.height / 2;
+          await page.mouse.move(x, y);
+          await page.mouse.down();
+          for (let i = 1; i <= 10; i++) await page.mouse.move(x + (dx * i) / 10, y);
+          await page.mouse.up();
+        };
+        const columnIs = (target: number) =>
+          expect
+            .poll(async () => Math.abs((await columnWidths(page)).column - target), { timeout: 5_000 })
+            .toBeLessThanOrEqual(1);
+
+        // 1600 宽时默认 80% 约 1075：先拖窄 100（列宽 −200），再拖回来 100（+200）。
+        await dragBy(-100);
+        await columnIs(start0.column - 200);
+        // 拖动中只改 DOM：omp 只在松手后收到一次列数。
+        await expect.poll(resizeCalls).toBe(1);
+        await dragBy(100);
+        await columnIs(start0.column);
+        await expect.poll(resizeCalls).toBe(2);
+        await expect
+          .poll(() => page.evaluate(() => globalThis.studio.getShellState().then((s) => s.conversationWidth)))
+          .not.toBeNull();
+
+        await dragBy(300);
+        await columnIs(1200);
+
+        await handle.dblclick();
+        await columnIs(start0.column);
+        await expect
+          .poll(() => page.evaluate(() => globalThis.studio.getShellState()))
+          .toMatchObject({
+            conversationWidth: null,
+          });
+
+        await handle.focus();
+        for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");
+        await columnIs(start0.column + 96);
+        const kept = (await columnWidths(page)).column;
+        await expect
+          .poll(() => page.evaluate(() => globalThis.studio.getShellState().then((s) => s.conversationWidth)))
+          .not.toBeNull();
+
+        // 重启：同一个 userData，宽度还在（任务页和新任务页同一份宽度，看新任务页的输入框）。
+        await cleanup();
+        ({ launched, cleanup } = await start({ STUDIO_USER_DATA: userData }));
+        page = launched.page;
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.setViewportSize({ width: 1600, height: 900 });
+        // 新任务页输入框的外层两边各撑开一个 --gutter（empty.css .empty-draft），里面的列宽同一个 --content-w。
+        await expect
+          .poll(async () => {
+            const box = await page.getByTestId("empty-draft").boundingBox();
+            return Math.abs((box?.width ?? 0) - 48 - kept);
+          })
+          .toBeLessThanOrEqual(1);
+      } finally {
+        await cleanup();
+      }
+    } finally {
+      await rm(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    }
+  });
+}
+
+test("主区放不下比 840 更宽的对话列时没有拖拽条", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
+    await expect(page.getByTestId("column-resizer")).toHaveCount(1);
+    await page.setViewportSize({ width: 1120, height: 900 });
+    const panel = await page
+      .getByTestId("main-panel")
+      .evaluate((el) => (el as unknown as { clientWidth: number }).clientWidth);
+    expect(panel - 48).toBeLessThanOrEqual(840);
+    await expect(page.getByTestId("column-resizer")).toHaveCount(0);
   } finally {
     await cleanup();
   }

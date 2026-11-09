@@ -102,7 +102,7 @@ async function start(
       model: "deepseek-v4-flash",
       stopReason: "stop",
       content: [{ type: "text", text: "hello" }],
-      usage: { input: 400, output: 150, cacheRead: 0, cacheWrite: 0, totalTokens: 550, cost: { total: 0.0456 } },
+      usage: { input: 400, output: 150, cacheRead: 600, cacheWrite: 0, totalTokens: 1150, cost: { total: 0.0456 } },
     },
   };
   await writeFile(sessionFile, header(SESSION_ID) + user(FIRST_PROMPT) + `${JSON.stringify(reply)}\n`, "utf8");
@@ -198,6 +198,8 @@ test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、�
     await expect(dialog.getByTestId("si-file")).toHaveText(sessionFile);
     await expect(dialog.getByTestId("si-requests")).toHaveText("1");
     await expect(dialog.getByTestId("si-cost")).toHaveText("$0.05");
+    // 缓存命中率 = 缓存读取 ÷ (输入 + 缓存读取 + 缓存写入) = 600 ÷ 1000。
+    await expect(dialog.getByTestId("si-cache-hit")).toHaveText("60%");
     // 置顶文件里有这个会话：开关是开的。
     await expect(dialog.getByTestId("si-pin")).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");

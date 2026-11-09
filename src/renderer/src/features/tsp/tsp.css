@@ -287,6 +287,100 @@
   border-radius: var(--radius-xs);
 }
 
+/* 对话大纲（ConversationLine）：悬停 / 聚焦对话线时在刻度左边展开，竖直居中，高不超过对话区（上下各留 --space-6），内部滚动。
+ * 每行"序号 + 消息第一行"，单行省略；正在读的那条 --text 加粗。宽 min(--dialog-w-sm, 40%)：窄窗里不压住太多正文。 */
+.tsp-outline {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--scrollbar-hit) + 2px + var(--space-2) + var(--space-1));
+  z-index: var(--z-popover);
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--dialog-w-sm), 40%);
+  max-height: calc(100% - 2 * var(--space-6));
+  overflow-y: auto;
+  padding: var(--space-1);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  scrollbar-width: none;
+}
+.tsp-outline-row {
+  flex: none;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-h-sm);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.tsp-outline-row:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tsp-outline-row[aria-current] {
+  color: var(--text);
+  font-weight: 600;
+}
+.tsp-outline-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.tsp-outline-n {
+  flex: none;
+  min-width: 2ch;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.tsp-outline-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 对话列拖拽条（ColumnResizer）：命中区 8px，以对话列右缘为中线；left 和 .tsp-column 的宽度同一个式子（100% 是 surface 宽，等于滚动区宽）。
+ * 上下只跨滚动区（top / height 由组件按滚动区量出来），不盖 dock 里的提问卡片。平时看不见，悬停 / 聚焦 / 拖动时中间一条 2px 线。
+ * 和对话线同层、在它前面：列贴满时两者只隔几个像素，重叠处刻度优先。 */
+.tsp-column-resizer {
+  position: absolute;
+  left: calc(50% + min(100% - 2 * var(--gutter), var(--content-w)) / 2 - var(--space-1));
+  z-index: var(--z-sticky);
+  width: var(--space-2);
+  cursor: col-resize;
+  touch-action: none;
+}
+.tsp-column-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 calc(var(--space-1) - 1px);
+  background: transparent;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.tsp-column-resizer:is(:hover, :active)::after {
+  background: var(--border);
+}
+.tsp-column-resizer:focus-visible {
+  outline: none;
+}
+.tsp-column-resizer:focus-visible::after {
+  background: var(--focus-ring);
+}
+
 /* ───────────────────────── 通用：tone、可点击、隐藏、空容器 ───────────────────────── */
 
 [data-tone="neutral"],
@@ -1453,21 +1547,18 @@
     stroke-dashoffset: 0;
   }
 }
-.tsp-draw-check {
+.tsp-draw-check,
+.tsp-check {
   display: inline-flex;
 }
 .tsp-draw-check path {
   stroke-dasharray: 16;
   animation: tsp-draw var(--dur-base) var(--ease-out) backwards;
 }
-/* 工具卡的 ✓ 画出后停 1.2s 再淡出，结束时 Tool 把它卸掉（omp 的完成卡本来没有 ✓）；减少动效时 --dur-fade 只淡出 */
-@keyframes tsp-check-out {
-  to {
-    opacity: 0;
-  }
-}
-.tsp-tool-st > .tsp-draw-check {
-  animation: tsp-check-out max(var(--dur-base), var(--dur-fade)) var(--ease-out) 1200ms forwards;
+/* 工具卡的 ✓ 常驻（2026-11-09 起，issue #9；之前画出后停 1.2s 淡出）。完成的卡不抢眼：和标题行的次要文字同色 */
+.tsp-tool-st > .tsp-draw-check,
+.tsp-tool-st > .tsp-check {
+  color: var(--text-3);
 }
 /* 一批子代理行 / 作业磁贴同时出现：每格 --enter-delay（40ms 的整数倍，见 entrance.ts）错开入场；减少动效时位移量为 0，只留 --dur-fade 的淡入 */
 @keyframes tsp-enter {
@@ -2027,6 +2118,42 @@
 .tsp-tool-head:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
+}
+/* 连续工具调用的组头（ToolRun.tsx，2026-11-09 起，issue #9）：长得像一张收起的工具卡——浅底、一行；
+   左边每种工具一个小图标，`N tool calls`，有失败时红字，右边状态和箭头。展开时下面照常是每张卡。 */
+.tsp-run-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-tool);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-tool);
+  color: var(--text);
+  cursor: pointer;
+  --tsp-tool-c: var(--text-3);
+}
+.tsp-run-head:hover {
+  background: var(--bg-hover);
+}
+.tsp-run-head:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.tsp-run-ics {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  color: var(--text-3);
+}
+.tsp-run-title {
+  flex: none;
+  font-weight: var(--fw-medium);
+}
+.tsp-run-failed {
+  flex: none;
+  color: var(--st-error);
+  font-size: var(--fs-sm);
 }
 .tsp-tool-ic {
   display: inline-flex;
@@ -2763,8 +2890,16 @@
   border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-sm) var(--radius-bubble);
 }
 .tsp-card[data-role="omp.user"] .tsp-card-body {
-  padding: var(--space-2-5) var(--space-3-5);
   gap: var(--space-1);
+}
+/* 用户气泡的内边距放在 Clamp 外层（layout.tsx 的 USER_BUBBLE_LINES）：Clamp 量的是正文高度，按正文行高数行，
+ * 内边距算进去会少露、"N more lines" 也会多报。"N more lines" / "Show less" 和正文左边对齐 */
+.tsp-user-clamp {
+  --tsp-lh: var(--lh-prose);
+  padding: var(--space-2-5) var(--space-3-5);
+}
+.tsp-user-clamp > .tsp-more {
+  margin: var(--space-1) 0 0;
 }
 /* 用户消息里的图片：omp 发来的是缩成宽 200 的显示图，w/h 就是它的尺寸，没给 max；窄长的截图会被放大
  * （实测 omp 18.12.6：44×220 的截图成了 200×1000）。宽高都交给图片自己的比例，装进 100×100 的框
@@ -2808,9 +2943,14 @@
 .tsp-icon[data-role="omp.user.tool"] {
   border-radius: var(--radius-sm);
 }
-.tsp-icon[data-role="omp.user.tool"]:hover {
+.tsp-icon[data-role="omp.user.tool"]:hover:not([aria-disabled="true"]) {
   background: var(--bg-active);
   color: var(--text);
+}
+/* studio 加的分叉按钮：一轮没结束时不能分叉（同会话树面板），置灰 */
+.tsp-icon[data-role="omp.user.tool"][aria-disabled="true"] {
+  color: var(--text-disabled);
+  cursor: default;
 }
 .tsp-icon[role="button"]:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -2887,15 +3027,26 @@
   background: color-mix(in srgb, var(--st-waiting) 12%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-waiting) 30%, transparent);
 }
-.tsp-icon[data-role="omp.turn.copy"] {
+/* 回答用量行的按钮：omp 的复制回答，和 studio 跟在它后面的"复制纯文本""从这里分叉"（data-studio-answer，一直显示，样式同复制） */
+.tsp-icon[data-role="omp.turn.copy"],
+.tsp-icon[data-studio-answer] {
   border-radius: var(--radius-sm);
 }
-.tsp-icon[data-role="omp.turn.copy"]:hover {
+.tsp-icon[data-role="omp.turn.copy"]:hover,
+.tsp-icon[data-studio-answer]:hover:not([aria-disabled="true"]) {
   background: var(--bg-active);
   color: var(--text);
 }
-/* omp 在复制图标后面单独发一个 "·" 文本节点：图标不是一段文字，这个分隔点读起来像列表断了头，不画（2026-10-29 审计） */
-.tsp-row[data-role="omp.turn.usage"] > [data-role="omp.turn.copy"] + .tsp-text {
+/* 一轮没结束时不能分叉（同用户消息上的分叉按钮），置灰 */
+.tsp-icon[data-studio-answer][aria-disabled="true"] {
+  color: var(--text-disabled);
+  cursor: default;
+}
+/* omp 在复制图标后面单独发一个 "·" 文本节点：图标不是一段文字，这个分隔点读起来像列表断了头，不画（2026-10-29 审计）。
+   studio 的按钮插在复制图标和它之间，所以紧跟在最后一个按钮后面的也不画。只管 omp 画的行：studio 补的行（data-restored）
+   没有这个分隔点，复制图标后面紧跟的就是用量文字。 */
+.tsp-row[data-role="omp.turn.usage"]:not([data-restored]) > [data-role="omp.turn.copy"] + .tsp-text,
+.tsp-row[data-role="omp.turn.usage"]:not([data-restored]) > [data-studio-answer] + .tsp-text {
   display: none;
 }
 

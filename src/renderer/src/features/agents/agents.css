@@ -183,6 +183,19 @@
 .agents-row-status[data-status="failed"] {
   color: var(--st-error);
 }
+/* 用时在右端状态的左边（2026-11-08 仓库所有者：原来在详情的统计格里） */
+.agents-row-time {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.agents-row-time + .agents-row-status {
+  margin-left: 0;
+  padding-left: 0;
+}
 /* 运行中有完成度估计时右端是进度环 + 百分比（照 Tern 里 omp 的子代理磁贴）。 */
 .agents-progress {
   display: inline-flex;
@@ -259,6 +272,15 @@
   color: var(--text-3);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* 思考强度跟在模型后面（omp 的 `agent.thinking`）；模型先省略，档位名总是完整 */
+.agents-detail-thinking {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.agents-detail-model + .agents-detail-thinking::before {
+  content: "· ";
 }
 
 /* 统计：数字在上（较大、等宽数字），标签在下；dl 里 dt 在前，所以用 column-reverse。

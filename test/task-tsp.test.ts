@@ -57,6 +57,8 @@ const settings = (): StudioSettings => ({
   soundOnDone: false,
   copyOnSelect: true,
   toolHeadsOnly: false,
+  groupToolCalls: true,
+  terminalShell: null,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",
@@ -616,7 +618,7 @@ describe("任务池：TSP 任务", () => {
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (state) => state.status === "idle");
     // 分叉会话文件（docs/architecture/session-tree.md）：这个任务还没有会话文件，所以被拒绝。
-    await expect(h.pool.forkTask(created.id, null)).rejects.toThrow(/no session file yet/);
+    await expect(h.pool.forkTask(created.id, null, "before-user")).rejects.toThrow(/no session file yet/);
     await expect(h.pool.listTaskModels(created.id)).resolves.toEqual(catalog);
   }, 60_000);
 
@@ -803,7 +805,7 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     );
     expect(state.model).toEqual(catalog[0]);
     expect(state.thinkingLevel).toBe("high");
-    expect(state.thinkingLevels).toEqual(["off", "low", "medium", "high"]);
+    expect(state.thinkingLevels).toEqual(["auto", "off", "low", "medium", "high"]);
     expect(state.contextUsage?.contextWindow).toBe(1_000_000);
     expect(state.sessionUsage?.cost).toBe(0);
     expect(await h.pool.listTaskModels(created.id)).toEqual(catalog);
@@ -819,7 +821,7 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     const created = await h.pool.createTask({ projectId: h.projectId });
     const state = await h.events.until(created.id, (s) => s.contextUsage !== null);
     expect(state.model).toEqual(claudeNamed);
-    expect(state.thinkingLevels).toEqual(["off", "low", "medium", "high"]);
+    expect(state.thinkingLevels).toEqual(["auto", "off", "low", "medium", "high"]);
   }, 60_000);
 
   it("服务进程的模型目录还没读到时，按启动缓存里上次的目录认出模型和思考档位（不是只有名字、没有档位的占位）", async () => {
@@ -829,7 +831,7 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
       const created = await h.pool.createTask({ projectId: h.projectId });
       const state = await h.events.until(created.id, (s) => s.contextUsage !== null);
       expect(state.model).toEqual(catalog[0]);
-      expect(state.thinkingLevels).toEqual(["off", "low", "medium", "high"]);
+      expect(state.thinkingLevels).toEqual(["auto", "off", "low", "medium", "high"]);
     } finally {
       finishListing(catalog);
     }
@@ -863,7 +865,7 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     await vi.waitFor(() => {
       const state = h.events.states.findLast((s) => s.id === resumed.id);
       expect(state?.model?.key).toEqual(hfKey);
-      expect(state?.thinkingLevels).toEqual(["off", "low", "high", "max"]);
+      expect(state?.thinkingLevels).toEqual(["auto", "off", "low", "high", "max"]);
       expect(h.registry.findTask(resumed.id)?.model).toEqual(hfKey);
     });
   }, 60_000);
@@ -1033,6 +1035,88 @@ describe("rpc 引擎时代的老任务：按记录里的会话文件用 TSP 恢�
     await h.pool.openTask("archived" as TaskId);
     await h.events.until("archived" as TaskId, (s) => s.status === "idle");
     expect(h.launches.at(-1)).toEqual({ sessionFile: path.join(scratch, "sessions 二", "archived.jsonl") });
+  }, 60_000);
+});
+
+describe("2026-11-06 之前误存成任务标题的控制台标题（issue #9）", () => {
+  const line = (entry: object) => `${JSON.stringify(entry)}\n`;
+  const header = (id: string) => line({ type: "session", id, cwd: projectDir });
+  const record = (id: string, title: string, sessionFile: string | null, archived = false) => ({
+    id,
+    projectId: "console-project",
+    sessionFile,
+    title,
+    createdAt: Date.UTC(2026, 9, 1),
+    updatedAt: Date.UTC(2026, 9, 1),
+    archived,
+    model: null,
+    thinkingLevel: null,
+    worktreePath: null,
+    worktreeBranch: null,
+    worktreeBase: null,
+  });
+  async function seed(dir: string, tasks: object[]): Promise<string> {
+    const file = path.join(dir, "tasks.json");
+    const project = { id: "console-project", path: projectDir, name: "project" };
+    await writeFile(file, JSON.stringify({ version: 1, projects: [project], tasks }));
+    return file;
+  }
+
+  it("启动时不打开任务就换成会话文件里 omp 的标题（含已归档的），没有就用第一条消息；用户起的名字不动，打开后也不被 omp 的标题覆盖", async () => {
+    const dir = await mkdtemp(path.join(scratch, "console-"));
+    const titled = path.join(dir, "titled.jsonl");
+    const prompted = path.join(dir, "prompted.jsonl");
+    const named = path.join(dir, "named.jsonl");
+    await writeFile(titled, line({ type: "title", title: "\u{f1821} GIT: Rebase custom-trim-v2" }) + header("s1"));
+    await writeFile(
+      prompted,
+      header("s2") + line({ type: "message", id: "m1", message: { role: "user", content: "整理 发版说明" } }),
+    );
+    await writeFile(named, line({ type: "title", title: "omp 起的标题" }) + header("s3"));
+    const file = await seed(dir, [
+      record("titled", "Administrator: C:\\Windows\\system32\\cmd.exe", titled),
+      record("prompted", "管理员: C:\\WINDOWS\\system32\\cmd.exe（分叉）", prompted, true),
+      record("named", "我的任务", named),
+      record("unsaved", "Windows PowerShell", null),
+    ]);
+
+    const h = await harness(file);
+    expect(h.pool.listTasks().map((s) => [s.id, s.title, s.status])).toEqual([
+      ["titled", "GIT: Rebase custom-trim-v2", "stopped"],
+      ["named", "我的任务", "stopped"],
+      ["unsaved", "", "stopped"],
+    ]);
+    await h.registry.flushed();
+    const saved = JSON.parse(readFileSync(file, "utf8")) as { tasks: { id: string; title: string }[] };
+    expect(saved.tasks.map((task) => [task.id, task.title])).toEqual([
+      ["titled", "GIT: Rebase custom-trim-v2"],
+      ["prompted", "整理 发版说明"],
+      ["named", "我的任务"],
+      ["unsaved", ""],
+    ]);
+
+    // 用户起的名字：打开后 omp 的标题读到了（PR 号跟着它出来），标题仍是用户的。
+    h.next.env = { FAKE_TSP_SESSION_FILE: named, FAKE_TSP_TITLE: "omp 起的标题 · #5" };
+    await h.pool.openTask("named" as TaskId);
+    await h.events.until("named" as TaskId, (s) => s.prNumber === 5);
+    expect(h.registry.findTask("named" as TaskId)?.title).toBe("我的任务");
+  }, 60_000);
+
+  it("启动时读不到会话文件的：打开后按会话文件里 omp 的标题换掉", async () => {
+    const dir = await mkdtemp(path.join(scratch, "console-"));
+    const sessionFile = path.join(dir, "later.jsonl");
+    const file = await seed(dir, [record("later", "管理员: C:\\WINDOWS\\system32\\cmd.exe", sessionFile)]);
+    const h = await harness(file);
+    expect(h.pool.listTasks()[0]?.title).toBe("管理员: C:\\WINDOWS\\system32\\cmd.exe");
+
+    await writeFile(
+      sessionFile,
+      header("s4") + line({ type: "title_change", id: "t1", title: "\u{f1821} 修复 登录 bug" }),
+    );
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile, FAKE_TSP_TITLE: "\u{f1821} 修复 登录 bug" };
+    await h.pool.openTask("later" as TaskId);
+    await h.events.until("later" as TaskId, (s) => s.title === "修复 登录 bug");
+    expect(h.registry.findTask("later" as TaskId)?.title).toBe("修复 登录 bug");
   }, 60_000);
 });
 

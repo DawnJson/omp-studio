@@ -194,7 +194,14 @@ export function ProviderOverrideDialog({ provider, onSaved, onClose }: ProviderO
           </FormField>
         </div>
         <FormField className="cp-models-field" label={t("custom.form.models")}>
-          <CustomModelList rows={rows} onRows={setRows} hintOf={hintOf} notice={notice} onNotice={setNotice} />
+          <CustomModelList
+            rows={rows}
+            onRows={setRows}
+            hintOf={hintOf}
+            notice={notice}
+            onNotice={setNotice}
+            checkable
+          />
         </FormField>
         {error !== null && (
           <Notice tone="error" testId="custom-override-error">

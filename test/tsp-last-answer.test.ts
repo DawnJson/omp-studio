@@ -1,7 +1,7 @@
 // lastAnswerText（shared/tsp/last-answer.ts）：从 TSP 文档取最后一条助手消息的正文。
 import { describe, expect, it } from "vitest";
 import { applyMessage, createDocument, type TspDocument } from "../src/shared/tsp/document.ts";
-import { lastAnswerText } from "../src/shared/tsp/last-answer.ts";
+import { answerNodeIds, answerText, lastAnswerText } from "../src/shared/tsp/last-answer.ts";
 import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
 
 function replay(name: string): TspDocument {
@@ -65,5 +65,26 @@ describe("lastAnswerText", () => {
   it("没有助手消息、没有 inline surface 时为 null", () => {
     expect(lastAnswerText(createDocument())).toBeNull();
     expect(lastAnswerText(synthetic([add("u", "main", "col", { role: "omp.user" })]))).toBeNull();
+  });
+});
+
+describe("answerText / answerNodeIds（每轮用量行上的复制回答：复制所在那条助手消息）", () => {
+  it("取的是给定容器自己的正文，不是对话里最后一条；纯工具调用的容器为空", () => {
+    const doc = synthetic([
+      add("a1", "main", "col", { role: "omp.assistant" }),
+      add("a1.t", "a1", "md", { text: "第一轮的回答" }),
+      add("a2", "main", "col", { role: "omp.assistant" }),
+      add("a2.tool", "a2", "tool", { role: "omp.tool.bash" }),
+      add("a3", "main", "col", { role: "omp.assistant" }),
+      add("a3.t0", "a3", "md", { text: "第二轮" }),
+      add("a3.k", "a3", "col", { role: "omp.thinking" }),
+      add("a3.k.m", "a3.k", "md", { text: "思考" }),
+      add("a3.t1", "a3", "md", { text: "的回答" }),
+    ]);
+    const surface = doc.surfaces.get("s:1")!;
+    expect(answerText(surface, "a1")).toBe("第一轮的回答");
+    expect(answerText(surface, "a2")).toBe("");
+    expect(answerText(surface, "a3")).toBe("第二轮\n\n的回答");
+    expect(answerNodeIds(surface, "a3")).toEqual(["a3.t0", "a3.t1"]);
   });
 });

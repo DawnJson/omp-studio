@@ -12,7 +12,7 @@ import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
 import { chooseBackdropImage } from "../settings/backdrop-image.ts";
-import { getShellState, setShellState, sidebarWidthRange } from "../window/window-state.ts";
+import { getShellState, parseConversationWidth, setShellState, sidebarWidthRange } from "../window/window-state.ts";
 import {
   getMainWindow,
   glassSupported,
@@ -105,6 +105,9 @@ export const appHandlers: HandlerGroup<
       }),
       ...(record["historyOrder"] !== undefined && {
         historyOrder: parseOneOf(record["historyOrder"], "historyOrder", historyOrders),
+      }),
+      ...(record["conversationWidth"] !== undefined && {
+        conversationWidth: parseConversationWidth(record["conversationWidth"]),
       }),
     });
   },

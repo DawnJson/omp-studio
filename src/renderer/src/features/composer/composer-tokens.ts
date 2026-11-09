@@ -198,6 +198,23 @@ export function removeAttachment(draft: Draft, kind: TokenKind, n: number): Draf
   return reconcileDraft({ ...draft, text });
 }
 
+/** 把一段粘贴的占位符换回原文（卡片预览里的"展开成文字"）；光标放在第一处展开的文字后面。没有这段粘贴时原样返回。 */
+export function expandPaste(draft: Draft, n: number): Inserted {
+  const content = draft.pastes[n];
+  const spans = scanTokens(draft.text, draft).filter((span) => span.kind === "paste" && span.n === n);
+  if (content === undefined || spans.length === 0) return { draft, caret: draft.text.length };
+  let text = "";
+  let cursor = 0;
+  let caret = -1;
+  for (const span of spans) {
+    text += draft.text.slice(cursor, span.start) + content;
+    if (caret < 0) caret = text.length;
+    cursor = span.end;
+  }
+  text += draft.text.slice(cursor);
+  return { draft: reconcileDraft({ ...draft, text }), caret };
+}
+
 /** 把 added 接在 current 后面（空行分隔）：added 里的占位符编号顺延，免得和 current 的重号。 */
 export function appendDraft(current: Draft, added: Draft): Draft {
   if (added.text === "" && added.images.length === 0 && added.files.length === 0) return current;
@@ -306,6 +323,12 @@ export function chipLabels(linesWord: string, charsWord: string): ChipLabels {
       return lines > PASTE_MAX_LINES ? `#${n} +${lines} ${linesWord}` : `#${n} ${content.length} ${charsWord}`;
     },
   };
+}
+
+/** 粘贴卡片上的大小：和芯片同一条规则（超过 10 行写行数，否则写字符数），不带 `+`：`40 行` / `1500 字符`。 */
+export function pasteSize(content: string, linesWord: string, charsWord: string): string {
+  const lines = lineCount(content);
+  return lines > PASTE_MAX_LINES ? `${lines} ${linesWord}` : `${content.length} ${charsWord}`;
 }
 
 export interface ViewSpan extends TokenSpan {

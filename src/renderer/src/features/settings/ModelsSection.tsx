@@ -4,8 +4,7 @@
 // 改了就写全局（和模型选择对话框里给角色"应用"一样）。候选按角色能用的模型类别筛（role-options.ts）。
 // 自定义角色（omp：modelRoles 里内置角色以外的名字，只用对话模型）可以添加、删除；omp 只认有模型的角色，所以添加时名字和模型一起填。
 import { Fragment, useEffect, useId, useState } from "react";
-import type { ModelKey } from "../../../../shared/ipc.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import type { ModelKey, TaskThinkingLevel } from "../../../../shared/ipc.ts";
 import { joinRoleValue, splitRoleValue } from "../../../../shared/ui/role-value.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close, Plus } from "../../icons.tsx";
@@ -46,7 +45,8 @@ import {
 } from "./role-options.ts";
 import { useAsyncAction } from "./use-async-action.ts";
 
-const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
+// omp 的 defaultThinkingLevel 可选值（settings.md：不接受 off；auto = omp 每轮按模型自选）。
+const thinkingLevels = ["auto", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const unset = "";
 // 这两项在角色表里已经有了，omp 的同一项不再重复一行（搜索里照旧有）。
 // retry.fallbackChains 照样一行：角色表只画以角色为 key 的链，`anthropic/*` 这种按模型 / provider 的链（omp 里优先于角色的）
@@ -170,7 +170,7 @@ function RoleRow({
     ...levels.map((entry) => ({ value: entry, label: levelText(t, entry) })),
   ];
   // 配置里的档位这个模型不支持（或模型不在目录里）：原样留着显示，别悄悄显示成别的。
-  if (level !== null && !levels.includes(level as ThinkingLevel))
+  if (level !== null && !levels.includes(level as TaskThinkingLevel))
     thinkingOptions.push({ value: level, label: levelText(t, level) });
   const chainSelectors = new Set(chain.map((entry) => splitRoleValue(entry).selector));
   // 可加 / 可换成的备用：不含主模型和已经在链里的（换模型时自己的当前值照样列出）。
@@ -412,7 +412,7 @@ export function ModelsSection() {
     value: level,
     label: t(`thinking.${level}`),
   }));
-  // 比如 auto：omp 支持但这里没有对应文案，原样显示。
+  // omp 新加、这里还没有的值：原样显示。
   if (typeof thinking === "string" && !thinkingOptions.some((option) => option.value === thinking))
     thinkingOptions.push({ value: thinking, label: thinking });
 
@@ -428,7 +428,7 @@ export function ModelsSection() {
             labelledBy={labelId}
             disabled={thinking === undefined}
             onChange={(value) =>
-              saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
+              saveOmpDefaultThinking(value as TaskThinkingLevel).catch((error: unknown) => reportError(t, error))
             }
             testId="setting-default-thinking"
           />

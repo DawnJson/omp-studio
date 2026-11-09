@@ -3,7 +3,6 @@ import type { task as zhCN } from "../zh-CN/task.ts";
 
 export const task = {
   untitled: "New task",
-  forkTitle: "{title} (fork)",
   rename: "Rename",
   keepAlive: "Keep running",
   keepAliveOff: "Stop keeping running",
@@ -20,7 +19,7 @@ export const task = {
   runningFor: "{n}m",
   noSession: "This task has no session file yet.",
   restart: "Restart session",
-  restartTip: "Reload skills, MCP servers, plugins and settings",
+  restartTip: "Reload the conversation from the session file, plus skills, MCP servers, plugins and settings",
   restartBusyRunning: "Running; restart when it finishes",
   restartBusyWaiting: "Waiting for your answer; answer it first",
   restartBusyStarting: "The task is starting",

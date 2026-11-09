@@ -107,8 +107,12 @@ export const taskHandlers: HandlerGroup<
   },
   getSessionTree: async (taskId) => (await getTaskPool()).getSessionTree(parseTaskId(taskId)),
   // entryId 是会话树面板里的会话条目 id，null = 当前分支最后一条用户消息；主进程在会话文件里查，查不到就拒绝。
-  forkTask: async (taskId, entryId) =>
-    (await getTaskPool()).forkTask(parseTaskId(taskId), entryId === null ? null : parseString(entryId, "entryId", 200)),
+  forkTask: async (taskId, entryId, mode) =>
+    (await getTaskPool()).forkTask(
+      parseTaskId(taskId),
+      entryId === null ? null : parseString(entryId, "entryId", 200),
+      parseOneOf(mode, "mode", ["before-user", "after-answer"]),
+    ),
   branchTask: async (taskId, entryId, summarize) =>
     (await getTaskPool()).branchTask(
       parseTaskId(taskId),

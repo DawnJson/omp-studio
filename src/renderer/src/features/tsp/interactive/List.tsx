@@ -3,7 +3,13 @@
 // 多选提问的选项（`omp.ask.check`）例外：单击永远是 `select`（omp 把它当勾选切换），双击不 activate（规则在 shared/tsp/ask-gate.ts）。
 // 方向键、Enter 这些归 omp：list 自己可聚焦，按键用 keys.ts 编码写进伪终端。
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { askItemClick, askItemDoubleActivates, askItemMarker } from "../../../../../shared/tsp/ask-gate.ts";
+import {
+  ASK_DIGIT_MAX,
+  askDigitPick,
+  askItemClick,
+  askItemDoubleActivates,
+  askItemMarker,
+} from "../../../../../shared/tsp/ask-gate.ts";
 import { Badge } from "../../../ui/controls.tsx";
 import type { TspItemProps, TspListProps } from "../../../../../shared/tsp/tsp.generated.ts";
 import { nodeActionHandlers } from "../actions.ts";
@@ -11,7 +17,7 @@ import { TspIcon } from "../icons.tsx";
 import { encodeKey } from "../keys.ts";
 import type { NodeProps, TspContext } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
-import { useTspSurface } from "../tsp-store.ts";
+import { peekTspNode, useTspSurface } from "../tsp-store.ts";
 import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { nodeDomProps } from "../node-dom.ts";
 import { VIRTUAL_MIN_ITEMS } from "./list-virtual.ts";
@@ -24,6 +30,8 @@ interface ListState {
   listId: string;
   selected: string | null;
   filter: string;
+  /** 提问选项的序号（1–9，按数字键选它）：只有带单选圈 / 勾选框的项有。 */
+  numbers: ReadonlyMap<string, number>;
 }
 
 const ListContext = createContext<ListState | null>(null);
@@ -79,7 +87,16 @@ export function List(props: NodeProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealSeq]);
 
+  const items = node.c.map((id) => ({ id, role: peekTspNode(ctx.taskId, ctx.sf, id)?.p["role"] }));
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // 提问列表上的数字键 = 点第 N 项（omp 不认数字键）；其余键照常写给 omp。
+    const modified = e.ctrlKey || e.altKey || e.metaKey || e.shiftKey;
+    const pick = modified ? null : askDigitPick(e.key, items, selected);
+    if (pick !== null) {
+      e.preventDefault();
+      ctx.send({ ev: pick.ev, sf: ctx.sf, id: node.id, item: pick.item });
+      return;
+    }
     const data = encodeKey(likeOf(e.nativeEvent));
     if (data === null) return;
     e.preventDefault();
@@ -87,7 +104,15 @@ export function List(props: NodeProps) {
   };
 
   const filter = p.filter ?? "";
-  const state = useMemo<ListState>(() => ({ listId: node.id, selected, filter }), [node.id, selected, filter]);
+  const numberKey = items.map((item) => (askItemMarker(item.role) === null ? "" : item.id)).join("\u0000");
+  const numbers = useMemo(() => {
+    const marked = numberKey.split("\u0000").filter((id) => id !== "");
+    return new Map(marked.slice(0, ASK_DIGIT_MAX).map((id, index) => [id, index + 1]));
+  }, [numberKey]);
+  const state = useMemo<ListState>(
+    () => ({ listId: node.id, selected, filter, numbers }),
+    [node.id, selected, filter, numbers],
+  );
   const style = cap === undefined ? undefined : ({ "--tspi-list-max": cap } as React.CSSProperties);
   const empty = node.c.length === 0;
 
@@ -169,7 +194,15 @@ export function Item({ node, ctx }: NodeProps) {
 
   return (
     <div
-      className={[own.className, "tspi-item", isSelected ? "sel" : "", disabled ? "off" : ""].filter(Boolean).join(" ")}
+      className={[
+        own.className,
+        "tspi-item",
+        isSelected ? "sel" : "",
+        disabled ? "off" : "",
+        list?.numbers.has(node.id) === true ? "num" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-id={node.id}
       data-tone={p.tone}
       data-role={typeof node.p["role"] === "string" ? node.p["role"] : undefined}
@@ -195,6 +228,11 @@ export function Item({ node, ctx }: NodeProps) {
       ) : p.icon !== undefined ? (
         <span className="tspi-item-ic">
           <TspIcon name={p.icon} />
+        </span>
+      ) : null}
+      {list?.numbers.has(node.id) === true ? (
+        <span className="tspi-item-n" aria-hidden="true" data-testid="tspi-item-n">
+          {list.numbers.get(node.id)}
         </span>
       ) : null}
       <span className="tspi-item-label">

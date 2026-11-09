@@ -23,4 +23,5 @@ export const error = {
   backdropTooLarge: "The image is larger than 20 MB. Pick a smaller one.",
   backdropNotImage:
     "This file isn’t a usable image (PNG, JPG, WebP, GIF, AVIF), or its content doesn’t match its extension.",
+  terminalShellMissing: "The terminal shell chosen in Settings no longer exists. Pick another in Settings -> General.",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

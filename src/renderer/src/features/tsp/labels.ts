@@ -28,6 +28,8 @@ export const labels = {
   agentContext: (percent: number) => `${percent}% context`,
   agentRetry: (attempt: number, max: number, delay: string) => `↻ retry ${attempt}/${max} in ${delay}`,
   agentTools: (count: number) => plural(count, "tool call", "tool calls"),
+  /** 连续工具调用的组头：有失败时追加的红字。 */
+  toolsFailed: (count: number) => `${count} failed`,
   todos: "Todos",
   todosDone: (done: number, total: number) => `Todos, ${done} of ${total} done`,
   todosOpen: (count: number) => `${count} ${count === 1 ? "todo" : "todos"} still open`,
@@ -35,4 +37,6 @@ export const labels = {
   effortAria: (level: string) => `Thinking effort: ${level}`,
   chartEmpty: "No data",
   recapTitle: "Recap while you were away",
+  /** 恢复会话时 studio 补的用量行里的复制按钮：和 omp 实时画的那个同一个提示。 */
+  copyAnswer: "Copy answer",
 };

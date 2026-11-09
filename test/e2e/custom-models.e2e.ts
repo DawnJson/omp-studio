@@ -1,9 +1,9 @@
-// 设置 → 模型与账号 → 自定义提供商（阶段 2.6）：添加（含一键拉取、勾选、手动添加）→ 编辑 → 删除，直接改 models.yml。
+// 设置 → 模型与账号 → 自定义提供商（阶段 2.6）：添加（含一键拉取后在浮层里挑选、手动添加）→ 编辑（× 移除、标出失效的）→ 删除，直接改 models.yml。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR + 本地假的 OpenAI 兼容服务；不连任何真实服务。
 import { execFileSync } from "node:child_process";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { parse as parseYaml } from "yaml";
 import { startFakeOpenAi } from "../fake-openai/server.ts";
 import { expectNoOverflow, launchSettings as launchSettingsPage, setLocaleTheme, type LaunchedApp } from "./launch.ts";
@@ -22,7 +22,16 @@ function launchSettings(
   );
 }
 
-test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模型出现在 omp 的模型列表 → 编辑 → 删除；注释和其它 provider 原样保留", async () => {
+/** 拉取模型 → 在弹出的选择浮层里勾上这些 → 添加；浮层关掉。 */
+async function pickModels(page: Page, ids: readonly string[]): Promise<void> {
+  await page.getByTestId("custom-fetch").click();
+  const picker = page.getByTestId("custom-picker");
+  for (const id of ids) await picker.getByTestId(`custom-pick-${id}`).check();
+  await picker.getByTestId("custom-picker-add").click();
+  await expect(picker).toHaveCount(0);
+}
+
+test("自定义提供商：添加（拉取后在浮层里挑选、手动添加）→ 新模型出现在 omp 的模型列表 → 编辑（× 移除）→ 删除；注释和其它 provider 原样保留", async () => {
   const fake = await startFakeOpenAi({ apiKey: SECRET, models: ["fake-chat", "fake-mini", "fake-extra"] });
   const { launched, agentDir } = await launchSettings();
   const file = path.join(agentDir, "models.yml");
@@ -93,33 +102,54 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await page.getByTestId("custom-key").fill(SECRET);
     await page.getByTestId("custom-key-toggle").click();
     await expect(page.getByTestId("custom-key")).toHaveAttribute("type", "text");
+    // 拉取成功：弹出选择浮层（不弹气泡），拉到的模型都在、都没选，焦点在搜索框；列表里还是空的，不能保存。
     await page.getByTestId("custom-fetch").click();
-    await expect(page.getByTestId("custom-model-fake-chat")).toBeVisible();
-    // 拉取结果只用气泡说一句总数，对话框里不留一段文字。
-    await expect(page.getByTestId("toasts").getByText("拉取到 3 个模型")).toBeVisible();
-    // 对话框开着时气泡挪到窗口底部、对话框下面，不压住对话框的上沿（2026-10-29 仓库所有者定）。
-    await page.getByTestId("toasts").evaluate(async (element) => {
-      const animated = element as unknown as {
-        getAnimations(options: { subtree: boolean }): { finished: Promise<unknown> }[];
-      };
-      await Promise.all(animated.getAnimations({ subtree: true }).map((animation) => animation.finished));
-    });
-    const fetchedToast = (await page.getByTestId("toasts").getByText("拉取到 3 个模型").boundingBox())!;
-    const formBox = (await form.boundingBox())!;
-    expect(fetchedToast.y).toBeGreaterThanOrEqual(formBox.y + formBox.height);
+    const picker = page.getByTestId("custom-picker");
+    await expect(picker.locator('[data-testid^="custom-pick-fake-"]')).toHaveCount(3);
+    await expect(picker.getByTestId("custom-pick-fake-chat")).not.toBeChecked();
+    await expect(page.getByTestId("custom-picker-search")).toBeFocused();
+    await expect(page.getByTestId("custom-picker-add")).toBeDisabled();
     await expect(page.getByTestId("custom-fetch-notice")).toHaveCount(0);
-    await expect(page.getByTestId("custom-model-fake-chat")).not.toBeChecked();
-    await expect(page.getByTestId("custom-model-fake-mini")).not.toBeChecked();
-    // 行不多（没有筛选框）时不显示"已选 n / m"。
+    await expect(page.getByTestId("toasts").getByText(/拉取/)).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-list")).toHaveCount(0);
+    await expect(page.getByTestId("custom-save")).toBeDisabled();
+    // 搜索只留匹配的；"全部"只勾搜索出来的那些，取消也只取消它们；勾两个、添加：只有这两个进列表，没勾的不进。
+    await page.getByTestId("custom-picker-search").fill("mini");
+    await expect(picker.locator('[data-testid^="custom-pick-fake-"]')).toHaveCount(1);
+    await picker.getByTestId("custom-picker-all").check();
+    await expect(picker.getByTestId("custom-pick-fake-mini")).toBeChecked();
+    await page.getByTestId("custom-picker-search").fill("");
+    await expect(picker.getByTestId("custom-pick-fake-chat")).not.toBeChecked();
+    await picker.getByTestId("custom-picker-all").check();
+    await expect(page.getByTestId("custom-picker-add")).toHaveText("添加 3 个");
+    await picker.getByTestId("custom-picker-all").uncheck();
+    await expect(page.getByTestId("custom-picker-add")).toBeDisabled();
+    await picker.getByTestId("custom-pick-fake-mini").check();
+    await picker.getByTestId("custom-pick-fake-chat").check();
+    await expect(page.getByTestId("custom-picker-add")).toHaveText("添加 2 个");
+    await page.getByTestId("custom-picker-add").click();
+    await expect(picker).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-fake-chat")).toBeVisible();
+    await expect(page.getByTestId("custom-model-fake-mini")).toBeVisible();
+    await expect(page.getByTestId("custom-model-fake-extra")).toHaveCount(0);
+    // 列表里的就是要保存的：没有勾选框、全选和"已选 n / m"；上游都还在，没有"已失效"。
+    await expect(page.getByTestId("custom-model-list").getByRole("checkbox")).toHaveCount(0);
+    await expect(page.getByTestId("custom-select-all")).toHaveCount(0);
     await expect(page.getByTestId("custom-selected-count")).toHaveCount(0);
-    await expect(page.getByTestId("custom-save")).toBeDisabled(); // 一个都没勾
+    await expect(page.getByTestId("custom-remove-vanished")).toHaveCount(0);
+    // 再拉一次：已在列表里的显示为已选、不能再选；Esc 只关浮层。
+    await page.getByTestId("custom-fetch").click();
+    await expect(picker.getByTestId("custom-pick-fake-chat")).toBeChecked();
+    await expect(picker.getByTestId("custom-pick-fake-chat")).toBeDisabled();
+    await expect(picker.getByTestId("custom-pick-fake-extra")).toBeEnabled();
+    await expect(page.getByTestId("custom-picker-search")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await expect(form).toBeVisible();
 
-    await page.getByTestId("custom-model-fake-chat").check();
-    await page.getByTestId("custom-model-fake-mini").check();
     await page.getByTestId("custom-manual-model").fill("manual-x");
     await page.getByTestId("custom-manual-model").press("Enter");
-    await expect(page.getByTestId("custom-model-manual-x")).toBeChecked();
-    await expect(page.getByTestId("custom-select-all")).toBeChecked({ indeterminate: true }); // 4 个里勾了 3 个
+    await expect(page.getByTestId("custom-model-manual-x")).toBeVisible();
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
     const row = page.getByTestId("custom-provider-fake-proxy");
@@ -163,12 +193,19 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await page.keyboard.press("Escape");
     await page.getByTestId("settings-nav-providers").click();
 
-    // 编辑：取消勾选手动添加的那个，key 保持不变。
+    // 编辑：× 移除手动添加的那个（悬停那一行才显示），key 保持不变。
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-edit-fake-proxy").click();
     await expect(page.getByTestId("custom-id")).toBeDisabled();
-    await expect(page.getByTestId("custom-model-manual-x")).toBeChecked();
-    await page.getByTestId("custom-model-manual-x").uncheck();
+    const manualRow = page.getByTestId("custom-model-manual-x");
+    const removeManual = manualRow.getByTestId("custom-model-remove-manual-x");
+    await page.mouse.move(0, 0);
+    await expect(removeManual).toHaveCSS("opacity", "0");
+    await manualRow.hover();
+    await expect(removeManual).toHaveCSS("opacity", "1");
+    await expect(removeManual).toHaveAttribute("title", "移除");
+    await removeManual.click();
+    await expect(manualRow).toHaveCount(0);
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
     await expect(row).toContainText("2 个模型");
@@ -204,6 +241,66 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await launched.close();
     await fake.close();
     await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("自定义提供商：浮层只添加勾选的模型；换到不再列出某个模型的服务后拉取 → 标「已失效」、「移除失效的」一键去掉，保存后 models.yml 只剩上游还有的；拉取失败什么都不标", async () => {
+  const before = await startFakeOpenAi({ models: ["model-a", "model-b", "model-c"] });
+  const after = await startFakeOpenAi({ models: ["model-a"] });
+  const { launched, agentDir } = await launchSettings();
+  const file = path.join(agentDir, "models.yml");
+  const savedIds = async () =>
+    (parseYaml(await readFile(file, "utf8")) as { providers: Record<string, { models: { id: string }[] }> }).providers[
+      "gone-relay"
+    ]?.models.map((model) => model.id);
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    const form = page.getByTestId("custom-provider-form");
+    await page.getByTestId("custom-add").click();
+    await page.getByTestId("custom-id").fill("gone-relay");
+    await page.getByTestId("custom-base-url").fill(before.baseUrl);
+    await page.getByTestId("custom-key-mode-none").click();
+    // 浮层里只勾 A、B：没勾的 C 不进列表。
+    await pickModels(page, ["model-a", "model-b"]);
+    await expect(page.getByTestId("custom-model-model-c")).toHaveCount(0);
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+    expect(await savedIds()).toEqual(["model-a", "model-b"]);
+
+    // 编辑：拉取失败（地址不通）什么都不标。
+    await page.getByTestId("custom-edit-gone-relay").click();
+    await page.getByTestId("custom-base-url").fill("http://127.0.0.1:1/v1");
+    await page.getByTestId("custom-fetch").click();
+    await expect(page.getByTestId("custom-fetch-notice")).toBeVisible();
+    await expect(page.getByTestId("custom-model-vanished-model-b")).toHaveCount(0);
+    await expect(page.getByTestId("custom-remove-vanished")).toHaveCount(0);
+
+    // 换到只列 A 的服务、拉取成功：浮层里 A 是已添加；关掉浮层后 B 标"已失效"（悬停说明），工具栏出现"移除失效的 1 个"。
+    await page.getByTestId("custom-base-url").fill(after.baseUrl);
+    await page.getByTestId("custom-fetch").click();
+    await expect(page.getByTestId("custom-pick-model-a")).toBeChecked();
+    await expect(page.getByTestId("custom-pick-model-a")).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("custom-picker")).toHaveCount(0);
+    const badge = page.getByTestId("custom-model-vanished-model-b");
+    await expect(badge).toHaveText("已失效");
+    await expect(badge).toHaveAttribute("title", "刚拉取的模型列表里没有它");
+    await expect(page.getByTestId("custom-model-vanished-model-a")).toHaveCount(0);
+    const removeVanished = page.getByTestId("custom-remove-vanished");
+    await expect(removeVanished).toHaveText("移除失效的 1 个");
+    await removeVanished.click();
+    await expect(page.getByTestId("custom-model-model-b")).toHaveCount(0);
+    await expect(removeVanished).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-model-a")).toBeVisible();
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+    expect(await savedIds()).toEqual(["model-a"]);
+  } finally {
+    await launched.close();
+    await before.close();
+    await after.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -317,12 +414,7 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
     await page.getByTestId("custom-id").fill("meta-proxy");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key-mode-none").click();
-    await page.getByTestId("custom-fetch").click();
-    // 没勾选的模型行里没有参数控件；勾上才出现。
-    await expect(page.getByTestId("custom-model-house-model")).toBeVisible();
-    await expect(page.getByTestId("custom-model-contextWindow-house-model")).toHaveCount(0);
-    await page.getByTestId("custom-model-house-model").check();
-    await page.getByTestId("custom-model-house-plain").check();
+    await pickModels(page, ["house-model", "house-plain"]);
 
     for (const column of ["reasoning", "images"]) {
       await page.getByTestId(`custom-model-${column}-house-model`).click();
@@ -412,9 +504,7 @@ test("自定义提供商：模型标成生图 → models.yml 写 api: openai-ima
     await page.getByTestId("custom-id").fill("img-proxy");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key-mode-none").click();
-    await page.getByTestId("custom-fetch").click();
-    await page.getByTestId("custom-model-chat-a").check();
-    await page.getByTestId("custom-model-img-a").check();
+    await pickModels(page, ["chat-a", "img-a"]);
 
     // 标成生图：对话的四项参数不再出现。
     await expect(page.getByTestId("custom-model-kind-img-a")).toContainText("对话");
@@ -536,10 +626,7 @@ test("自定义提供商：认得出的生图模型类型自动填成生图（�
     await page.getByTestId("custom-id").fill("auto-img");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key-mode-none").click();
-    await page.getByTestId("custom-fetch").click();
-    // 类型列只在勾选的行上。
-    for (const modelId of ["chat-b", "relay-img", "dall-e-x", "gem-image-x", "seedream-x"])
-      await page.getByTestId(`custom-model-${modelId}`).check();
+    await pickModels(page, ["chat-b", "relay-img", "dall-e-x", "gem-image-x", "seedream-x"]);
     const kind = (modelId: string) => page.getByTestId(`custom-model-kind-${modelId}`);
     await expect(kind("relay-img")).toContainText("生图");
     await expect(kind("dall-e-x")).toContainText("生图");
@@ -638,9 +725,7 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
     await page.getByTestId("custom-id").fill("new-relay");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key-mode-none").click();
-    await page.getByTestId("custom-fetch").click();
-    await page.getByTestId("custom-model-kimi-k3.1-pro").check();
-    await page.getByTestId("custom-model-house-plain").check();
+    await pickModels(page, ["kimi-k3.1-pro", "house-plain"]);
     await expect(page.getByTestId("custom-model-contextWindow-kimi-k3.1-pro")).toHaveValue("1048576");
     await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动");
     await expect(page.getByTestId("custom-model-contextWindow-house-plain")).toHaveValue("");
@@ -657,7 +742,7 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
   }
 });
 
-test("自定义提供商：自动发现模型——开关写 discovery、不用勾模型；omp 读到 /models 里的模型；刷新模型按钮跑通；关掉后去掉 discovery", async () => {
+test("自定义提供商：自动发现模型——开关写 discovery、不用勾模型；悬停说明不能逐个移除；omp 读到 /models 里的模型、编辑时显示成灰色只读行；刷新模型按钮跑通；关掉后去掉 discovery", async () => {
   const fake = await startFakeOpenAi({ models: ["disc-a", "disc-b"] });
   const { launched, agentDir } = await launchSettings();
   const file = path.join(agentDir, "models.yml");
@@ -683,6 +768,10 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
     await expect(page.getByTestId("custom-save")).toBeDisabled();
     await page.getByTestId("custom-discovery").click();
     await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
+    // 开关的悬停说明：上游的模型自动出现和消失，开着时不能逐个移除，要自己挑就关掉。
+    await expect(page.getByTestId("custom-discovery-label")).toHaveAttribute("title", /不能逐个移除.*关掉/);
+    // 还没保存的 provider 没有 omp 列出的模型：没有只读行。
+    await expect(page.getByTestId("custom-model-list")).toHaveCount(0);
     await expect(page.getByTestId("custom-save")).toBeEnabled();
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-save").click();
@@ -718,11 +807,16 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
     await expect(page.getByTestId("custom-refresh")).toBeEnabled({ timeout: 90_000 });
     await expect(page.getByTestId("custom-load-failed")).toHaveCount(0);
 
-    // 编辑：开关是开的；关掉并勾选一个模型再保存 → discovery 去掉，别的内容不动。
+    // 编辑：开关是开的；omp 发现的模型显示成灰色只读行（没有 ×）。关掉后只读行消失；手动加一个模型再保存 → discovery 去掉，别的内容不动。
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-edit-fake-disco").click();
     await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
+    const discovered = page.getByTestId("custom-model-list").locator("[data-discovered]");
+    await expect(discovered).toHaveText(["disc-a", "disc-b"], { timeout: 30_000 });
+    await expect(discovered.first()).toHaveAttribute("title", /关掉自动发现才能逐个挑选/);
+    await expect(discovered.first().locator("button, input")).toHaveCount(0);
     await page.getByTestId("custom-discovery").click();
+    await expect(discovered).toHaveCount(0);
     await expect(page.getByTestId("custom-save")).toBeDisabled(); // 没有模型、也没开发现
     await page.getByTestId("custom-manual-model").fill("manual-only");
     await page.getByTestId("custom-manual-model").press("Enter");
@@ -763,8 +857,7 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     await expect(value).toHaveAttribute("type", "password");
     await value.fill(SECRET);
     // 拉取用刚填的值（还没写进 .env）。
-    await page.getByTestId("custom-fetch").click();
-    await page.getByTestId("custom-model-fake-chat").check();
+    await pickModels(page, ["fake-chat"]);
     // 这个变量哪里都没有值：值清空就不能保存。
     const save = page.getByTestId("custom-save");
     await expect(save).toBeEnabled();
@@ -879,7 +972,8 @@ test("自定义提供商：编辑里用文件里的连接拉取失败 → 卡片
     await page.getByTestId("custom-key-mode-literal").click();
     await page.getByTestId("custom-key").fill(SECRET);
     await page.getByTestId("custom-fetch").click();
-    await expect(page.getByTestId("toasts").getByText("拉取到 1 个模型")).toBeVisible();
+    // 拉取成功：选择浮层里已保存的模型显示为已添加。
+    await expect(page.getByTestId("custom-pick-fake-chat")).toBeDisabled();
     await page.getByTestId("custom-cancel").click();
     await expect(form).toHaveCount(0);
     await expect(keyBadge).toHaveText("key 无效");

@@ -13,6 +13,7 @@ import type {
   PromptStatus,
   SessionCredits,
   SlowModeScope,
+  ConfiguredThinkingLevel,
   ThinkingLevel,
   TodoPhase,
   TokenUsage,
@@ -61,6 +62,7 @@ import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
 import type { OmpKeybinding } from "./tsp/omp-keybindings.ts";
 import type { ProviderKeyEnv } from "./provider-keys.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
+import type { PromptEnhanceResult, PromptEnhanceTarget } from "./prompt-enhance.ts";
 
 // ───────── 标识 ─────────
 
@@ -231,6 +233,10 @@ export interface StudioSettings {
   copyOnSelect: boolean;
   /** 折叠着的工具卡只画标题行，不画 omp 给的输出预览（点开看全部）。默认关（issue #8）。 */
   toolHeadsOnly: boolean;
+  /** 连续的工具调用合成一组（组头 + 跑完收起，点开看每张卡）。默认开（2026-11-09，issue #9）。 */
+  groupToolCalls: boolean;
+  /** 内置终端起哪个 shell（可执行文件的绝对路径）；null = 自动（Windows 先 pwsh 再 Windows PowerShell，其他平台 $SHELL）。只影响 studio 的终端，omp 的 bash 工具不受影响。 */
+  terminalShell: string | null;
   /** 整个软件的字号（正文 pt，fontSizeSteps 之一），默认 15；页面缩放 = fontSize / 15。 */
   fontSize: number;
   /** 用户确认过"全自动"。 */
@@ -247,6 +253,11 @@ export interface Project {
   /** 绝对路径，只用于显示。 */
   path: string;
   name: string;
+  /**
+   * 从侧栏移除了（"从列表移除"）：这个项目的任务和同一目录的历史会话都不在列表里列出；任务不归档，在跑的照跑、等你确认的仍在"等你确认"条里。
+   * 再打开这个文件夹、在里面新建任务、恢复其中的会话时取消（`TaskPool` 的 `addProject` / `createTask` / `resume`）。
+   */
+  hidden: boolean;
 }
 
 // ───────── 任务 ─────────
@@ -347,6 +358,12 @@ export interface SessionModelUsage {
   whole: { total: number; cost: number } | null;
 }
 
+/**
+ * 任务的思考强度：omp 的选择值（含 `auto`：omp 每轮按模型自选，`--thinking auto` / ⇧⇥ 循环里都有），不含 `inherit`
+ * （那是给备用链 / 子代理继承上一级用的，任务没有上一级）。
+ */
+export type TaskThinkingLevel = Exclude<ConfiguredThinkingLevel, "inherit">;
+
 export interface TaskState {
   id: TaskId;
   projectId: ProjectId;
@@ -359,9 +376,12 @@ export interface TaskState {
   createdAt: number;
   updatedAt: number;
   model: ModelOption | null;
-  thinkingLevel: ThinkingLevel | null;
-  /** 当前模型能选的思考强度（模型目录的 thinkingEfforts 加 off），随模型变化。 */
-  thinkingLevels: ThinkingLevel[];
+  thinkingLevel: TaskThinkingLevel | null;
+  /**
+   * 当前模型能选的思考强度（模型目录的 thinkingEfforts 加 auto、off；切强度时实际转过的一圈优先），随模型变化。
+   * null = 还没读到 omp 的输入框卡片（没起进程）。
+   */
+  thinkingLevels: TaskThinkingLevel[] | null;
   /** 上下文占用（输入框卡片上的 meter）；percent 是 0–100 的百分数。omp 没给时为 null。 */
   contextUsage: ContextUsage | null;
   /** 本会话累计费用等（输入框卡片 + 会话文件）；还没取到时为 null。 */
@@ -462,7 +482,7 @@ export interface CreateTaskInput {
   worktree?: boolean;
   /** 草稿里"用于此任务"选的模型 / 思考强度：任务以 `--model` / `--thinking` 起进程，只对这个会话生效（omp 不写配置）。不传 = 跟 omp 的默认值。 */
   model?: ModelKey;
-  thinkingLevel?: ThinkingLevel;
+  thinkingLevel?: TaskThinkingLevel;
 }
 
 export interface PromptImage {
@@ -538,7 +558,13 @@ export interface SessionTreeView {
   nodes: SessionTreeNode[];
 }
 
-/** forkTask / branchTask 的结果：`text` 是被分叉的那条用户消息的文字，放进输入框让用户改后重发。 */
+/**
+ * forkTask 从哪里分：`before-user` = 回到那条用户消息之前（它的文字回到输入框让用户改后重发）；
+ * `after-answer` = 保留到那条用户消息的回答为止（含回答），新任务的输入框是空的。
+ */
+export type ForkMode = "before-user" | "after-answer";
+
+/** forkTask / branchTask 的结果：`text` 是被分叉的那条用户消息的文字，放进输入框让用户改后重发；`after-answer` 分叉为空串。 */
 export interface ForkResult {
   task: TaskState;
   text: string;
@@ -644,6 +670,8 @@ export interface ContextReport {
 export interface TspTurnFooter {
   /** 用户消息到最终回复完成的毫秒数；会话文件里没有时间戳时为 null。 */
   elapsedMs: number | null;
+  /** 最终回复完成的时刻（epoch 毫秒）；会话文件里没有时为 null。用量行悬停里显示。 */
+  completedAt: number | null;
   /** 输入 token（含缓存写入）。 */
   input: number;
   output: number;
@@ -675,8 +703,12 @@ export interface SessionSummary {
   /** cwd 对应的已加入项目；没有时为 null，恢复时会自动加入。 */
   projectId: ProjectId | null;
   modifiedAt: number;
-  /** 已经挂在某个任务上。 */
+  /** 挂在某个未归档的任务上（它就是那个任务行，历史里不再列出）。 */
   taskId: TaskId | null;
+  /** 挂在已归档的任务上：侧栏、命令面板的历史都不列出，只在"已归档"里列出；点开恢复成那个任务。 */
+  archived: boolean;
+  /** 会话头 parentSession 指向的会话（分叉出来的）的 id；父会话不在索引里或没有父会话时为 null。侧栏把它缩进在父会话下面。 */
+  parentId: string | null;
   /** 会话在 omp 的 `session-pins.json` 里（置顶）：侧栏历史把它排在前面。 */
   pinned: boolean;
 }
@@ -1005,6 +1037,8 @@ export interface ShellState {
   terminalHeight: number;
   /** 侧栏历史会话的排列：按文件夹（cwd）分组，或全部按时间。默认按文件夹。 */
   historyOrder: HistoryOrder;
+  /** 对话列宽度：占主区面板宽度的百分比（40–100，最多两位小数）；null = 默认 80。实际宽度仍夹在 840–1200 和主区 − 2×留白之间。 */
+  conversationWidth: number | null;
 }
 
 export type HistoryOrder = "folder" | "time";
@@ -1020,6 +1054,12 @@ export type EditCommand = (typeof editCommands)[number];
  */
 export const titleBarFades = ["scrim", "palette", "zoom"] as const;
 export type TitleBarFade = (typeof titleBarFades)[number];
+
+/** 设置里可选的一个终端 shell：给人看的名字和可执行文件的绝对路径。 */
+export interface TerminalShellOption {
+  name: string;
+  path: string;
+}
 
 /** openTerminal 的结果。 */
 export interface TerminalOpenResult {
@@ -1093,7 +1133,7 @@ export interface StudioInvokeApi {
   addProject(): Promise<Project | null>;
   /** 创建（已存在则复用）AppInfo.chatsDir 并加入项目；没有项目时直接发送用。 */
   ensureChatsProject(): Promise<Project>;
-  /** 只从列表移除，不动磁盘。项目下还有未归档任务时拒绝。 */
+  /** 只从列表移除（项目藏起来，这个目录的历史会话也不列出），不动磁盘、不归档任务；再打开这个文件夹时重新显示。 */
   removeProject(projectId: ProjectId): Promise<void>;
 
   // 任务
@@ -1139,7 +1179,7 @@ export interface StudioInvokeApi {
   archiveTask(taskId: TaskId): Promise<void>;
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
   setTaskModel(taskId: TaskId, model: ModelKey): Promise<void>;
-  setTaskThinkingLevel(taskId: TaskId, level: ThinkingLevel): Promise<void>;
+  setTaskThinkingLevel(taskId: TaskId, level: TaskThinkingLevel): Promise<void>;
   /** `/fast`：模型不支持时 reject（omp 的 toast 原文）。 */
   setTaskFastMode(taskId: TaskId, enabled: boolean): Promise<void>;
   /** `/slow`：模型不支持时 reject（omp 的 toast 原文）。 */
@@ -1157,6 +1197,12 @@ export interface StudioInvokeApi {
   closeTerminal(key: TerminalKey): Promise<void>;
   /** 草稿建出任务后把草稿的终端交给任务（同一个 shell、同一份 backlog）；草稿没有终端时返回 false。任务已有终端时不动草稿的。 */
   rekeyTerminal(from: DraftKey, to: TaskId): Promise<boolean>;
+  /** 设置里可选的 shell：本机检测到的（只列存在的）。 */
+  listTerminalShells(): Promise<TerminalShellOption[]>;
+  /** 设成检测列表里的一个（路径必须在 listTerminalShells 里），null = 自动。只影响之后新开的终端。 */
+  setTerminalShell(path: string | null): Promise<void>;
+  /** 弹主进程的文件对话框选一个可执行文件作终端 shell；用户取消返回 false。 */
+  chooseTerminalShell(): Promise<boolean>;
 
   // 浏览器面板（右栏，docs/architecture/browser.md）：每个任务一个页面，也是给 omp 的 `browser` 工具用的 CDP 浏览器。
   /**
@@ -1175,6 +1221,8 @@ export interface StudioInvokeApi {
   resumeSession(sessionId: string): Promise<TaskState>;
   /** 把会话的 cwd 加入项目（已存在则复用）但不创建任务；侧栏里只有历史会话的文件夹点"+"时用。目录已不存在时拒绝。 */
   ensureSessionProject(sessionId: string): Promise<Project>;
+  /** 归档一条历史会话（还没挂在任务上的，或挂在任务上的按任务归档）：不在列表里列出，从"已归档"点开恢复。会话文件不动。 */
+  archiveSession(sessionId: string): Promise<void>;
   /** 在系统文件管理器里显示项目目录（主进程用自己记的路径，渲染进程不传路径）。 */
   revealProject(projectId: ProjectId): Promise<void>;
   /** 在系统文件管理器里选中任务的会话文件；任务还没有会话文件时拒绝。 */
@@ -1267,11 +1315,12 @@ export interface StudioInvokeApi {
   /** 会话里的用户消息树：只读会话文件（不拉起进程，还没有会话文件时 nodes 为空）。 */
   getSessionTree(taskId: TaskId): Promise<SessionTreeView>;
   /**
-   * 从一条用户消息分叉出新任务：新任务的会话是这条消息之前的历史，同项目、同工作目录（worktree 任务的分叉共用同一个 worktree）。
+   * 从一条用户消息分叉出新任务，同项目、同工作目录（worktree 任务的分叉共用同一个 worktree）。
    * `entryId` 是会话条目 id（会话树面板的节点 `SessionTreeNode.entryId`），null 表示当前分支最后一条用户消息。
-   * 新任务用 `omp --fork=<原会话文件>` 起（omp 自己复制会话文件），在新进程里用 `/tree` 回到那条消息之前；原任务不动。
+   * `mode`：`before-user` = 新任务的会话是这条消息之前的历史；`after-answer` = 到这条消息在当前分支上的回答为止（含回答）。
+   * 新任务用 `omp --fork=<原会话文件>` 起（omp 自己复制会话文件），需要时在新进程里用 `/tree` 移到分叉点；原任务不动。
    */
-  forkTask(taskId: TaskId, entryId: string | null): Promise<ForkResult>;
+  forkTask(taskId: TaskId, entryId: string | null, mode: ForkMode): Promise<ForkResult>;
   /**
    * 就地回到树里的一个用户消息节点：驱动 omp 自己的 `/tree`（同一个会话文件里移动叶子，不新建文件，原来的分支留在文件里），节点树由 omp 自己重画；
    * 返回那条消息的文字。只在任务空闲时可用。`summarize` 为真时让 omp 给被放弃的分支写摘要（调一次模型，写进会话文件一个 branch_summary 条目）。
@@ -1459,6 +1508,7 @@ export interface StudioInvokeApi {
   setSoundOnDone(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
   setToolHeadsOnly(on: boolean): Promise<void>;
+  setGroupToolCalls(on: boolean): Promise<void>;
   /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值（缓存优先，同 listModels(false)）；读不到（没登录、没有可用模型）时为 null。 */
@@ -1540,6 +1590,13 @@ export interface StudioInvokeApi {
   generateCommitMessage(taskId: TaskId): Promise<GitCommitMessageResult>;
   /** 取消这个任务正在进行的"生成提交信息"；没有进行中的就什么也不做。 */
   cancelCommitMessage(taskId: TaskId): Promise<void>;
+  /**
+   * 提示词优化：`omp -p` 一次性改写草稿文字（只发这段文字，不进会话、不带工具和上下文文件；docs/architecture/prompt-enhance.md）。
+   * 模型是 omp 的 smol 角色；smol 和 default 都没配时用 fallback（当前任务 / 草稿页的模型）。同一个输入框再发起会取消上一次。
+   */
+  enhancePrompt(target: PromptEnhanceTarget, text: string, fallback: ModelKey | null): Promise<PromptEnhanceResult>;
+  /** 取消这个输入框正在进行的提示词优化；没有就什么也不做。 */
+  cancelEnhancePrompt(target: PromptEnhanceTarget): Promise<void>;
   /** 推送当前分支（需要时设置 upstream），从不强推。 */
   pushGit(taskId: TaskId): Promise<GitPushResult>;
   /** `gh pr create`，基分支是任务的 worktreeBase（没有 worktree 时由 gh 决定）。 */
@@ -1626,6 +1683,8 @@ export const limits = {
   terminalInputMaxChars: 65_536,
   terminalSizeRange: [2, 1000],
   terminalHeightRange: [120, 4000],
+  /** 对话列宽度占主区的百分比：下限放得很低，宽屏上也能拖到 --content-w-min（840）；像素上下限由 CSS 夹（2026-11-09）。 */
+  conversationWidthRange: [10, 100],
   urlMaxChars: 8192,
   maxLiveProcessesRange: [2, 16],
   /** `/goal` 的目标文字最大字符数。 */
@@ -1690,6 +1749,7 @@ export const invokeNames = {
   listSessions: true,
   resumeSession: true,
   ensureSessionProject: true,
+  archiveSession: true,
   revealProject: true,
   revealTaskSession: true,
   getTaskSessionRef: true,
@@ -1730,6 +1790,9 @@ export const invokeNames = {
   unsubscribeTerminal: true,
   closeTerminal: true,
   rekeyTerminal: true,
+  listTerminalShells: true,
+  setTerminalShell: true,
+  chooseTerminalShell: true,
   placeBrowser: true,
   navigateBrowser: true,
   browserAction: true,
@@ -1800,6 +1863,7 @@ export const invokeNames = {
   setSoundOnDone: true,
   setCopyOnSelect: true,
   setToolHeadsOnly: true,
+  setGroupToolCalls: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
   getStartupSnapshot: true,
@@ -1836,6 +1900,8 @@ export const invokeNames = {
   getLastCommit: true,
   generateCommitMessage: true,
   cancelCommitMessage: true,
+  enhancePrompt: true,
+  cancelEnhancePrompt: true,
   pushGit: true,
   createPullRequest: true,
   openTaskPullRequest: true,

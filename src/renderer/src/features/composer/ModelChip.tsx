@@ -6,7 +6,7 @@
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import type { TaskThinkingLevel } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { isLetterKey, withShortcut } from "../../app/platform-keys.ts";
 import { Bolt } from "../../icons.tsx";
@@ -34,7 +34,7 @@ export function ModelChip(task: ModelChipProps) {
   const [open, setOpen] = useState(false);
   // `/model sonnet`、`/model @task` 带来的搜索词和范围；点胶囊打开时没有。
   const [request, setRequest] = useState<ModelPickerRequest | null>(null);
-  const [pendingLevel, setPendingLevel] = useState<ThinkingLevel | null>(null);
+  const [pendingLevel, setPendingLevel] = useState<TaskThinkingLevel | null>(null);
   const inflight = useRef(0);
   const giveUp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const thinkingLevel = pendingLevel ?? task.thinkingLevel;
@@ -43,8 +43,8 @@ export function ModelChip(task: ModelChipProps) {
   const supportsThinking = task.model?.reasoning === true && levels.length > 0;
   const levelText =
     thinkingLevel && thinkingLabel[thinkingLevel] ? t(thinkingLabel[thinkingLevel] as MessageKey) : null;
-  // 刻度只数 effort（不算"关"）：关 = 全灭，最高档 = 全亮。
-  const efforts: readonly ThinkingLevel[] = levels.filter((level) => level !== "off");
+  // 刻度只数 effort（不算"关"和"自动"）：关、自动 = 全灭，最高档 = 全亮。
+  const efforts: readonly TaskThinkingLevel[] = levels.filter((level) => level !== "off" && level !== "auto");
   const lit = thinkingLevel === null ? 0 : efforts.indexOf(thinkingLevel) + 1;
   const name = task.model?.name ?? emptyLabel ?? t("composer.noModel");
   const badges = task.speed ? speedBadges(task.speed.fast, task.speed.slow) : [];
@@ -56,7 +56,7 @@ export function ModelChip(task: ModelChipProps) {
   }, [task.thinkingLevel]);
   useEffect(() => () => clearTimeout(giveUp.current), []);
 
-  const setThinking = (level: ThinkingLevel): Promise<void> => {
+  const setThinking = (level: TaskThinkingLevel): Promise<void> => {
     setPendingLevel(level);
     inflight.current += 1;
     clearTimeout(giveUp.current);

@@ -1,5 +1,5 @@
-// 外壳界面状态：侧栏宽度、折叠、终端面板高度、历史会话排列（主进程持久化）和窄窗抽屉是否打开（只在内存）。
-// 拖动侧栏 / 终端拖拽条时不经过这里：拖拽条自己直接改 DOM，松手时才 commit（一次写 store、一次持久化）。
+// 外壳界面状态：侧栏宽度、折叠、终端面板高度、对话列宽度、历史会话排列（主进程持久化）和窄窗抽屉是否打开（只在内存）。
+// 拖动侧栏 / 终端 / 对话列拖拽条时不经过这里：拖拽条自己直接改 DOM，松手时才 commit（一次写 store、一次持久化）。
 import { limits, type HistoryOrder, type ShellState } from "../../../shared/ipc.ts";
 import { defaultTerminalHeight } from "../../../shared/ui/terminal-model.ts";
 import { createStore, useStoreValue } from "../store/create-store.ts";
@@ -16,6 +16,7 @@ const shellStore = createStore<ShellUiState>({
   sidebarCollapsed: false,
   terminalHeight: defaultTerminalHeight,
   historyOrder: "folder",
+  conversationWidth: null,
   drawerOpen: false,
 });
 
@@ -53,6 +54,14 @@ export function commitTerminalHeight(height: number): void {
   const terminalHeight = clampStoredTerminalHeight(height);
   update({ terminalHeight });
   persist({ terminalHeight });
+}
+
+/** 对话列宽度（占主区的百分比，null = 默认）：夹到合法范围、留两位小数。 */
+export function commitConversationWidth(ratio: number | null): void {
+  const [min, max] = limits.conversationWidthRange;
+  const conversationWidth = ratio === null ? null : Math.round(Math.min(max, Math.max(min, ratio)) * 100) / 100;
+  update({ conversationWidth });
+  persist({ conversationWidth });
 }
 
 export function setSidebarCollapsed(sidebarCollapsed: boolean): void {

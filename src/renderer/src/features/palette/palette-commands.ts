@@ -120,6 +120,15 @@ export function buildCommands({ t, locale, current, terminalKey, hasWaiting }: C
       shortcut: "Ctrl O",
       run: () => emitStudioCommand("toggleProcess"),
     },
+    // 对话大纲：回到对话页，展开对话线的大纲，焦点放在正在读的那一行（ConversationLine 订阅）。
+    current && {
+      id: "outline",
+      label: t("palette.outline"),
+      run: () => {
+        showView("conversation");
+        emitStudioCommand("outline");
+      },
+    },
     current && {
       id: "review",
       label: t("review.open"),

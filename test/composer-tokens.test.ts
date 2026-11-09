@@ -12,6 +12,7 @@ import {
   EMPTY_DRAFT,
   historyText,
   formatFileSize,
+  expandPaste,
   insertFiles,
   insertImages,
   insertPaste,
@@ -19,6 +20,7 @@ import {
   isLargePaste,
   normalizePaste,
   pasteMarker,
+  pasteSize,
   persistedText,
   reconcileDraft,
   removeAttachment,
@@ -73,6 +75,23 @@ describe("插入大段粘贴", () => {
     const cleared = reconcileDraft({ ...first, text: "" });
     expect(cleared.pastes).toEqual({});
     expect(insertPaste(cleared, lines(12), 0)!.draft.text).toBe("[Paste #2, +12 lines] ");
+  });
+  it("展开成文字：占位符换回原文，粘贴记录随之清掉，光标在原文后面；发送内容不变", () => {
+    const inserted = insertPaste(draftOf({ text: "看看" }), lines(30), 2)!.draft;
+    const withTail = { ...inserted, text: `${inserted.text}结尾` };
+    const expanded = expandPaste(withTail, 1);
+    expect(expanded.draft.text).toBe(`看看 ${lines(30)} 结尾`);
+    expect(expanded.draft.pastes).toEqual({});
+    expect(expanded.caret).toBe(`看看 ${lines(30)}`.length);
+    expect(buildSubmission(expanded.draft)).toEqual(buildSubmission(withTail));
+  });
+  it("展开不存在的粘贴：草稿不变", () => {
+    const draft = insertPaste(EMPTY_DRAFT, lines(12), 0)!.draft;
+    expect(expandPaste(draft, 2).draft).toBe(draft);
+  });
+  it("卡片上的大小：超过 10 行写行数，否则写字符数", () => {
+    expect(pasteSize(lines(40), "行", "字符")).toBe("40 行");
+    expect(pasteSize("a".repeat(1500), "行", "字符")).toBe("1500 字符");
   });
 });
 

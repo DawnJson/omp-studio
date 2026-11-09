@@ -3,8 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ModelKey, Project, ProjectId, TaskId } from "../../shared/ipc.ts";
-import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { ModelKey, Project, ProjectId, TaskId, TaskThinkingLevel } from "../../shared/ipc.ts";
 import { writeFileAtomic } from "./atomic-write.ts";
 
 export interface TaskRecord {
@@ -18,7 +17,8 @@ export interface TaskRecord {
   updatedAt: number;
   archived: boolean;
   model: ModelKey | null;
-  thinkingLevel: ThinkingLevel | null;
+  /** 下次起进程的 `--thinking`（含 auto）：建任务时选的，之后跟着 omp 输入框卡片上显示的走。 */
+  thinkingLevel: TaskThinkingLevel | null;
   /** 任务的 worktree 根目录（omp 以它为 cwd）；没有 worktree 为 null。 */
   worktreePath: string | null;
   /** worktree 的分支（studio/<slug>）和创建时所在的基分支；合并回哪里以它为准。 */
@@ -81,7 +81,9 @@ export class TaskRegistry {
         worktreeBase: task.worktreeBase ?? null,
       }),
     );
-    this.#data = { ...(parsed as TasksFile), tasks };
+    // 没有 hidden 的项目（"从列表移除"改成隐藏之前写的；那时移除就是删掉记录）都是显示着的。
+    const projects = (parsed as TasksFile).projects.map((project) => ({ ...project, hidden: project.hidden ?? false }));
+    this.#data = { ...(parsed as TasksFile), projects, tasks };
   }
 
   /** 保存当前内存里的状态；返回的 promise 在写盘完成后 resolve。 */
@@ -111,24 +113,33 @@ export class TaskRegistry {
     return this.#data.projects.find((project) => pathKey(project.path) === key);
   }
 
-  /** 已有同路径项目就返回它。 */
+  /** 已有同路径项目就返回它；它被移出列表（hidden）的话重新显示：用户又打开、恢复了这个文件夹。 */
   async addProject(dir: string): Promise<Project> {
     const existing = this.findProjectByPath(dir);
-    if (existing) return existing;
+    if (existing && !existing.hidden) return existing;
+    if (existing) return this.setProjectHidden(existing.id, false);
     const resolved = path.resolve(dir);
     const project: Project = {
       id: randomUUID() as ProjectId,
       path: resolved,
       name: path.basename(resolved) || resolved,
+      hidden: false,
     };
     this.#data = { ...this.#data, projects: [...this.#data.projects, project] };
     await this.save();
     return project;
   }
 
-  async removeProject(id: ProjectId): Promise<void> {
-    this.#data = { ...this.#data, projects: this.#data.projects.filter((project) => project.id !== id) };
+  async setProjectHidden(id: ProjectId, hidden: boolean): Promise<Project> {
+    const current = this.findProject(id);
+    if (!current) throw new Error(`unknown project ${id}`);
+    const next: Project = { ...current, hidden };
+    this.#data = {
+      ...this.#data,
+      projects: this.#data.projects.map((project) => (project.id === id ? next : project)),
+    };
     await this.save();
+    return next;
   }
 
   listTasks(): TaskRecord[] {

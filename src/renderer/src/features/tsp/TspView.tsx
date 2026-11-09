@@ -5,12 +5,25 @@
 //   layer 是盖在整块上的浮层容器（选择器等）；
 //   screen（如 /settings）：盖住整个过程区（连 dock，不含 Composer），自己的 main 自己滚。
 // 对话列宽度按等宽字符数算成列数，变化时通知 omp（resize）。
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
+import { CodeQuoteCtx } from "../../markdown/code-quote.ts";
+import { quoteCodeIntoDraft } from "../composer/insert-into-draft.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { useStickToBottom } from "../conversation/use-stick-to-bottom.ts";
+import { ColumnResizer, columnDragging, onColumnDragEnd } from "./ColumnResizer.tsx";
 import { ConversationLine } from "./ConversationLine.tsx";
 import type { TspContext } from "./node-props.ts";
 import { TspHosts } from "./TspHosts.tsx";
@@ -55,7 +68,7 @@ function monoCharWidth(el: HTMLElement): number {
   return width > 0 ? width : 8;
 }
 
-/** 量 column 的宽度算列数，写进 --tsp-cw，变化时 resizeTsp。 */
+/** 量 column 的宽度算列数，写进 --tsp-cw，变化时 resizeTsp。拖对话列宽度期间不发，松手后量一次（omp 每次都整篇重排）。 */
 function useColumns(
   taskId: TaskId,
   column: RefObject<HTMLElement | null>,
@@ -71,7 +84,7 @@ function useColumns(
       const cw = monoCharWidth(el);
       root.style.setProperty("--tsp-cw", `${cw}px`);
       const cols = Math.max(20, Math.floor(el.clientWidth / cw));
-      if (lastCols.get(taskId) === cols) return;
+      if (lastCols.get(taskId) === cols || columnDragging()) return;
       lastCols.set(taskId, cols);
       window.studio.resizeTsp(taskId, cols).catch((error: unknown) => reportErrorNow(error));
     };
@@ -80,8 +93,10 @@ function useColumns(
       if (frame === 0) frame = requestAnimationFrame(measure);
     });
     observer.observe(el);
+    const unsubscribe = onColumnDragEnd(measure);
     return () => {
       observer.disconnect();
+      unsubscribe();
       if (frame !== 0) cancelAnimationFrame(frame);
     };
   }, [taskId, column, surface]);
@@ -135,6 +150,8 @@ interface SurfaceParts {
   jump?: ReactNode;
   /** 盖在对话区右侧的对话线（只有 inline 有）。 */
   line?: ReactNode;
+  /** 对话列右缘的宽度拖拽条（只有 inline 有）。 */
+  resizer?: ReactNode;
   /** 对话列最上面、随对话滚动的内容（inline 的 studio 标题块）。 */
   header?: ReactNode;
   /** main 后面、对话列末尾的内容（首发气泡，omp 回显前占位）。 */
@@ -163,7 +180,20 @@ function Dock({ taskId, sf, ctx }: { taskId: TaskId; sf: string; ctx: TspContext
   );
 }
 
-function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, header, tail, mode }: SurfaceParts) {
+function SurfaceBody({
+  taskId,
+  sf,
+  ctx,
+  scroller,
+  column,
+  surface,
+  jump,
+  line,
+  resizer,
+  header,
+  tail,
+  mode,
+}: SurfaceParts) {
   const t = useT();
   const main = useTspNode(taskId, sf, "main");
   // 子代理面板在后台驱动 omp 的 Agent Hub（插话 / 结束 / 恢复）：期间过程区压暗（聚焦模式里它暂时显示那个子代理的记录）。
@@ -193,6 +223,7 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, h
         <div className="tsp-layer">
           <Layer taskId={taskId} sf={sf} ctx={ctx} />
         </div>
+        {resizer}
         {line}
         {jump}
       </div>
@@ -261,6 +292,7 @@ function InlineSurface({
       header={<StudioHeader compact />}
       tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
       line={<ConversationLine taskId={taskId} scroller={scroller} />}
+      resizer={<ColumnResizer column={column} scroller={scroller} />}
       jump={
         showJump && (
           <button type="button" className="tsp-jump" onClick={scrollToBottom} data-testid="jump-latest">
@@ -314,6 +346,8 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
   useEffect(() => {
     if (status === "error" || status === "stopped") clearFirstPrompt(taskId);
   }, [taskId, status]);
+  // 回答里代码块的"引用到输入框"（CodeBlock）：只在任务的对话区里有。
+  const quoteCode = useCallback((code: string, lang: string) => quoteCodeIntoDraft(taskId, code, lang), [taskId]);
 
   // 会话本体是最后一个 inline surface（关掉以后留着的也画，对话还要能读）；screen 只画活的，盖在上面。
   const inline = surfaces.findLast((s) => s.mode === "inline");
@@ -333,20 +367,22 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
     >
       <TspParkedCtx.Provider value={parked}>
         <TspEndedAtCtx.Provider value={endedAt}>
-          {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
-          <GoalStrip key={`goal:${taskId}`} taskId={taskId} />
-          {showInline ? (
-            <InlineSurface
-              key={`${taskId}:${inlineKey}`}
-              taskId={taskId}
-              sf={inline?.id ?? null}
-              pendingText={firstPrompt?.text}
-            />
-          ) : (
-            <div className="tsp-empty" role="status" />
-          )}
-          {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
-          <TspHosts />
+          <CodeQuoteCtx.Provider value={quoteCode}>
+            {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
+            <GoalStrip key={`goal:${taskId}`} taskId={taskId} />
+            {showInline ? (
+              <InlineSurface
+                key={`${taskId}:${inlineKey}`}
+                taskId={taskId}
+                sf={inline?.id ?? null}
+                pendingText={firstPrompt?.text}
+              />
+            ) : (
+              <div className="tsp-empty" role="status" />
+            )}
+            {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
+            <TspHosts />
+          </CodeQuoteCtx.Provider>
         </TspEndedAtCtx.Provider>
       </TspParkedCtx.Provider>
     </div>

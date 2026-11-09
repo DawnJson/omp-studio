@@ -68,6 +68,8 @@ describe("keepRoleLevel", () => {
 
   it("原有档位新模型也支持就保留", () => {
     expect(keepRoleLevel("x/y:high", model({}))).toBe("high");
+    // omp 的角色选择器接受 `:auto`（settings.md modelRoles），支持思考的模型都保留它。
+    expect(keepRoleLevel("x/y:auto", model({}))).toBe("auto");
   });
 
   it("新模型不支持这一档、不支持思考、原本没有档位或没有值：去掉", () => {

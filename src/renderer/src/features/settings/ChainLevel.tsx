@@ -2,16 +2,17 @@
 // 只列这个模型支持的档位，数据来源和角色表主模型那一行的思考强度一样（thinkingLevelOptions）。
 // 模型页的标签和 `retry.fallbackChains` 编辑器共用。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import type { TaskThinkingLevel } from "../../../../shared/ipc.ts";
+import type { ConfiguredThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { joinRoleValue, splitRoleValue } from "../../../../shared/ui/role-value.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Select, type SelectOption } from "../../ui/Select.tsx";
 import { thinkingLabel } from "../composer/thinking-levels.ts";
 import { levelsOfSelector, type ModelSources } from "./role-options.ts";
 
-/** 档位的显示文字；omp 支持但这里没有文案的（auto 等）原样显示。 */
+/** 档位的显示文字；omp 支持但这里没有文案的（inherit 等）原样显示。 */
 export function levelText(t: TFunction, level: string): string {
-  const key = thinkingLabel[level as ThinkingLevel];
+  const key = thinkingLabel[level as ConfiguredThinkingLevel];
   return key === undefined ? level : t(key);
 }
 
@@ -45,7 +46,7 @@ export function ChainLevel({
     ...levels.map((entry) => ({ value: entry, label: levelText(t, entry) })),
   ];
   // 配置里的档位这个模型不支持（或模型不在目录里）：原样留着显示，别悄悄显示成别的。
-  if (level !== null && !levels.includes(level as ThinkingLevel))
+  if (level !== null && !levels.includes(level as TaskThinkingLevel))
     options.push({ value: level, label: levelText(t, level) });
   return (
     <Select

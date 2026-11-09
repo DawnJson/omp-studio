@@ -37,5 +37,5 @@ export function joinRoleValue(selector: string, level: string | null): string {
 /** 给角色换模型时角色原有的档位：新模型也支持就保留，否则 null（设置 → 模型的角色表和模型选择对话框共用）。 */
 export function keepRoleLevel(current: string | null, model: ModelOption): string | null {
   const level = current === null ? null : splitRoleValue(current).level;
-  return level !== null && (thinkingLevelOptions(model, []) as string[]).includes(level) ? level : null;
+  return level !== null && (thinkingLevelOptions(model, null) as string[]).includes(level) ? level : null;
 }

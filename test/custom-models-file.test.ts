@@ -7,6 +7,7 @@ import {
   defaultEnvName,
   isValidEnvName,
   parseTokenCount,
+  vanishedModelIds,
   type CustomModelMeta,
   type CustomProviderInput,
   type EnvSource,
@@ -465,6 +466,17 @@ describe("models.yml 编辑（纯文本）", () => {
     ["200m", undefined],
   ] as const)("token 数输入 %j → %j", (text, expected) => {
     expect(parseTokenCount(text)).toBe(expected);
+  });
+
+  it("拉取后标失效：列表里有、拉到的列表里没有的，按列表顺序；拉到的新模型不算", () => {
+    const fetched = [
+      { id: "a", name: null },
+      { id: "new", name: "New" },
+    ];
+    expect(vanishedModelIds(["b", "a", "manual"], fetched)).toEqual(["b", "manual"]);
+    expect(vanishedModelIds(["a"], fetched)).toEqual([]);
+    expect(vanishedModelIds(["a", "b"], [])).toEqual(["a", "b"]);
+    expect(vanishedModelIds([], fetched)).toEqual([]);
   });
 
   it("删除只去掉这个条目", () => {

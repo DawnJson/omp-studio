@@ -10,4 +10,5 @@ export const palette = {
   slash: "斜杠命令",
   noResults: "无匹配",
   askNew: "在新任务中提问",
+  outline: "对话大纲",
 } satisfies Record<string, MessageEntry>;

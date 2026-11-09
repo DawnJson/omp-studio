@@ -1,6 +1,7 @@
 // 命令面板和斜杠命令里"别的功能负责执行"的命令：发出方只负责发，负责的功能订阅。
 // 例：输入框订阅 stop，TSP 过程区订阅 copyLast / toggleProcess，模型胶囊订阅 model / thinking，外壳订阅 toggleSidebar，
-// 上下文圆环订阅 context，待办板订阅 todo，侧栏订阅 rename（给当前任务就地改名），外壳订阅 about（打开关于与反馈对话框）。
+// 上下文圆环订阅 context，待办板订阅 todo，侧栏订阅 rename（给当前任务就地改名），外壳订阅 about（打开关于与反馈对话框），
+// 对话线订阅 outline（打开大纲、焦点放在当前行）和 prevTurn / nextTurn（Ctrl Shift ↑/↓）。
 // 没人订阅的命令什么也不会发生，所以新增命令时要同时通知对应功能。
 import type { ModelPickerRequest } from "../composer/slash-args.ts";
 export type StudioCommand =
@@ -13,7 +14,10 @@ export type StudioCommand =
   | "context"
   | "todo"
   | "rename"
-  | "about";
+  | "about"
+  | "outline"
+  | "prevTurn"
+  | "nextTurn";
 
 const eventName = "studio:command";
 const composerTextEvent = "studio:composer-text";

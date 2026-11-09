@@ -14,16 +14,28 @@ import { useEntrance } from "../entrance.ts";
 import { TspIcon } from "../icons.tsx";
 import { labels } from "../labels.ts";
 import { nodeDomProps } from "../node-dom.ts";
-import type { NodeProps } from "../node-props.ts";
+import type { NodeProps, TspContext } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
 import { previewToLines } from "../props-util.ts";
 import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { useFold } from "../use-fold.ts";
-import { peekTspNode, useBareTurnIndex, useIsLatestRecap, useTspNoVisibleChild } from "../tsp-store.ts";
+import {
+  peekTspDocument,
+  peekTspNode,
+  useBareTurnIndex,
+  useIsLatestRecap,
+  useTspNoVisibleChild,
+  useUsageTurnIndex,
+} from "../tsp-store.ts";
 import { runOutputSpan } from "../../../../../shared/tsp/run-output.ts";
+import { answerText } from "../../../../../shared/tsp/last-answer.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { useTaskValue } from "../../../store/index.ts";
-import { formatTurnFooter } from "../turn-footer.ts";
+import { formatTurnFooter, withFinishedAt } from "../turn-footer.ts";
+import { copyAnswerPlainText, copyText, showAnswerCopyMenu, TURN_COPY_ROLE } from "../actions.ts";
+import { editUserCard, forkAfterAnswer, forkFromUserCard } from "../../conversation/fork-actions.ts";
+import { reportErrorNow } from "../../../ui/errors.ts";
+import { useT } from "../../../i18n/use-t.ts";
 
 const GAPS: ReadonlySet<TspSpace> = new Set(["none", "xs", "sm", "md", "lg"]);
 
@@ -121,6 +133,7 @@ function PlainCol(props: NodeProps) {
 /**
  * omp 的助手消息容器。恢复会话时 omp 不重发每轮末尾的用量行（实测 18.12.4），这里在一轮的最后一个助手消息后面
  * 补一行（数据来自会话文件，见 main/tsp/session-extras.ts）；实时的轮 omp 自己带这一行，不补；还在跑的那一轮也不补（useBareTurnIndex）。
+ * 补的行和 omp 画的一样以复制回答开头（点击复制这条回答的 markdown，右键可复制纯文本），后面跟着 studio 的 AnswerActions。
  */
 function AssistantCol(props: NodeProps) {
   const { taskId, sf } = props.ctx;
@@ -132,14 +145,34 @@ function AssistantCol(props: NodeProps) {
   const text = useMemo(() => (footer === null ? null : formatTurnFooter(footer)), [footer]);
   // 补的用量行是 children 之外的元素，有它就不算空。
   const blank = useBlank(props, text !== null);
+  const copyMarkdown = () => {
+    const surface = peekTspDocument(taskId)?.surfaces.get(sf);
+    const answer = surface === undefined ? "" : answerText(surface, props.node.id);
+    if (answer !== "") copyText(answer);
+  };
   return (
     <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p), blank })}>
       <TspChildren {...props} />
       {text !== null && (
         <div className="tsp-row" data-role="omp.turn.usage" data-restored="" title={text.title}>
-          <span className="tsp-icon" aria-hidden="true">
-            <TspIcon name="time" />
+          <span
+            className="tsp-icon tsp-act"
+            data-role={TURN_COPY_ROLE}
+            role="button"
+            tabIndex={0}
+            title={labels.copyAnswer}
+            aria-label={labels.copyAnswer}
+            onClick={copyMarkdown}
+            onContextMenu={(event) => showAnswerCopyMenu(event, props.ctx, copyMarkdown)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              copyMarkdown();
+            }}
+          >
+            <TspIcon name="copy" />
           </span>
+          <AnswerActions ctx={props.ctx} anchorId={props.node.id} />
           <div className="tsp-text">{text.text}</div>
         </div>
       )}
@@ -170,7 +203,165 @@ export function Row(props: NodeProps) {
   if (props.node.p.role === ASK_BUTTON_ROLE) {
     return <AskButtonRow {...props} dom={nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })} />;
   }
+  if (props.node.p.role === "omp.turn.usage") return <UsageRow {...props} />;
+  if (props.node.p.role === "omp.user.tools") return <UserToolsRow {...props} />;
   return <PlainRow {...props} />;
+}
+
+/**
+ * omp 实时画的每轮用量行：悬停里补上回答完成的时刻（会话文件里的 completedAt；轮数对不上时不补）。
+ * studio 的 AnswerActions 插在 omp 的复制图标后面（没有复制图标时放在行末）。
+ */
+function UsageRow(props: NodeProps) {
+  const { taskId, sf } = props.ctx;
+  const turnCount = useSessionExtras(taskId, (extras) => extras.turns.length);
+  const index = useUsageTurnIndex(taskId, sf, props.node.id, turnCount);
+  const completedAt = useSessionExtras(taskId, (extras) =>
+    index >= 0 ? (extras.turns[index]?.completedAt ?? null) : null,
+  );
+  const blank = useBlank(props, true);
+  const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p), blank });
+  const children = props.node.c.map((id) => peekTspNode(taskId, sf, id));
+  const copyAt = children.findIndex((child) => child?.p.role === TURN_COPY_ROLE);
+  const studio = <AnswerActions ctx={props.ctx} anchorId={props.node.id} />;
+  const cut = copyAt < 0 ? props.node.c.length : copyAt + 1;
+  return (
+    <div {...dom} title={dom.title === undefined ? undefined : withFinishedAt(dom.title, completedAt)}>
+      {props.node.c.slice(0, cut).map((id) => (
+        <TspNode key={id} id={id} ctx={props.ctx} />
+      ))}
+      {studio}
+      {props.node.c.slice(cut).map((id) => (
+        <TspNode key={id} id={id} ctx={props.ctx} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 回答用量行里 studio 跟在复制图标后面的按钮，一直显示（issue #9，2026-11-09；之前纯文本只在复制图标的右键菜单里，用户发现不了）：
+ * 复制纯文本（copyAnswerPlainText，同右键菜单那一项）、从这里分叉（forkAfterAnswer：新任务的对话到这条回答为止，输入框空着；
+ * 和用户消息上的分叉一样只在任务空闲时能点）。`anchorId` 是助手容器里的节点（omp 的用量行，或补行时助手容器本身）。
+ */
+function AnswerActions({ ctx, anchorId }: { ctx: TspContext; anchorId: string }) {
+  const t = useT();
+  const idle = useTaskValue(ctx.taskId, (task) => task?.status === "idle");
+  // 分叉进行中（建任务、等 omp 起来）源任务还是空闲：连点会建出两个分叉，点了以后到结束前不再收。
+  const [forking, setForking] = useState(false);
+  // Enter / 空格同点击（role="button" 的 span）。
+  const activates = (event: KeyboardEvent): boolean => {
+    if (event.key !== "Enter" && event.key !== " ") return false;
+    event.preventDefault();
+    return true;
+  };
+  const canFork = idle && !forking;
+  const runFork = () => {
+    if (!canFork) return;
+    setForking(true);
+    forkAfterAnswer(ctx.taskId, ctx.sf, anchorId)
+      .catch((error: unknown) => reportErrorNow(error))
+      .finally(() => setForking(false));
+  };
+  return (
+    <>
+      <span
+        className="tsp-icon tsp-act"
+        data-studio-answer="copy-plain"
+        data-testid="tsp-answer-copy-plain"
+        role="button"
+        tabIndex={0}
+        title={t("tsp.copyPlainText")}
+        aria-label={t("tsp.copyPlainText")}
+        onClick={(event) => copyAnswerPlainText(event.currentTarget, ctx)}
+        onKeyDown={(event) => {
+          if (activates(event)) copyAnswerPlainText(event.currentTarget, ctx);
+        }}
+      >
+        <TspIcon name="doc" />
+      </span>
+      <span
+        className="tsp-icon tsp-act"
+        data-studio-answer="fork"
+        data-testid="tsp-answer-fork"
+        role="button"
+        tabIndex={0}
+        aria-disabled={canFork ? undefined : true}
+        title={t("tsp.forkAfterAnswer")}
+        aria-label={t("tsp.forkAfterAnswer")}
+        onClick={runFork}
+        onKeyDown={(event) => {
+          if (activates(event)) runFork();
+        }}
+      >
+        <TspIcon name="branch" />
+      </span>
+    </>
+  );
+}
+
+/**
+ * 用户消息上方的悬停按钮行（omp 的复制、回退）：studio 在后面加两个按钮。
+ * "编辑"：就地回到这条消息之前、文字进输入框（editUserCard，同会话树面板里选中这条；omp 的回退图标只是打开面板，要再选一次）。
+ * "分叉"：从这条消息之前分出新任务（同会话树面板的分叉）。
+ * 都和面板一样只在任务空闲时能点（一轮没结束时主进程拒绝回溯和分叉）；编辑进行中（等 omp 回溯）不再收。
+ */
+function UserToolsRow(props: NodeProps) {
+  const t = useT();
+  const blank = useBlank(props, true);
+  const { taskId, sf } = props.ctx;
+  const idle = useTaskValue(taskId, (task) => task?.status === "idle");
+  const [editing, setEditing] = useState(false);
+  const canEdit = idle && !editing;
+  // Enter / 空格同点击（role="button" 的 span）。
+  const onActivate = (run: () => void) => (event: KeyboardEvent) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    run();
+  };
+  const edit = () => {
+    if (!canEdit) return;
+    setEditing(true);
+    editUserCard(taskId, sf, props.node.id)
+      .catch((error: unknown) => reportErrorNow(error))
+      .finally(() => setEditing(false));
+  };
+  const fork = () => {
+    if (!idle) return;
+    forkFromUserCard(taskId, sf, props.node.id).catch((error: unknown) => reportErrorNow(error));
+  };
+  return (
+    <div {...nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p), blank })}>
+      <TspChildren {...props} />
+      <span
+        className="tsp-icon tsp-act"
+        data-role="omp.user.tool"
+        data-testid="tsp-user-edit"
+        role="button"
+        tabIndex={0}
+        aria-disabled={canEdit ? undefined : true}
+        title={t("tsp.editMessage")}
+        aria-label={t("tsp.editMessage")}
+        onClick={edit}
+        onKeyDown={onActivate(edit)}
+      >
+        <TspIcon name="pen" />
+      </span>
+      <span
+        className="tsp-icon tsp-act"
+        data-role="omp.user.tool"
+        data-testid="tsp-user-fork"
+        role="button"
+        tabIndex={0}
+        aria-disabled={idle ? undefined : true}
+        title={t("tsp.forkHere")}
+        aria-label={t("tsp.forkHere")}
+        onClick={fork}
+        onKeyDown={onActivate(fork)}
+      >
+        <TspIcon name="branch" />
+      </span>
+    </div>
+  );
 }
 
 function PlainRow(props: NodeProps) {
@@ -248,6 +439,8 @@ function useKeyboardFocus(enabled: boolean): {
   };
 }
 
+const USER_BUBBLE_LINES = 12;
+
 export function Card(props: NodeProps) {
   const { node } = props;
   const p = node.p;
@@ -258,7 +451,8 @@ export function Card(props: NodeProps) {
   const headId = headChildId(node);
   const hasHead =
     headId !== null || (p.head !== undefined && p.head !== "") || typeof p.status === "string" || collapsible;
-  const lines = collapsed ? previewToLines(p.preview) : null;
+  // 用户气泡超过 12 行时收起（studio 加的外观，2026-11-09，issue #9）：同工具输出的 Clamp，点"N more lines"本地展开。
+  const lines = collapsed ? previewToLines(p.preview) : p.role === "omp.user" ? USER_BUBBLE_LINES : null;
   const classes = [
     collapsible && "collapsible",
     collapsed && "collapsed",
@@ -269,16 +463,21 @@ export function Card(props: NodeProps) {
     !hasHead && "nohead",
   ].filter((c): c is string => typeof c === "string");
   const icon = roleIcon(p.role);
+  // 用户气泡悬停时的按钮行（omp.user.tools）画在气泡上方（bottom: 100%）：放进 Clamp 会被它的 mask 裁掉，所以放在 Clamp 外面。
+  const isUserTools = (id: string) =>
+    p.role === "omp.user" && peekTspNode(props.ctx.taskId, props.ctx.sf, id)?.p.role === "omp.user.tools";
+  const bodyIds = node.c.filter((id) => id !== headId);
   const body: ReactNode = (
     <div className="tsp-card-body">
-      {node.c
-        .filter((id) => id !== headId)
+      {bodyIds
+        .filter((id) => !isUserTools(id))
         .map((id) => (
           <TspNode key={id} id={id} ctx={props.ctx} />
         ))}
       {p.role === ERROR_CARD_ROLE && <RetryButton taskId={props.ctx.taskId} sf={props.ctx.sf} id={node.id} />}
     </div>
   );
+  const outside = bodyIds.filter(isUserTools).map((id) => <TspNode key={id} id={id} ctx={props.ctx} />);
   return (
     <div
       {...nodeDomProps(props, "tsp-card", {
@@ -314,12 +513,17 @@ export function Card(props: NodeProps) {
       )}
       <FoldCtx.Provider value={fold}>
         {collapsed && lines === null && collapsible ? null : lines !== null ? (
-          <Clamp lines={lines} onExpand={toggle}>
+          <Clamp
+            lines={lines}
+            onExpand={collapsed ? toggle : undefined}
+            className={p.role === "omp.user" ? "tsp-user-clamp" : undefined}
+          >
             {body}
           </Clamp>
         ) : (
           body
         )}
+        {outside}
       </FoldCtx.Provider>
     </div>
   );

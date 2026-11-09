@@ -1,4 +1,4 @@
-// 子代理详情（列表下方，不再套一层卡片）：头行 = 名字 + 模型 + 结束 / 恢复；一排统计（数字在上、标签在下）；
+// 子代理详情（列表下方，不再套一层卡片）：头行 = 名字 + 模型 + 思考强度 + 结束 / 恢复；一排统计（数字在上、标签在下；用时在列表行上）；
 // 任务说明（Markdown 全文）；最终输出；对话记录（omp Hub 详情里的 Recent activity；默认收起，工具调用的细节点开才看，仓库所有者 2026-10-27）。
 // 状态在选中的那一行上，这里不重复。
 // 统计来自文档里的 `agent` 节点；最终输出（`.md`）和记录（会话文件）经 IPC 只读 omp 的存档。插话框在面板底部（AgentsPanel）。
@@ -10,20 +10,12 @@ import { Markdown } from "../../markdown/index.ts";
 import { Badge, Button, Disclosure, SectionHead } from "../../ui/controls.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
-import { formatDuration } from "../conversation/format.ts";
+import { thinkingLabel } from "../composer/thinking-levels.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
 import { formatCost } from "../tsp/fmt.ts";
 import { formatTokens, shortModel } from "./format.ts";
-import {
-  agentContextPercent,
-  agentElapsed,
-  agentProgress,
-  canFocus,
-  canKill,
-  canRevive,
-  cleanTask,
-} from "./agent-model.ts";
+import { agentContextPercent, agentProgress, canFocus, canKill, canRevive, cleanTask } from "./agent-model.ts";
 import { focusAgent, killAgent, reviveAgent } from "./agents-actions.ts";
 import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
 
@@ -146,7 +138,7 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
   // 运行中每多一次工具调用重读一次记录（omp 的 Hub 也是实时的"最近活动"）；结束时再读一次拿最终输出。
   const recordState = useAgentRecord(taskId, agent.name, `${agent.status}:${agent.stats.tools ?? 0}`);
   const { record } = recordState;
-  const elapsed = agentElapsed(agent);
+  const thinkingKey = agent.thinking === null ? undefined : thinkingLabel[agent.thinking];
   const output = record?.output?.trim() ?? "";
   const stats = agent.stats;
   const progress = agentProgress(agent);
@@ -159,6 +151,11 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
           {agent.model !== null && (
             <span className="agents-detail-model" title={agent.model}>
               {shortModel(agent.model)}
+            </span>
+          )}
+          {thinkingKey !== undefined && (
+            <span className="agents-detail-thinking" data-testid="agents-detail-thinking">
+              {t(thinkingKey)}
             </span>
           )}
           {typeof record?.fallbackModel === "string" && (
@@ -201,7 +198,6 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
         {stats.tokens !== null && <Stat label={t("agents.tokens")} value={formatTokens(stats.tokens)} />}
         {stats.requests !== null && <Stat label={t("agents.requests")} value={String(stats.requests)} />}
         {stats.tools !== null && <Stat label={t("agents.tools")} value={String(stats.tools)} />}
-        {elapsed !== null && <Stat label={t("agents.time")} value={formatDuration(t, elapsed)} />}
         {(stats.contextLabel !== null || context !== null) && (
           <Stat
             label={t("agents.context")}

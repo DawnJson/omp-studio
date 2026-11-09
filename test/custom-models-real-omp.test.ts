@@ -143,6 +143,8 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
         soundOnDone: false,
         copyOnSelect: true,
         toolHeadsOnly: false,
+        groupToolCalls: true,
+        terminalShell: null,
         fontSize: 15,
         yoloConfirmed: false,
         backdrop: "theme",

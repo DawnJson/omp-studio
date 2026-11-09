@@ -329,6 +329,69 @@
   border-radius: var(--radius-md);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
+/* 分叉出来的会话缩进在原会话下面（SidebarItem.depth，最多 3 层）：整行右移，选中、悬停底色跟着缩进。 */
+.sb-row[data-depth] {
+  margin-left: calc(var(--sb-depth) * var(--space-3));
+}
+/* 树的引导线（issue #9，2026-11-09，仿 ompweb）：缩进让出来的左边距里每一层一条 1px 竖线（--border），落在那一层缩进的正中；
+   行与行之间没有间隙，同一层连着的分叉接成一条线。 */
+.sb-row[data-depth]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--sb-depth) * var(--space-3));
+  width: calc(var(--sb-depth) * var(--space-3));
+  background-image: linear-gradient(
+    to right,
+    transparent calc(var(--space-3) / 2 - 0.5px),
+    var(--border) 0 calc(var(--space-3) / 2 + 0.5px),
+    transparent 0
+  );
+  background-size: var(--space-3) 100%;
+  background-repeat: repeat-x;
+  pointer-events: none;
+}
+/* 分叉行标题前的分叉图标 */
+.sb-row-fork {
+  display: inline-flex;
+  flex: none;
+  margin-right: calc(-1 * var(--space-1));
+  color: var(--text-3);
+}
+/* 有分叉的行：状态点后面留一格给收起 / 展开箭头；箭头是 .sb-row-main 的兄弟按钮（按钮里不能套按钮），绝对定位盖在这一格上。
+   展开朝下、收起朝右，同文件夹头的箭头。 */
+.sb-fork-slot {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  margin-right: calc(-1 * var(--space-1));
+}
+.sb-fork-toggle {
+  position: absolute;
+  top: 50%;
+  left: calc(2 * var(--space-2) + var(--icon-md));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  transform: translateY(-50%);
+}
+.sb-fork-toggle:hover {
+  color: var(--text);
+}
+.sb-fork-toggle .icon {
+  width: 12px;
+  height: 12px;
+  transition: transform var(--dur-fast) var(--ease-out);
+  transform: rotate(90deg);
+}
+.sb-fork-toggle[data-collapsed="true"] .icon {
+  transform: none;
+}
 .sb-row:hover {
   background: var(--bg-hover);
 }
@@ -409,7 +472,7 @@
   outline: none;
 }
 
-/* ───── 状态图标：14px 放在 16×16 槽位里；形状 + 颜色双信号（进行中转动的弧 / 需要介入琥珀底 ! / 已完成圆圈对勾 / 失败红底 × / 历史会话中断虚线圈暂停号） ───── */
+/* ───── 状态图标：14px 放在 16×16 槽位里；形状 + 颜色双信号（进行中转动的弧 / 需要介入琥珀底 ! / 失败红底 × / 历史会话中断虚线圈暂停号；正常结束不画） ───── */
 .sb-dot {
   position: relative;
   display: inline-flex;
@@ -431,9 +494,6 @@
 }
 .sb-dot-waiting {
   color: var(--st-waiting);
-}
-.sb-dot-done {
-  color: var(--st-done);
 }
 .sb-dot-error {
   color: var(--st-error);
@@ -510,7 +570,6 @@
 }
 .sb-dot-running,
 .sb-dot-waiting,
-.sb-dot-done,
 .sb-dot-error,
 .sb-dot-interrupted {
   /* StatusDot 按状态种类换 key：换了状态就是新节点，淡入而不是瞬间换形状。 */

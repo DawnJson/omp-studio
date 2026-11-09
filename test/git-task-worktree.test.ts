@@ -20,6 +20,8 @@ const settings: StudioSettings = {
   soundOnDone: false,
   copyOnSelect: true,
   toolHeadsOnly: false,
+  groupToolCalls: true,
+  terminalShell: null,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",

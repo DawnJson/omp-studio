@@ -29,12 +29,13 @@ describe("状态行（omp.toast.status）：节点下一帧就没了，所以出
     ]);
   });
 
-  it("中间有别的内容时各是各的节点，都留着", () => {
+  it("中间有别的内容时各是各的节点，都留着；每个节点是 omp 最后 set 的文字", () => {
     const notes = replay("todo-commands").surfaces.get("s:1")?.statusNotes ?? [];
+    // 录制（omp 18.12.6）里节点 o 加进来后一路 set 到 "Copied …"，节点 10 从 "Removed phase: Beta" set 到 "No todos. …"。
     expect(notes.map((note) => note.text)).toEqual([
-      "No todos. Use /todo append <task> to start one.",
+      "Copied todos as Markdown to clipboard.",
       "Appended to New Phase: With quotes task",
-      "Removed phase: Beta",
+      "No todos. Use /todo append <task> to start one.",
     ]);
   });
 
@@ -55,6 +56,45 @@ describe("状态行（omp.toast.status）：节点下一帧就没了，所以出
     expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([{ text: "again", id: "c", anchor: "b" }]);
     apply(open);
     expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([]);
+  });
+
+  it("omp 18.18：toast 节点留在 main，之后的状态行是 set 同一个节点的文字——原地换成最新的，锚点不变", () => {
+    const doc = createDocument();
+    const apply = (message: Parameters<typeof applyMessage>[1]) => applyMessage(doc, message);
+    const frame = (ops: unknown[]) => ({ verb: "f", body: { sf: "s:1", s: 1, ops } }) as never;
+    const status = (text: string) => ({ text, ttl: 2400, role: "omp.toast.status" });
+    apply({ verb: "o", body: { id: "s:1", mode: "inline" } } as never);
+    apply(frame([["add", "main", "s:1", null, { id: "main", k: "col" }]]));
+    apply(frame([["add", "t", "main", null, { id: "t", k: "md", p: { text: "answer" } }]]));
+    apply(frame([["add", "w", "main", null, { id: "w", k: "toast", p: status("Tool output expansion: enabled") }]]));
+    apply(frame([["set", "w", status("Tool output expansion: disabled")]]));
+    // 新内容加在 toast 后面也不改它的锚点。
+    apply(frame([["add", "u", "main", null, { id: "u", k: "md", p: { text: "next" } }]]));
+    apply(frame([["set", "w", status("Thinking blocks: hidden")]]));
+    expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([{ text: "Thinking blocks: hidden", id: "w", anchor: "t" }]);
+  });
+
+  it("工具输出展开状态（toolsExpanded）按 omp 的 Ctrl+O 状态行记：同一个 toast 之后被 Ctrl+T 的文字换掉也不丢；新的 omp 进程从收起开始", () => {
+    const doc = createDocument();
+    const apply = (message: Parameters<typeof applyMessage>[1]) => applyMessage(doc, message);
+    const frame = (ops: unknown[]) => ({ verb: "f", body: { sf: "s:1", s: 1, ops } }) as never;
+    const status = (text: string) => ({ text, ttl: 2400, role: "omp.toast.status" });
+    const expanded = () => doc.surfaces.get("s:1")?.toolsExpanded;
+    apply({ verb: "o", body: { id: "s:1", mode: "inline" } } as never);
+    apply(frame([["add", "main", "s:1", null, { id: "main", k: "col" }]]));
+    expect(expanded()).toBe(false);
+    apply(frame([["add", "w", "main", null, { id: "w", k: "toast", p: status("Tool output expansion: enabled") }]]));
+    expect(expanded()).toBe(true);
+    apply(frame([["set", "w", status("Thinking blocks: hidden")]]));
+    expect(expanded()).toBe(true);
+    apply(frame([["set", "w", status("Tool output expansion: disabled")]]));
+    expect(expanded()).toBe(false);
+    apply(frame([["set", "w", status("Tool output expansion: enabled")]]));
+    // 快照带着它（任务界面晚于这几帧打开）。
+    expect(restoreDocument(snapshotDocument(doc)).surfaces.get("s:1")?.toolsExpanded).toBe(true);
+    // 重开会话 = 新进程重新 open 这个 surface：回到收起。
+    apply({ verb: "o", body: { id: "s:1", mode: "inline" } } as never);
+    expect(expanded()).toBe(false);
   });
 });
 

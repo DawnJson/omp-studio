@@ -29,6 +29,11 @@ export interface IndexedSession {
   title: string | null;
   /** 第一条用户消息的首行。 */
   firstPrompt: string | null;
+  /**
+   * 会话头里的 parentSession（分叉、或另一个进程开着时 omp 复制出来的会话）：omp 说它不透明，整会话分叉写父会话的 id，
+   * 从某条消息分叉写父会话文件的路径（omp://session.md）；没有为 null。
+   */
+  parent: string | null;
   /** 最后一轮的结果（侧栏状态图标，和任务同一套）：见 parseSessionTail。 */
   lastTurn: SessionLastTurn;
   modifiedAt: number;
@@ -82,6 +87,7 @@ export interface ParsedHead {
   cwd: string;
   title: string | null;
   firstPrompt: string | null;
+  parent: string | null;
 }
 
 /**
@@ -125,7 +131,9 @@ export function parseSessionPrefix(text: string, truncated: boolean): ParsedHead
   const cwd = header["cwd"];
   if (typeof id !== "string" || id === "" || typeof cwd !== "string" || cwd === "") return null;
   const headerTitle = typeof header["title"] === "string" ? sanitizeText(header["title"]) : null;
-  return { id, cwd, title: slotTitle ?? headerTitle, firstPrompt };
+  const parent =
+    typeof header["parentSession"] === "string" && header["parentSession"] !== "" ? header["parentSession"] : null;
+  return { id, cwd, title: slotTitle ?? headerTitle, firstPrompt, parent };
 }
 
 /** 读文件前 maxBytes 字节；返回文本和"文件是否比读到的更长"。 */
@@ -333,6 +341,7 @@ export class SessionIndex {
               cwd: head.cwd,
               title: head.title,
               firstPrompt: head.firstPrompt,
+              parent: head.parent,
               lastTurn,
               modifiedAt: info.mtimeMs,
               size: info.size,

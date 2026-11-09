@@ -620,6 +620,15 @@ button.usage-context:hover,
   border-radius: var(--radius-xs);
   background: currentColor;
 }
+/* 发送键左边的"优化提示词"（EnhanceButton.tsx）：.ui-icon-btn 28×28；优化中是和 .ui-btn 加载态同样的环（--icon-md 大小）。 */
+.composer-enhance-spin {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border: 1.5px solid var(--text-2);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin var(--dur-spin) var(--tick-spin) infinite;
+}
 
 /* 输入框上方（ComposerTop.tsx）：药丸行（有待办板时单独一行、右对齐）+ 状态行（左 = 运行图标 + 翻牌计时 + 分隔线 + 当前活动，
    右 = 待办板；没有待办板时药丸并到右端）。下边距放在这里：Reveal 收起时整块连同间距一起缩没。 */

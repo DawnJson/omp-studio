@@ -1,6 +1,6 @@
 // TSP 任务的会话命令：切模型 / 思考强度、读上下文报告、斜杠命令（`/compact` `/handoff` `/todo` 模式命令、`/goal`、`/fast` `/slow`）。
 // 都是往 omp 的输入框发命令（或点输入框卡片上的控件）再等 omp 的回应；一律串在任务的界面操作队列里（宿主的 `exclusive`）。
-import type { ContextReport, ModelKey, TaskState } from "../../shared/ipc.ts";
+import type { ContextReport, ModelKey, TaskState, TaskThinkingLevel } from "../../shared/ipc.ts";
 import type { TspDocument } from "../../shared/tsp/document.ts";
 import {
   ACTION_CYCLE_THINKING,
@@ -25,7 +25,9 @@ import {
   modeCommandDone,
   type ModeOp,
 } from "../../shared/tsp/composer-facts.ts";
-import type { ThinkingLevel, GoalOp } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { GoalOp } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import { toTaskThinkingLevel } from "../../shared/ui/new-task-default.ts";
+import { log } from "../log/log.ts";
 import type { TspSession } from "../tsp/tsp-session.ts";
 import type { TspGoalTracker } from "./tsp-goal.ts";
 
@@ -77,6 +79,8 @@ export interface TspCommandsHost {
   syncComposer(): void;
   /** `/slow` 确认之后：记下状态并发布。 */
   setSlowEnabled(enabled: boolean): void;
+  /** 切思考强度时转满一圈看到的档位：记成当前模型的档位（界面的档位列表跟着改正）。 */
+  setObservedThinkingLevels(levels: TaskThinkingLevel[]): void;
   goal: Pick<TspGoalTracker, "goal" | "expectObjective">;
 }
 
@@ -165,14 +169,16 @@ export class TspCommands {
 
   /**
    * 切思考强度：反复点 omp 的思考强度节点（action `thinking.cycle` = ⇧⇥）直到显示目标级别。omp 按模型支持的级别循环
-   * （实测 deepseek-v4-pro：high → max → off → auto → low → high…），转满一圈还没有就是这个模型不支持。
+   * （实测 deepseek-v4-pro：high → max → off → auto → low → high…），转满一圈还没有就是这个模型不支持：
+   * 这一圈看到的档位就是 omp 对这个模型真能选的，交给宿主改正界面的档位列表，并写进错误和日志。
    */
-  setThinkingLevel(level: ThinkingLevel): Promise<void> {
+  setThinkingLevel(level: TaskThinkingLevel): Promise<void> {
     return this.#host.exclusive(async () => {
       const { sf, effort, session } = await this.#composerTargets();
       if (effort === null) throw new Error("omp's thinking effort control is not available");
       const start = deriveComposerInfo(session.document)?.effort ?? null;
       if (start === level) return;
+      const seen: string[] = start === null ? [] : [start];
       let shown = start;
       for (let step = 0; step < MAX_THINKING_CYCLES; step += 1) {
         const before = shown;
@@ -190,8 +196,13 @@ export class TspCommands {
           return;
         }
         if (shown === start) break;
+        if (!seen.includes(shown)) seen.push(shown);
       }
-      throw new Error(`thinking level ${level} is not available for this model`);
+      // 转回了起点 = 看全了这一圈；起点读不到时转满步数也算（循环最多 8 档）。
+      const levels = seen.flatMap((text) => toTaskThinkingLevel(text) ?? []);
+      log.warn("thinking level is not in omp's cycle for this model", { level, cycle: seen });
+      this.#host.setObservedThinkingLevels(levels);
+      throw new Error(`thinking level ${level} is not available for this model (omp offers: ${seen.join(", ")})`);
     });
   }
 

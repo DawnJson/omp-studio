@@ -150,10 +150,10 @@ function AskTarget({ p, id, ctx }: { p: Readonly<Record<string, unknown>>; id: s
 }
 
 /**
- * 这次渲染里从运行中变成完成：true 到 `settle()` 为止（卡片重挂载也清零）。
- * 工具卡的 ✓ 只在这段时间里画出、停一下再淡出（omp 的完成卡本来没有 ✓，淡出后和重新打开时看到的一样）；子代理行的 ✓ 常驻，只是这次画出来。
+ * 这次渲染里从运行中变成完成（卡片重挂载清零）：这一次的 ✓ 用描边画出来。
+ * 工具卡和子代理行的 ✓ 都常驻（工具卡 2026-11-09 起，issue #9 照 ompweb：收起的卡一眼看出成没成；之前画完就淡出）。
  */
-function useJustFinished(running: boolean): [boolean, () => void] {
+function useJustFinished(running: boolean): boolean {
   const [finished, setFinished] = useState(false);
   const wasRunning = useRef(running);
   useEffect(() => {
@@ -161,26 +161,19 @@ function useJustFinished(running: boolean): [boolean, () => void] {
     else if (running) setFinished(false);
     wasRunning.current = running;
   }, [running]);
-  return [finished, () => setFinished(false)];
+  return finished;
 }
 
-function ToolStatusGlyph({ status, fresh, settle }: { status: ToolStatus; fresh: boolean; settle(): void }) {
+function ToolStatusGlyph({ status, fresh }: { status: ToolStatus; fresh: boolean }) {
   if (status === "running") return <i className="tsp-tool-spin" />;
   if (status === "error") return <TspIcon name="x-circle" />;
   if (status === "cancelled") return <TspIcon name="slash-circle" />;
-  if (status === "done" && fresh)
-    return (
-      <span
-        className="tsp-draw-check"
-        data-testid="tsp-tool-check"
-        onAnimationEnd={(event) => {
-          if (event.animationName === "tsp-check-out") settle();
-        }}
-      >
-        <TspIcon name="check" />
-      </span>
-    );
-  return null;
+  if (status !== "done") return null;
+  return (
+    <span className={fresh ? "tsp-draw-check" : "tsp-check"} data-testid="tsp-tool-check">
+      <TspIcon name="check" />
+    </span>
+  );
 }
 
 /** 折叠时怎么处理 body：{lines} 头、{tail} 尾、"children" 整体保留由子节点自己夹紧、其它隐藏。 */
@@ -216,7 +209,7 @@ export function Tool(props: NodeProps) {
   // 进程不在了：还在跑的卡片画成已取消（和 `/jobs kill` 之后 omp 自己画的一样），计时停在进程结束那一刻（ToolTime 仍按运行中算）。
   const ended = useTspEnded();
   const status = ended && (reported === "running" || reported === "pending") ? "cancelled" : reported;
-  const [justFinished, settleFinished] = useJustFinished(status === "running");
+  const justFinished = useJustFinished(status === "running");
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
   const preview = toolPreview(p.preview);
@@ -270,6 +263,18 @@ export function Tool(props: NodeProps) {
       </Clamp>
     );
   }
+  // 只显示标题时 body 藏了：没有 target 的卡片（bash 的命令本来只在 body 里）头上补一行 omp 已经给的摘要——
+  // 命令的第一行，没有命令时是 intent（和标题重复就不补）。和 target 同样画、同样单行省略。
+  const intent = asString(p.intent);
+  const commandLine = command?.trim().split("\n", 1)[0];
+  const summary =
+    !headsOnly || !collapsed || !hasBody || p.target !== undefined
+      ? undefined
+      : commandLine
+        ? { target: commandLine, targetKind: "command", lang: p.lang }
+        : intent !== undefined && intent !== plainText(p.title as TspText | undefined)
+          ? { target: intent, targetKind: "text" }
+          : undefined;
 
   const classes = [
     inline ? "inline" : "card",
@@ -316,7 +321,7 @@ export function Tool(props: NodeProps) {
           <span className="tsp-tool-title">
             <TspSpans text={p.title as TspText | undefined} />
           </span>
-          {nodeRole(node) === ASK_TOOL_ROLE ? <AskTarget p={p} id={node.id} ctx={ctx} /> : <Target p={p} />}
+          {nodeRole(node) === ASK_TOOL_ROLE ? <AskTarget p={p} id={node.id} ctx={ctx} /> : <Target p={summary ?? p} />}
           {meta.map((m, index) => (
             <span key={index} className="tsp-tool-meta">
               <MetaText text={m} />
@@ -341,7 +346,7 @@ export function Tool(props: NodeProps) {
         </span>
         <ToolTime status={reported} age={asNumber(p.age)} took={asNumber(p.took)} />
         <span className="tsp-tool-st">
-          <ToolStatusGlyph status={status} fresh={justFinished} settle={settleFinished} />
+          <ToolStatusGlyph status={status} fresh={justFinished} />
         </span>
         {collapsible && (
           <span className="tsp-chev" data-collapsed={collapsed || undefined}>
@@ -437,7 +442,7 @@ export function Agent(props: NodeProps) {
   const thinkingTone = thinking !== undefined ? semanticOf(thinking) : null;
   const badges = asArray(p.badges).filter(isRecord);
   const depth = Math.min(6, Math.max(0, Math.floor(asNumber(p.depth) ?? 0)));
-  const [justFinished] = useJustFinished(status === "running");
+  const justFinished = useJustFinished(status === "running");
   const entrance = useEntrance(ctx.taskId, ctx.sf, node.id);
   const doneFraction = asNumber(stats.done);
   const context = asNumber(stats.context);

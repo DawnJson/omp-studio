@@ -18,3 +18,14 @@ export function formatPercent(percent: number): string {
   const clamped = Math.min(100, Math.max(0, percent));
   return String(clamped < 10 ? Number(clamped.toFixed(1)) : Math.round(clamped));
 }
+
+/**
+ * 缓存命中率（0–1）：cacheRead ÷ (input + cacheRead + cacheWrite)。omp 会话文件 usage 的 `input` 不含缓存读写
+ * （各 provider 都归一成这样，如 Google 的 input = promptTokenCount − cachedContentTokenCount；本机会话文件实测
+ * totalTokens = input + output + cacheRead + cacheWrite），所以分母是整个提示的 token 数。
+ * 没有缓存数据（cacheRead、cacheWrite 都是 0）时 null：不显示这一行。
+ */
+export function cacheHitRate(tokens: { input: number; cacheRead: number; cacheWrite: number }): number | null {
+  if (tokens.cacheRead + tokens.cacheWrite <= 0) return null;
+  return tokens.cacheRead / (tokens.input + tokens.cacheRead + tokens.cacheWrite);
+}

@@ -2,6 +2,7 @@ import type { MessageEntry } from "../index.ts";
 import type { thinking as zhCN } from "../zh-CN/thinking.ts";
 
 export const thinking = {
+  auto: "Auto",
   off: "Off",
   minimal: "Minimal",
   low: "Low",

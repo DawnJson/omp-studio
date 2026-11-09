@@ -30,7 +30,9 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
       assistant("toolUse", tokens(100, 10, 0.001), 1500),
       assistant("stop", tokens(50, 5, 0.002), 4000),
     ].join("\n");
-    expect(parseSession(text).turns).toEqual([{ elapsedMs: 3000, input: 150, output: 15, cost: 0.003 }]);
+    expect(parseSession(text).turns).toEqual([
+      { elapsedMs: 3000, completedAt: 4000, input: 150, output: 15, cost: 0.003 },
+    ]);
   });
 
   it("cacheWrite 算输入，orchestration 的 token 并入；缓存读取不算", () => {
@@ -45,7 +47,7 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
         cost: { total: 0 },
       }),
     ].join("\n");
-    expect(parseSession(text).turns).toEqual([{ elapsedMs: null, input: 18, output: 6, cost: 0 }]);
+    expect(parseSession(text).turns).toEqual([{ elapsedMs: null, completedAt: null, input: 18, output: 6, cost: 0 }]);
   });
 
   it("每个非 agent 用户消息一项：没结束的轮、没有用量的轮是 null；agent 归属的用户消息不开新轮", () => {
@@ -61,10 +63,10 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
     ].join("\n");
     const { turns } = parseSession(text);
     expect(turns).toHaveLength(3);
-    expect(turns[0]).toEqual({ elapsedMs: 9, input: 1, output: 1, cost: 0.1 });
+    expect(turns[0]).toEqual({ elapsedMs: 9, completedAt: 10, input: 1, output: 1, cost: 0.1 });
     expect(turns[1]).toBeNull();
     // 第 3 轮：空回复没用量 → null，agent 消息之后的回复算在这一轮里
-    expect(turns[2]).toEqual({ elapsedMs: 47, input: 7, output: 3, cost: 0.4 });
+    expect(turns[2]).toEqual({ elapsedMs: 47, completedAt: 50, input: 7, output: 3, cost: 0.4 });
   });
 
   it("坏行（含写到一半的最后一行）跳过", () => {
@@ -77,9 +79,9 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
     const text = await readFile(path.join(tspFixtureDir, "resume-session.jsonl"), "utf8");
     const parsed = parseSession(text);
     expect(parsed.turns).toEqual([
-      { elapsedMs: 11215, input: 1973, output: 886, cost: 0.001909308 },
-      { elapsedMs: 47454, input: 1659, output: 1115, cost: 0.002302644 },
-      { elapsedMs: 4684, input: 838, output: 259, cost: 0.000899352 },
+      { elapsedMs: 11215, completedAt: 1792459072926, input: 1973, output: 886, cost: 0.001909308 },
+      { elapsedMs: 47454, completedAt: 1792459218585, input: 1659, output: 1115, cost: 0.002302644 },
+      { elapsedMs: 4684, completedAt: 1792459309080, input: 838, output: 259, cost: 0.000899352 },
     ]);
   });
 });
@@ -131,20 +133,30 @@ describe("脚注文字（和 omp 的 tLo 同格式）", () => {
   });
 
   it("费用写法照 omp 的 tLo：不到半分钱 <$0.01，否则两位小数；没有耗时 / 费用的项省略", () => {
-    expect(formatTurnFooter({ elapsedMs: 11215, input: 1973, output: 886, cost: 0.001909308 })).toEqual({
+    const footer = (elapsedMs: number | null, input: number, output: number, cost: number) => ({
+      elapsedMs,
+      completedAt: null,
+      input,
+      output,
+      cost,
+    });
+    expect(formatTurnFooter(footer(11215, 1973, 886, 0.001909308))).toEqual({
       text: "11.2s · 2.9K tok · <$0.01 this turn",
       title: "This turn: 11.2s · 2,859 tokens (1,973 in · 886 out) · <$0.01",
     });
-    expect(formatTurnFooter({ elapsedMs: 1, input: 1, output: 1, cost: 0.0049 }).text).toBe(
-      "1ms · 2 tok · <$0.01 this turn",
+    expect(formatTurnFooter(footer(1, 1, 1, 0.0049)).text).toBe("1ms · 2 tok · <$0.01 this turn");
+    expect(formatTurnFooter(footer(1, 1, 1, 0.005)).text).toBe("1ms · 2 tok · $0.01 this turn");
+    expect(formatTurnFooter(footer(null, 600, 128, 0)).text).toBe("728 tok this turn");
+    expect(formatTurnFooter(footer(500, 10, 5, 0.42)).text).toBe("500ms · 15 tok · $0.42 this turn");
+  });
+
+  it("悬停多一行回答完成的本地时刻（omp 用户消息时间的写法）；会话文件里没有完成时刻就不加", () => {
+    const finished = new Date(2026, 10, 8, 9, 5, 7).getTime();
+    const base = { elapsedMs: 1200, input: 10, output: 5, cost: 0 };
+    expect(formatTurnFooter({ ...base, completedAt: finished }).title).toBe(
+      "This turn: 1.2s · 15 tokens (10 in · 5 out)\nFinished 2026/11/08 09:05:07",
     );
-    expect(formatTurnFooter({ elapsedMs: 1, input: 1, output: 1, cost: 0.005 }).text).toBe(
-      "1ms · 2 tok · $0.01 this turn",
-    );
-    expect(formatTurnFooter({ elapsedMs: null, input: 600, output: 128, cost: 0 }).text).toBe("728 tok this turn");
-    expect(formatTurnFooter({ elapsedMs: 500, input: 10, output: 5, cost: 0.42 }).text).toBe(
-      "500ms · 15 tok · $0.42 this turn",
-    );
+    expect(formatTurnFooter({ ...base, completedAt: null }).title).toBe("This turn: 1.2s · 15 tokens (10 in · 5 out)");
   });
 });
 
@@ -163,7 +175,10 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
       user(800),
       assistant("aborted", tokens(0, 0, 0), 900),
     ].join("\n");
-    expect(parseSession(text).turns).toEqual([{ elapsedMs: 600, input: 30, output: 4, cost: 0.002 }, null]);
+    expect(parseSession(text).turns).toEqual([
+      { elapsedMs: 600, completedAt: 700, input: 30, output: 4, cost: 0.002 },
+      null,
+    ]);
   });
 
   it("steer（运行中又发一条用户消息）：新一轮从 steer 起清零，被打断那轮的累计不带过去；脚注归最后那条回复所在的轮", () => {
@@ -173,7 +188,10 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
       user(2000), // steer
       assistant("stop", tokens(7, 3, 0.004), 2600),
     ].join("\n");
-    expect(parseSession(text).turns).toEqual([null, { elapsedMs: 600, input: 7, output: 3, cost: 0.004 }]);
+    expect(parseSession(text).turns).toEqual([
+      null,
+      { elapsedMs: 600, completedAt: 2600, input: 7, output: 3, cost: 0.004 },
+    ]);
   });
 
   it("压缩条目不是消息：不开轮、不清零；压缩后的新轮照常算", () => {
@@ -188,7 +206,7 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
     const { turns } = parseSession(text);
     expect(turns).toHaveLength(2);
     expect(turns[0]?.cost).toBeCloseTo(0.3);
-    expect(turns[1]).toEqual({ elapsedMs: 10, input: 5, output: 5, cost: 0.05 });
+    expect(turns[1]).toEqual({ elapsedMs: 10, completedAt: 20, input: 5, output: 5, cost: 0.05 });
   });
 
   it("合成的 developer 消息（omp 的 chat-transcript-builder 同样清零）：用户发起的从它的时间戳起算，否则没有耗时", () => {
@@ -198,9 +216,11 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
       developer(1500, { userInitiated: true }),
       assistant("stop", tokens(7, 3, 0.004), 1900),
     ].join("\n");
-    expect(parseSession(text).turns).toEqual([{ elapsedMs: 400, input: 7, output: 3, cost: 0.004 }]);
+    expect(parseSession(text).turns).toEqual([{ elapsedMs: 400, completedAt: 1900, input: 7, output: 3, cost: 0.004 }]);
     const background = [user(1000), developer(1500), assistant("stop", tokens(7, 3, 0.004), 1900)].join("\n");
-    expect(parseSession(background).turns).toEqual([{ elapsedMs: null, input: 7, output: 3, cost: 0.004 }]);
+    expect(parseSession(background).turns).toEqual([
+      { elapsedMs: null, completedAt: 1900, input: 7, output: 3, cost: 0.004 },
+    ]);
   });
 
   it("文字里恢复出来的行和实时的行同一个写法：费用从 turn 里直接格式化，不再改写 omp 的 <$0.01", () => {

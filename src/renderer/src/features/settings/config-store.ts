@@ -1,8 +1,13 @@
 // omp 设置的渲染进程镜像：快照（schema + 当前值）加每一项的保存状态。
 // 在模块里保存，切换分组、关掉再打开设置页都不重新读；打开设置页时静默刷新一次（终端里可能改过）。
 // 写入走 omp config（主进程）：成功后才更新这里的值；失败时值不变，错误显示在那一项上，用户的草稿留在输入框里。
-import type { ModelKey, OmpConfigItem, OmpConfigSnapshot, OmpConfigWriteResult } from "../../../../shared/ipc.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import type {
+  ModelKey,
+  OmpConfigItem,
+  OmpConfigSnapshot,
+  OmpConfigWriteResult,
+  TaskThinkingLevel,
+} from "../../../../shared/ipc.ts";
 import { createCachedLoader, type CachedLoad } from "../../../../shared/ui/cached-loader.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
@@ -136,8 +141,8 @@ export async function saveOmpModelRole(
   await loadOmpConfig(true);
 }
 
-/** omp 的 defaultThinkingLevel；null = 删掉这一项，回到 omp 的默认值。omp 不接受 off/inherit。 */
-export async function saveOmpDefaultThinking(level: ThinkingLevel | null): Promise<void> {
+/** omp 的 defaultThinkingLevel（含 auto）；null = 删掉这一项，回到 omp 的默认值。omp 不接受 off/inherit。 */
+export async function saveOmpDefaultThinking(level: TaskThinkingLevel | null): Promise<void> {
   if (level === null) await resetOmpConfig("defaultThinkingLevel");
   else await saveOmpConfig("defaultThinkingLevel", level);
   throwIfFailed("defaultThinkingLevel");

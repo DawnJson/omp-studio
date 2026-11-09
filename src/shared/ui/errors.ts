@@ -27,7 +27,6 @@ const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/too many tasks/i, "error.tooManyTasks"],
   [/executable files are not opened directly/i, "error.executableBlocked"],
   [/omp stats\.db schema mismatch/i, "error.statsSchema"],
-  [/project still has tasks/i, "project.removeBlocked"],
   [/^unknown (task|project) /i, "error.notFound"],
   [/worktrees need a git repository/i, "git.err.notGit"],
   [/must be the repository root/i, "git.err.notRoot"],
@@ -37,6 +36,7 @@ const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/^\.omp-studio\/setup\.\w+ failed/i, "git.err.setupFailed"],
   [/^backdrop image is too large/i, "error.backdropTooLarge"],
   [/^backdrop file is not a (valid \w+ image|supported image type)/i, "error.backdropNotImage"],
+  [/terminal shell set in Settings no longer exists/i, "error.terminalShellMissing"],
 ];
 
 /** 创建 worktree 任务被拒绝的原因（项目本身不满足条件，换个项目状态才行）；其他错误返回 null。 */

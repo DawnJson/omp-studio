@@ -5,7 +5,7 @@ import type { ModelUsage, SessionModelUsage, TaskSessionInfo, TaskState } from "
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { explainError, reportError } from "../../ui/errors.ts";
 import { Button, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
-import { formatCount, formatMoney } from "../composer/usage-format.ts";
+import { cacheHitRate, formatCount, formatMoney, formatPercent } from "../composer/usage-format.ts";
 import { copyText, togglePin } from "./session-info-actions.ts";
 import { thinkingLabel } from "../composer/thinking-levels.ts";
 import type { Read } from "./use-synced-read.ts";
@@ -23,6 +23,11 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function UsageSection({ usage }: { usage: SessionModelUsage }) {
   const t = useT();
   const sum = (pick: (row: ModelUsage) => number) => usage.models.reduce((total, row) => total + pick(row), 0);
+  const hitRate = cacheHitRate({
+    input: sum((row) => row.input),
+    cacheRead: sum((row) => row.cacheRead),
+    cacheWrite: sum((row) => row.cacheWrite),
+  });
   return (
     <section className="si-section" data-testid="si-usage">
       <SectionHead title={t("sessionInfo.usage.title")} />
@@ -48,6 +53,13 @@ function UsageSection({ usage }: { usage: SessionModelUsage }) {
               })}
             </span>
           </Row>
+          {hitRate !== null && (
+            <Row label={t("sessionInfo.usage.cacheHit")}>
+              <span data-testid="si-cache-hit" className="si-num">
+                {formatPercent(hitRate * 100)}%
+              </span>
+            </Row>
+          )}
           <Row label={t("sessionInfo.usage.cost")}>
             <span data-testid="si-cost" className="si-num">
               {formatMoney(sum((row) => row.cost))}

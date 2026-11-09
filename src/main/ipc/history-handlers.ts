@@ -25,6 +25,7 @@ export const historyHandlers: HandlerGroup<
   | "listSessions"
   | "resumeSession"
   | "ensureSessionProject"
+  | "archiveSession"
   | "revealProject"
   | "revealTaskSession"
   | "getTaskSessionRef"
@@ -60,6 +61,20 @@ export const historyHandlers: HandlerGroup<
   async ensureSessionProject(sessionId) {
     const session = await findLiveSession(sessionId);
     return (await getTaskPool()).ensureProject(session.cwd);
+  },
+
+  // 归档不起进程，会话的目录没了也能归档（只按 id 找文件，不像恢复那样检查 cwd）。
+  async archiveSession(sessionId) {
+    const session = await index.findById(parseString(sessionId, "sessionId", 200));
+    if (session === null) throw new Error("找不到这个会话，它的文件可能已被移动或删除");
+    await (
+      await getTaskPool()
+    ).archiveSession({
+      sessionFile: session.file,
+      cwd: session.cwd,
+      title: session.title,
+      modifiedAt: session.modifiedAt,
+    });
   },
 
   async revealProject(projectId) {

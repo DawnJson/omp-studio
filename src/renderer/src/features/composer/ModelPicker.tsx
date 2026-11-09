@@ -17,9 +17,15 @@ import {
   type ReactNode,
 } from "react";
 import { useOpenKey, usePresence } from "../../ui/presence.ts";
-import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import type {
+  ModelInsights,
+  ModelKey,
+  ModelOption,
+  ProjectId,
+  TaskId,
+  TaskThinkingLevel,
+} from "../../../../shared/ipc.ts";
 import { clampThinkingLevel, thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { ArrowLeft, Plus, Search, Check, ChevronRight } from "../../icons.tsx";
 import { Badge, Button, IconButton, TextField } from "../../ui/controls.tsx";
@@ -69,15 +75,15 @@ function readRecent(): ModelKey[] {
 export interface ModelPickerProps {
   /** 正在生效的模型；表里它带勾，打开时选中的是它。 */
   model: ModelOption | null;
-  thinkingLevel: ThinkingLevel | null;
-  /** 正在生效的模型的档位（任务里是 omp 报的，含 off）。 */
-  thinkingLevels: readonly ThinkingLevel[];
+  thinkingLevel: TaskThinkingLevel | null;
+  /** 正在生效的模型的档位（任务里是 omp 报的，含 auto、off）。 */
+  thinkingLevels: readonly TaskThinkingLevel[];
   running: boolean;
   /** 读压缩设置用哪个项目的配置；草稿里没有项目时为 null（只看全局）。 */
   projectId: ProjectId | null;
   loadModels(): Promise<ModelOption[]>;
   setModel(key: ModelKey): Promise<void>;
-  setThinking(level: ThinkingLevel): Promise<void>;
+  setThinking(level: TaskThinkingLevel): Promise<void>;
   /** 速度开关（fast / slow，只对正在生效的模型）；没有任务的草稿里不传。 */
   speed?: SpeedControls;
   /** 给了任务 id（任务里；草稿没有）才显示 Prewalk 和"预设"两节：都是对这个任务发的命令（`/prewalk`、`/modelpreset`）。 */
@@ -132,7 +138,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   // 双击的第一下点在哪一行：点角色会换掉整张表，第二下落在原位的模型行上时不能当成双击它（否则直接把那个模型写给角色）。
   const firstClick = useRef<string | null>(null);
   // 分段条上点过的档位；null = 没动过（切模型时交给 omp 钳到新模型的档位）。
-  const [pickedLevel, setPickedLevel] = useState<ThinkingLevel | null>(null);
+  const [pickedLevel, setPickedLevel] = useState<TaskThinkingLevel | null>(null);
   // 给谁选模型：null = 用于此任务；某个角色 = 给它指定模型，写进全局 omp 配置。
   const [roles, setRoles] = useState<Record<string, string> | null>(null);
   const [roleTab, setRoleTab] = useState<string | null>(null);
@@ -251,14 +257,16 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     tableRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [selectedId]);
 
-  // 模型能用的档位：正在生效的模型用 omp 报的；别的模型按模型目录，omp 报的里有 off（任务里）时也给 off。
-  const levelsOf = (option: ModelOption): readonly ThinkingLevel[] => {
+  // 模型能用的档位：正在生效的模型用 omp 报的；别的模型按模型目录，omp 报的里有 off（任务里）时也给 off（按界面顺序排进去）。
+  const levelsOf = (option: ModelOption): readonly TaskThinkingLevel[] => {
     if (model !== null && sameModel(option.key, model.key)) return props.thinkingLevels;
-    const efforts = thinkingLevelOptions(option, []);
-    return efforts.length > 0 && props.thinkingLevels.includes("off") ? ["off", ...efforts] : efforts;
+    const levels = thinkingLevelOptions(option, null);
+    return levels.length > 0 && props.thinkingLevels.includes("off")
+      ? thinkingLevelOptions(option, ["off", ...levels])
+      : levels;
   };
   // 分段条上亮哪一档：点过的，没点过是现在的；这个模型没有那一档时照 omp 的规则钳到最近的。
-  const levelIn = (levels: readonly ThinkingLevel[]): ThinkingLevel | null => {
+  const levelIn = (levels: readonly TaskThinkingLevel[]): TaskThinkingLevel | null => {
     const wanted = pickedLevel ?? thinkingLevel;
     if (wanted === null || levels.length === 0) return null;
     return levels.includes(wanted) ? wanted : clampThinkingLevel(wanted, levels);

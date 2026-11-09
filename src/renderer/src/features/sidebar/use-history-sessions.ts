@@ -1,5 +1,6 @@
-// 侧栏的"历史会话"：omp 会话目录里还没挂在任务上的会话（含终端里开的，只读 ~/.omp），按置顶、修改时间从新到旧。
-// 已经挂在任务上的会话不再出现（它们就是任务行）。搜索过滤在 sidebar-model 里和任务一起做。
+// 侧栏的"历史会话"：omp 会话目录里的全部会话（含终端里开的，只读 ~/.omp），按置顶、修改时间从新到旧。
+// 挂在任务上的、已归档的也留着（sidebar-model 用它们查任务行的分叉关系、列"已归档"）；哪些单列一行见 isListedSession。
+// 搜索过滤在 sidebar-model 里和任务一起做。
 // 列表放在模块级 store 里，侧栏和命令面板共用一份：主进程每次 listSessions 都要扫一遍会话目录。
 import { useEffect } from "react";
 import type { SessionSummary } from "../../../../shared/ipc.ts";
@@ -12,16 +13,13 @@ const none: readonly SessionSummary[] = [];
 /** 只认最后一次请求的结果：先发的请求晚回来时不覆盖新的。 */
 let latest = 0;
 
-function refreshHistorySessions(): void {
+/** 重取一次；归档、恢复历史会话之后调用。 */
+export function refreshHistorySessions(): void {
   const request = ++latest;
   window.studio.listSessions(null).then(
     (list) => {
       if (request !== latest) return;
-      store.set(
-        list
-          .filter((session) => session.taskId === null)
-          .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.modifiedAt - a.modifiedAt),
-      );
+      store.set([...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.modifiedAt - a.modifiedAt));
     },
     (error: unknown) => reportErrorNow(error),
   );

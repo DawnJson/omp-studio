@@ -7,7 +7,7 @@ import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import { expandSidebarFolders, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
+import { expandSidebarFolders, launchApp, openTaskRow, pasteText, testOmp, type LaunchedApp } from "./launch.ts";
 
 async function openFolder(launched: LaunchedApp, dir: string): Promise<void> {
   await launched.app.evaluate(({ dialog }, folder) => {
@@ -219,5 +219,39 @@ test("点输入框外框里的空白（工具行空着的地方、文字区四�
   } finally {
     await launched.close();
     await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
+test("大段粘贴：输入框上方出现一张卡片（编号、行数、第一行），点开预览原文，展开成文字后卡片和芯片都没了；✕ 删掉卡片连同芯片", async () => {
+  test.setTimeout(60_000);
+  const launched = await launchApp();
+  try {
+    const { page } = launched;
+    const box = page.getByTestId("draft-composer");
+    const input = box.getByTestId("composer-input");
+    const pasted = Array.from({ length: 30 }, (_, index) => `第 ${index + 1} 行`).join("\n");
+    await input.fill("看看 ");
+    await pasteText(input, pasted);
+    const card = box.locator('[data-testid="attachment"][data-kind="paste"]');
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText("#1");
+    await expect(card).toContainText("30");
+    await expect(card).toContainText("第 1 行");
+    await card.getByTestId("attachment-open").click();
+    const preview = page.getByTestId("paste-preview");
+    await expect(preview).toHaveText(pasted);
+    await page.getByTestId("paste-inline").click();
+    await expect(card).toHaveCount(0);
+    await expect(input).toHaveValue(`看看 ${pasted} `);
+    await expect(input).toBeFocused();
+
+    await input.fill("");
+    await pasteText(input, pasted);
+    await expect(card).toHaveCount(1);
+    await card.getByTestId("attachment-remove").click();
+    await expect(card).toHaveCount(0);
+    await expect(input).toHaveValue("");
+  } finally {
+    await launched.close();
   }
 });

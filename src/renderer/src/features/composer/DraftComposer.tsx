@@ -33,6 +33,8 @@ import { useDraftView } from "./use-draft-view.ts";
 import { useFileMenu } from "./use-file-menu.ts";
 import { useNewTaskDefault } from "./use-new-task-default.ts";
 import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
+import { EnhanceButton } from "./EnhanceButton.tsx";
+import { usePromptEnhance } from "./use-prompt-enhance.ts";
 import "./composer.css";
 
 /** projectTools：工具行里紧跟审批胶囊的部分（空状态放项目标签）。 */
@@ -147,6 +149,14 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   };
 
   const attach = useAttach(key, fieldRef, undefined);
+  // 提示词优化：smol / default 角色都没配时用新任务会用的模型（这个草稿选的，或 omp 自选的默认模型）。
+  const enhance = usePromptEnhance(
+    key,
+    { kind: "draft", projectId },
+    draft.text,
+    model?.key ?? omp?.key ?? null,
+    fieldRef,
+  );
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (slashMenu.onKeyDown(event) || fileMenu.onKeyDown(event)) return;
@@ -241,6 +251,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
           <span className="composer-spacer" />
           <DraftContextMeter model={model ?? null} projectId={projectId} />
           <SessionCost usage={null} provider={model?.key.provider ?? null} />
+          <EnhanceButton enhance={enhance} disabled={false} />
           <SendStop
             running={false}
             stopping={false}

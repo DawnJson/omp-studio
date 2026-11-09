@@ -15,7 +15,8 @@ describe("omp 枚举设置的可选值文案", () => {
   it("思考强度档位和 thinking 命名空间同源，中文界面也写英文", () => {
     expect(enumLabel("zh-CN", "defaultThinkingLevel", "high")).toBe("High");
     expect(enumLabel("zh-CN", "task.maxEffort", "xhigh")).toBe("X-High");
-    expect(enumLabel("zh-CN", "defaultThinkingLevel", "auto")).toBe("自动");
+    // auto 也是思考强度的一档（输入框胶囊里能选），和其它档位一样写英文，设置页和胶囊同一个写法。
+    expect(enumLabel("zh-CN", "defaultThinkingLevel", "auto")).toBe("Auto");
   });
 
   it("按键翻译，其次通用词，都没有就原样显示", () => {

@@ -1,8 +1,8 @@
 // studio 接管的斜杠命令按参数分派（纯函数；studio-slash-table.ts 里各命令的 run 调它们，再去做界面动作）。
 // 规则（wave B 3.3）：不带参数 = 打开 studio 的界面；带 studio 认得的参数 = 直接做（桌面端控件的等价操作）；
 // studio 不认识的参数 = `omp`（原样把这条命令发给 omp，由它自己处理 / 报错）。
-import type { ModelKey, ModelOption } from "../../../../shared/ipc.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import type { ModelKey, ModelOption, TaskThinkingLevel } from "../../../../shared/ipc.ts";
+import { toTaskThinkingLevel } from "../../../../shared/ui/new-task-default.ts";
 import type { TaskCommand } from "../../../../shared/omp-output/index.ts";
 import { groupModels } from "./model-groups.ts";
 
@@ -17,16 +17,18 @@ export type ModelCommand =
   /** 打开选择器（不带参数、带了 `@角色`、或匹配到多个模型时填好搜索词让用户挑）。 */
   | { kind: "picker"; request: ModelPickerRequest }
   /** 唯一匹配：直接切换（`:档位` 后缀同时设思考强度）。 */
-  | { kind: "switch"; key: ModelKey; level: string | null }
+  | { kind: "switch"; key: ModelKey; level: TaskThinkingLevel | null }
   /** 目录里一个都没匹配到：原样交给 omp。 */
   | { kind: "omp" };
 
 /** `sonnet:high` → 词 `sonnet`、档位 `high`；档位不是 omp 的几个档位名时 `:` 当作模型 id 的一部分（如 `ollama/llama3:8b`）。 */
 const LEVEL_SUFFIX = /^(.*\S):(off|minimal|low|medium|high|xhigh|max|auto)$/i;
 
-export function parseModelArg(args: string): { term: string; level: string | null } {
+export function parseModelArg(args: string): { term: string; level: TaskThinkingLevel | null } {
   const match = LEVEL_SUFFIX.exec(args.trim());
-  return match ? { term: match[1] ?? "", level: (match[2] ?? "").toLowerCase() } : { term: args.trim(), level: null };
+  return match
+    ? { term: match[1] ?? "", level: toTaskThinkingLevel(match[2]?.toLowerCase()) }
+    : { term: args.trim(), level: null };
 }
 
 /** 草稿页没有模型目录可匹配：不管词是什么都只填进选择器的搜索框（`@角色` 仍然进角色范围）。 */
@@ -58,12 +60,12 @@ export function resolveModelCommand(args: string, models: readonly ModelOption[]
 
 export type EffortCommand =
   | { kind: "picker" }
-  | { kind: "set"; level: ThinkingLevel }
+  | { kind: "set"; level: TaskThinkingLevel }
   /** 不是这个模型的档位：原样交给 omp。 */
   | { kind: "omp" };
 
-/** `/effort [档位]`：档位在这个任务的可选档位里（`TaskState.thinkingLevels`，不分大小写）就直接设置。 */
-export function resolveEffortCommand(args: string, levels: readonly ThinkingLevel[]): EffortCommand {
+/** `/effort [档位]`：档位在这个任务的可选档位里（和胶囊同一份：thinkingLevelOptions，不分大小写）就直接设置。 */
+export function resolveEffortCommand(args: string, levels: readonly TaskThinkingLevel[]): EffortCommand {
   const wanted = args.trim().toLowerCase();
   if (wanted === "") return { kind: "picker" };
   const level = levels.find((candidate) => candidate.toLowerCase() === wanted);

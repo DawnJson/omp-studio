@@ -51,6 +51,7 @@ export const sessionInfo = {
   "usage.cost": "Cost",
   "usage.models": "Models used",
   "usage.breakdown": "In {input} · Out {output} · Cache read {cacheRead} · Cache write {cacheWrite}",
+  "usage.cacheHit": "Cache hit rate",
   "usage.whole": "{tokens} tokens · {cost} including before compaction",
   "usage.none": "This session has no model requests yet.",
   "usage.syncing": "Syncing…",

@@ -13,6 +13,7 @@ import {
   type PromptInput,
   type TaskId,
   type ProjectId,
+  type TaskThinkingLevel,
 } from "../../shared/ipc.ts";
 import { isThemeName, type ThemePreference } from "../../shared/themes.ts";
 import {
@@ -21,7 +22,6 @@ import {
   type BuiltinCommand,
   type TaskCommand,
 } from "../../shared/omp-output/index.ts";
-import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import { getMainWindow, isAppUrl } from "../window/main-window.ts";
 
@@ -127,8 +127,9 @@ export function parseFontSize(value: unknown): number {
   return step;
 }
 
-export function parseThinkingLevel(value: unknown): ThinkingLevel {
-  return parseOneOf(value, "thinkingLevel", ["inherit", "off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+/** 任务的思考强度（建任务、切强度）：含 auto（`--thinking auto`、omp 的 ⇧⇥ 循环里都有），不含 inherit（任务没有上一级可继承）。 */
+export function parseThinkingLevel(value: unknown): TaskThinkingLevel {
+  return parseOneOf(value, "thinkingLevel", ["auto", "off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 }
 
 export function parseMaxLiveProcesses(value: unknown): number {

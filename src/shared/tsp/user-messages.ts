@@ -58,3 +58,26 @@ export function userMessageTexts(doc: TspDocument | null): string[] {
 export function sameUserMessages(a: readonly UserMessage[], b: readonly UserMessage[]): boolean {
   return a.length === b.length && a.every((message, i) => message.id === b[i]!.id && message.text === b[i]!.text);
 }
+
+/**
+ * 对话大纲里一条消息的标题：第一行非空文字（跳过代码围栏行），去掉 Markdown 标记（标题 #、引用 >、列表符号、
+ * 强调 * _ ~、行内代码 `、链接和图片只留文字），空白折成一个空格。没有文字时为空串。
+ */
+export function outlineLabel(text: string): string {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line === "" || /^(`{3,}|~{3,})/.test(line)) continue;
+    const plain = line
+      .replace(/^(>\s*)+/, "")
+      .replace(/^#{1,6}\s+/, "")
+      .replace(/^([-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?/, "")
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/(\*\*|__|~~)(.+?)\1/g, "$2")
+      .replace(/(^|[^\w*])[*_](\S(?:.*?\S)?)[*_](?=[^\w*]|$)/g, "$1$2")
+      .replace(/`+([^`]*)`+/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (plain !== "") return plain;
+  }
+  return "";
+}

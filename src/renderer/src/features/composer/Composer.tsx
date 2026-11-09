@@ -44,6 +44,8 @@ import { userMessageTexts } from "../../../../shared/tsp/user-messages.ts";
 import { GATE_ACTION_APPROVE, GATE_ACTION_DETAILS, TSP_APPROVAL_DIALOG_ID } from "../../../../shared/tsp/gate.ts";
 import { PathLabel } from "../empty/ProjectLabel.tsx";
 import { Button } from "../../ui/controls.tsx";
+import { EnhanceButton } from "./EnhanceButton.tsx";
+import { usePromptEnhance } from "./use-prompt-enhance.ts";
 
 export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDraft?: boolean }) {
   const t = useT();
@@ -207,7 +209,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     });
   }, [running, screenOpen, stopping, taskId, t]);
 
-  // Esc 栈第 4 层：前面的层（菜单、门、弹层）会消耗掉 Esc（preventDefault），没人消耗才停止任务。
+  // Esc 栈第 5 层：前面的层（菜单、门、弹层、进行中的提示词优化）会消耗掉 Esc（preventDefault），没人消耗才停止任务。
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
@@ -231,6 +233,14 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   );
 
   const attach = useAttach(taskId, fieldRef, task?.model?.acceptsImages);
+  // 提示词优化：smol / default 角色都没配时用这个任务正在用的模型（进程起来前是要起的那个）。
+  const enhance = usePromptEnhance(
+    taskId,
+    { kind: "task", taskId },
+    draft.text,
+    (task?.model ?? firstPrompt?.model ?? (preStart ? projectDefault.model : null))?.key ?? null,
+    fieldRef,
+  );
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const composing = event.nativeEvent.isComposing || event.keyCode === 229;
@@ -460,6 +470,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
             provider={task.model?.key.provider ?? null}
             credentialPins={task.credentialPins}
           />
+          <EnhanceButton enhance={enhance} disabled={worktreeGone} />
           <SendStop
             running={running}
             stopping={stopping}

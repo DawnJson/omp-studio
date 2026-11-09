@@ -45,7 +45,7 @@ function TspMenuHost() {
               item.run();
             }}
           >
-            {actionLabel(item.act, t("common.copy"))}
+            {item.label ?? actionLabel(item.act, t("common.copy"))}
           </button>
         ))}
       </div>

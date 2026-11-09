@@ -74,16 +74,20 @@ describe("parseSessionPrefix", () => {
       cwd: projectCwd,
       title: "槽里的标题",
       firstPrompt: "第一行",
+      parent: null,
     });
   });
 
-  it("旧版文件没有标题槽；用户消息内容是字符串也认", () => {
-    const text = header("s2", projectCwd, { title: "旧标题" }) + userMessage("hello\r\nworld");
+  it("旧版文件没有标题槽；用户消息内容是字符串也认；头里的 parentSession 原样带出（分叉）", () => {
+    const text =
+      header("s2", projectCwd, { title: "旧标题", parentSession: "C:\\会话 目录\\父.jsonl" }) +
+      userMessage("hello\r\nworld");
     expect(parseSessionPrefix(text, false)).toEqual({
       id: "s2",
       cwd: projectCwd,
       title: "旧标题",
       firstPrompt: "hello",
+      parent: "C:\\会话 目录\\父.jsonl",
     });
   });
 
@@ -249,8 +253,8 @@ describe("SessionIndex.scan", () => {
 });
 
 describe("buildSessionSummaries", () => {
-  const projectA: Project = { id: "pa" as ProjectId, path: projectCwd, name: "my app" };
-  const projectB: Project = { id: "pb" as ProjectId, path: "E:\\其它", name: "其它" };
+  const projectA: Project = { id: "pa" as ProjectId, path: projectCwd, name: "my app", hidden: false };
+  const projectB: Project = { id: "pb" as ProjectId, path: "E:\\其它", name: "其它", hidden: false };
   const sessions: IndexedSession[] = [
     {
       id: "s1",
@@ -258,6 +262,7 @@ describe("buildSessionSummaries", () => {
       cwd: projectCwd,
       title: "一",
       firstPrompt: null,
+      parent: null,
       lastTurn: "completed",
       modifiedAt: 3,
       size: 1,
@@ -268,6 +273,7 @@ describe("buildSessionSummaries", () => {
       cwd: "E:\\未加入 的目录",
       title: null,
       firstPrompt: "二",
+      parent: null,
       lastTurn: "error",
       modifiedAt: 2,
       size: 1,
@@ -278,14 +284,15 @@ describe("buildSessionSummaries", () => {
       cwd: projectCwd,
       title: null,
       firstPrompt: null,
+      parent: null,
       lastTurn: null,
       modifiedAt: 1,
       size: 1,
     },
   ];
   const links = [
-    { id: "t1" as TaskId, sessionFile: "C:\\x y\\s1.jsonl" },
-    { id: "t2" as TaskId, sessionFile: null },
+    { id: "t1" as TaskId, sessionFile: "C:\\x y\\s1.jsonl", archived: false },
+    { id: "t2" as TaskId, sessionFile: null, archived: false },
   ];
 
   const noPins = new Set<string>();
@@ -310,6 +317,45 @@ describe("buildSessionSummaries", () => {
     expect(result.map((s) => [s.id, s.pinned])).toEqual([
       ["s1", false],
       ["s2", true],
+    ]);
+  });
+
+  it('挂在已归档任务上的会话：taskId 为 null、archived 为 true（只在"已归档"里列出）', () => {
+    const archivedLinks = [{ id: "t1" as TaskId, sessionFile: "C:\\x y\\s1.jsonl", archived: true }];
+    const result = buildSessionSummaries(sessions, [projectA], archivedLinks, null, noPins);
+    expect(result.map((s) => [s.id, s.taskId, s.archived])).toEqual([
+      ["s1", null, true],
+      ["s2", null, false],
+    ]);
+  });
+
+  it("parentSession 是父会话的 id 或文件路径（omp 两种都写）都解析成父会话 id；找不到、指向自己时为 null", () => {
+    const child = (id: string, parent: string): IndexedSession => ({
+      ...sessions[1]!,
+      id,
+      file: `C:\\x y\\${id}.jsonl`,
+      parent,
+    });
+    const result = buildSessionSummaries(
+      [
+        ...sessions,
+        child("by-id", "s1"),
+        child("by-path", "C:\\x y\\s2.jsonl"),
+        child("gone", "C:\\x y\\deleted.jsonl"),
+        child("self", "self"),
+      ],
+      [projectA],
+      links,
+      null,
+      noPins,
+    );
+    expect(result.map((s) => [s.id, s.parentId])).toEqual([
+      ["s1", null],
+      ["s2", null],
+      ["by-id", "s1"],
+      ["by-path", "s2"],
+      ["gone", null],
+      ["self", null],
     ]);
   });
 

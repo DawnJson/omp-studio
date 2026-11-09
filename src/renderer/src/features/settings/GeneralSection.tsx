@@ -1,6 +1,6 @@
 // 设置 → 通用：外观（主题画廊；格子里背景图、浓度、毛玻璃、语言、字号、减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
 // 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式，两两一行）；空闲任务多久关进程；快捷键（只读，三列；studio 的键，加转发给 omp 的键）。格子排法见 settings.css 的 .st-cells。
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   defaultFontSize,
   fontSizeSteps,
@@ -8,6 +8,7 @@ import {
   type BackdropStrength,
   type IdleClose,
   type LocalePreference,
+  type TerminalShellOption,
 } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { chordKeys } from "../../../../shared/tsp/omp-keybindings.ts";
@@ -62,6 +63,7 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.toggleProcess", keys: ["Ctrl", "O"] },
   { label: "shortcut.nthTask", keys: ["Ctrl", "1…9"] },
   { label: "shortcut.prevNext", keys: ["Ctrl", "Shift", "[ / ]"] },
+  { label: "shortcut.prevNextTurn", keys: ["Ctrl", "Shift", "↑ / ↓"] },
   { label: "shortcut.regions", keys: ["F6"] },
   { label: "shortcut.review", keys: ["Ctrl", "Shift", "D"] },
   { label: "shortcut.toggleFiles", keys: ["Ctrl", "Shift", "E"] },
@@ -83,6 +85,18 @@ export function GeneralSection() {
   const whileRunning = behavior.filter((item) => !notifyKeys.has(item.key));
   const ompKeybindings = useOmpKeybindings();
   useEffect(() => void refreshOmpKeybindings(), []);
+  // 本机可选的终端 shell：打开设置页时检测一次（主进程只接受这个列表里的路径）。
+  const [shells, setShells] = useState<readonly TerminalShellOption[]>([]);
+  useEffect(() => {
+    let live = true;
+    window.studio
+      .listTerminalShells()
+      .then((list) => live && setShells(list))
+      .catch((error: unknown) => reportError(t, error));
+    return () => {
+      live = false;
+    };
+  }, [t]);
 
   const localeOptions = [
     { value: "system", label: t("settings.language.system") },
@@ -107,6 +121,15 @@ export function GeneralSection() {
     value,
     label: t(`settings.idleClose.${value}`),
   }));
+  const terminalShell = settings?.terminalShell ?? null;
+  const shellOptions = [
+    { value: "", label: t("settings.terminalShell.auto") },
+    ...shells.map((shell) => ({ value: shell.path, label: shell.name })),
+    // 文件对话框选的、不在检测列表里的：照样列出来，显示文件名。
+    ...(terminalShell !== null && !shells.some((shell) => shell.path === terminalShell)
+      ? [{ value: terminalShell, label: terminalShell.split(/[\\/]/).pop() ?? terminalShell }]
+      : []),
+  ];
 
   return (
     <>
@@ -227,6 +250,16 @@ export function GeneralSection() {
             />
           )}
         </Row>
+        <Row label={t("settings.groupToolCalls")}>
+          {(labelId) => (
+            <Switch
+              checked={settings?.groupToolCalls ?? true}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setGroupToolCalls(next)}
+              testId="setting-group-tool-calls"
+            />
+          )}
+        </Row>
       </div>
       <SectionHead title={t("settings.notifications")} />
       <div className="st-cells" data-testid="notify-settings">
@@ -274,6 +307,30 @@ export function GeneralSection() {
               onChange={(next) => void window.studio.setIdleClose(next)}
               testId="setting-idle-close"
             />
+          )}
+        </Row>
+      </div>
+      <SectionHead title={t("settings.terminal")} />
+      <div className="st-cells">
+        <Row label={t("settings.terminalShell")}>
+          {(labelId) => (
+            <>
+              <Select<string>
+                size="sm"
+                value={terminalShell ?? ""}
+                options={shellOptions}
+                labelledBy={labelId}
+                onChange={(next) => guard(window.studio.setTerminalShell(next === "" ? null : next))}
+                testId="setting-terminal-shell"
+              />
+              <Button
+                size="sm"
+                onClick={() => guard(window.studio.chooseTerminalShell())}
+                testId="setting-terminal-shell-choose"
+              >
+                {t("settings.terminalShell.choose")}
+              </Button>
+            </>
           )}
         </Row>
       </div>

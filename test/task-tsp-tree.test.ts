@@ -36,6 +36,8 @@ const settings: StudioSettings = {
   soundOnDone: false,
   copyOnSelect: true,
   toolHeadsOnly: false,
+  groupToolCalls: true,
+  terminalShell: null,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",
@@ -85,7 +87,6 @@ async function harness(): Promise<Harness> {
       tspBatch: () => {},
     },
     listModels: async () => [],
-    forkTitle: (title) => `分叉：${title}`,
     newTaskDefaults: async () => ({ model: null, thinkingLevel: null, ompDefault: null }),
     tsp: {
       buildLaunch: async (record: TaskRecord, project) => {
@@ -297,7 +298,7 @@ describe("forkTask（TSP：omp --fork 起新任务，再在新进程里回溯）
   it("新任务记 forkFrom 并用 --fork=<原会话文件> 起；回溯后返回文字；新任务同项目；原任务不动", async () => {
     const h = await harness();
     const { id, file } = await taskWithSession(h);
-    const result = await h.pool.forkTask(id, BETA);
+    const result = await h.pool.forkTask(id, BETA, "before-user");
     expect(result.text).toBe("Reply with exactly: BETA. No tools.");
     expect(result.task.id).not.toBe(id);
     expect(result.task).toMatchObject({ projectId: h.projectId });
@@ -313,7 +314,7 @@ describe("forkTask（TSP：omp --fork 起新任务，再在新进程里回溯）
   it("不带条目（null）= 当前分支最后一条用户消息；新文件落盘后记进 sessionFile 并清掉 forkFrom，之后恢复用 --resume", async () => {
     const h = await harness();
     const { id, file } = await taskWithSession(h);
-    const { task, text } = await h.pool.forkTask(id, null);
+    const { task, text } = await h.pool.forkTask(id, null, "before-user");
     expect(text).toBe("Reply with exactly: BETA. No tools.");
     // 假 omp 报告的会话文件就是 FAKE_TSP_SESSION_FILE（真实 omp 报告的是新建的那份）：落盘后记进记录、forkFrom 清掉。
     await until(() => h.registry.findTask(task.id)?.sessionFile === file, "the forked task's session file");
@@ -327,11 +328,60 @@ describe("forkTask（TSP：omp --fork 起新任务，再在新进程里回溯）
     const h = await harness();
     h.sessionFile.current = null;
     const blank = await h.pool.createTask({ projectId: h.projectId });
-    await expect(h.pool.forkTask(blank.id, null)).rejects.toThrow(/no session file yet/);
+    await expect(h.pool.forkTask(blank.id, null, "before-user")).rejects.toThrow(/no session file yet/);
 
     const { id } = await taskWithSession(h);
     const before = h.registry.listTasks().length;
-    await expect(h.pool.forkTask(id, "b05cb500")).rejects.toThrow(/not a user message/);
+    await expect(h.pool.forkTask(id, "b05cb500", "before-user")).rejects.toThrow(/not a user message/);
+    await expect(h.pool.forkTask(id, "b05cb500", "after-answer")).rejects.toThrow(/not a user message/);
+    expect(h.registry.listTasks()).toHaveLength(before);
+  }, 60_000);
+});
+
+describe("forkTask after-answer（回答上的“从这里分叉”：到这条回答为止，输入框空着）", () => {
+  const ALPHA_ANSWER = "42095935";
+
+  it("当前分支最后一条回答：--fork 后叶子已经在它上面，新进程什么都不收；返回空文字", async () => {
+    const h = await harness();
+    const { id, file } = await taskWithSession(h);
+    const result = await h.pool.forkTask(id, BETA, "after-answer");
+    expect(result.text).toBe("");
+    expect(result.task.id).not.toBe(id);
+    expect(h.launches.find((launch) => launch.taskId === result.task.id)).toMatchObject({
+      forkFrom: file,
+      args: [`--fork=${file}`],
+    });
+    expect(received(h.log)).toEqual([]);
+    // null = 当前分支最后一条用户消息，同样不用移动。
+    expect((await h.pool.forkTask(id, null, "after-answer")).text).toBe("");
+    expect(received(h.log)).toEqual([]);
+  }, 60_000);
+
+  it("更早的回答：新进程里 /tree → activate 那条助手消息（omp 不预填输入框，所以不发 edit）；返回空文字", async () => {
+    const h = await harness();
+    const { id } = await taskWithSession(h);
+    // 新进程回放 session-tree-answer：和 session-tree 同一份录制，activate 的是 ALPHA 的回答、输入框没有预填（omp 18.18.2 实测的行为）。
+    h.fixture.current = "session-tree-answer";
+    const result = await h.pool.forkTask(id, ALPHA, "after-answer");
+    expect(result.text).toBe("");
+    expect(received(h.log)).toEqual([
+      { ev: "send", sf: "s:1", id: "j.line/input", text: "/tree" },
+      { ev: "activate", sf: "s:1", id: "s.^picker", item: ALPHA_ANSWER },
+    ]);
+    // 新任务里叶子停在 ALPHA 的回答：ALPHA 是当前，BETA 在别的分支。
+    const { nodes } = await h.pool.getSessionTree(result.task.id);
+    expect(nodes.map((node) => [node.entryId, node.onCurrentBranch, node.current])).toEqual([
+      [ALPHA, true, true],
+      [BETA, false, false],
+    ]);
+  }, 60_000);
+
+  it("不在当前分支上的消息没有可分叉的回答：拒绝，不建任务", async () => {
+    const h = await harness();
+    const { id } = await taskWithSession(h);
+    await h.pool.branchTask(id, BETA);
+    const before = h.registry.listTasks().length;
+    await expect(h.pool.forkTask(id, BETA, "after-answer")).rejects.toThrow(/no answer on the current branch/);
     expect(h.registry.listTasks()).toHaveLength(before);
   }, 60_000);
 });

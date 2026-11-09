@@ -1,9 +1,11 @@
-// 列表里的一行：状态点、名字、类型（只在不是默认的 task 时显示）和 `后台` 标签、右端状态（运行中有完成度估计时换成进度环 + 百分比）；
+// 列表里的一行：状态点、名字、类型（只在不是默认的 task 时显示）和 `后台` 标签、右端用时 + 状态（运行中有完成度估计时换成进度环 + 百分比）；
 // 第二行是正在用的工具和意图（运行中）或任务说明（去掉 Markdown 标题的 #）。token 和费用在详情里。
 // 点行 = 选中它、下方显示详情（同 omp Hub 里移动光标）；进入它的对话用详情头部的"进入对话"按钮。
-import type { HubAgent } from "../../../../shared/tsp/agent-hub.ts";
+import { isAgentActive, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { agentContextPercent, agentProgress, cleanTask, dotStatus, statusKey } from "./agent-model.ts";
+import { formatElapsed } from "../tsp/fmt.ts";
+import { useAge } from "../tsp/use-clock.ts";
+import { agentContextPercent, agentElapsed, agentProgress, cleanTask, dotStatus, statusKey } from "./agent-model.ts";
 
 const RING = 2 * Math.PI * 5.5;
 
@@ -14,6 +16,14 @@ export function AgentRow({ agent, selected, onSelect }: { agent: HubAgent; selec
     : cleanTask(agent.task);
   const progress = agentProgress(agent);
   const context = agentContextPercent(agent);
+  // 运行中 omp 给的 age 是到达时的已用时间，本地接着走（TSP 规范：正的 age 才加上到达后的时间）；结束后是 took。
+  // 旧版 omp（18.12.x 的录制）运行中 stats.age 一直是 0：不走，照 omp 给的显示。
+  const elapsed = agentElapsed(agent);
+  const ticking = useAge(
+    elapsed ?? undefined,
+    elapsed !== null && elapsed > 0 && agent.stats.took === null && isAgentActive(agent.status),
+    "seconds",
+  );
   return (
     <li className="agents-item" data-current={selected ? "true" : undefined}>
       <button
@@ -49,6 +59,11 @@ export function AgentRow({ agent, selected, onSelect }: { agent: HubAgent; selec
                   <i style={{ width: `${Math.max(context > 0 ? 4 : 0, context)}%` }} />
                 </span>
                 {context}%
+              </span>
+            )}
+            {elapsed !== null && (
+              <span className="agents-row-time" data-testid="agents-row-time" title={t("agents.time")} role="timer">
+                {formatElapsed(ticking, "seconds")}
               </span>
             )}
             {progress === null ? (

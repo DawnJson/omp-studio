@@ -9,6 +9,7 @@ import type {
   ContextReport,
   PromptImage,
   DefaultModelInfo,
+  ForkMode,
   ModelKey,
   ModelOption,
   Project,
@@ -20,6 +21,7 @@ import type {
   TaskId,
   TaskNotice,
   TaskState,
+  TaskThinkingLevel,
   TspBatch,
   TspSessionExtras,
   TspSnapshot,
@@ -65,7 +67,7 @@ import {
 import { log } from "../log/log.ts";
 import { waitWithTimeout } from "../platform/wait-with-timeout.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
-import type { ThinkingLevel, AvailableSlashCommand, GoalOp } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { AvailableSlashCommand, GoalOp } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import {
   buildTspEnv,
   TspExitedError,
@@ -76,11 +78,11 @@ import {
 } from "../tsp/tsp-session.ts";
 import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
-import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
+import { looksLikeConsoleTitle, stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { holdSessionFile, readSessionFile, type SessionFileState } from "../tsp/session-files.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
 import { HubDriver } from "./tsp-hub-driver.ts";
-import type { RewindTarget } from "../tsp/session-tree-file.ts";
+import type { AnswerTarget, RewindTarget } from "../tsp/session-tree-file.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import { pathKey, type TaskRecord } from "./task-registry.ts";
 import { WorkspaceDirs } from "./workspace-dirs.ts";
@@ -90,7 +92,7 @@ import { deriveComposerFacts, type ComposerFacts, type ModeOp } from "../../shar
 import { TspBtw } from "./tsp-btw.ts";
 import { TspDocScans } from "./tsp-doc-scans.ts";
 import { TspCommands, CONFIRM_TIMEOUT_MS, ESC_KEY } from "./tsp-commands.ts";
-import { TspSessionTree } from "./tsp-session-tree.ts";
+import { TspSessionTree, type ForkPoint } from "./tsp-session-tree.ts";
 import { TspComposerObserver } from "./tsp-composer-observer.ts";
 import { fillFileSlots } from "../../shared/composer-files.ts";
 import { resolveComposerFiles } from "../files/composer-files.ts";
@@ -227,7 +229,7 @@ export class TspRunner {
   readonly #composerState: TspComposerObserver;
   #catalog: ModelOption[] = [];
   /** omp 对这个项目的新任务默认值解析出的模型和思考强度：任务记录没指定、输入框卡片也还没出现时显示它（不传给 omp）。 */
-  #newTaskDefault: { model: ModelOption | null; thinkingLevel: ThinkingLevel | null } = {
+  #newTaskDefault: { model: ModelOption | null; thinkingLevel: TaskThinkingLevel | null } = {
     model: null,
     thinkingLevel: null,
   };
@@ -303,6 +305,7 @@ export class TspRunner {
       this.#composerState.setSlowEnabled(enabled);
       this.#publish();
     },
+    setObservedThinkingLevels: (levels) => this.#composerState.setObservedThinkingLevels(levels),
     goal: this.#goalTracker,
   });
   /** 会话树、回溯、标签、分叉前检查（tsp-session-tree.ts）。 */
@@ -450,7 +453,11 @@ export class TspRunner {
       updatedAt: this.#activityAt,
       // 模型、思考强度、上下文用量、费用从 omp 输入框卡片上读（composer-state.ts）；输入框还没出现时用任务记录里的。
       model: derived.model ?? this.#model ?? this.#newTaskDefault.model,
-      thinkingLevel: derived.thinkingLevel ?? this.#record.thinkingLevel ?? this.#newTaskDefault.thinkingLevel,
+      // 输入框卡片出现以后思考强度只看 omp 显示的（auto 也是一档，不支持思考的模型为 null），不再拿任务记录里的旧值顶。
+      thinkingLevel:
+        derived.model !== null
+          ? derived.thinkingLevel
+          : (this.#record.thinkingLevel ?? this.#newTaskDefault.thinkingLevel),
       thinkingLevels: derived.thinkingLevels,
       contextUsage: derived.contextUsage,
       sessionUsage: derived.sessionUsage,
@@ -965,7 +972,14 @@ export class TspRunner {
       return;
     }
     // 用户改过名（既不是空、也不是我们临时取的、也不是上一次采用 omp 的）：不覆盖。
-    if (current !== "" && current !== this.#provisionalTitle && current !== this.#adoptedTitle) return;
+    // 控制台标题（2026-11-06 之前误存的 cmd.exe 之类）不是用户起的名字，照样换掉。
+    if (
+      current !== "" &&
+      current !== this.#provisionalTitle &&
+      current !== this.#adoptedTitle &&
+      !looksLikeConsoleTitle(current)
+    )
+      return;
     this.#adoptedTitle = title;
     this.#host
       .persist(this.id, { title })
@@ -1307,7 +1321,7 @@ export class TspRunner {
     return this.#commands.setModel(key);
   }
 
-  setThinkingLevel(level: ThinkingLevel): Promise<void> {
+  setThinkingLevel(level: TaskThinkingLevel): Promise<void> {
     return this.#commands.setThinkingLevel(level);
   }
 
@@ -1469,12 +1483,16 @@ export class TspRunner {
     return this.#tree.getSessionTree();
   }
 
-  prepareFork(entryId: string | null): Promise<{ sourceFile: string; entryId: string; target: RewindTarget }> {
-    return this.#tree.prepareFork(entryId);
+  prepareFork(entryId: string | null, mode: ForkMode): Promise<{ sourceFile: string; point: ForkPoint }> {
+    return this.#tree.prepareFork(entryId, mode);
   }
 
   rewindTo(entryId: string, known?: RewindTarget, summarize = false): Promise<{ text: string; summarized: boolean }> {
     return this.#tree.rewindTo(entryId, known, summarize);
+  }
+
+  moveToAnswer(answer: AnswerTarget): Promise<void> {
+    return this.#tree.moveToAnswer(answer);
   }
 
   labelEntry(entryId: string, label: string | null): Promise<void> {

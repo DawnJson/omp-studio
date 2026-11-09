@@ -1,44 +1,136 @@
 import { describe, expect, it } from "vitest";
 import { parseTerminalInput, parseTerminalSize } from "../src/main/terminal/input.ts";
-import { buildTerminalEnv, resolveShell } from "../src/main/terminal/shell.ts";
+import {
+  buildTerminalEnv,
+  detectShells,
+  resolveShell,
+  shellArgs,
+  ShellMissingError,
+} from "../src/main/terminal/shell.ts";
+
+const none = () => false;
 
 describe("resolveShell", () => {
   it("Windows：PATH 上有 pwsh 就用它", () => {
-    const shell = resolveShell({
-      platform: "win32",
-      env: {},
-      which: (name) => (name === "pwsh.exe" ? "C:\\Program Files\\PowerShell\\7\\pwsh.exe" : null),
-    });
+    const shell = resolveShell(
+      {
+        platform: "win32",
+        env: {},
+        which: (name) => (name === "pwsh.exe" ? "C:\\Program Files\\PowerShell\\7\\pwsh.exe" : null),
+        exists: none,
+      },
+      null,
+    );
     expect(shell).toEqual({ file: "C:\\Program Files\\PowerShell\\7\\pwsh.exe", args: ["-NoLogo"], name: "pwsh.exe" });
   });
 
   it("Windows：没有 pwsh 用 PATH 上的 powershell.exe", () => {
-    const shell = resolveShell({
-      platform: "win32",
-      env: {},
-      which: (name) => (name === "powershell.exe" ? "C:\\x\\powershell.exe" : null),
-    });
+    const shell = resolveShell(
+      {
+        platform: "win32",
+        env: {},
+        which: (name) => (name === "powershell.exe" ? "C:\\x\\powershell.exe" : null),
+        exists: none,
+      },
+      null,
+    );
     expect(shell.file).toBe("C:\\x\\powershell.exe");
     expect(shell.name).toBe("powershell.exe");
   });
 
   it("Windows：PATH 上两个都没有，退到 SystemRoot 下的 Windows PowerShell", () => {
-    const shell = resolveShell({ platform: "win32", env: { SystemRoot: "D:\\Win" }, which: () => null });
+    const shell = resolveShell(
+      { platform: "win32", env: { SystemRoot: "D:\\Win" }, which: () => null, exists: none },
+      null,
+    );
     expect(shell.file).toBe("D:\\Win\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
   });
 
   it("其他平台：$SHELL 带 -l 作登录 shell，没有就 /bin/bash", () => {
-    expect(resolveShell({ platform: "linux", env: { SHELL: "/usr/bin/zsh" }, which: () => null })).toEqual({
+    const probe = (env: NodeJS.ProcessEnv, platform: NodeJS.Platform) => ({
+      platform,
+      env,
+      which: () => null,
+      exists: none,
+    });
+    expect(resolveShell(probe({ SHELL: "/usr/bin/zsh" }, "linux"), null)).toEqual({
       file: "/usr/bin/zsh",
       args: ["-l"],
       name: "zsh",
     });
-    expect(resolveShell({ platform: "darwin", env: { SHELL: "/bin/zsh" }, which: () => null })).toEqual({
+    expect(resolveShell(probe({ SHELL: "/bin/zsh" }, "darwin"), null)).toEqual({
       file: "/bin/zsh",
       args: ["-l"],
       name: "zsh",
     });
-    expect(resolveShell({ platform: "darwin", env: {}, which: () => null }).file).toBe("/bin/bash");
+    expect(resolveShell(probe({}, "darwin"), null).file).toBe("/bin/bash");
+  });
+
+  it("设置里选了 shell：用它，参数按文件名", () => {
+    const probe = { platform: "win32" as const, env: {}, which: () => "C:\\pwsh.exe", exists: () => true };
+    expect(resolveShell(probe, "C:\\Windows\\System32\\cmd.exe")).toEqual({
+      file: "C:\\Windows\\System32\\cmd.exe",
+      args: [],
+      name: "cmd.exe",
+    });
+    expect(resolveShell(probe, "C:\\Program Files\\Git\\bin\\bash.exe").args).toEqual(["--login", "-i"]);
+  });
+
+  it("设置里选的 shell 不在了：报错，不悄悄换回默认", () => {
+    const probe = { platform: "win32" as const, env: {}, which: () => "C:\\pwsh.exe", exists: none };
+    expect(() => resolveShell(probe, "D:\\gone\\bash.exe")).toThrow(ShellMissingError);
+  });
+});
+
+describe("shellArgs", () => {
+  it("按文件名定参数，大小写和 .exe 不影响", () => {
+    expect(shellArgs("win32", "C:\\x\\PWSH.EXE")).toEqual(["-NoLogo"]);
+    expect(shellArgs("win32", "C:\\x\\powershell.exe")).toEqual(["-NoLogo"]);
+    expect(shellArgs("win32", "C:\\x\\wsl.exe")).toEqual([]);
+    expect(shellArgs("linux", "/usr/bin/fish")).toEqual(["-l"]);
+    expect(shellArgs("darwin", "/bin/bash")).toEqual(["-l"]);
+    expect(shellArgs("linux", "/usr/bin/nu")).toEqual([]);
+  });
+});
+
+describe("detectShells", () => {
+  it("Windows：只列存在的，按顺序，同一路径只列一次；Git Bash 从 git.exe 往上找", () => {
+    const present = new Set(
+      [
+        "C:\\PS7\\pwsh.exe",
+        "C:\\Win\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "C:\\Win\\System32\\cmd.exe",
+        "C:\\Git\\bin\\bash.exe",
+      ].map((file) => file.toLowerCase()),
+    );
+    const options = detectShells({
+      platform: "win32",
+      env: { SystemRoot: "C:\\Win", ComSpec: "C:\\WIN\\System32\\cmd.exe" },
+      which: (name) => ({ "pwsh.exe": "C:\\PS7\\pwsh.exe", "git.exe": "C:\\Git\\cmd\\git.exe" })[name] ?? null,
+      exists: (file) => present.has(file.toLowerCase()),
+      etcShells: () => "",
+    });
+    expect(options.map((option) => option.name)).toEqual([
+      "PowerShell",
+      "Windows PowerShell",
+      "Command Prompt",
+      "Git Bash",
+    ]);
+    expect(options[3]?.path.toLowerCase()).toBe("c:\\git\\bin\\bash.exe");
+  });
+
+  it("其他平台：/etc/shells 里列着且存在的", () => {
+    const options = detectShells({
+      platform: "linux",
+      env: {},
+      which: () => null,
+      exists: (file) => file !== "/bin/missing",
+      etcShells: () => "# comment\n/bin/bash\n/bin/missing\n\n/usr/bin/zsh\n/bin/bash\n",
+    });
+    expect(options).toEqual([
+      { name: "bash", path: "/bin/bash" },
+      { name: "zsh", path: "/usr/bin/zsh" },
+    ]);
   });
 });
 

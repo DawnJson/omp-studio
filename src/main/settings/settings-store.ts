@@ -36,6 +36,8 @@ const defaults: StudioSettings = {
   soundOnDone: false,
   copyOnSelect: true,
   toolHeadsOnly: false,
+  groupToolCalls: true,
+  terminalShell: null,
   fontSize: defaultFontSize,
   yoloConfirmed: false,
 };
@@ -44,6 +46,13 @@ function parseBackdropFile(value: unknown): string | null {
   if (value === null) return null;
   if (typeof value === "string" && backdropFilePattern.test(value)) return value;
   throw new Error("customBackdrop 不是 userData/backdrops 里的文件名");
+}
+
+/** 设置文件里的终端 shell：null 或绝对路径（文件在不在、能不能跑，开终端时才查）。 */
+export function parseTerminalShell(value: unknown): string | null {
+  if (value === null) return null;
+  if (typeof value === "string" && value.length <= 1024 && path.isAbsolute(value)) return value;
+  throw new Error("terminalShell 必须是绝对路径或 null");
 }
 
 /** nativeTheme 只认 system / light / dark：具名主题按它的深浅给（omp 的 theme 事件、网页的 prefers-color-scheme 都跟着 nativeTheme）。 */
@@ -99,6 +108,12 @@ function sanitize(raw: unknown): StudioSettings {
       record["toolHeadsOnly"],
       defaults.toolHeadsOnly,
     ),
+    groupToolCalls: field(
+      (value) => parseBoolean(value, "groupToolCalls"),
+      record["groupToolCalls"],
+      defaults.groupToolCalls,
+    ),
+    terminalShell: field(parseTerminalShell, record["terminalShell"], defaults.terminalShell),
     fontSize: field(parseFontSize, record["fontSize"], defaults.fontSize),
     yoloConfirmed: field(
       (value) => parseBoolean(value, "yoloConfirmed"),

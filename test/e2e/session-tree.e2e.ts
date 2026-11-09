@@ -167,6 +167,104 @@ test('分叉：面板里点"从这里分叉"新建任务并选中，omp --fork �
   }
 });
 
+test("分叉：用户消息悬停按钮行里 studio 加的分叉按钮，和面板里的分叉同一条路（新任务选中、文字进输入框、omp 收到 /tree + activate）", async () => {
+  test.setTimeout(120_000);
+  const { launched, received, cleanup } = await start();
+  try {
+    const { page } = launched;
+    const second = page.locator('[data-testid="tsp-view"] [data-role="omp.user"]').nth(1);
+    await second.hover();
+    // 按钮排在 omp 自己的复制、回退后面。
+    const fork = second.getByTestId("tsp-user-fork");
+    await expect(fork).toBeVisible();
+    await fork.click();
+    await expect(page.getByTestId("task-row")).toHaveCount(2, { timeout: 30_000 });
+    await expect(page.getByTestId("composer-input")).toHaveValue(BETA_TEXT, { timeout: 20_000 });
+    await expect(page.locator('[data-testid="task-row"][data-selected="true"]')).toHaveCount(1);
+    const events = await received();
+    expect(events.map((event) => event["ev"])).toEqual(["send", "activate", "edit"]);
+    expect(events[1]).toMatchObject({ item: "b772c2f5" });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("编辑：用户消息悬停按钮行里 studio 加的编辑按钮，就地回到这条消息之前（omp 收到 /tree + activate），文字进输入框、焦点在输入框；不新建任务", async () => {
+  test.setTimeout(120_000);
+  const { launched, received, cleanup } = await start();
+  try {
+    const { page } = launched;
+    const second = page.locator('[data-testid="tsp-view"] [data-role="omp.user"]').nth(1);
+    await second.hover();
+    const edit = second.getByTestId("tsp-user-edit");
+    await expect(edit).toBeVisible();
+    await expect(edit).not.toHaveAttribute("aria-disabled", "true");
+    await edit.focus();
+    await page.keyboard.press("Enter");
+    const input = page.getByTestId("composer-input");
+    await expect(input).toHaveValue(BETA_TEXT, { timeout: 20_000 });
+    await expect(input).toBeFocused();
+    expect(await received()).toEqual([
+      { ev: "send", sf: "s:1", id: "j.line/input", text: "/tree" },
+      { ev: "activate", sf: "s:1", id: "s.^picker", item: "b772c2f5" },
+      { ev: "edit", sf: "s:1", id: "j.line/input", from: 0, to: 35, text: "", cursor: 0, len: 35 },
+    ]);
+    // 就地回溯：omp 只重画到 ALPHA，还是原来的任务，面板没打开。
+    await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(1);
+    await expect(page.getByTestId("task-row")).toHaveCount(1);
+    await expect(page.getByTestId("session-tree")).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("回答下方用量行上 studio 的分叉（一直显示）：最后一条回答 = omp --fork 原样，新进程不收任何事件；新任务选中、输入框空着", async () => {
+  test.setTimeout(120_000);
+  const { launched, received, cleanup } = await start();
+  try {
+    const { page } = launched;
+    // 录制是 --resume：两轮的用量行都是 studio 补的，每行复制图标后面跟着纯文本、分叉两个按钮，不用悬停也看得见。
+    const usage = page.locator('[data-testid="tsp-view"] [data-role="omp.turn.usage"]');
+    await expect(usage).toHaveCount(2, { timeout: 30_000 });
+    await expect(usage.nth(1).locator('[data-role="omp.turn.copy"] + [data-studio-answer="copy-plain"]')).toBeVisible();
+    const fork = usage.nth(1).getByTestId("tsp-answer-fork");
+    await expect(fork).toBeVisible();
+    await expect(fork).toHaveAttribute("aria-label", "从这条回答之后分叉出新任务");
+    await expect(fork).not.toHaveAttribute("aria-disabled", "true");
+    await fork.click();
+    await expect(page.getByTestId("task-row")).toHaveCount(2, { timeout: 30_000 });
+    await expect(page.locator('[data-testid="task-row"][data-selected="true"]')).toHaveCount(1);
+    await expect(page.getByTestId("composer-input")).toHaveValue("");
+    // 新进程里两轮都在（--fork 整份复制，叶子就在这条回答上）。
+    await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(2, { timeout: 30_000 });
+    expect(await received()).toEqual([]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("回答下方用量行上的分叉：更早的回答 → 新进程 /tree + activate 那条助手消息（omp 不预填，不发 edit），输入框空着", async () => {
+  test.setTimeout(120_000);
+  // session-tree-answer：同 session-tree 的录制，activate 的是 ALPHA 的回答（42095935），omp 的输入框不预填（omp 18.18.2 实测）。
+  const { launched, received, cleanup } = await start("session-tree-answer");
+  try {
+    const { page } = launched;
+    const usage = page.locator('[data-testid="tsp-view"] [data-role="omp.turn.usage"]');
+    await expect(usage).toHaveCount(2, { timeout: 30_000 });
+    await usage.nth(0).getByTestId("tsp-answer-fork").click();
+    await expect(page.getByTestId("task-row")).toHaveCount(2, { timeout: 30_000 });
+    await expect(page.locator('[data-testid="task-row"][data-selected="true"]')).toHaveCount(1);
+    await expect.poll(received, { timeout: 20_000 }).toEqual([
+      { ev: "send", sf: "s:1", id: "j.line/input", text: "/tree" },
+      { ev: "activate", sf: "s:1", id: "s.^picker", item: "42095935" },
+    ]);
+    // omp 移到 ALPHA 的回答后重画对话只到它，这一步录制里没有（实测见 docs/architecture/session-tree.md）；这里只看发给 omp 的事件和输入框。
+    await expect(page.getByTestId("composer-input")).toHaveValue("");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("回溯并摘要：勾选面板底部的开关再选一条消息，omp 收到 select + action summarize（它自己的 Shift+Enter），文字进输入框", async () => {
   test.setTimeout(120_000);
   const { launched, received, cleanup } = await start("session-tree-summarize", "prompt");

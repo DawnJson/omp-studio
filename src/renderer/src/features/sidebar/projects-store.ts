@@ -20,10 +20,21 @@ export async function refreshProjects(): Promise<void> {
   }
 }
 
+/** 全部项目，含移出列表的（hidden）：侧栏、命令面板用它把那些文件夹里的任务和会话一起藏起来。 */
 export function useProjectsState(): ProjectsState {
   return useStoreValue(projectsStore, (state) => state);
 }
 
+const shownCache = new WeakMap<readonly Project[], readonly Project[]>();
+
+/** 列表里显示着的项目（不含移出列表的）：选项目、设置里的作用域都用它。 */
 export function useProjects(): readonly Project[] {
-  return useStoreValue(projectsStore, (state) => state.list);
+  return useStoreValue(projectsStore, (state) => {
+    let shown = shownCache.get(state.list);
+    if (shown === undefined) {
+      shown = state.list.filter((project) => !project.hidden);
+      shownCache.set(state.list, shown);
+    }
+    return shown;
+  });
 }

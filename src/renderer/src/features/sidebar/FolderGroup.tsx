@@ -2,14 +2,14 @@
 // + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
 import { useRef } from "react";
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
-import type { SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
+import { visibleItems, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
 import { Dots, Plus } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useFlip } from "../../ui/flip.ts";
 import { ChevronIcon } from "./icons.tsx";
 import { ItemRow } from "./ItemRow.tsx";
-import { folderNavId, moreNavId, showMoreStep, visibleItems } from "./list-view.ts";
+import { folderNavId, moreNavId, showMoreStep } from "./list-view.ts";
 import type { RowHandlers } from "./TaskRow.tsx";
 
 interface FolderGroupProps {
@@ -17,6 +17,8 @@ interface FolderGroupProps {
   open: boolean;
   /** 展开时先显示的行数上限（"显示更多"每次 +20）。 */
   limit: number;
+  /** 收起了分叉的行（key）；搜索时是空集合。 */
+  collapsedForks: ReadonlySet<string>;
   selectedTaskId: TaskId | null;
   tabStopId: string;
   renamingId: TaskId | null;
@@ -33,7 +35,12 @@ export function FolderGroup(props: FolderGroupProps) {
   const { project } = folder;
   const navId = folderNavId(folder);
   const hasWaiting = folder.items.some((item) => item.kind === "task" && item.task.status === "needs_you");
-  const { shown, remaining } = visibleItems(folder.items, props.limit, props.selectedTaskId);
+  const { shown, remaining, forks } = visibleItems(
+    folder.items,
+    props.limit,
+    props.selectedTaskId,
+    props.collapsedForks,
+  );
   const moreId = moreNavId(folder.key);
   const body = useRef<HTMLDivElement>(null);
   useFlip(body);
@@ -116,6 +123,8 @@ export function FolderGroup(props: FolderGroupProps) {
             <ItemRow
               key={item.key}
               item={item}
+              forks={forks.get(item.key)}
+              collapsed={props.collapsedForks.has(item.key)}
               selectedTaskId={props.selectedTaskId}
               tabStopId={props.tabStopId}
               renamingId={props.renamingId}

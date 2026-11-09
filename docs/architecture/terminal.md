@@ -63,7 +63,8 @@ IPC（`src/shared/ipc.ts`）：
 
 ## Shell 和环境变量
 
-- Windows：PATH 上有 `pwsh.exe` 用它（`-NoLogo`），否则 PATH 上的 `powershell.exe`，都没有时用 `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`。只看 PATH，不看当前目录（Windows 的 `CreateProcess` 会先找当前目录，项目里的 `pwsh.exe` 不能抢先）。其他平台：`$SHELL`，没有就 `/bin/bash`。
+- **设置里选的 shell**（设置 -> 通用 -> 终端，`StudioSettings.terminalShell`，2026-11-09 起，issue #9）：下拉里是本机检测到的（`shell.ts` 的 `detectShells`：Windows 依次是 PATH 上的 pwsh、Windows PowerShell、`%ComSpec%`、`git.exe` 旁边的 Git Bash、`System32\wsl.exe`；其他平台是 `/etc/shells` 里存在的），另有"选择文件…"走主进程的文件对话框。主进程只接受检测列表里的路径（`setTerminalShell`）或文件对话框选的路径，不接受渲染进程给的任意路径（security.md）。参数按文件名（`shellArgs`：pwsh / powershell `-NoLogo`，Git Bash `--login -i`，其他平台的 bash / zsh / fish / sh `-l`，cmd、wsl 和别的不带参数）。每次开终端时读设置，已经开着的终端不换。选的文件不在了：开终端报错（`ShellMissingError`，面板显示"设置里选的终端 shell 已经不在了"），不悄悄换回默认，改回自动后按任意键重开。只影响 studio 的终端：omp 的 bash 工具固定用它内嵌的 bash（`omp://tools/bash.md`），omp 的 `shellPath` 设置在 omp 配置页里改，两者不联动。
+- 自动（null）时，Windows：PATH 上有 `pwsh.exe` 用它（`-NoLogo`），否则 PATH 上的 `powershell.exe`，都没有时用 `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`。只看 PATH，不看当前目录（Windows 的 `CreateProcess` 会先找当前目录，项目里的 `pwsh.exe` 不能抢先）。其他平台：`$SHELL`，没有就 `/bin/bash`。
 - 环境：进程环境 + 自管 omp 的 `bin` 前置到 PATH（`prependToPath`，同 `buildOmpLaunch`，所以终端里敲 `omp` 和 omp-studio 用的是同一个；非自管或 omp 还没就绪时不加，不等待发现流程）+ `TERM=xterm-256color` + `COLORTERM=truecolor`。值为 `undefined` 的项去掉（node-pty 在 Windows 上会把它拼成字符串 `undefined`）。用户环境里的 `NO_COLOR` 原样继承（PowerShell 会因此去掉输出里的颜色，是用户自己的设置）。
 - `useConpty` 不传，用 node-pty 的默认（Windows 10 1809+ 走 ConPTY）。xterm 的 `windowsPty: { backend: "conpty" }` 只在 Windows 上设。
 

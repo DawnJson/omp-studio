@@ -4,6 +4,8 @@ import { createStore, useStoreValue } from "../../store/create-store.ts";
 export interface TspMenuItem {
   /** 动作名（显示时去掉分隔符）。 */
   act: string;
+  /** studio 自己加的菜单项的显示文字（已翻译）；没有时按 act 写。 */
+  label?: string;
   run(): void;
 }
 

@@ -1,8 +1,10 @@
 // 代码块（spec 4.10）：头部语言名 + 复制；围栏闭合后才高亮（只改颜色）；全文显示（omp 的 md 节点不限行数）。
 // ```svg 和 ```mermaid 围栏闭合后画成图，头部多一个切回源码的按钮。
+// 任务对话区里（CodeQuoteCtx，spec 4.11）复制后面还有"引用到输入框"：围栏闭合后才出现。
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
-import { Check, Code, CopyIcon } from "../icons.tsx";
+import { Check, Code, CopyIcon, Quote } from "../icons.tsx";
+import { useQuoteCode } from "./code-quote.ts";
 import { onThemeChange } from "../ui/theme-change.ts";
 import { useHighlighted } from "./highlight.ts";
 import { resolveLanguage } from "./highlight-languages.ts";
@@ -26,6 +28,7 @@ interface CodeBlockProps {
 export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlockProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
+  const quote = useQuoteCode();
   // ```svg 围栏闭合后画成图（svg-figure.ts）；```mermaid 先在 worker 里画成 SVG（mermaid.ts），画好之前照常显示源码。
   // 头部的 <> 切回源码，画不出来时也退回源码。
   const kind = closed ? lang.toLowerCase() : "";
@@ -88,13 +91,29 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
           >
             {copied ? <Check size={14} /> : <CopyIcon size={14} />}
           </button>
+          {quote !== null && closed && (
+            <button
+              type="button"
+              className="md-codebtn"
+              onClick={() => quote(code, lang)}
+              aria-label={t("code.quote")}
+              title={t("code.quote")}
+              data-testid="codeblock-quote"
+            >
+              <Quote size={14} />
+            </button>
+          )}
         </span>
         <span className="md-sr" aria-live="polite">
           {copied ? t("common.copied") : ""}
         </span>
       </div>
       {drawing ? (
-        <FigureImage prepare={prepare} alt={t("code.figure")} onFail={() => setImageFailed(true)} />
+        <>
+          <FigureImage prepare={prepare} alt={t("code.figure")} onFail={() => setImageFailed(true)} />
+          {/* 回答"复制纯文本"时取这份源码（markdown.css 的 data-copying） */}
+          <pre className="md-figure-source">{code}</pre>
+        </>
       ) : (
         <>
           {failed && <p className="md-figure-note">{t("code.figureFailed")}</p>}

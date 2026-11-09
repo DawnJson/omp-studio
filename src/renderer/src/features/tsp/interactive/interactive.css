@@ -320,6 +320,18 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
 }
+/* 提问选项的序号（List.tsx，按 1–9 选这一项；2026-11-09，issue #9）：标记后面一个等宽小数字，说明跟着让出它的宽度。 */
+.tspi-item-n {
+  flex: none;
+  width: 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.tspi-item.num[data-role^="omp.ask."] .tspi-item-detail {
+  padding-left: calc(16px + 8px + 2 * var(--space-2));
+}
 /* overlay 卡片里的 list 是弹出菜单的样子（照 Tern 的斜杠菜单）：选中是中性填充。 */
 .tspi-ov-card .tspi-item {
   min-height: calc(var(--lh-sm) + var(--space-2));

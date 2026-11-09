@@ -8,4 +8,5 @@ export const conversation = {
   "todo.completed": "已完成",
   "todo.blocked": "受阻",
   "todo.abandoned": "已放弃",
+  resizeColumn: "对话列宽度",
 } satisfies Record<string, MessageEntry>;

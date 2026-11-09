@@ -184,6 +184,8 @@ export const STUDIO_RESERVED: ReadonlySet<string> = new Set([
   "ctrl+`",
   "ctrl+shift+{",
   "ctrl+shift+}",
+  "ctrl+shift+up",
+  "ctrl+shift+down",
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `ctrl+${n}`),
   "f6",
   "shift+f6",

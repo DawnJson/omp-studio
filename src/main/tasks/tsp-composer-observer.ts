@@ -1,7 +1,7 @@
 // TSP 任务的输入框卡片派生状态：模型、思考强度、上下文、费用、待办阶段、自动压缩信息、会话开关和 `/slow`，
 // 都从 omp 发来的文档里读（composer-state.ts、toggles.ts 等），换算成 TaskState 的字段；变了才请宿主发布。
 // 任务运行时（tsp-runner.ts）每次文档变化调用 `observe`。
-import type { ModelKey, ModelOption, TaskId, TaskState } from "../../shared/ipc.ts";
+import type { ModelKey, ModelOption, TaskId, TaskState, TaskThinkingLevel } from "../../shared/ipc.ts";
 import type { TspDocument } from "../../shared/tsp/document.ts";
 import type { StatusNote } from "../../shared/tsp/status-notes.ts";
 import { deriveComposerInfo, isShownModelName, type TspComposerInfo } from "../../shared/tsp/composer-state.ts";
@@ -13,7 +13,7 @@ import {
   parseToggleToast,
   type SessionToggles,
 } from "../../shared/omp-output/toggles.ts";
-import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import { toTaskThinkingLevel } from "../../shared/ui/new-task-default.ts";
 import { log } from "../log/log.ts";
 import { totalUsage, type SessionTotals, type SessionUsageAccumulator } from "../history/session-usage.ts";
 import type { TaskRecord } from "./task-registry.ts";
@@ -42,8 +42,9 @@ export interface TspComposerObserverHost {
 
 export interface DerivedComposerState {
   model: ModelOption | null;
-  thinkingLevel: ThinkingLevel | null;
-  thinkingLevels: ThinkingLevel[];
+  thinkingLevel: TaskThinkingLevel | null;
+  /** null = 还没读到输入框卡片。 */
+  thinkingLevels: TaskThinkingLevel[] | null;
   fastEnabled: boolean;
   contextUsage: TaskState["contextUsage"];
   sessionUsage: TaskState["sessionUsage"];
@@ -53,17 +54,10 @@ function sameKey(a: ModelKey, b: ModelKey): boolean {
   return a.provider === b.provider && a.modelId === b.modelId;
 }
 
-const THINKING_LEVELS: ReadonlySet<string> = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
-
-/** omp 的思考强度显示值 → ThinkingLevel；`auto`（omp 按模型自选）不是 ThinkingLevel，为 null。 */
-function toThinkingLevel(effort: string | null): ThinkingLevel | null {
-  return effort !== null && THINKING_LEVELS.has(effort) ? (effort as ThinkingLevel) : null;
-}
-
-/** 这个模型能选的思考强度：目录里的 efforts 加 off；目录没给或模型不支持思考时为空。 */
-function thinkingLevelsOf(model: ModelOption | null): ThinkingLevel[] {
-  if (!model?.thinkingEfforts) return [];
-  return ["off", ...model.thinkingEfforts];
+/** 这个模型能选的思考强度（目录里的 efforts 加 auto、off）；目录没给或模型不支持思考时为空。 */
+function catalogLevelsOf(model: ModelOption): TaskThinkingLevel[] {
+  if (!model.thinkingEfforts) return [];
+  return ["auto", "off", ...model.thinkingEfforts];
 }
 
 export class TspComposerObserver {
@@ -80,7 +74,7 @@ export class TspComposerObserver {
   #derived: DerivedComposerState = {
     model: null,
     thinkingLevel: null,
-    thinkingLevels: [],
+    thinkingLevels: null,
     contextUsage: null,
     sessionUsage: null,
     fastEnabled: false,
@@ -89,6 +83,11 @@ export class TspComposerObserver {
   chosenKey: ModelKey | null = null;
   /** 会话文件里当前分支上最后切到的模型（`#readTotals` 读）：没有刚选的时，重名靠它认 provider。 */
   #sessionModel: ModelKey | null = null;
+  /**
+   * 切思考强度时实际转过一圈看到的档位（`provider/model-id` → 档位）：omp 的循环才是这个模型真能选的，比目录里的 efforts 准
+   * （目录可能认错同名模型、比 omp 的发现结果旧）；有就用它。
+   */
+  #observedLevels = new Map<string, TaskThinkingLevel[]>();
   #persistingChoice = false;
   /** `/slow` 的状态：omp 没有状态节点，按 toast 记；一开始未知，当关。 */
   #slowEnabled = false;
@@ -140,6 +139,14 @@ export class TspComposerObserver {
   /** `/slow on|off` 的 toast 确认之后记下状态（发布由调用方做）。 */
   setSlowEnabled(enabled: boolean): void {
     this.#slowEnabled = enabled;
+  }
+
+  /** 切思考强度时转满一圈看到的档位：记成当前模型的档位并重算（变了会发布）。 */
+  setObservedThinkingLevels(levels: TaskThinkingLevel[]): void {
+    const model = this.#derived.model;
+    if (model === null) return;
+    this.#observedLevels.set(`${model.key.provider}/${model.key.modelId}`, levels);
+    this.#derive();
   }
 
   /** 新进程：开关是会话（进程）级的，从配置默认值开始。 */
@@ -322,7 +329,8 @@ export class TspComposerObserver {
   #derive(): void {
     const composer = this.#composer;
     const model = composer.modelName === null ? null : this.#resolveModel(composer.modelName);
-    const thinkingLevel = toThinkingLevel(composer.effort);
+    // auto（omp 每轮按模型自选）也是任务的一档：照实显示、照实记进任务记录（下次 `--thinking auto`）。
+    const thinkingLevel = toTaskThinkingLevel(composer.effort);
     const window = composer.context?.contextWindow ?? model?.contextWindow ?? null;
     const contextUsage =
       composer.context && window !== null
@@ -335,7 +343,10 @@ export class TspComposerObserver {
     const next: DerivedComposerState = {
       model,
       thinkingLevel,
-      thinkingLevels: thinkingLevelsOf(model),
+      thinkingLevels:
+        model === null
+          ? null
+          : (this.#observedLevels.get(`${model.key.provider}/${model.key.modelId}`) ?? catalogLevelsOf(model)),
       contextUsage,
       sessionUsage: this.#sessionUsageFor(composer),
       fastEnabled: composer.fast,
@@ -350,7 +361,7 @@ export class TspComposerObserver {
    * 把当前模型和思考强度记进任务记录（下次 `--resume` 起来用）。只记目录里确有、且不会认错的模型：
    * 显示用的占位（provider 为空）和目录里重名、又没有明确选择或会话文件佐证的不记（记错 provider 会让下次 `--model` 指到别家）。
    */
-  async #persistModelChoice(model: ModelOption | null, thinkingLevel: ThinkingLevel | null): Promise<void> {
+  async #persistModelChoice(model: ModelOption | null, thinkingLevel: TaskThinkingLevel | null): Promise<void> {
     if (this.#persistingChoice || this.#host.disposed()) return;
     const record = this.#host.record();
     const patch: Partial<Omit<TaskRecord, "id">> = {};

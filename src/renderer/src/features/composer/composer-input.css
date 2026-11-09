@@ -93,6 +93,54 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
+/* 大段粘贴的卡片（Attachments.tsx）：整张卡片（除了 ✕）是一个按钮，点开预览浮层；第二行是第一行非空文字，单行省略。 */
+.attachment-open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.attachment-open:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.attachment-line {
+  max-width: 24ch;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 预览：只读、等宽，最多 min(40vh, 20 行)，再多就在里面滚动；底下一行次要按钮靠右。 */
+.paste-preview {
+  max-height: min(40vh, calc(20 * var(--lh-code-sm)));
+  margin: 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
+  color: var(--text);
+  white-space: pre;
+}
+.paste-preview:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.paste-preview-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
 
 /* ───── 文本区 + 芯片底层 ───── */
 .composer-field-wrap {

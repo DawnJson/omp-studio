@@ -75,7 +75,13 @@ export class SessionExtrasAccumulator implements SessionEntryConsumer {
       const completedAt = finite(message["completedAt"]);
       const userAt = this.#userAt;
       const elapsed = userAt !== null && completedAt > 0 ? Math.round(completedAt - userAt) : 0;
-      this.#turns[this.#turns.length - 1] = { elapsedMs: elapsed > 0 ? elapsed : null, input, output, cost };
+      this.#turns[this.#turns.length - 1] = {
+        elapsedMs: elapsed > 0 ? elapsed : null,
+        completedAt: completedAt > 0 ? completedAt : null,
+        input,
+        output,
+        cost,
+      };
     }
     this.#input = this.#output = this.#cost = 0;
   }

@@ -53,6 +53,24 @@ export async function lockClipboard(): Promise<() => Promise<void>> {
   }
 }
 
+/** 往输入框里粘贴文字（不碰系统剪贴板）：直接派发带 DataTransfer 的 paste 事件，走输入框自己的 onPaste。 */
+export async function pasteText(input: Locator, text: string): Promise<void> {
+  await input.evaluate((element, pasted) => {
+    // e2e 的 tsconfig 没有 DOM 类型（browser-globals.d.ts 只声明了用到的几个），这里只描述用到的成员。
+    const page = globalThis as unknown as {
+      DataTransfer: new () => { setData(type: string, value: string): void };
+      ClipboardEvent: new (
+        type: string,
+        init: { clipboardData: unknown; bubbles: boolean; cancelable: boolean },
+      ) => unknown;
+    };
+    const target = element as unknown as { dispatchEvent(event: unknown): boolean };
+    const data = new page.DataTransfer();
+    data.setData("text/plain", pasted);
+    target.dispatchEvent(new page.ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  }, text);
+}
+
 /**
  * 像在文件管理器里选中这些文件按 Cmd/Ctrl+C，往系统剪贴板放真实的文件列表。会改系统剪贴板：调用方先拿 `lockClipboard`。
  * Windows：PowerShell 的 Set-Clipboard -LiteralPath（CF_HDROP）。
@@ -182,7 +200,9 @@ export async function launchApp(
   extraEnv: Record<string, string> = {},
   options: { askTakeover?: boolean } = {},
 ): Promise<LaunchedApp> {
-  const userDataDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-"));
+  // 调用方传了 STUDIO_USER_DATA（测读盘、重启后保留）：用它，照样预先拒绝接管（否则接管询问挡住界面），目录由调用方删。
+  const givenUserData = extraEnv["STUDIO_USER_DATA"];
+  const userDataDir = givenUserData ?? (await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-")));
   if (options.askTakeover !== true) {
     const testOmp = extraEnv["STUDIO_TEST_OMP"];
     const onPath = await findOmpOnPath().catch(() => null);
@@ -198,7 +218,8 @@ export async function launchApp(
   // Windows 上 Electron 退出后文件句柄可能还要一会儿才放（杀毒软件也会扫新文件）：EBUSY/EPERM 时重试。
   const removeDirs = async () => {
     try {
-      await rm(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      if (givenUserData === undefined)
+        await rm(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     } finally {
       if (ownedAgentDir !== null)
         await rm(ownedAgentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

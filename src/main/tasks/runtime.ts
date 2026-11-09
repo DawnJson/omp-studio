@@ -10,7 +10,6 @@ import { refreshTray } from "../window/tray.ts";
 import { refreshTaskbarProgress } from "../window/taskbar-progress.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { GateNotifier, retainNotification } from "./gate-notifier.ts";
-import { t } from "../../shared/i18n/index.ts";
 import { forgetExport } from "./export-record.ts";
 import { tspFeed } from "./tsp-feed-instance.ts";
 import { emitEvent } from "../ipc/events.ts";
@@ -108,7 +107,6 @@ function createPool(): Promise<TaskPool> {
     getSettings: () => appHandlers.getSettings(),
     worktrees: worktreeOps,
     beforeTaskClose: closeTaskTerminal,
-    forkTitle: (title) => t(resolveLocale(), "task.forkTitle", { title }),
     knownModels: () => startupCache().models(),
     listModels: (refresh) => listModelOptions(refresh),
     newTaskDefaults: async (project) => {

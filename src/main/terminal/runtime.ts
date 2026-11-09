@@ -1,9 +1,9 @@
 // 终端管理器单例和它的 Electron 接线：任务目录取自任务池、node-pty 按需加载、事件出口、退出时结束所有终端。
 // node-pty 是原生模块，放在第一次真正起终端时才加载：它加载失败只影响终端，不影响应用启动。
-import { accessSync, constants } from "node:fs";
+import { accessSync, constants, readFileSync } from "node:fs";
 import { mkdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { parseDraftKey, type TaskId, type TerminalKey } from "../../shared/ipc.ts";
+import { parseDraftKey, type TaskId, type TerminalKey, type TerminalShellOption } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
 import { managedOmpBin } from "../omp-manager/index.ts";
@@ -13,9 +13,10 @@ import { chatsDir } from "../tasks/chats-dir.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import type { TaskPool } from "../tasks/task-pool.ts";
 import { killProcessTree } from "../platform/process-tree.ts";
+import { getSettings } from "../settings/settings-store.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { setActiveTerminalManager } from "./active.ts";
-import { buildTerminalEnv, resolveShell } from "./shell.ts";
+import { buildTerminalEnv, detectShells, resolveShell, type DetectProbe } from "./shell.ts";
 import { TerminalManager } from "./terminal-manager.ts";
 
 /** 在 PATH 里找可执行文件（不看当前目录：Windows 的 CreateProcess 会先找当前目录，不能让项目里的 pwsh.exe 抢先）。 */
@@ -31,6 +32,34 @@ function which(command: string): string | null {
     }
   }
   return null;
+}
+
+function exists(file: string): boolean {
+  try {
+    accessSync(file, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const hostProbe: DetectProbe = {
+  platform: process.platform,
+  env: process.env,
+  which,
+  exists,
+  etcShells() {
+    try {
+      return readFileSync("/etc/shells", "utf8");
+    } catch {
+      return "";
+    }
+  },
+};
+
+/** 本机可选的终端 shell（设置里的列表；setTerminalShell 只接受这里面的路径）。 */
+export function hostShells(): TerminalShellOption[] {
+  return detectShells(hostProbe);
 }
 
 let manager: TerminalManager | null = null;
@@ -55,7 +84,8 @@ function createManager(pool: TaskPool): TerminalManager {
         (info) => info.isDirectory(),
         () => false,
       ),
-    resolveShell: () => resolveShell({ platform: process.platform, env: process.env, which }),
+    // 每次开终端时读设置：改了 shell 只影响之后新开的终端。
+    resolveShell: () => resolveShell(hostProbe, getSettings().terminalShell),
     buildEnv: () => buildTerminalEnv(process.env, managedOmpBin()),
     async spawn(shell, options) {
       // 原生模块按需加载（见文件头），静态 import 做不到。

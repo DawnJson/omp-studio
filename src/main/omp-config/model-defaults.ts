@@ -37,7 +37,10 @@ export async function readModelDefaults(deps: ModelDefaultsDeps, cwd: string | n
 }
 
 /** 项目目录里生效的 modelRoles 里值是字符串的项（角色 → `provider/model[:thinking]`）。 */
-export async function readModelRoles(deps: ModelDefaultsDeps, cwd: string | null): Promise<Record<string, string>> {
+export async function readModelRoles(
+  deps: Pick<ModelDefaultsDeps, "list">,
+  cwd: string | null,
+): Promise<Record<string, string>> {
   const roles = asRecord(valueOf(await deps.list(cwd), "modelRoles"));
   const entries = Object.entries(roles).filter((entry): entry is [string, string] => typeof entry[1] === "string");
   return Object.fromEntries(entries);

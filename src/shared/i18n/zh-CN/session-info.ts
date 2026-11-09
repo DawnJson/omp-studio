@@ -54,6 +54,7 @@ export const sessionInfo = {
   "usage.cost": "费用",
   "usage.models": "用过的模型",
   "usage.breakdown": "输入 {input} · 输出 {output} · 缓存读取 {cacheRead} · 缓存写入 {cacheWrite}",
+  "usage.cacheHit": "缓存命中率",
   "usage.whole": "含压缩前共 {tokens} Token · {cost}",
   "usage.none": "这个会话还没有模型请求。",
   "usage.syncing": "同步中…",

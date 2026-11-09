@@ -530,6 +530,12 @@ export function useTspStatusNotes(taskId: TaskId, sf: string): readonly StatusNo
   return useSyncExternalStore(sub, () => mirrors.get(taskId)?.doc.surfaces.get(sf)?.statusNotes ?? NO_NOTES);
 }
 
+/** omp 的工具输出展开着没有（Ctrl+O 之后它报的状态行，见 DocSurface.toolsExpanded）。 */
+export function useTspToolsExpanded(taskId: TaskId, sf: string): boolean {
+  const sub = useMemo(() => (l: () => void) => subscribe(surfaceKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => mirrors.get(taskId)?.doc.surfaces.get(sf)?.toolsExpanded ?? false);
+}
+
 // ───────── main 区里按 role 找节点（用量行的位置、用户消息有没有） ─────────
 
 function roleIndex(taskId: TaskId, sf: string): RoleIndex | null {
@@ -566,6 +572,16 @@ export function useBareTurnIndex(
     if (index === null || index.turnCount !== fileTurns) return -1;
     const turn = index.lastAssistantOfBareTurn.get(assistantId) ?? -1;
     return lastTurnRunning && turn === index.turnCount - 1 ? -1 : turn;
+  });
+}
+
+/** omp 画的这条用量行是第几轮（从 0 数）；文档轮数和会话文件轮数对不上时 -1（同 useBareTurnIndex，宁可不补也不补错）。 */
+export function useUsageTurnIndex(taskId: TaskId, sf: string, usageId: string, fileTurns: number): number {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => {
+    const index = roleIndex(taskId, sf);
+    if (index === null || index.turnCount !== fileTurns) return -1;
+    return index.usageTurn.get(usageId) ?? -1;
   });
 }
 

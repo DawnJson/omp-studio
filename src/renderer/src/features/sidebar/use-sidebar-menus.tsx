@@ -1,15 +1,15 @@
-// 任务行和项目头的菜单内容与动作（spec §4.2、§4.3）。返回要渲染的菜单元素和两个打开函数。
+// 任务行、历史会话行和项目头的菜单内容与动作（spec §4.2、§4.3）。返回要渲染的菜单元素和打开函数。
 // 任务菜单和顶栏 ⋯ 是同一份（task-menu.tsx）。
 import { useCallback, useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
-import type { Project, TaskId, TaskState } from "../../../../shared/ipc.ts";
-import { Branch, Folder, Trash } from "../../icons.tsx";
+import type { Project, SessionSummary, TaskId, TaskState } from "../../../../shared/ipc.ts";
+import { Branch, Close, Folder } from "../../icons.tsx";
 import { Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
-import { pushToast } from "../dialogs/index.ts";
 import { cleanupOrphans } from "../git/git-actions.ts";
-import { archivePending, commitPendingArchives } from "./archive-store.ts";
 import { refreshProjects } from "./projects-store.ts";
 import { attempt, buildTaskMenu } from "./task-menu.tsx";
+import { ArchiveIcon } from "./icons.tsx";
+import { refreshHistorySessions } from "./use-history-sessions.ts";
 
 interface OpenMenu {
   anchor: MenuAnchor;
@@ -20,14 +20,13 @@ interface OpenMenu {
 interface MenusOptions {
   t: TFunction;
   selectedTaskId: TaskId | null;
-  /** 项目下侧栏知道的任务（含正在等撤销的归档）。 */
-  projectTaskIds(project: Project): readonly TaskId[];
   onRename(task: TaskState): void;
 }
 
-export function useSidebarMenus({ t, selectedTaskId, projectTaskIds, onRename }: MenusOptions): {
+export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): {
   menu: ReactNode;
   openTaskMenu(task: TaskState, x: number, y: number, trigger: HTMLElement): void;
+  openSessionMenu(session: SessionSummary, x: number, y: number, trigger: HTMLElement): void;
   openProjectMenu(project: Project, x: number, y: number, trigger: HTMLElement): void;
 } {
   const [open, setOpen] = useState<OpenMenu | null>(null);
@@ -45,6 +44,28 @@ export function useSidebarMenus({ t, selectedTaskId, projectTaskIds, onRename }:
         onRename: () => onRename(task),
       }),
     });
+
+  // 历史会话（终端里开的、归档过的任务的）：没归档的可以归档；归档了的从"已归档"点开就恢复，不用菜单。
+  const openSessionMenu = (session: SessionSummary, x: number, y: number, trigger: HTMLElement) => {
+    if (session.archived) return;
+    setOpen({
+      anchor: { x, y, returnFocus: trigger },
+      label: t("task.more"),
+      items: [
+        {
+          id: "archive",
+          label: t("task.archive"),
+          icon: <ArchiveIcon />,
+          onSelect: () =>
+            void attempt(t, async () => {
+              await window.studio.archiveSession(session.id);
+              await refreshProjects();
+              refreshHistorySessions();
+            }),
+        },
+      ],
+    });
+  };
 
   const openProjectMenu = (project: Project, x: number, y: number, trigger: HTMLElement) =>
     setOpen({
@@ -65,28 +86,21 @@ export function useSidebarMenus({ t, selectedTaskId, projectTaskIds, onRename }:
         },
         { kind: "separator", id: "sep-remove" },
         {
+          // 只藏起来：任务不归档、在跑的照跑；再打开这个文件夹就回来（issue #9）。
           id: "remove",
           label: t("project.remove"),
-          icon: <Trash />,
-          tone: "danger",
-          onSelect: () => {
-            const taskIds = projectTaskIds(project);
-            if (taskIds.some((taskId) => !archivePending(taskId))) {
-              pushToast({ level: "warning", message: t("project.removeBlocked") });
-              return;
-            }
+          // × 而不是垃圾桶：只是从列表里拿掉，什么都不删。
+          icon: <Close />,
+          onSelect: () =>
             void attempt(t, async () => {
-              // 刚归档、还在撤销期的任务主进程还当它没归档：先提交，否则移除被拒（issue #8）。
-              await commitPendingArchives(taskIds, t);
               await window.studio.removeProject(project.id);
               await refreshProjects();
-            });
-          },
+            }),
         },
       ],
     });
 
   const menu =
     open === null ? null : <Menu anchor={open.anchor} items={open.items} label={open.label} onClose={close} />;
-  return { menu, openTaskMenu, openProjectMenu };
+  return { menu, openTaskMenu, openSessionMenu, openProjectMenu };
 }

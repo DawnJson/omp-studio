@@ -88,6 +88,7 @@
 
 ## 探针（一次性脚本，用完就删）
 
+- 探针要测重开会话、恢复会话时不要设 `STUDIO_TEST_OMP`：设了它主进程用它的 args 起 omp（`main/omp/launch.ts` 的 `buildTspLaunch`），不带 `--resume` / `--model` / `--thinking`，重开后对话是空的，像产品的 bug（2026-11-09，issue #9 探针踩过）。真实 omp 就用 PATH 上的 / studio 管理的那份，配置写进临时 agent 目录。
 - 截图探针要替换 `window.studio` 的某个调用时，在打开会用到它的界面之前装好：界面一出现就读的数据会先打到真实 omp，失败结果留在 store 里，后面的截图都带着它。
 - 假服务（`test/fake-openai/server.ts` 这类）和 omp 在同一个 node 进程时，用异步 `spawn` 起 omp，不用 `spawnSync`：它阻塞事件循环，假服务回不了请求，看起来像 omp 卡住。`omp -p` 不处理斜杠命令，要测 `/force:` 这类命令用 `--mode rpc` 发 `prompt`。
 - `spawn` 起 `omp -p` 时 stdin 设成 `"ignore"`（`stdio: ["ignore", "pipe", "pipe"]`），并给子进程一个超时强杀：stdin 是管道时 omp 不退出。

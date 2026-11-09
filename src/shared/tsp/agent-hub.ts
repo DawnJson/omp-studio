@@ -10,6 +10,7 @@
 //   **没有 confirm**，只有 toast "Background task <名字> completed"；`revive`（运行中的项 `disabled: "Only parked or killed agents can be
 //   revived"`）→ `dot` 变 `success`（被复活的代理空闲着）、`revive` 又被禁用；Esc 键关掉 Hub。
 // role、action、dot 名都是 omp 自己的、不在 TSP 规范里：omp 改名这里就失效，所以判断全部集中在这个文件（gate.ts 同理）。
+import type { ThinkingLevel } from "../omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../type-guards.ts";
 import { findNode, nodeRole, spansText, type DocNode, type TspDocument } from "./document.ts";
 import type { NodeDeps } from "./node-watch.ts";
@@ -43,6 +44,17 @@ function contextFraction(value: unknown): number | null {
   return Math.min(1, Math.max(0, raw > 1 ? raw / 100 : raw));
 }
 
+/** `agent.thinking` 是 omp 主题里思考强度的颜色 token（TSP 规范：给模型胶囊的点上色），按 token 名认出档位；认不出为 null。 */
+const THINKING_TOKENS: ReadonlyMap<unknown, ThinkingLevel> = new Map([
+  ["thinkingOff", "off"],
+  ["thinkingMinimal", "minimal"],
+  ["thinkingLow", "low"],
+  ["thinkingMedium", "medium"],
+  ["thinkingHigh", "high"],
+  ["thinkingXhigh", "xhigh"],
+  ["thinkingMax", "max"],
+]);
+
 // ───────── 列表（`agent` 节点） ─────────
 
 export type AgentStatus = "pending" | "running" | "done" | "failed" | "aborted" | "idle" | "parked";
@@ -58,6 +70,8 @@ export interface HubAgent {
   assignment: string | null;
   status: AgentStatus;
   model: string | null;
+  /** 思考强度（`agent.thinking`，实测 omp 18.12.5 起有：`thinkingLow`、`thinkingHigh`）；omp 没给为 null。 */
+  thinking: ThinkingLevel | null;
   tool: { name: string; intent: string; age: number | null } | null;
   stats: {
     tools: number | null;
@@ -105,6 +119,7 @@ function toAgent(node: DocNode, nodes: ReadonlyMap<string, DocNode>): HubAgent |
     assignment: assignment && typeof assignment.p["text"] === "string" ? assignment.p["text"] : null,
     status: stale ? "parked" : (status as AgentStatus),
     model: typeof p["model"] === "string" ? p["model"] : null,
+    thinking: THINKING_TOKENS.get(p["thinking"]) ?? null,
     tool: tool
       ? { name: tool["name"] as string, intent: spansText(tool["intent"]), age: finiteNumber(tool["age"]) }
       : null,

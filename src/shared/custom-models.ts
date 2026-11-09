@@ -334,6 +334,15 @@ export function parseTokenCount(text: string): number | null | undefined {
 }
 
 /**
+ * 一键拉取成功后，模型列表里拉到的列表没有的那些（按列表里的顺序）：对话框给它们标"已失效"、可以一起移除。
+ * 拉取失败时不调用（什么都不标）。
+ */
+export function vanishedModelIds(listed: readonly string[], fetched: readonly CustomModelEntry[]): string[] {
+  const upstream = new Set(fetched.map((model) => model.id));
+  return listed.filter((id) => !upstream.has(id));
+}
+
+/**
  * 改完或删掉一个 provider 后，它原来引用的 `.env` 变量还留不留（主进程按它删行，删除确认框按它写明）：
  * 原来是环境变量 key、值在 agent 目录的 `.env` 里、改完后没有 provider 再引用这个名字、也不是 omp 内置 provider 认的变量名
  * → 返回这个名字（删掉 `.env` 里那一行）；否则 null（留着）。

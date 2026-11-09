@@ -55,7 +55,8 @@ describe("hub-steer.jsonl（omp 18.12.5）", () => {
     const doc = createDocument();
     for (const { message } of tspDocMessages(loadTspFixture("hub-steer"))) applyMessage(doc, message);
     const beta = listAgents(doc).find((agent) => agent.name === "Beta")!;
-    expect(beta).toMatchObject({ agent: "task", background: true, status: "done" });
+    // 思考强度是 omp 的颜色 token（`thinkingHigh`），认成档位名。
+    expect(beta).toMatchObject({ agent: "task", background: true, status: "done", thinking: "high" });
     expect(beta.task).toContain("sleep 75");
     expect(beta.stats.tools).toBe(2);
     expect(beta.stats.cost).toBeGreaterThan(0);

@@ -1,9 +1,9 @@
 // 窗口状态记忆：userData/window-state.json。位置、尺寸、最大化由主进程跟踪窗口事件写入；
-// 侧栏宽度和折叠由渲染进程经 setShellState 写入（spec §3.1）。
+// 侧栏宽度和折叠、对话列宽度由渲染进程经 setShellState 写入（spec §3.1、§3.2）。
 import { app, screen, type BrowserWindow, type Rectangle } from "electron";
 import path from "node:path";
 import { historyOrders, limits, type ShellState } from "../../shared/ipc.ts";
-import { parseBoolean, parseInteger, parseOneOf, parseRecord } from "../ipc/validate.ts";
+import { IpcValidationError, parseBoolean, parseInteger, parseOneOf, parseRecord } from "../ipc/validate.ts";
 import { readJsonFile, writeJsonFileAtomic } from "../settings/json-file.ts";
 
 export const sidebarWidthRange = [200, 360] as const;
@@ -14,7 +14,18 @@ const defaultShellState: ShellState = {
   sidebarCollapsed: false,
   terminalHeight: 280,
   historyOrder: "folder",
+  conversationWidth: null,
 };
+
+/** 对话列宽度（占主区的百分比）：null = 默认；数字要在 limits.conversationWidthRange 里，存两位小数。 */
+export function parseConversationWidth(value: unknown): number | null {
+  if (value === null) return null;
+  const [min, max] = limits.conversationWidthRange;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) {
+    throw new IpcValidationError(`conversationWidth 必须是 null 或 ${min}–${max} 的数`);
+  }
+  return Math.round(value * 100) / 100;
+}
 
 interface WindowBounds {
   x: number;
@@ -97,6 +108,11 @@ function load(): PersistedState {
     shell.historyOrder = parseOneOf(raw["historyOrder"], "historyOrder", historyOrders);
   } catch {
     // 保留默认值。
+  }
+  try {
+    shell.conversationWidth = parseConversationWidth(raw["conversationWidth"]);
+  } catch {
+    // 保留默认值（缺字段、越界都按默认宽度）。
   }
   state = {
     bounds: parseBounds(record["bounds"]),

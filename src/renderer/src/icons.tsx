@@ -115,6 +115,12 @@ export const FileIcon = (props: IconProps) => (
     <path d="M8.5 2.500v3h3" />
   </Icon>
 );
+/** 大段粘贴的文字：几行长短不一的字 */
+export const TextLines = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3 4h10M3 7h10M3 10h10M3 13h6" />
+  </Icon>
+);
 export const Terminal = (props: IconProps) => (
   <Icon {...props}>
     <path d="m3 4.5 3.5 3.5L3 11.500M8 12h5" />
@@ -228,6 +234,12 @@ export const Wrap = (props: IconProps) => (
 export const Comment = (props: IconProps) => (
   <Icon {...props}>
     <path d="M3 3.500h10v7H8.500L5.500 13v-2.500H3v-7Z" />
+  </Icon>
+);
+/** 代码块"引用到输入框"：一对引号 */
+export const Quote = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3 8.500h3v4H3zM3 8.500c0-2.500.8-4 3-5M9.500 8.500h3v4h-3zM9.500 8.500c0-2.500.8-4 3-5" />
   </Icon>
 );
 /** 模型角色 default：星 */

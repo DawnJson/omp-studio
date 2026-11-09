@@ -29,7 +29,7 @@ export interface LeafOverride {
  * 按文件顺序接收记录、给出树的条目。第一行 `title`、第二行 `session` 是文件头，没有 parentId、不是树的一部分，跳过。
  * 坏行后面还有内容说明文件坏了（`entries()` 抛错，不悄悄丢掉）；写到一半的最后一行跳过。
  * 树、回溯、标签只读用户消息、压缩点、分支摘要、标签条目的内容：其余条目（助手消息、工具结果，会话文件的大头）
- * 只留 type / id / parentId，缓存住的条目不占几十 MB。
+ * 只留 type / id / parentId（助手消息再留 `message.role`，回答上的分叉要认它），缓存住的条目不占几十 MB。
  */
 class SessionEntriesAccumulator implements SessionEntryConsumer {
   #entries: SessionEntry[] = [];
@@ -47,7 +47,9 @@ class SessionEntriesAccumulator implements SessionEntryConsumer {
     const kept =
       type === "compaction" || type === "branch_summary" || type === "label" || userEntryText(raw) !== null
         ? raw
-        : { type, id, parentId };
+        : isAssistantMessage(raw)
+          ? { type, id, parentId, message: { role: "assistant" } }
+          : { type, id, parentId };
     this.#entries.push({ id, parentId, raw: kept });
   }
 
@@ -142,6 +144,67 @@ export function findUserEntry(entries: readonly SessionEntry[], entryId: string)
     text: fullUserText(entry.raw),
     lastEntryId: entries[entries.length - 1]?.id ?? null,
   };
+}
+
+/** 回答的分叉点（"从这里分叉"在回答上，TaskPool.forkTask 的 `after-answer`）。 */
+export interface AnswerTarget {
+  /** 回答的条目 id：这一轮（到下一条用户消息之前）最后一条助手消息。omp 的 `/tree` 里 activate 它，叶子移到它本身、输入框不预填。 */
+  entryId: string;
+  /**
+   * 从回答到文件最后一个条目之间没有别的消息（只有 session_exit 这类标记，或回答本身就是最后一个条目）：
+   * `--fork` 起的新进程叶子就是文件最后一个条目，对话已经停在这条回答，不用再移动（选当前叶子 omp 也什么都不做）。
+   */
+  atFileLeaf: boolean;
+  /** 文件最后一个条目（LeafOverride 的 afterEntryId）。 */
+  lastEntryId: string | null;
+}
+
+function isAssistantMessage(raw: Record<string, unknown>): boolean {
+  return raw["type"] === "message" && isRecord(raw["message"]) && raw["message"]["role"] === "assistant";
+}
+
+/** 从 `leafId` 沿 parentId 走到根的条目（叶子在前）；`leafId` 为 null 或不在文件里时为空。 */
+function branchFrom(byId: ReadonlyMap<string, SessionEntry>, leafId: string | null): SessionEntry[] {
+  const branch: SessionEntry[] = [];
+  const seen = new Set<string>();
+  let entry = leafId === null ? undefined : byId.get(leafId);
+  while (entry !== undefined && !seen.has(entry.id)) {
+    seen.add(entry.id);
+    branch.push(entry);
+    entry = entry.parentId === null ? undefined : byId.get(entry.parentId);
+  }
+  return branch;
+}
+
+/**
+ * 用户消息 `userEntryId` 在当前分支（叶子按 `override` 算）上的回答；它不在当前分支上、不是用户消息、这一轮还没有助手消息时为 null。
+ * omp 注入的 `attribution:"agent"` 用户消息不算下一轮（树面板也不列它们）。
+ */
+export function findAnswerEntry(
+  entries: readonly SessionEntry[],
+  userEntryId: string,
+  override?: LeafOverride | null,
+): AnswerTarget | null {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const branch = branchFrom(byId, fileLeafId(entries, override)).toReversed();
+  const start = branch.findIndex((entry) => entry.id === userEntryId);
+  if (start < 0 || userEntryText((branch[start] as SessionEntry).raw) === null) return null;
+  let answer: string | null = null;
+  for (const entry of branch.slice(start + 1)) {
+    if (userEntryText(entry.raw) !== null) break;
+    if (isAssistantMessage(entry.raw)) answer = entry.id;
+  }
+  if (answer === null) return null;
+  const lastEntryId = entries[entries.length - 1]?.id ?? null;
+  let atFileLeaf = false;
+  for (const entry of branchFrom(byId, lastEntryId)) {
+    if (entry.id === answer) {
+      atFileLeaf = true;
+      break;
+    }
+    if (entry.raw["type"] === "message") break;
+  }
+  return { entryId: answer, atFileLeaf, lastEntryId };
 }
 
 /** 条目 id 是不是面板里能打标签的节点：用户消息、压缩点、分支摘要（助手消息等面板不显示，标签也看不到）。 */

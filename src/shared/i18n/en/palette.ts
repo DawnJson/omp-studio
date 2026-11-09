@@ -11,4 +11,5 @@ export const palette = {
   slash: "Slash commands",
   noResults: "No matches",
   askNew: "Ask in a new task",
+  outline: "Conversation outline",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;
