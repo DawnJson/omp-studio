@@ -189,12 +189,13 @@ test("分叉：用户消息悬停按钮行里 studio 加的分叉按钮，和面
   }
 });
 
-test("编辑：用户消息悬停按钮行里 studio 加的编辑按钮，就地回到这条消息之前（omp 收到 /tree + activate），文字进输入框、焦点在输入框；不新建任务", async () => {
+test("编辑：用户消息悬停按钮行里 studio 加的编辑按钮，只把文字放进输入框、焦点在输入框；不回溯（omp 不收任何事件），对话和任务都不变", async () => {
   test.setTimeout(120_000);
   const { launched, received, cleanup } = await start();
   try {
     const { page } = launched;
-    const second = page.locator('[data-testid="tsp-view"] [data-role="omp.user"]').nth(1);
+    const cards = page.locator('[data-testid="tsp-view"] [data-role="omp.user"]');
+    const second = cards.nth(1);
     await second.hover();
     const edit = second.getByTestId("tsp-user-edit");
     await expect(edit).toBeVisible();
@@ -202,15 +203,11 @@ test("编辑：用户消息悬停按钮行里 studio 加的编辑按钮，就地
     await edit.focus();
     await page.keyboard.press("Enter");
     const input = page.getByTestId("composer-input");
-    await expect(input).toHaveValue(BETA_TEXT, { timeout: 20_000 });
+    await expect(input).toHaveValue(BETA_TEXT);
     await expect(input).toBeFocused();
-    expect(await received()).toEqual([
-      { ev: "send", sf: "s:1", id: "j.line/input", text: "/tree" },
-      { ev: "activate", sf: "s:1", id: "s.^picker", item: "b772c2f5" },
-      { ev: "edit", sf: "s:1", id: "j.line/input", from: 0, to: 35, text: "", cursor: 0, len: 35 },
-    ]);
-    // 就地回溯：omp 只重画到 ALPHA，还是原来的任务，面板没打开。
-    await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(1);
+    // 不回溯：两条用户消息都还在，omp 什么也没收到，还是原来的任务，面板没打开。
+    await expect(cards).toHaveCount(2);
+    expect(await received()).toEqual([]);
     await expect(page.getByTestId("task-row")).toHaveCount(1);
     await expect(page.getByTestId("session-tree")).toHaveCount(0);
   } finally {

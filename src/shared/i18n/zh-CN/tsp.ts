@@ -8,5 +8,5 @@ export const tsp = {
   copyPlainText: "复制纯文本",
   forkHere: "从这条消息之前分叉出新任务",
   forkAfterAnswer: "从这条回答之后分叉出新任务",
-  editMessage: "回到这条消息之前并编辑它",
+  editMessage: "编辑这条消息（放进输入框）",
 } satisfies Record<string, MessageEntry>;

@@ -301,17 +301,14 @@ function AnswerActions({ ctx, anchorId }: { ctx: TspContext; anchorId: string })
 
 /**
  * 用户消息上方的悬停按钮行（omp 的复制、回退）：studio 在后面加两个按钮。
- * "编辑"：就地回到这条消息之前、文字进输入框（editUserCard，同会话树面板里选中这条；omp 的回退图标只是打开面板，要再选一次）。
- * "分叉"：从这条消息之前分出新任务（同会话树面板的分叉）。
- * 都和面板一样只在任务空闲时能点（一轮没结束时主进程拒绝回溯和分叉）；编辑进行中（等 omp 回溯）不再收。
+ * "编辑"：把这条消息的文字放进输入框，改完自己发（editUserCard；不回溯、不删对话，任务在跑时也能点）。
+ * "分叉"：从这条消息之前分出新任务（同会话树面板的分叉），和面板一样只在任务空闲时能点（一轮没结束时主进程拒绝分叉）。
  */
 function UserToolsRow(props: NodeProps) {
   const t = useT();
   const blank = useBlank(props, true);
   const { taskId, sf } = props.ctx;
   const idle = useTaskValue(taskId, (task) => task?.status === "idle");
-  const [editing, setEditing] = useState(false);
-  const canEdit = idle && !editing;
   // Enter / 空格同点击（role="button" 的 span）。
   const onActivate = (run: () => void) => (event: KeyboardEvent) => {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -319,11 +316,11 @@ function UserToolsRow(props: NodeProps) {
     run();
   };
   const edit = () => {
-    if (!canEdit) return;
-    setEditing(true);
-    editUserCard(taskId, sf, props.node.id)
-      .catch((error: unknown) => reportErrorNow(error))
-      .finally(() => setEditing(false));
+    try {
+      editUserCard(taskId, sf, props.node.id);
+    } catch (error) {
+      reportErrorNow(error);
+    }
   };
   const fork = () => {
     if (!idle) return;
@@ -338,7 +335,6 @@ function UserToolsRow(props: NodeProps) {
         data-testid="tsp-user-edit"
         role="button"
         tabIndex={0}
-        aria-disabled={canEdit ? undefined : true}
         title={t("tsp.editMessage")}
         aria-label={t("tsp.editMessage")}
         onClick={edit}

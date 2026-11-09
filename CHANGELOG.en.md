@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- "Edit" on a user message now only puts the message in the input box for you to change and send; it no longer goes back to before that message, so the message and the replies after it stay in the conversation.
+
 ## [0.5.1] - 2026-11-09
 
 ### Fixed

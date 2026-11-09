@@ -6,6 +6,7 @@ import { selectTask } from "../../store/index.ts";
 import { appendToDraft } from "../composer/draft-store.ts";
 import { focusDraftEnd } from "../composer/insert-into-draft.ts";
 import { peekTspDocument } from "../tsp/tsp-store.ts";
+import { userCardText } from "../../../../shared/tsp/user-messages.ts";
 import { focusIndexFromEnd } from "./tree-focus.ts";
 
 /**
@@ -40,9 +41,14 @@ export async function forkFromUserCard(taskId: TaskId, sf: string, cardNodeId: s
   await forkFromMessage(taskId, await userEntryFromCard(taskId, sf, cardNodeId));
 }
 
-/** 对话里用户消息卡片上的"编辑"：就地回到这条消息之前（同会话树面板里选中它，branchToNode），文字进输入框、焦点给输入框。 */
-export async function editUserCard(taskId: TaskId, sf: string, cardNodeId: string): Promise<void> {
-  await branchToNode(taskId, await userEntryFromCard(taskId, sf, cardNodeId));
+/**
+ * 对话里用户消息卡片上的"编辑"：只把这条消息的文字放进输入框（追加在草稿后面）、焦点给输入框，改完由用户自己发出去。
+ * 不回溯、不动对话和会话文件（2026-11-09 仓库所有者定：编辑是省得重打，不该删记录；要回到这条消息之前用会话树）。
+ */
+export function editUserCard(taskId: TaskId, sf: string, cardNodeId: string): void {
+  const text = userCardText(peekTspDocument(taskId), sf, cardNodeId);
+  if (text === null) throw new Error("user message not found");
+  appendToDraft(taskId, [{ text }]);
   focusDraftEnd(taskId);
 }
 

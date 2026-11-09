@@ -55,6 +55,19 @@ export function userMessageTexts(doc: TspDocument | null): string[] {
   return userMessages(doc).map((message) => message.text);
 }
 
+/** 用户消息卡片（或卡片里的节点，比如悬停按钮行）的原文；不在用户消息卡片里或没有正文时为 null。 */
+export function userCardText(doc: TspDocument | null, sf: string, nodeId: string): string | null {
+  const surface = doc?.surfaces.get(sf);
+  if (surface === undefined) return null;
+  for (let id: string | null = nodeId; id !== null;) {
+    const node = surface.nodes.get(id);
+    if (node === undefined) return null;
+    if (node.p["role"] === USER_ROLE) return userText(surface, id) || null;
+    id = node.parent;
+  }
+  return null;
+}
+
 export function sameUserMessages(a: readonly UserMessage[], b: readonly UserMessage[]): boolean {
   return a.length === b.length && a.every((message, i) => message.id === b[i]!.id && message.text === b[i]!.text);
 }

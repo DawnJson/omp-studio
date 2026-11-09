@@ -62,10 +62,10 @@
 
 用户消息悬停按钮行（`omp.user.tools`，`layout.tsx` 的 `UserToolsRow`）里，omp 的复制、回退后面 studio 加了"编辑"（`tsp-user-edit`，`pen` 图标）和"分叉"（`tsp-user-fork`）。
 
-- **和 omp 的回退图标不重复**：回退图标（`actions.click:"rewind"`）被 studio 接管成"打开会话树面板并对准这条消息"（上面「用户消息的回退图标」），还要在面板里再选一次才回溯；"编辑"一步就地回溯。
-- **做法**：`fork-actions.ts` 的 `editUserCard` = 卡片 → 当前分支上倒数第几条用户消息（`userCardFromEnd`，同分叉按钮）→ 会话树条目 → `branchToNode`（面板选中同一条路：`branchTask` → `TspRunner.rewindTo`，omp 收到 `/tree` + `activate` + 清空输入框的 `edit`），那条消息的文字追加进输入框，焦点给输入框、光标在末尾（`composer/insert-into-draft.ts` 的 `focusDraftEnd`）。不新建任务，不打开面板。
-- 和分叉按钮一样只在任务空闲时能点（`aria-disabled`）；点了以后到回溯结束前不再收。失败 toast（`reportErrorNow`）。
-- 测试：e2e `test/e2e/session-tree.e2e.ts`「编辑：用户消息悬停按钮行里 studio 加的编辑按钮…」（键盘 Enter 触发；事件序列同面板回溯；输入框有 BETA 的文字且聚焦；任务数不变）。
+- **和 omp 的回退图标不重复**：回退图标（`actions.click:"rewind"`）被 studio 接管成"打开会话树面板并对准这条消息"（上面「用户消息的回退图标」），在面板里选中才回溯；"编辑"不回溯。
+- **做法**（2026-11-09 起，仓库所有者定：编辑是省得重打，不该删记录）：`fork-actions.ts` 的 `editUserCard` 只按卡片取这条消息的原文（`shared/tsp/user-messages.ts` 的 `userCardText`），追加进输入框，焦点给输入框、光标在末尾（`composer/insert-into-draft.ts` 的 `focusDraftEnd`）。不回溯、不给 omp 发任何事件，对话和会话文件都不变；改完发出去就是一条新消息。要回到这条消息之前用会话树。（0.5.0、0.5.1 里编辑是就地回溯，点了以后这条和后面的回复从对话里消失，只能去会话树找。）
+- 任务在跑时也能点（只动 studio 的输入框）。找不到这条消息的正文时 toast（`reportErrorNow`）。
+- 测试：e2e `test/e2e/session-tree.e2e.ts`「编辑：用户消息悬停按钮行里 studio 加的编辑按钮…」（键盘 Enter 触发；输入框有 BETA 的文字且聚焦；两条用户消息都在、omp 没收到事件、任务数不变）。
 
 ## 已知限制和没测的
 
