@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- The task menu (the ⋯ in the top bar and on sidebar task rows, or right-click) now has "Session tree", to open the session tree and go back to an earlier message or fork from it.
+
 ### Changed
 
 - "Edit" on a user message now only puts the message in the input box for you to change and send; it no longer goes back to before that message, so the message and the replies after it stay in the conversation.

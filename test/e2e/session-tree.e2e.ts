@@ -142,6 +142,23 @@ test("用户消息上 omp 的回退图标：studio 接管，打开会话树面�
   }
 });
 
+test("任务菜单（顶栏 ⋯）里的会话树：打开当前任务的会话树面板，光标在最后一条用户消息，不给 omp 发事件", async () => {
+  test.setTimeout(120_000);
+  const { launched, received, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(2, { timeout: 30_000 });
+    await page.getByTestId("task-menu").click();
+    await page.getByRole("menuitem", { name: "会话树" }).click();
+    const panel = page.getByTestId("session-tree");
+    await expect(panel).toBeVisible();
+    await expect(panel.getByTestId("session-tree-node").nth(1)).toHaveAttribute("aria-selected", "true");
+    expect(await received()).toEqual([]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('分叉：面板里点"从这里分叉"新建任务并选中，omp --fork 起的新进程收到 /tree + activate，文字在新任务的输入框里；原任务还在', async () => {
   test.setTimeout(120_000);
   const { launched, received, cleanup } = await start();

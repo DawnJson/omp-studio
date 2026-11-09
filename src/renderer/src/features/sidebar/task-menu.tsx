@@ -1,8 +1,10 @@
 // 任务菜单：侧栏任务行的 ⋯ / 右键和顶栏的 ⋯ 打开的是同一份（项一致、顺序一致）。
-// 第一组是任务本身（重命名、保持运行、会话信息、请求记录、分享链接），第二组是文件（工作目录、会话文件、复制、导出），最后是归档。
+// 第一组是任务本身（重命名、保持运行、会话信息、会话树、请求记录、分享链接），第二组是文件（工作目录、会话文件、复制、导出），最后是归档。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { CopyIcon, External, FileIcon, Folder, Info, Pencil, Pin } from "../../icons.tsx";
+import { Branch, CopyIcon, External, FileIcon, Folder, Info, Pencil, Pin } from "../../icons.tsx";
+import { selectTask } from "../../store/index.ts";
+import { openSessionTree } from "../conversation/session-tree-store.ts";
 import { reportError } from "../../ui/errors.ts";
 import type { MenuEntry } from "../../ui/Menu.tsx";
 import { pushToast } from "../dialogs/index.ts";
@@ -44,6 +46,17 @@ export function buildTaskMenu(options: {
       onSelect: () => void attempt(t, () => window.studio.setTaskKeepAlive(taskId, !options.keepAlive)),
     },
     { id: "info", label: t("sessionInfo.menu.info"), icon: <Info />, onSelect: () => openSessionInfo(taskId, "info") },
+    // 会话树面板只画在当前任务的对话页上：侧栏里别的任务先选中再打开（2026-11-09 仓库所有者定：会话树的入口放进任务菜单）。
+    {
+      id: "sessionTree",
+      label: t("cmd.sessionTree"),
+      icon: <Branch />,
+      onSelect: () =>
+        void attempt(t, async () => {
+          if (taskId !== options.selectedTaskId) await selectTask(taskId);
+          openSessionTree(taskId);
+        }),
+    },
     {
       id: "trace",
       label: t("sessionInfo.menu.trace"),
