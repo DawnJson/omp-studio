@@ -69,12 +69,14 @@ export function List(props: NodeProps) {
       root.current?.focus({ preventScroll: true });
   }, []);
 
-  // 选中项变了 / 收到 reveal：list 自己带 max（自己滚动）或虚拟化时滚到可见（虚拟化的行可能还没画出来，按下标算位置）。
+  // 选中项变了 / 收到 reveal：list 自己带 max（自己滚动）、在 dock 里（dock 太高时自己滚动，tsp.css）或虚拟化时滚到可见
+  // （虚拟化的行可能还没画出来，按下标算位置）。对话里的 list 不滚：那会和吸底抢滚动区。
   const selectedIndex = virtual && selected !== null ? node.c.indexOf(selected) : -1;
   const scrollToIndex = win.scrollToIndex;
+  const scrolls = () => cap !== undefined || root.current?.closest(".tsp-dock") != null;
   useLayoutEffect(() => {
     if (selectedIndex >= 0) scrollToIndex(selectedIndex, "nearest");
-    if (cap === undefined || selected === null) return;
+    if (selected === null || !scrolls()) return;
     scrollItemIntoView(scroller.current, selected, "nearest");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cap, selected, selectedIndex]);
@@ -82,7 +84,7 @@ export function List(props: NodeProps) {
   useLayoutEffect(() => {
     if (reveal === null || !node.c.includes(reveal.id)) return;
     if (virtual) scrollToIndex(node.c.indexOf(reveal.id), reveal.where);
-    if (cap !== undefined) scrollItemIntoView(scroller.current, reveal.id, reveal.where);
+    if (scrolls()) scrollItemIntoView(scroller.current, reveal.id, reveal.where);
     // 只在新的 reveal（seq 变了）时滚。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealSeq]);

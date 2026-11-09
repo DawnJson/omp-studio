@@ -171,11 +171,16 @@
   --content-w: clamp(960px, 80cqi, var(--content-w-max));
 }
 
-/* dock：对话列后面、studio 输入框上方（对话长过视口时停在过程区底部），和对话列同宽同轴 */
+/* dock：对话列后面、studio 输入框上方（对话长过视口时停在过程区底部），和对话列同宽同轴。
+ * 最多占满过程区（对话被挤到最矮），再高自己滚动（2026-11-09 仓库所有者反馈：选项很多的提问放不下时，下面的选项和 Submit 被裁掉、滑不动）；
+ * 弹层不放在 dock 里（TspHosts / layer），所以 overflow 不会裁掉它们。 */
 .tsp-dock {
   flex: none;
   position: relative;
   z-index: 1;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 var(--gutter) var(--space-3);
 }
 .tsp-dock-in {

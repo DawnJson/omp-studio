@@ -707,6 +707,35 @@ test('输入框附件：粘贴资源管理器复制的文件 = 文件卡片（�
   }
 });
 
+test("提问放不下时:dock 最多占满过程区,自己滚动,滚轮能滚到最后一个选项", async () => {
+  test.setTimeout(90_000);
+  const { launched, cleanup } = await start("ask");
+  try {
+    const { page } = launched;
+    await sendFirst(page, "请用 ask 工具问我一个问题:三个选项 A 快 / B 稳 / C 省钱,只问这一个,然后等我回答。");
+    await expect(role(page, "omp.editor.ask")).toBeVisible({ timeout: 30_000 });
+    // 窗口压矮:提问对话框比整个过程区还高。
+    await page.setViewportSize({ width: 900, height: 380 });
+    const dock = page.locator('[data-testid="tsp-view"] .tsp-dock');
+    const surface = page.locator('[data-testid="tsp-view"] .tsp-surface[data-mode="inline"]');
+    const overflow = () =>
+      dock.evaluate((el) => {
+        const box = el as unknown as { scrollHeight: number; clientHeight: number };
+        return box.scrollHeight - box.clientHeight;
+      });
+    await expect.poll(overflow).toBeGreaterThan(0);
+    expect((await dock.boundingBox())!.height).toBeLessThanOrEqual((await surface.boundingBox())!.height + 1);
+    const last = dock.locator(".tspi-item").last();
+    await expect(last).not.toBeInViewport({ ratio: 1 });
+    const box = (await dock.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 2000);
+    await expect(last).toBeInViewport({ ratio: 1 });
+  } finally {
+    await cleanup();
+  }
+});
+
 test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studio 输入框不能发送,omp 收到答案后继续", async () => {
   test.setTimeout(90_000);
   const { launched, received, cleanup } = await start("ask");
