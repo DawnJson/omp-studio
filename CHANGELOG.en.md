@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-09
+
 ### Fixed
 
 - A question with many options no longer gets its lower options and buttons cut off: the question area scrolls when it is taller than the conversation area, and moving to an option out of view with the arrow keys scrolls to it.
