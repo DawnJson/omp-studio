@@ -1,6 +1,6 @@
 // 提示词优化（src/main/prompt-enhance/enhance.ts + src/shared/prompt-enhance.ts）：纯函数和对假 omp 的调用。
 // 真实 omp 的冒烟在 test/prompt-enhance-real-omp.test.ts。
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -93,7 +93,8 @@ describe("纯函数", () => {
 let scratch: string;
 let n = 0;
 beforeAll(async () => {
-  scratch = await mkdtemp(path.join(os.tmpdir(), "omp-studio 优化-"));
+  // macOS 的临时目录 /var 是 /private/var 的软链接，子进程的 cwd 报的是真实路径。
+  scratch = await realpath(await mkdtemp(path.join(os.tmpdir(), "omp-studio 优化-")));
 });
 afterAll(async () => {
   await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
