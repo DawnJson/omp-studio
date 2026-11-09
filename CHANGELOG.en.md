@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-09
+
 ### Added
 
 - The task menu (the ⋯ in the top bar and on sidebar task rows, or right-click) now has "Session tree", to open the session tree and go back to an earlier message or fork from it.
