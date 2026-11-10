@@ -863,12 +863,16 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
       modifiedAt: Date.now(),
     });
     await h.events.until(resumed.id, (s) => s.contextUsage !== null);
-    await vi.waitFor(() => {
-      const state = h.events.states.findLast((s) => s.id === resumed.id);
-      expect(state?.model?.key).toEqual(hfKey);
-      expect(state?.thinkingLevels).toEqual(["auto", "off", "low", "high", "max"]);
-      expect(h.registry.findTask(resumed.id)?.model).toEqual(hfKey);
-    });
+    // 认出是哪一家要等模型目录读完（异步）；CI 的 Windows 机器上超过 vi.waitFor 默认的 1 秒过（v0.7.1 推 main 那次）。
+    await vi.waitFor(
+      () => {
+        const state = h.events.states.findLast((s) => s.id === resumed.id);
+        expect(state?.model?.key).toEqual(hfKey);
+        expect(state?.thinkingLevels).toEqual(["auto", "off", "low", "high", "max"]);
+        expect(h.registry.findTask(resumed.id)?.model).toEqual(hfKey);
+      },
+      { timeout: 10_000 },
+    );
   }, 60_000);
 
   it("setTaskModel：点模型胶囊、在选择器里 activate 那一项，omp 确认后 resolve", async () => {
