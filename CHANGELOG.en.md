@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-10
+
 ### Added
 
 - The hover tip on each answer's usage line and the per-model session usage in the composer's bottom-right now show the cache hit rate.
