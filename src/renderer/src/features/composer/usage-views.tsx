@@ -215,23 +215,9 @@ export function UnavailableRow({ item }: { item: QuotaUnavailable }) {
   const t = useT();
   const text = t("usage.quota.accountUnavailable", { account: `${item.provider} · ${item.label}` });
   return (
-    <div className="uq-untouched" data-testid="usage-unavailable">
+    <div className="uq-unavailable" data-testid="usage-unavailable">
       <span className="uq-muted" title={text}>
         {text}
-      </span>
-    </div>
-  );
-}
-
-/** 一整天没用过的账号合成一行：只列 provider 名字。 */
-export function UntouchedRow({ accounts }: { accounts: readonly QuotaAccount[] }) {
-  const t = useT();
-  const names = [...new Set(accounts.map((account) => account.provider))].join(", ");
-  return (
-    <div className="uq-untouched">
-      <span className="uq-muted">{t("usage.quota.untouched")}</span>
-      <span className="uq-untouched-names" title={names}>
-        {names}
       </span>
     </div>
   );

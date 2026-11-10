@@ -471,10 +471,11 @@ test("空状态、对话里的用量", async () => {
             ),
           ),
       );
-      const account = (email: string, identityHash: string) => ({
+      // first 的窗口都是 0%：也画整张卡（2026-11-10 所有者定，原来并进"未使用"一行）。
+      const account = (email: string, identityHash: string, usedFraction: number) => ({
         provider: "anthropic",
         account: email,
-        limits: [{ id: "5h", label: "5 Hour", windowLabel: "5 Hour", usedFraction: 0.4, resetsAt: null, status: "ok" }],
+        limits: [{ id: "5h", label: "5 Hour", windowLabel: "5 Hour", usedFraction, resetsAt: null, status: "ok" }],
         notes: [],
         fetchedAt: Date.now(),
         planType: null,
@@ -487,7 +488,7 @@ test("空状态、对话里的用量", async () => {
       ipcMain.removeHandler("studio:getUsageQuota");
       ipcMain.handle("studio:getUsageQuota", () => ({
         generatedAt: Date.now(),
-        accounts: [account("first@example.com", "h1"), account("second@example.com", "h2")],
+        accounts: [account("first@example.com", "h1", 0), account("second@example.com", "h2", 0.4)],
         unavailable: [],
       }));
     });

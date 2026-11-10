@@ -9,7 +9,7 @@ import { cleanupOrphans } from "../git/git-actions.ts";
 import { refreshProjects } from "./projects-store.ts";
 import { attempt, buildTaskMenu } from "./task-menu.tsx";
 import { ArchiveIcon } from "./icons.tsx";
-import { refreshHistorySessions } from "./use-history-sessions.ts";
+import { isTaskPinned, refreshHistorySessions } from "./use-history-sessions.ts";
 
 interface OpenMenu {
   anchor: MenuAnchor;
@@ -40,6 +40,7 @@ export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): 
         t,
         taskId: task.id,
         keepAlive: task.keepAlive,
+        pinned: isTaskPinned(task.id),
         selectedTaskId,
         onRename: () => onRename(task),
       }),

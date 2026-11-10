@@ -4,7 +4,7 @@
 import { memo, useRef, type CSSProperties } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type SessionSummary, type TaskState } from "../../../../shared/ipc.ts";
-import { Branch, Dots } from "../../icons.tsx";
+import { Branch, Dots, Pin } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { taskTail } from "../../../../shared/ui/task-time.ts";
@@ -113,8 +113,24 @@ interface TaskRowProps {
   renaming: boolean;
   /** 分叉缩进层数（SidebarItem.depth）。 */
   depth: number;
+  /** 会话置顶了（SidebarItem.pinned）。 */
+  pinned: boolean;
   forks: RowForks;
   rows: RowHandlers;
+}
+
+/** 置顶的行：标题后面一个图钉，文字只在悬停提示 / 读屏里。任务行和会话行共用。 */
+export function PinMark({ t }: { t: TFunction }) {
+  return (
+    <span
+      className="sb-row-pin"
+      data-testid="sidebar-row-pinned"
+      title={t("task.pinned")}
+      aria-label={t("task.pinned")}
+    >
+      <Pin size={12} />
+    </span>
+  );
 }
 
 const taskNavId = (task: TaskState) => `task:${task.id}`;
@@ -162,7 +178,16 @@ function RenameInput({
   );
 }
 
-export const TaskRow = memo(function TaskRow({ task, selected, tabStop, renaming, depth, forks, rows }: TaskRowProps) {
+export const TaskRow = memo(function TaskRow({
+  task,
+  selected,
+  tabStop,
+  renaming,
+  depth,
+  pinned,
+  forks,
+  rows,
+}: TaskRowProps) {
   const { t } = rows;
   const cleanTitle = taskTitle(task);
   const title = cleanTitle === "" ? t("task.untitled") : cleanTitle;
@@ -213,6 +238,7 @@ export const TaskRow = memo(function TaskRow({ task, selected, tabStop, renaming
         <span className="sb-row-title" title={title}>
           {title}
         </span>
+        {pinned && <PinMark t={t} />}
         {task.worktreeBranch !== null && (
           <span
             className="sb-row-branch"

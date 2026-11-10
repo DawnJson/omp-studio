@@ -1,13 +1,7 @@
 // 用量对话框的汇总条（shared/ui/usage-summary.ts）：30 天与一年的边界、最忙的一天、活跃天数、连续天数、最紧的额度。
 import { describe, expect, it } from "vitest";
 import type { QuotaAccount, QuotaLimit, UsageDay, UsageHeatmap } from "../src/shared/ipc.ts";
-import {
-  activityStats,
-  isUntouched,
-  leftPercent,
-  summarizeUsage,
-  tightestQuota,
-} from "../src/shared/ui/usage-summary.ts";
+import { activityStats, leftPercent, summarizeUsage, tightestQuota } from "../src/shared/ui/usage-summary.ts";
 
 const day = (date: string, costUsd: number, requests = 1): UsageDay => ({
   date,
@@ -103,12 +97,6 @@ describe("quota helpers", () => {
     expect(found?.account.provider).toBe("b");
     expect(tightestQuota([account("a", [limit("a1", null)])])).toBeNull();
     expect(tightestQuota([])).toBeNull();
-  });
-
-  it("没动过的账号：比例 0 或没给，且没用尽", () => {
-    expect(isUntouched(account("a", [limit("1", 0), limit("2", null)]))).toBe(true);
-    expect(isUntouched(account("a", [limit("1", 0.01)]))).toBe(false);
-    expect(isUntouched(account("a", [limit("1", null, "exhausted")]))).toBe(false);
   });
 
   it("剩余百分比：用尽为 0，没给比例为 null，超过 100% 不为负", () => {

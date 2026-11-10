@@ -24,8 +24,16 @@ export function projectLabels(projects: readonly Project[]): Map<ProjectId, stri
  * parent：缩进在哪一行下面（那一行的 key，顶层为 null）。
  */
 export type SidebarItem =
-  | { kind: "task"; key: string; at: number; depth: number; parent: string | null; task: TaskState }
-  | { kind: "session"; key: string; at: number; depth: number; parent: string | null; session: SessionSummary };
+  | { kind: "task"; key: string; at: number; depth: number; parent: string | null; pinned: boolean; task: TaskState }
+  | {
+      kind: "session";
+      key: string;
+      at: number;
+      depth: number;
+      parent: string | null;
+      pinned: boolean;
+      session: SessionSummary;
+    };
 
 export interface SidebarFolder {
   /** 分组键：规范化后的路径（斜杠统一、去尾斜杠、小写），同一文件夹不同写法归一组。 */
@@ -68,9 +76,9 @@ export function sessionTitle(session: Pick<SessionSummary, "title" | "firstPromp
   return null;
 }
 
-/** omp 置顶（`/pin`）的历史会话排在最前，其余按最近活动；任务没有置顶信息，不受影响。 */
+/** omp 置顶（`/pin`，`session-pins.json`）的行排在最前，其余按最近活动：历史会话看自己，任务看挂在它上面的会话。 */
 function pinRank(item: SidebarItem): number {
-  return item.kind === "session" && item.session.pinned ? 0 : 1;
+  return item.pinned ? 0 : 1;
 }
 
 function byRecentItem(a: SidebarItem, b: SidebarItem): number {
@@ -108,9 +116,20 @@ function collectItems(input: SidebarInput): SidebarItem[] {
   const shown = new Set(input.projects.filter((project) => !project.hidden).map((project) => project.id));
   const hiddenFolders = new Set(input.projects.filter((project) => project.hidden).map((p) => folderKey(p.path)));
   const items: SidebarItem[] = [];
+  const pinnedTasks = new Set(
+    input.sessions.flatMap((session) => (session.taskId !== null && session.pinned ? [session.taskId] : [])),
+  );
   for (const task of input.tasks) {
     if (input.hidden.has(task.id) || !shown.has(task.projectId) || !matches(needle, taskTitle(task))) continue;
-    items.push({ kind: "task", key: `task:${task.id}`, at: lastActivityAt(task), depth: 0, parent: null, task });
+    items.push({
+      kind: "task",
+      key: `task:${task.id}`,
+      at: lastActivityAt(task),
+      depth: 0,
+      parent: null,
+      pinned: pinnedTasks.has(task.id),
+      task,
+    });
   }
   for (const session of input.sessions) {
     if (!isListedSession(session) || hiddenFolders.has(folderKey(session.cwd))) continue;
@@ -121,6 +140,7 @@ function collectItems(input: SidebarInput): SidebarItem[] {
       at: session.modifiedAt,
       depth: 0,
       parent: null,
+      pinned: session.pinned,
       session,
     });
   }
@@ -195,6 +215,7 @@ export function buildArchived(input: Pick<SidebarInput, "sessions" | "query">): 
       at: session.modifiedAt,
       depth: 0,
       parent: null,
+      pinned: session.pinned,
       session,
     }))
     .sort(byRecentItem);
@@ -204,7 +225,7 @@ export function buildArchived(input: Pick<SidebarInput, "sessions" | "query">): 
  * 文件夹排列：studio 项目和历史会话的 cwd 按文件夹键合并成一个列表；移出列表的项目（hidden）不列。
  * 文件夹按其中最新的一行从新到旧；没有任何行的项目排在最后（保持项目顺序），搜索时不显示；
  * 没有行、但有归档会话的项目也不列（里面的都归档了：归档一条还不是项目的目录里的会话会把目录加成项目，不能因此多出一个空文件夹）。
- * 默认文件夹（defaultCwd）永远第一个，不受最近活动影响；搜索时它没有匹配行就和别的文件夹一样不显示。
+ * 默认文件夹（defaultCwd）永远第一个，不受最近活动影响；有置顶行的文件夹紧跟在它后面（2026-11-10 仓库所有者定）；搜索时默认文件夹没有匹配行就和别的文件夹一样不显示。
  * 分叉只在同一个文件夹里缩进。
  */
 export function buildFolders(input: SidebarInput): SidebarFolder[] {
@@ -251,7 +272,8 @@ export function buildFolders(input: SidebarInput): SidebarFolder[] {
     if (parent !== "") folder.label = `${parent}/${folder.label}`;
   }
   const newest = (folder: SidebarFolder) => folder.items.reduce((latest, item) => Math.max(latest, item.at), -1);
-  const rank = (folder: SidebarFolder) => (folder.key === pinned ? 0 : 1);
+  const rank = (folder: SidebarFolder) =>
+    folder.key === pinned ? 0 : folder.items.some((item) => item.pinned) ? 1 : 2;
   return list.sort((a, b) => rank(a) - rank(b) || newest(b) - newest(a));
 }
 

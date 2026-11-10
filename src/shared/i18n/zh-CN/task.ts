@@ -3,6 +3,9 @@ import type { MessageEntry } from "../index.ts";
 export const task = {
   untitled: "新任务",
   rename: "重命名",
+  pin: "置顶",
+  unpin: "取消置顶",
+  pinned: "已置顶",
   keepAlive: "保持运行",
   keepAliveOff: "取消保持运行",
   renameLabel: "任务标题",

@@ -83,7 +83,9 @@ omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `
 
 ### 置顶（`/pin`）
 
-TSP 实测：`/pin` 的 toast 是 `Session pinned to the top of the resume list.` / `Session unpinned.`（同一个 toast 节点被 `set` 换字）。studio 切换前后各读一次置顶文件，状态没变就把 omp 的原话当警告显示。
+TSP 实测：`/pin` 的 toast 是 `Session pinned to the top of the resume list.` / `Session unpinned.`（同一个 toast 节点被 `set` 换字）。studio 切换前后各读一次置顶文件，状态没变就把 omp 的原话当警告显示；变了就重取 `listSessions`，侧栏跟着重排。
+
+侧栏（2026-11-10 起）：入口除了会话信息对话框、`/pin`、命令面板，还有任务菜单（侧栏右键 / ⋯、顶栏 ⋯）的"置顶 / 取消置顶"，菜单上的状态取 `listSessions` 里挂在这个任务上的那一条的 `pinned`（`use-history-sessions.ts` 的 `isTaskPinned` / `useTaskPinned`）。`sidebar-model.ts` 给每一行算 `pinned`（历史会话看自己，任务看挂在它上面的会话）：置顶的行在文件夹里和时间线里排最前，有置顶行的文件夹排在默认文件夹之后、其余文件夹之前；行上画图钉。没挂在任务上的历史会话没有置顶入口：`/pin` 要在 omp 进程里跑，先点开恢复成任务再置顶。
 
 ### 分享（`omp share <文件> [--gist]`）
 

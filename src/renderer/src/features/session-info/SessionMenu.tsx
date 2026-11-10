@@ -9,11 +9,13 @@ import { IconButton } from "../../ui/controls.tsx";
 import { Menu, anchorBelowEnd, type MenuAnchor } from "../../ui/Menu.tsx";
 import { emitStudioCommand } from "../palette/studio-command.ts";
 import { buildTaskMenu } from "../sidebar/task-menu.tsx";
+import { useTaskPinned } from "../sidebar/use-history-sessions.ts";
 
 export function SessionMenu({ taskId }: { taskId: TaskId }) {
   const t = useT();
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const task = useTask(taskId);
+  const pinned = useTaskPinned(taskId);
   return (
     <>
       <IconButton
@@ -32,6 +34,7 @@ export function SessionMenu({ taskId }: { taskId: TaskId }) {
             t,
             taskId,
             keepAlive: task?.keepAlive === true,
+            pinned,
             selectedTaskId: taskId,
             onRename: () => emitStudioCommand("rename"),
           })}

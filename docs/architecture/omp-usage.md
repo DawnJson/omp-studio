@@ -1,6 +1,6 @@
 # 用量：订阅账号额度和每日消耗热力图（用量对话框）
 
-只读。实现：`src/main/usage/usage-service.ts`、`src/main/ipc/usage-handlers.ts`（`getUsageQuota`、`getUsageHeatmap`）、渲染端的用量对话框：点输入框工具行的费用（或 `/usage`、命令面板"用量"）弹出的居中对话框 `features/composer/UsageDialog.tsx` + `usage-views.tsx` + `usage-store.ts`（模块里缓存上次结果，打开先显示再后台刷新；汇总条、额度、热力图在同一页，没有页签）。设置页原来的"用量"一节 2026-10-22 删掉（和对话框重复，仓库所有者定）。汇总（过去一年 / 最近 30 天 / 最忙的一天 / 活跃天数 / 最长连续 / 最紧的额度 / 未使用账号）是纯函数，在 `src/shared/ui/usage-summary.ts`，不需要新的 IPC：全部从 `QuotaSnapshot` 和 `UsageHeatmap` 推出来。界面描述见 `docs/design/spec.md` §4.14 的 UsageDialog。测试：`test/usage-service.test.ts`、`test/usage-summary.test.ts`、`test/e2e/settings-functional.e2e.ts`。实测 omp 18.12.1，2026-10-18。
+只读。实现：`src/main/usage/usage-service.ts`、`src/main/ipc/usage-handlers.ts`（`getUsageQuota`、`getUsageHeatmap`）、渲染端的用量对话框：点输入框工具行的费用（或 `/usage`、命令面板"用量"）弹出的居中对话框 `features/composer/UsageDialog.tsx` + `usage-views.tsx` + `usage-store.ts`（模块里缓存上次结果，打开先显示再后台刷新；汇总条、额度、热力图在同一页，没有页签）。设置页原来的"用量"一节 2026-10-22 删掉（和对话框重复，仓库所有者定）。汇总（过去一年 / 最近 30 天 / 最忙的一天 / 活跃天数 / 最长连续 / 最紧的额度）是纯函数，在 `src/shared/ui/usage-summary.ts`，不需要新的 IPC：全部从 `QuotaSnapshot` 和 `UsageHeatmap` 推出来。界面描述见 `docs/design/spec.md` §4.14 的 UsageDialog。测试：`test/usage-service.test.ts`、`test/usage-summary.test.ts`、`test/e2e/settings-functional.e2e.ts`。实测 omp 18.12.1，2026-10-18。
 
 新任务页（3.3 起，`features/empty/UsageCard.tsx`）也读同一份热力图：用 `usage-store.ts` 的同一个缓存（还没读过时挂载时调一次 `loadHeatmap`，先 `false` 再 `true`），在 `features/empty/usage-overview.ts` 里算出近 7 天 token / 费用、今天的 token 和 12 周点阵，显示成"本周用量"卡片（`docs/design/spec.md` §4.7，测试 `test/usage-overview.test.ts`）。
 
@@ -60,3 +60,5 @@ omp-studio 启动 omp 子进程用的是 `{...process.env, 额外的 API key}`�
 - `parseQuota` 给每个账号算 `identityHash`（没有 accountId 也没有 email 时 null）；
 - 主进程读任务会话文件时 `CredentialPinTracker` 取每个 provider 最后一条，放 `TaskState.credentialPins`（一轮结束等读会话文件的时机刷新）；
 - 用量对话框里 hash 对上的账号挂 `usage.quota.inUse` 徽标。按文件顺序取最后一条，omp 自己沿当前分支取，回到旧分支时可能不同 [推测：很少见]。
+
+omp 怎么给新会话挑账号（omp 18.18.6 二进制里的 `packages/ai/src/auth/rank.ts`，2026-11-10 对照所有者本机三个 anthropic 号核过）：依次比 被封 / 套餐不符 / 额度用完 / 在保留线内 / 5 小时窗口用了 ≥85% / `auth.accountPolicies` 的 priority / 有没有用量报告，之后比**每周窗口的"需要的消耗速度"** = 剩余比例 ÷ 距重置的小时数，大的先用（再比每周已用、5 小时窗口同样两项）。所以不是"最早重置的先用"：剩 35%、64 小时后重置的号（0.54%/h）排在剩 100%、158 小时后重置的号（0.63%/h）后面。已经开着的会话留在原来的号上（anthropic 一小时没请求才重新排），子代理跟父会话的号。

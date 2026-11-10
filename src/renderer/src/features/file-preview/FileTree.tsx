@@ -15,7 +15,7 @@ import {
 } from "react";
 import type { DirListing, ProjectFilesTarget, TerminalKey } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronDown, ChevronRight, FileIcon, Folder } from "../../icons.tsx";
+import { ChevronRight, FileIcon, Folder } from "../../icons.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { flattenTree, treeKeyAction, type NodeRow, type TreeKey, type TreeRow } from "./tree-model.ts";
 import { treeMemory } from "./tree-state.ts";
@@ -233,8 +233,12 @@ function TreeRowView({ id, row, top, cursor, selected, onClick }: TreeRowViewPro
       style={style}
       onClick={() => onClick(row)}
     >
-      <span className="file-tree-chevron" aria-hidden="true">
-        {row.kind === "dir" && (row.expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
+      <span
+        className="file-tree-chevron"
+        data-open={row.kind === "dir" && row.expanded ? "" : undefined}
+        aria-hidden="true"
+      >
+        {row.kind === "dir" && <ChevronRight size={12} />}
       </span>
       {row.kind === "dir" ? <Folder size={14} /> : <FileIcon size={14} />}
       <span className="file-tree-name">{row.name}</span>

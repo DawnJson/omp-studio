@@ -3,6 +3,7 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { reportError, reportOmpError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
+import { refreshHistorySessions } from "../sidebar/use-history-sessions.ts";
 
 /**
  * `/pin` 是切换。切换前后各读一次 `session-pins.json`（主进程只读，写入是 omp 的事）：状态变了就按新状态提示；
@@ -17,6 +18,8 @@ export async function togglePin(t: TFunction, taskId: TaskId): Promise<void> {
       pushToast({ level: "warning", message: text === "" ? t("sessionInfo.pinUnchanged") : text });
     } else {
       pushToast({ message: t(after ? "sessionInfo.pinnedToast" : "sessionInfo.unpinnedToast") });
+      // 侧栏按置顶排序、画图钉：置顶状态从 listSessions 来。
+      refreshHistorySessions();
     }
   } catch (error) {
     reportOmpError(t, error);

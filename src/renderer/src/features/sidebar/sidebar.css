@@ -423,6 +423,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 置顶的行：标题后面的图钉，和 worktree 标记同色同尺寸 */
+.sb-row-pin {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--text-3);
+}
 /* 时间一列：所有行的右边对齐；任务行 hover 时 ⋯ 盖在这一格上（最小宽 = ⋯ 的宽），所以任务行不再另外让位。
    无衬线 + 等宽数字（2026-10-29：原来等宽字体，"40 分钟"里中文落到回退字体、数字和中文之间空一大格，英文 Just now 又宽得挤掉标题） */
 .sb-row-tail {

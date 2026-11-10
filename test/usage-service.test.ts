@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readHeatmap } from "../src/main/usage/heatmap.ts";
 import { fetchQuota, parseQuota, parseResetCredits, statsDbPath } from "../src/main/usage/usage-service.ts";
-import { creditExpiry, isUntouched, quotaFetchedAt } from "../src/shared/ui/usage-summary.ts";
+import { creditExpiry, quotaFetchedAt } from "../src/shared/ui/usage-summary.ts";
 
 let dir: string;
 beforeAll(async () => {
@@ -263,7 +263,7 @@ describe("额度的套餐 / 重置券 / 取不到用量的账号（按 omp 源�
     ]);
   });
 
-  it("有重置券或 Daybreak 的账号不算“未使用”；quotaFetchedAt 取最晚的取数时间", () => {
+  it("quotaFetchedAt 取最晚的取数时间", () => {
     const quota = parseQuota(
       {
         reports: [
@@ -274,7 +274,6 @@ describe("额度的套餐 / 重置券 / 取不到用量的账号（按 omp 源�
       },
       now,
     );
-    expect(quota.accounts.map(isUntouched)).toEqual([false, false, true]);
     expect(quotaFetchedAt(quota.accounts)).toBe(now - 10_000);
     expect(quotaFetchedAt([])).toBeNull();
   });

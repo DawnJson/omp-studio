@@ -10,6 +10,19 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Conversations can be pinned: choose "Pin to top" in the task menu (sidebar right-click, ⋯, or the top bar ⋯) and the conversation moves to the top of its folder, the folder moves up (after the default folder), and the row shows a pin. Pins are shared with terminal omp's resume list. "Keep running" now uses a bolt icon.
+
+### Changed
+
+- The file preview tree's arrows now rotate when a folder opens instead of swapping icons.
+
+### Fixed
+
+- Built-in client accounts no longer vanish when an agent inside a task runs `omp usage`, `omp models`, `omp commit` and similar commands; a studio launched from a task's terminal now shows their quotas in the usage dialog.
+- The usage dialog now shows a full quota card for accounts whose windows are all at 0%, instead of folding them into a final "Untouched" line that listed only provider names.
+
 ## [0.6.0] - 2026-11-09
 
 ### Added

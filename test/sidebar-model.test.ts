@@ -233,18 +233,35 @@ describe("buildFolders / buildTimeline", () => {
     expect(folders[0]?.cwd).toBe("E:/other/lib");
   });
 
-  it("omp 置顶的历史会话排在文件夹和时间线的最前；文件夹顺序仍按最新的一行（置顶的旧会话不拉高文件夹）", () => {
+  it("omp 置顶的历史会话排在文件夹和时间线的最前；有置顶行的文件夹排在别的文件夹前面，但不压过默认文件夹", () => {
     const sessions = [past("old-pinned", "C:\\work\\app", 5, { pinned: true }), past("new", "C:\\work\\app", 60)];
     const tasks = [task("t", "p1", { updatedAt: 50 })];
     expect(ids(buildTimeline(input({ tasks, sessions })))).toEqual(["session:old-pinned", "session:new", "task:t"]);
+    const chats = project("pc", "C:\\Users\\me\\omp-studio\\chats", "chats");
     const folders = buildFolders(
       input({
-        tasks,
-        sessions: [...sessions, past("other", "E:/other/lib", 55)],
+        projects: [...projects, chats],
+        tasks: [...tasks, task("c", "pc", { updatedAt: 1 })],
+        sessions: [...sessions, past("other", "E:/other/lib", 95)],
+        defaultCwd: "C:/Users/me/omp-studio/chats",
       }),
     );
-    expect(folders.map((folder) => folder.label)).toEqual(["app", "lib", "empty"]);
-    expect(ids(folders[0]!.items)).toEqual(["session:old-pinned", "session:new", "task:t"]);
+    expect(folders.map((folder) => folder.label)).toEqual(["chats", "app", "lib", "empty"]);
+    expect(ids(folders[1]!.items)).toEqual(["session:old-pinned", "session:new", "task:t"]);
+  });
+
+  it("任务按挂在它上面的会话置顶：排在更新的未置顶任务前面，也把它的文件夹排上来", () => {
+    const tasks = [task("old", "p1", { updatedAt: 5 }), task("new", "p1", { updatedAt: 80 })];
+    const sessions = [past("s-old", "C:\\work\\app", 5, { taskId: "old" as TaskId, pinned: true })];
+    const timeline = buildTimeline(input({ tasks, sessions: [...sessions, past("lib", "E:/other/lib", 90)] }));
+    expect(ids(timeline)).toEqual(["task:old", "session:lib", "task:new"]);
+    expect(timeline[0]!.pinned).toBe(true);
+    const folders = buildFolders(input({ tasks, sessions: [...sessions, past("lib", "E:/other/lib", 90)] }));
+    expect(folders.map((folder) => [folder.label, ids(folder.items)])).toEqual([
+      ["app", ["task:old", "task:new"]],
+      ["lib", ["session:lib"]],
+      ["empty", []],
+    ]);
   });
 
   it("默认文件夹永远排第一，不管多久没动；其余文件夹仍按最近活动；搜索时没有匹配行就不显示", () => {

@@ -4,6 +4,9 @@ import type { task as zhCN } from "../zh-CN/task.ts";
 export const task = {
   untitled: "New task",
   rename: "Rename",
+  pin: "Pin to top",
+  unpin: "Unpin",
+  pinned: "Pinned",
   keepAlive: "Keep running",
   keepAliveOff: "Stop keeping running",
   renameLabel: "Task title",

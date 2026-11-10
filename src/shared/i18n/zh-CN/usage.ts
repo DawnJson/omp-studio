@@ -20,7 +20,6 @@ export const usage = {
   "quota.left": "剩余 {percent}%",
   "quota.unknown": "用量未知",
   "quota.exhausted": "已用尽",
-  "quota.untouched": "未使用",
   "quota.daybreak": "Daybreak",
   "quota.inUse": "使用中",
   "quota.inUseTip": "这个任务正在用这个账号",

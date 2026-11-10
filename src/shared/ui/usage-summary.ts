@@ -102,15 +102,6 @@ export function tightestQuota(
   return best;
 }
 
-/** 账号的所有窗口都没用过（比例是 0 或没给），也没有攒着的重置券、不是 Daybreak 账号（omp 的 `idle` 同口径）：只在一行里列名字，不占整块。 */
-export function isUntouched(account: QuotaAccount): boolean {
-  return (
-    account.resetCredits === null &&
-    !account.daybreak &&
-    account.limits.every((limit) => (limit.usedFraction ?? 0) <= 0 && limit.status !== "exhausted")
-  );
-}
-
 /** omp 取到这批额度的时间（各账号 fetchedAt 里最晚的，毫秒）；一个都没带时 null。omp 有缓存，比"刚读"早时说明数据是缓存的。 */
 export function quotaFetchedAt(accounts: readonly QuotaAccount[]): number | null {
   const times = accounts.flatMap((account) => (account.fetchedAt === null ? [] : [account.fetchedAt]));

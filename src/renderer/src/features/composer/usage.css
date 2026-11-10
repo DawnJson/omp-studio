@@ -217,25 +217,16 @@
   }
 }
 
-/* 没动过的账号：一行 */
-.uq-untouched {
+/* 取不到用量的账号：一行 */
+.uq-unavailable {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-3) 0;
 }
-.uq-untouched > .uq-muted {
+.uq-unavailable > .uq-muted {
   flex: none;
-}
-.uq-untouched-names {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* 热力图：星期标签在左，月份标签在上；格子边长由 HeatmapView 按宽度算（--uq-cell），铺满不横向滚动。标签和格子共用同一组尺寸变量保证对齐 */
@@ -413,6 +404,6 @@
 .usage-dialog .uq-limit-reset {
   text-align: right;
 }
-.usage-dialog .uq-untouched {
+.usage-dialog .uq-unavailable {
   padding: var(--space-1) var(--space-1) 0;
 }

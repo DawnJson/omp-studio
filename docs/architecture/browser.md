@@ -23,7 +23,7 @@ flowchart LR
 ## omp 怎么用上它
 
 1. 主进程起 TSP 任务时（`tasks/runtime.ts` 的 `buildLaunch`）向 `BrowserManager.endpoint(taskId)` 要这个任务的 CDP 口（第一次要时才开），以 `STUDIO_BROWSER_CDP=http://127.0.0.1:<端口>` 放进 omp 的环境变量。
-2. studio 内置的 omp 扩展（`client-accounts/extension/studio-browser.mjs`，和账号插件一起部署在 `<agent 目录>/extensions/studio-accounts/`）在加载时看到这个变量，用 `@oh-my-pi/pi-coding-agent/config/registry` 的 `lookup("browser.cdpUrl").override(...)` 把这个进程的 `browser.cdpUrl` 指过去。只改内存里的运行时层，不写配置；用户自己配了 `browser.cdpUrl`（`isConfigured`）就不动；终端里直接跑的 omp 没有这个变量，不受影响。
+2. studio 内置的 omp 扩展（`client-accounts/extension/studio-browser.mjs`，和账号插件一起部署在 `<agent 目录>/extensions/studio-accounts/`）看到这个变量时，在 `session_start` 里用 `@oh-my-pi/pi-coding-agent/config/registry` 的 `lookup("browser.cdpUrl").override(...)` 把这个进程的 `browser.cdpUrl` 指过去。只改内存里的运行时层，不写配置；用户自己配了 `browser.cdpUrl`（`isConfigured`）就不动；终端里直接跑的 omp 没有这个变量，不受影响。不能在扩展加载时改：任务里的 agent 跑的 `omp usage` / `models` / `commit` 等子命令也继承这个变量，这些子命令不初始化设置，读 `pi.pi.settings` 抛 "Settings not initialized"，整个扩展加载失败、账号插件的 provider 全都不见（omp 18.18.6 实测，2026-11-10）；子命令没有会话，不触发 `session_start`。
 3. omp 的 `browser` 工具（eval 里的 `browser.open()`）就 `puppeteer.connect` 到这个口，打开的是面板里的页面。
 
 连上时（WebSocket 建立）主进程发 `browserConnected`，渲染进程在这个任务是当前任务时打开面板，**不抢焦点**（输入框的焦点留着）。

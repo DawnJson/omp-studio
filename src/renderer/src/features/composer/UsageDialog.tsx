@@ -1,12 +1,12 @@
 // 点发送键左边的费用弹出的用量对话框（ui/Dialog lg，居中，盖一层遮罩；高度跟内容走，没有额度账号时下面不留空）：标题"用量与额度"，标题行右边依次是
 // "同步中…"（额度或热力图在读时）、"N 分钟前更新"（omp 取得额度的时间，omp 有约 5 分钟缓存，可能比打开对话框早）、↻ 和 ×，三者和标题首行竖直居中；下面一页滚动内容，没有页签：
-// 先是汇总条（最紧的额度、过去一年、最近 30 天、最忙的一天），再是各订阅账号的额度（当前 provider 排最前，每个账号一张卡，每个窗口一格；
+// 先是汇总条（最紧的额度、过去一年、最近 30 天、最忙的一天），再是各订阅账号的额度（当前 provider 排最前，每个账号一张卡，没用过的账号也画整张卡，每个窗口一格；
 // 套餐、Daybreak、重置券徽章，这个任务正在用的账号挂"使用中"；取不到用量的账号一行说明），
 // 最后是最近一年的每日用量热力图（不带小标题），格子按花费着色，悬停给金额和请求数。
 // 数据在 usage-store（omp usage --json / stats.db）：打开时额度读 omp 的缓存，热力图还没有数据时才读；点 ↻ 先让 omp 清掉额度缓存（omp usage invalidate）再重读，热力图也重读。
 import { useEffect } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
-import { isUntouched, quotaFetchedAt } from "../../../../shared/ui/usage-summary.ts";
+import { quotaFetchedAt } from "../../../../shared/ui/usage-summary.ts";
 import { Restart } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, IconButton, Notice } from "../../ui/controls.tsx";
@@ -15,7 +15,7 @@ import { explainError } from "../../ui/errors.ts";
 import { useOpenKey, usePresence } from "../../ui/presence.ts";
 import { useNow } from "../conversation/use-now.ts";
 import { loadHeatmap, loadQuota, useUsageHeatmap, useUsageQuota } from "./usage-store.ts";
-import { HeatmapView, QuotaBlock, SummaryStrip, UnavailableRow, UntouchedRow } from "./usage-views.tsx";
+import { HeatmapView, QuotaBlock, SummaryStrip, UnavailableRow } from "./usage-views.tsx";
 
 /** "7 秒前更新"：额度最近一次读成功距今多久。 */
 function updatedText(t: TFunction, at: number, now: number): string {
@@ -104,16 +104,13 @@ function Quota({
           {t("usage.quota.empty")}
         </p>
       )}
-      {accounts
-        .filter((account) => !isUntouched(account))
-        .map((account) => (
-          <QuotaBlock
-            key={`${account.provider}/${account.account ?? ""}`}
-            account={account}
-            inUse={account.identityHash !== null && credentialPins[account.provider] === account.identityHash}
-          />
-        ))}
-      {accounts.some(isUntouched) && <UntouchedRow accounts={accounts.filter(isUntouched)} />}
+      {accounts.map((account) => (
+        <QuotaBlock
+          key={`${account.provider}/${account.account ?? ""}`}
+          account={account}
+          inUse={account.identityHash !== null && credentialPins[account.provider] === account.identityHash}
+        />
+      ))}
       {(quota.data?.unavailable ?? []).map((item) => (
         <UnavailableRow key={`${item.provider}/${item.label}`} item={item} />
       ))}

@@ -14,6 +14,7 @@ import {
   forkArrowKey,
   ForkMarks,
   ForkToggle,
+  PinMark,
   TaskRow,
   type RowForks,
   type RowHandlers,
@@ -23,11 +24,12 @@ interface SessionRowProps {
   session: SessionSummary;
   tabStop: boolean;
   depth: number;
+  pinned: boolean;
   forks: RowForks;
   rows: RowHandlers;
 }
 
-const SessionRow = memo(function SessionRow({ session, tabStop, depth, forks, rows }: SessionRowProps) {
+const SessionRow = memo(function SessionRow({ session, tabStop, depth, pinned, forks, rows }: SessionRowProps) {
   const { t, locale } = rows;
   const label = sessionTitle(session) ?? t("history.untitled");
   const navId = `session:${session.id}`;
@@ -70,6 +72,7 @@ const SessionRow = memo(function SessionRow({ session, tabStop, depth, forks, ro
         <SessionStatusDot session={session} t={t} />
         <ForkMarks depth={depth} forks={forks} />
         <span className="sb-row-title">{label}</span>
+        {pinned && <PinMark t={t} />}
         <span className="sb-row-tail">{time}</span>
       </button>
       <ForkToggle navId={navId} forks={forks} tabStop={tabStop} rows={rows} />
@@ -103,6 +106,7 @@ export function ItemRow({ item, forks, collapsed, selectedTaskId, tabStopId, ren
         session={item.session}
         tabStop={tabStopId === item.key}
         depth={item.depth}
+        pinned={item.pinned}
         forks={rowForks}
         rows={rows}
       />
@@ -114,6 +118,7 @@ export function ItemRow({ item, forks, collapsed, selectedTaskId, tabStopId, ren
       tabStop={tabStopId === item.key}
       renaming={renamingId === item.task.id}
       depth={item.depth}
+      pinned={item.pinned}
       forks={rowForks}
       rows={rows}
     />

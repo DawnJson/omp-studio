@@ -3,7 +3,7 @@
 // 搜索过滤在 sidebar-model 里和任务一起做。
 // 列表放在模块级 store 里，侧栏和命令面板共用一份：主进程每次 listSessions 都要扫一遍会话目录。
 import { useEffect } from "react";
-import type { SessionSummary } from "../../../../shared/ipc.ts";
+import type { SessionSummary, TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 
@@ -42,4 +42,19 @@ export function useHistorySessions(searching: boolean, refreshKey: string): read
 export function useLoadedHistorySessions(): readonly SessionSummary[] {
   useEffect(() => refreshHistorySessions(), []);
   return useStoreValue(store, (sessions) => sessions ?? none);
+}
+
+/** 任务挂着的会话是否置顶（omp `/pin`）：按已经取到的列表算，不重取。 */
+function pinnedOf(sessions: readonly SessionSummary[] | null, taskId: TaskId): boolean {
+  return sessions?.some((session) => session.taskId === taskId && session.pinned) === true;
+}
+
+/** 打开菜单的那一刻用（侧栏任务行）。 */
+export function isTaskPinned(taskId: TaskId): boolean {
+  return pinnedOf(store.get(), taskId);
+}
+
+/** 顶栏 ⋯ 用：列表刷新后跟着变。 */
+export function useTaskPinned(taskId: TaskId): boolean {
+  return useStoreValue(store, (sessions) => pinnedOf(sessions, taskId));
 }

@@ -190,7 +190,11 @@ test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、�
   try {
     const { page } = launched;
     await runErrorTurn(page);
+    // 任务的会话在置顶文件里：侧栏这一行带图钉，任务菜单给"取消置顶"。
+    await expect(page.getByTestId("task-row").first().getByTestId("sidebar-row-pinned")).toBeVisible();
+    await expect(page.getByTestId("sidebar-session").getByTestId("sidebar-row-pinned")).toHaveCount(0);
     await page.getByTestId("task-menu").click();
+    await expect(page.getByTestId("task-menu-pin")).toHaveText(/取消置顶|Unpin/);
     await page.getByRole("menuitem", { name: /会话信息|Session info/ }).click();
     const dialog = page.getByTestId("session-info-dialog");
     await expect(dialog).toBeVisible();
