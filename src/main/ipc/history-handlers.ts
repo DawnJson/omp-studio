@@ -7,6 +7,7 @@ import { buildSessionSummaries } from "../history/session-summaries.ts";
 import { readSessionUsage } from "../tsp/session-files.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
+import { log } from "../log/log.ts";
 import { parseProjectId, parseString, parseTaskId } from "./validate.ts";
 
 const index = new SessionIndex();
@@ -26,6 +27,7 @@ export const historyHandlers: HandlerGroup<
   | "resumeSession"
   | "ensureSessionProject"
   | "archiveSession"
+  | "deleteSession"
   | "revealProject"
   | "revealTaskSession"
   | "getTaskSessionRef"
@@ -40,6 +42,9 @@ export const historyHandlers: HandlerGroup<
   async listSessions(projectId) {
     const pool = await getTaskPool();
     const wanted = projectId === null ? null : parseProjectId(projectId);
+    // 重扫会话列表（启动、窗口回到前台）时顺带对账：会话文件在 omp 里删掉的任务记录去掉（issue #10）。不等它：
+    // 要隔一会儿再确认一次，去掉时推 taskRemoved；这次列出的会话本来就不含已删的文件。
+    pool.pruneMissingSessions().catch((error: unknown) => log.warn("pruning missing sessions failed", String(error)));
     const { sessions } = await index.scan();
     const pins = await readSessionPins(resolveAgentDir());
     return buildSessionSummaries(sessions, pool.listProjects(), pool.listSessionLinks(), wanted, pins);
@@ -75,6 +80,13 @@ export const historyHandlers: HandlerGroup<
       title: session.title,
       modifiedAt: session.modifiedAt,
     });
+  },
+
+  // 真删除：经 omp 的 `/delete`（TaskPool.deleteSession）。会话已归档、挂在任务上、或终端里开的都走这里；目录没了也能删。
+  async deleteSession(sessionId) {
+    const session = await index.findById(parseString(sessionId, "sessionId", 200));
+    if (session === null) throw new Error("找不到这个会话，它的文件可能已被移动或删除");
+    await (await getTaskPool()).deleteSession({ sessionFile: session.file, cwd: session.cwd });
   },
 
   async revealProject(projectId) {

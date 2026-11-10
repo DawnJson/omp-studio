@@ -10,6 +10,16 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- The hover tip on each answer's usage line and the per-model session usage in the composer's bottom-right now show the cache hit rate.
+- Conversations can now be deleted for real: "Delete conversation…" in the task menu (sidebar right-click, ⋯, or the top bar ⋯) and in archived conversations' menus deletes the session file through omp after a confirmation; it refuses while another omp has the conversation open.
+
+### Fixed
+
+- Typing English with an input method in English mode no longer doubles every letter in the ask dialog's custom answer box (and other omp input boxes and picker search boxes).
+- Tasks whose conversation was deleted in omp no longer stay in the sidebar: they're removed at startup and when the window regains focus (deleting one side of a fork no longer leaves two same-named conversations that both open).
+
 ## [0.7.0] - 2026-11-10
 
 ### Added

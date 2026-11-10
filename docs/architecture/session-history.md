@@ -39,8 +39,9 @@ omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `
 
 | 函数 | 行为 |
 |---|---|
-| `listSessions(projectId \| null)` | 扫描 → `buildSessionSummaries`：`projectId` 由 cwd 对上任务池的项目（对不上为 null）；`taskId` / `archived` 由会话文件对上任务池的 `listSessionLinks()`（挂在未归档任务上的填 `taskId`，它就是任务行；挂在已归档任务上的 `archived: true`，侧栏只在“已归档”里列，点开 `resume` 把它恢复成同一个任务）；`parentId` 由会话头的 `parentSession` 在全部索引里对上（omp 整会话分叉写父会话 id、从某条消息分叉写父会话文件路径，两种都认；找不到为 null），侧栏据此把分叉缩进在原会话下面（`SidebarItem.parent` 记着缩进在哪一行下面），原会话那一行可以收起它下面的分叉（2026-11-09 起，issue #9；状态只在渲染层内存里，规则见 spec §4.5“收起分叉”）。传了项目 id 就只留 cwd 相同的；项目不存在返回空 |
+| `listSessions(projectId \| null)` | 扫描 → `buildSessionSummaries`：`projectId` 由 cwd 对上任务池的项目（对不上为 null）；`taskId` / `archived` 由会话文件对上任务池的 `listSessionLinks()`（挂在未归档任务上的填 `taskId`，它就是任务行；挂在已归档任务上的 `archived: true`，侧栏只在“已归档”里列，点开 `resume` 把它恢复成同一个任务）；`parentId` 由会话头的 `parentSession` 在全部索引里对上（omp 整会话分叉写父会话 id、从某条消息分叉写父会话文件路径，两种都认；找不到为 null），侧栏据此把分叉缩进在原会话下面（`SidebarItem.parent` 记着缩进在哪一行下面），原会话那一行可以收起它下面的分叉（2026-11-09 起，issue #9；状态只在渲染层内存里，规则见 spec §4.5“收起分叉”）。传了项目 id 就只留 cwd 相同的；项目不存在返回空。每次调用顺带在后台跑一次对账（`TaskPool.pruneMissingSessions`，2026-11-10 起，issue #10，规则见 [task-model.md](task-model.md)「会话文件被删」）：会话文件在 omp 里删掉的任务记录去掉、推 `taskRemoved`，不等它 |
 | `archiveSession(sessionId)` | 2026-11-08 起（issue #9）：历史会话归档。没挂在任务上的（终端里开的）建一条 `archived:true` 的任务记录（会话目录还不是项目时先加成项目），不起 omp、不动会话文件；挂在任务上的按任务归档 |
+| `deleteSession(sessionId)` / `deleteTask(taskId)` | 2026-11-10 起（issue #10）：真删除，经 omp 的 `/delete`（下面「删除会话」）。会话按头里的 `id` 找文件，挂在任务上的（含已归档的）按任务删；会话目录没了也能删 |
 | `resumeSession(sessionId)` | 按头里的 `id` 重新扫描找文件 → 检查 `cwd` 目录仍存在（不在就报错，不替用户迁移会话）→ `ensureProject(cwd)` 自动加入项目 → `TaskPool.resume({sessionFile, cwd, projectId, title})`。已有任务挂着这个文件时返回那个任务 |
 | `ensureSessionProject(sessionId)` | 同 `resumeSession` 的查找和 cwd 检查，只做 `ensureProject(cwd)`，不建任务。侧栏里只在历史会话出现的文件夹点 `＋` 时用：先加成项目，再把草稿切到它 |
 | `revealProject / revealTaskSession` | `shell.showItemInFolder`，路径由主进程按 id 查表，渲染进程不传路径。`revealTaskSession` 选中的是 `~/.omp/agent/sessions/<编码后的 cwd>/` 下的会话文件，不是任务的工作目录；工作目录走 `openTaskFolder`（`task-handlers.ts`，`shell.openPath(taskCwd)`） |
@@ -54,13 +55,31 @@ omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `
 - **重新读会话文件的时机**：只在起 omp 进程时——重开会话（顶栏 `topbar-restart` / `Ctrl Shift R` / 命令面板，`TspRunner.restart`：关进程再起）和打开一个已停止的任务（有 `sessionFile` 时），都用 `omp --resume=<会话文件>`（`buildTspArgs`），omp 从文件重放整段对话，skill、MCP、插件和配置也一起重新读。所以终端或别的进程往同一个会话文件写了新内容后，想在 studio 看到就重开会话（按钮提示 `task.restartTip` 写明这一点，2026-11-08，issue #9）；studio 不监听文件变化、不提示（仓库所有者定，不做）。
 - 同一 `id` 出现在多个文件时（例如整理中的备份），`findById` 取最新的。
 - 列表依赖 mtime：omp 写会话文件时才更新，所以"最近"排序近似为"最近有写入"。
-- 大目录（数千个会话）首次扫描要 stat + 读前缀每个文件；之后走缓存。没有做增量监听，重扫的时机：侧栏换 refreshKey（任务列表变化）、进出搜索、窗口重新获得焦点（终端 omp 在这期间可能新建或删掉了会话，2026-11-06 起，issue #8）、每次打开命令面板。
+- 大目录（数千个会话）首次扫描要 stat + 读前缀每个文件；之后走缓存。没有做增量监听，重扫的时机：侧栏换 refreshKey（任务列表变化）、进出搜索、窗口重新获得焦点（终端 omp 在这期间可能新建或删掉了会话，2026-11-06 起，issue #8；2026-11-10 起顺带对账，删掉的会话的任务记录也去掉，issue #10）、每次打开命令面板。
 - 标题槽之外的标题变更条目（`title_change`）不解析，标题以槽里的当前值为准。
+
+## 删除会话（`/delete`，2026-11-10，issue #10）
+
+界面见 spec §4.2（任务菜单）和 §4.5（会话行菜单）；主进程流程见 [task-model.md](task-model.md)「删除会话」。studio 不写 `~/.omp`，删除只经 omp 自己的 `/delete`（omp 文档 `session-operations-export-share-fork-resume.md`「New and delete」：删当前会话的 JSONL 和 artifact 目录，尽力而为，删不掉也照样换到新会话；vibe 模式下拒绝）。
+
+实测（omp 18.18.6，2026-11-10，一次性探针：`TaskPool` + PATH 上的真实 omp、临时 `PI_CODING_AGENT_DIR`、`.env` 的测试模型、`PI_TUI_TSP_RECORD` 录双向消息；探针和临时目录用完已删）：
+
+| 情形 | omp 的反应 |
+|---|---|
+| 任务自己的 omp（刚答完一轮）里 `send` `/delete` | 没有确认步骤。约 30ms 后 main 里的对话节点全部 `del`，加一个 `text`：`[图标] Session deleted`（span 样式 `accent`，不是 toast，没有 role）；200ms 内会话文件不在了，`sessions/<桶>/` 里一个文件都不剩（新会话不落盘）。之后 `omp session lease` 仍报这个 id 被这个进程占着，直到进程退出；studio 记录里的 `sessionFile` 还是旧路径（新会话没落盘，`#persistSessionFile` 不记） |
+| 没有进程：新起 omp `--resume` 这个会话再发 `/delete` | 同上，200ms 内删掉。只 `--resume`、还没写东西时 omp 不占租约（`omp session lease` 报 `held: []`） |
+| vibe 模式里发 `/delete` | 不删；main 里加一条 `row role=omp.notice.warning`：`Exit vibe mode first.` |
+| **别的 omp 进程占着这个会话**（同一会话两个进程，另一个 `--resume` 后发 `/delete`） | 照样 `Session deleted`，但文件**没删**，而且被截成 928 字节（原 2693）：只剩标题槽和半行，之后 `--resume` 报 `the session header is missing or malformed`，会话坏了。所以删之前先问 `omp session lease --json -- <id>`（omp `session.md`：只观察、不占用，输出 `{"held":[...],"unknown":[...]}`），占着就拒绝 |
+
+所以 studio 的判据不是 `Session deleted` 这行字，而是会话文件真的不在了（`TspCommands.deleteSession`）。删除失败的提示带 omp 的原话（`task.deleteFailed`）。
+
+没覆盖到的：问租约和临时 omp 发 `/delete` 之间（约 1–3 秒，临时 omp 启动）终端里又打开了这个会话，仍会碰上上表最后一行（omp 不给"占着就别删"的原子操作）；studio 自己的任务有进程时不问租约（租约就是它自己的进程占着的）。
 
 ## 测试
 
 `test/session-index.test.ts`：路径含空格和中文的临时目录；标题槽/旧格式/字符串内容；截断前缀；损坏、空、非会话文件计数；超长首条消息；缓存失效和删除；Windows 路径大小写；`resolveAgentDir`。`test/sidebar-model.test.ts`：分组排序、重名项目标签、等你确认跳转、状态点形状、模糊匹配、面板分组。
-`test/e2e/sidebar.e2e.ts`：侧栏键盘（方向键、F2、Delete、←/→）、归档撤销、命令面板。
+`test/e2e/sidebar.e2e.ts`：侧栏键盘（方向键、F2、Delete、←/→）、归档撤销、命令面板、已归档会话和任务菜单的"删除会话…"与确认框（主进程的删除换成桩）。
+`test/task-pool.test.ts`「会话文件在 omp 里被删了」「删除会话」：对账的各个条件、有进程 / 没进程 / 已归档 / 终端会话的删除（假 omp 收到 `/delete` 删文件，`FAKE_TSP_DELETE_FILE`）、租约被占时拒绝；`test/session-delete.test.ts`：`omp session lease` 输出、警告行、"不在"的错误码。
 
 ## 会话信息、请求记录、置顶、分享、重试（S3，2026-10-21，omp 18.12.5）
 

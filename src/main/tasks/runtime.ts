@@ -31,6 +31,12 @@ import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
 import { TaskPool, type WorktreeOps } from "./task-pool.ts";
 import { pathKey, TaskRegistry } from "./task-registry.ts";
+import { sessionLeaseHeld } from "../history/session-lease.ts";
+import { runOmpCommand } from "../usage/usage-service.ts";
+import { serviceCwd } from "../service/service-omp.ts";
+
+/** `omp session lease` 的上限（真 omp 起一次约 1–3 秒）。 */
+const LEASE_TIMEOUT_MS = 30_000;
 
 let consent: SetupConsent | null = null;
 /** setup 脚本的确认记录（userData/setup-consent.json）；要在 app ready 之后调用。 */
@@ -120,8 +126,13 @@ function createPool(): Promise<TaskPool> {
     // 都先看按目录的缓存（service/slash-commands.ts），输入没变时不起 omp。
     listSlashCommands,
     exportSession: exportSessionHtml,
+    // 删除会话前问 omp 这个会话是不是正被别的 omp 进程写着（session-lease.ts）。
+    sessionInUse: async (sessionFile) => {
+      const executable = await getOmpExecutable();
+      return sessionLeaseHeld(runOmpCommand(executable.path, await serviceCwd(), LEASE_TIMEOUT_MS), sessionFile);
+    },
     tsp: {
-      buildLaunch: async (record, project) => {
+      buildLaunch: async (record, project, options) => {
         // worktree 任务以 worktree 根为 cwd（omp 会话绑 cwd，只能在 spawn 时定）；omp 里 `/move` 过的任务从新目录恢复（会话文件已搬过去，OSC 7）。
         const cwd = record.cwd ?? record.worktreePath ?? project.path;
         const [launch, browserCdp] = await Promise.all([
@@ -134,8 +145,10 @@ function createPool(): Promise<TaskPool> {
             resumeSessionFile: record.sessionFile,
             forkSessionFile: record.forkFrom ?? null,
           }),
-          getBrowserManager().endpoint(record.id),
+          // 删除会话时临时起的 omp 不是任务，不给它开浏览器面板的口。
+          options?.temporary ? null : getBrowserManager().endpoint(record.id),
         ]);
+        if (browserCdp === null) return launch;
         // 浏览器面板的 CDP 口：内置插件读到它就把这个进程的 `browser.cdpUrl` 指过来（docs/architecture/browser.md）。
         return { ...launch, env: { ...launch.env, STUDIO_BROWSER_CDP: browserCdp } };
       },
@@ -190,7 +203,13 @@ function createPool(): Promise<TaskPool> {
   onSettingsChanged(syncAppearance);
   // 退出路径只有 Shell 的 before-quit 一条（arch 2.4）；主进程被强杀时由 Job Object 兜底。
   registerShutdownHook(() => taskPool.shutdown());
-  return taskPool.init().then(() => taskPool);
+  return taskPool.init().then(() => {
+    // 启动时对一次账：在 omp 里删掉的会话，任务记录跟着去掉（issue #10；窗口回到前台时 listSessions 再跑）。不等它。
+    taskPool
+      .pruneMissingSessions()
+      .catch((error: unknown) => log.warn("pruning missing sessions failed", String(error)));
+    return taskPool;
+  });
 }
 
 /** 任务池单例；第一次调用时载入 tasks.json。要在 app ready 之后调用（userData 路径由 index.ts 在 ready 前设定）。 */

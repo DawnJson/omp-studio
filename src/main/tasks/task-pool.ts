@@ -2,7 +2,10 @@
 // 规则见 docs/architecture/task-model.md（arch 2.3）：软上限默认 6，按最近使用回收可回收的空闲任务；
 // 没有可回收的就超出软上限照起，到硬上限（软上限 × 2）才拒绝；可回收状态持续到设置的时长（默认 1 小时）定时关闭；
 // 标了"保持运行"的任务两种回收都不碰。
+import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
+import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import type {
   CreateTaskInput,
   IdleClose,
@@ -46,6 +49,7 @@ import {
 } from "./tsp-runner.ts";
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
 import { taskCommandText, type TaskCommand } from "../../shared/omp-output/index.ts";
+import { isMissingFileError, sessionFileMissing } from "./session-file-missing.ts";
 
 /** 设置"空闲多久关闭"对应的毫秒数；null = 不按时间关。 */
 export const IDLE_CLOSE_MS: Readonly<Record<IdleClose, number | null>> = {
@@ -57,6 +61,8 @@ export const IDLE_CLOSE_MS: Readonly<Record<IdleClose, number | null>> = {
 const SNAPSHOT_LRU_SIZE = 10;
 const SHUTDOWN_CLOSE_TIMEOUT_MS = 5_000;
 const SWEEP_INTERVAL_MS = 60_000;
+/** 对账时会话文件不在，隔这么久再看一次：omp 在 Windows 上原子重写会话文件时，文件可能短暂不在原处。 */
+const MISSING_RECHECK_MS = 1_500;
 
 /** 历史会话建任务记录时的标题：终端里 omp 起的会话标题带图标字形（私用区字符），存进任务前去掉。 */
 function historyTitle(title: string | null): string {
@@ -101,11 +107,18 @@ export interface PoolDeps {
   exportSession?(sessionFile: string, outputPath: string, cwd: string): Promise<void>;
   /** omp 对这个项目的新任务默认值（和草稿页同源）：输入框出现之前用它显示模型和思考强度；没传时不显示。 */
   newTaskDefaults?(project: Project): Promise<NewTaskDefaults>;
-  /** 伪终端里的交互式 omp（TspSession）的依赖。 */
+  /** 伪终端里的交互式 omp（TspSession）的依赖。`temporary`：删除会话时临时起的 omp（不是任务，不给浏览器面板）。 */
   tsp: {
-    buildLaunch(record: TaskRecord, project: Project): Promise<OmpLaunch>;
+    buildLaunch(record: TaskRecord, project: Project, options?: { temporary: boolean }): Promise<OmpLaunch>;
     session: TspSessionDeps;
   };
+  /**
+   * 会话正被某个 omp 进程占着（`omp session lease`，history/session-lease.ts）：删除会话要起临时 omp 时先问，占着就拒绝。
+   * 没传时不检查（单元测试）。
+   */
+  sessionInUse?(sessionFile: string): Promise<boolean>;
+  /** 对账时第二次看会话文件之前的等待；默认等 MISSING_RECHECK_MS。测试注入，在等待里改文件模拟"短暂不在"。 */
+  waitBeforeRecheck?(): Promise<void>;
 }
 
 export interface ResumeInput {
@@ -125,6 +138,8 @@ export class TaskPool {
   #foreground: TaskId | null = null;
   #sweepTimer: NodeJS.Timeout | undefined;
   #shuttingDown = false;
+  /** 正在跑的对账（pruneMissingSessions）；同时只跑一次。 */
+  #pruning: Promise<TaskId[]> | null = null;
   readonly #host: TspRunnerHost;
 
   constructor(deps: PoolDeps) {
@@ -170,7 +185,8 @@ export class TaskPool {
   /**
    * 2026-11-06 之前 ConPTY 转发的控制台标题（`Administrator: C:\…\cmd.exe` 之类）被当成任务标题存进了 tasks.json（issue #9）。
    * 启动时（还没有进程）把这些记录（含已归档的，恢复时会回来）的标题换成会话文件里 omp 的标题，没有就用第一条消息的首行，
-   * 再没有（或还没有会话文件）留空。会话文件读不了的只记日志、原样保留，打开后由 TspRunner 按会话文件换掉。
+   * 再没有（还没有会话文件，或文件已不在：在 omp 里删了，见 pruneMissingSessions）留空。会话文件读不了（权限、不是会话文件）
+   * 的只记日志、原样保留，打开后由 TspRunner 按会话文件换掉。
    */
   async #replaceConsoleTitles(): Promise<void> {
     for (const record of this.#deps.registry.listTasks()) {
@@ -178,8 +194,15 @@ export class TaskPool {
       const file = record.sessionFile;
       try {
         let title = "";
-        if (file !== null) {
-          const head = await readSessionHead(file, (await stat(file)).size);
+        const info =
+          file === null
+            ? null
+            : await stat(file).catch((error: unknown) => {
+                if (isMissingFileError(error)) return null;
+                throw error;
+              });
+        if (file !== null && info !== null) {
+          const head = await readSessionHead(file, info.size);
           if (head === null) throw new Error("not a session file");
           title = stripIconGlyphs(head.title ?? "") || titleFromPrompt(head.firstPrompt ?? "");
         }
@@ -188,6 +211,60 @@ export class TaskPool {
         log.warn(`task ${record.id} replacing the console title failed`, { message: String(error) });
       }
     }
+  }
+
+  /**
+   * 对账（issue #10）：会话在 omp 里被删了（终端版的恢复列表里删的），任务记录跟着去掉（taskRemoved），侧栏不再留一行打不开的任务，
+   * 删掉的分叉也不再和原会话并排成两行同名的。启动后、窗口回到前台重扫会话列表时（history-handlers 的 listSessions）各跑一次，调用方不等它。
+   * 只去掉同时满足这些的：没归档、有会话文件、stat 报 ENOENT / ENOTDIR（权限之类的错误不算）、隔 MISSING_RECHECK_MS 再看一次还不在、
+   * 没有进程也不在启动中、不是前台任务（选中的任务报 session_missing，由用户决定）、没有 worktree（worktree 要用户自己丢弃）。
+   * 前一次还没跑完时返回同一个 promise。返回去掉的任务 id。
+   */
+  pruneMissingSessions(): Promise<TaskId[]> {
+    this.#pruning ??= this.#pruneMissingSessions().finally(() => {
+      this.#pruning = null;
+    });
+    return this.#pruning;
+  }
+
+  async #pruneMissingSessions(): Promise<TaskId[]> {
+    const candidates = this.#deps.registry.listTasks().filter((record) => this.#prunable(record));
+    const missing = await Promise.all(candidates.map((record) => sessionFileMissing(record.sessionFile as string)));
+    const suspects = candidates.filter((_record, index) => missing[index]);
+    if (suspects.length === 0) return [];
+    await (this.#deps.waitBeforeRecheck ? this.#deps.waitBeforeRecheck() : sleep(MISSING_RECHECK_MS));
+    const removed: TaskId[] = [];
+    for (const { id } of suspects) {
+      // 等的这段时间里任务可能被打开、恢复、换了会话文件：按现在的记录重新判断。
+      const record = this.#deps.registry.findTask(id);
+      if (this.#shuttingDown || !record || !this.#prunable(record)) continue;
+      if (!(await sessionFileMissing(record.sessionFile as string))) continue;
+      log.info(`task ${id} removed: its session file no longer exists`, { sessionFile: record.sessionFile });
+      await this.#removeTask(id);
+      removed.push(id);
+    }
+    return removed;
+  }
+
+  #prunable(record: TaskRecord): boolean {
+    if (record.archived || record.sessionFile === null || record.worktreePath !== null) return false;
+    if (this.#foreground === record.id) return false;
+    const runner = this.#runners.get(record.id);
+    return !runner || (!runner.hasProcess && runner.status !== "starting");
+  }
+
+  /** 去掉任务记录（会话已经没了）：关掉它的运行时（终端、进程），通知 taskRemoved（草稿、浏览器面板等由 runtime.ts 清掉）。 */
+  async #removeTask(id: TaskId): Promise<void> {
+    const runner = this.#runners.get(id);
+    if (runner) {
+      await this.#deps.beforeTaskClose?.(id);
+      await runner.dispose();
+      this.#runners.delete(id);
+      this.#recyclableSince.delete(id);
+      if (this.#foreground === id) this.#foreground = null;
+    }
+    await this.#deps.registry.removeTask(id);
+    this.#deps.events.taskRemoved(id);
   }
 
   #adopt(record: TaskRecord): TspRunner {
@@ -450,6 +527,80 @@ export class TaskPool {
     this.#recyclableSince.delete(id);
     if (this.#foreground === id) this.#foreground = null;
     this.#deps.events.taskRemoved(id);
+  }
+
+  /**
+   * 删除会话（spec §4.2，issue #10）：会话文件经 omp 自己的 `/delete` 删掉（studio 不写 `~/.omp`），确认文件真的不在了，
+   * 再去掉任务记录（taskRemoved）。有进程（或正在启动）的任务在它自己的 omp 里发；没有进程的（含已归档的）起一个临时 omp
+   * （#deleteWithTemporaryProcess）。会话文件已经不在、或任务还没有会话文件时直接去掉记录。失败时记录不动，错误（omp 的原话）照抛。
+   */
+  async deleteTask(id: TaskId): Promise<void> {
+    const record = this.#deps.registry.findTask(id);
+    if (!record) throw new Error(`unknown task ${id}`);
+    const runner = this.#runners.get(id);
+    if (runner && (runner.hasProcess || runner.status === "starting")) await runner.deleteSession();
+    else if (record.sessionFile !== null && !(await sessionFileMissing(record.sessionFile)))
+      await this.#deleteWithTemporaryProcess(record.sessionFile, record);
+    await this.#removeTask(id);
+  }
+
+  /** 删除一条历史会话（已归档的、终端里开的）：挂在任务上的按任务删（deleteTask），没挂的起临时 omp 删。 */
+  async deleteSession(input: { sessionFile: string; cwd: string }): Promise<void> {
+    const existing = this.#deps.registry.findTaskBySessionFile(input.sessionFile);
+    if (existing) return this.deleteTask(existing.id);
+    if (await sessionFileMissing(input.sessionFile)) return;
+    await this.#deleteWithTemporaryProcess(input.sessionFile, null, input.cwd);
+  }
+
+  /**
+   * 没有进程的会话：先问 omp 这个会话是不是正被别的 omp 进程占着（sessionInUse），占着就拒绝——那样的 `/delete` 删不掉文件，
+   * 还会把它截坏（omp 18.18.6 实测，session-history.md「删除会话」）。然后起一个临时 omp `--resume` 这个会话（不是任务：不进
+   * 任务表、不推状态和节点树、不开浏览器面板），在里面发 `/delete`，确认文件不在了，关掉进程。
+   */
+  async #deleteWithTemporaryProcess(file: string, owner: TaskRecord | null, cwd?: string): Promise<void> {
+    if (await this.#deps.sessionInUse?.(file)) throw new Error("the session is open in another omp process");
+    const dir = owner?.cwd ?? cwd ?? null;
+    const project = (owner && this.#deps.registry.findProject(owner.projectId)) ??
+      (dir !== null ? this.#deps.registry.findProjectByPath(dir) : undefined) ?? {
+        id: "" as ProjectId,
+        path: dir ?? path.dirname(file),
+        name: path.basename(dir ?? file),
+        hidden: true,
+      };
+    const now = Date.now();
+    let record: TaskRecord = {
+      id: randomUUID() as TaskId,
+      projectId: project.id,
+      sessionFile: file,
+      title: "",
+      createdAt: now,
+      updatedAt: now,
+      archived: false,
+      model: null,
+      thinkingLevel: null,
+      worktreePath: owner?.worktreePath ?? null,
+      worktreeBranch: owner?.worktreeBranch ?? null,
+      worktreeBase: owner?.worktreeBase ?? null,
+      cwd: dir,
+    };
+    const runner = new TspRunner(record, project, {
+      buildLaunch: (current, target) => this.#deps.tsp.buildLaunch(current, target, { temporary: true }),
+      acquireSlot: (slot) => this.#acquireSlot(slot),
+      // 临时进程的记录只在内存里（omp 报的会话文件、标题等不落进 tasks.json）。
+      persist: async (_id, patch) => {
+        record = { ...record, ...patch };
+        return record;
+      },
+      isForeground: () => false,
+      onState: () => {},
+      onTspBatch: () => {},
+      session: this.#deps.tsp.session,
+    });
+    try {
+      await runner.deleteSession();
+    } finally {
+      await runner.dispose();
+    }
   }
 
   /** 压缩上下文：发 `/compact`，等 omp 画出压缩分隔（成功）或 "Error: Compaction failed: …"（失败，原文抛出），见 `TspRunner.compact`。 */

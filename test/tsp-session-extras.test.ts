@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseSession } from "../src/main/tsp/session-extras.ts";
-import { formatDuration, formatTokens, formatTurnFooter } from "../src/renderer/src/features/tsp/turn-footer.ts";
+import {
+  formatDuration,
+  formatTokens,
+  formatTurnFooter,
+  withTurnDetails,
+} from "../src/renderer/src/features/tsp/turn-footer.ts";
 import { loadTspFixture, tspFixtureDir } from "./tsp-fixtures.ts";
 
 const header = JSON.stringify({ type: "session", id: "sess-1", cwd: "E:/x" });
@@ -31,11 +36,11 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
       assistant("stop", tokens(50, 5, 0.002), 4000),
     ].join("\n");
     expect(parseSession(text).turns).toEqual([
-      { elapsedMs: 3000, completedAt: 4000, input: 150, output: 15, cost: 0.003 },
+      { elapsedMs: 3000, completedAt: 4000, input: 150, output: 15, cost: 0.003, cacheRead: 0, cacheWrite: 0 },
     ]);
   });
 
-  it("cacheWrite 算输入，orchestration 的 token 并入；缓存读取不算", () => {
+  it("cacheWrite 算输入，orchestration 的 token 并入；缓存读取不算输入，缓存读写另外单独累计", () => {
     const text = [
       user(0),
       assistant("stop", {
@@ -47,7 +52,26 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
         cost: { total: 0 },
       }),
     ].join("\n");
-    expect(parseSession(text).turns).toEqual([{ elapsedMs: null, completedAt: null, input: 18, output: 6, cost: 0 }]);
+    expect(parseSession(text).turns).toEqual([
+      { elapsedMs: null, completedAt: null, input: 18, output: 6, cost: 0, cacheRead: 999, cacheWrite: 5 },
+    ]);
+  });
+
+  it("缓存读写按轮累计：一轮里多条消息相加，新的用户消息和结算后清零，不带进下一轮", () => {
+    const text = [
+      user(1),
+      assistant("toolUse", tokens(10, 1, 0, { cacheRead: 100, cacheWrite: 20 }), 2),
+      assistant("stop", tokens(10, 1, 0, { cacheRead: 300, cacheWrite: 0 }), 3),
+      user(4),
+      assistant("toolUse", tokens(5, 1, 0, { cacheRead: 9999, cacheWrite: 9999 }), 5),
+      user(6), // steer：上一轮没结算的缓存读写不带过来
+      assistant("stop", tokens(5, 1, 0, { cacheRead: 50 }), 7),
+      user(8),
+      assistant("stop", tokens(5, 1, 0), 9),
+    ].join("\n");
+    const turns = parseSession(text).turns;
+    expect(turns.map((turn) => turn && [turn.cacheRead, turn.cacheWrite])).toEqual([[400, 20], null, [50, 0], [0, 0]]);
+    expect(turns[0]?.input).toBe(40); // 输入照旧含缓存写入（10 + 20 + 10），不含缓存读取
   });
 
   it("每个非 agent 用户消息一项：没结束的轮、没有用量的轮是 null；agent 归属的用户消息不开新轮", () => {
@@ -63,10 +87,26 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
     ].join("\n");
     const { turns } = parseSession(text);
     expect(turns).toHaveLength(3);
-    expect(turns[0]).toEqual({ elapsedMs: 9, completedAt: 10, input: 1, output: 1, cost: 0.1 });
+    expect(turns[0]).toEqual({
+      elapsedMs: 9,
+      completedAt: 10,
+      input: 1,
+      output: 1,
+      cost: 0.1,
+      cacheRead: 0,
+      cacheWrite: 0,
+    });
     expect(turns[1]).toBeNull();
     // 第 3 轮：空回复没用量 → null，agent 消息之后的回复算在这一轮里
-    expect(turns[2]).toEqual({ elapsedMs: 47, completedAt: 50, input: 7, output: 3, cost: 0.4 });
+    expect(turns[2]).toEqual({
+      elapsedMs: 47,
+      completedAt: 50,
+      input: 7,
+      output: 3,
+      cost: 0.4,
+      cacheRead: 0,
+      cacheWrite: 0,
+    });
   });
 
   it("坏行（含写到一半的最后一行）跳过", () => {
@@ -79,9 +119,33 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
     const text = await readFile(path.join(tspFixtureDir, "resume-session.jsonl"), "utf8");
     const parsed = parseSession(text);
     expect(parsed.turns).toEqual([
-      { elapsedMs: 11215, completedAt: 1792459072926, input: 1973, output: 886, cost: 0.001909308 },
-      { elapsedMs: 47454, completedAt: 1792459218585, input: 1659, output: 1115, cost: 0.002302644 },
-      { elapsedMs: 4684, completedAt: 1792459309080, input: 838, output: 259, cost: 0.000899352 },
+      {
+        elapsedMs: 11215,
+        completedAt: 1792459072926,
+        input: 1973,
+        output: 886,
+        cost: 0.001909308,
+        cacheRead: 42368,
+        cacheWrite: 0,
+      },
+      {
+        elapsedMs: 47454,
+        completedAt: 1792459218585,
+        input: 1659,
+        output: 1115,
+        cost: 0.002302644,
+        cacheRead: 77824,
+        cacheWrite: 0,
+      },
+      {
+        elapsedMs: 4684,
+        completedAt: 1792459309080,
+        input: 838,
+        output: 259,
+        cost: 0.000899352,
+        cacheRead: 56192,
+        cacheWrite: 0,
+      },
     ]);
   });
 });
@@ -139,6 +203,8 @@ describe("脚注文字（和 omp 的 tLo 同格式）", () => {
       input,
       output,
       cost,
+      cacheRead: 0,
+      cacheWrite: 0,
     });
     expect(formatTurnFooter(footer(11215, 1973, 886, 0.001909308))).toEqual({
       text: "11.2s · 2.9K tok · <$0.01 this turn",
@@ -152,11 +218,52 @@ describe("脚注文字（和 omp 的 tLo 同格式）", () => {
 
   it("悬停多一行回答完成的本地时刻（omp 用户消息时间的写法）；会话文件里没有完成时刻就不加", () => {
     const finished = new Date(2026, 10, 8, 9, 5, 7).getTime();
-    const base = { elapsedMs: 1200, input: 10, output: 5, cost: 0 };
+    const base = { elapsedMs: 1200, input: 10, output: 5, cost: 0, cacheRead: 0, cacheWrite: 0 };
     expect(formatTurnFooter({ ...base, completedAt: finished }).title).toBe(
       "This turn: 1.2s · 15 tokens (10 in · 5 out)\nFinished 2026/11/08 09:05:07",
     );
     expect(formatTurnFooter({ ...base, completedAt: null }).title).toBe("This turn: 1.2s · 15 tokens (10 in · 5 out)");
+  });
+
+  it("悬停加一行这一轮的缓存命中率：缓存读取 ÷ (输入 + 缓存读取)，输入里已含缓存写入；没有缓存数据时不加，可见文字不变", () => {
+    const finished = new Date(2026, 10, 8, 9, 5, 7).getTime();
+    // 输入 300（含缓存写入 100）、缓存读取 700：700 ÷ (200 + 700 + 100) = 70%。
+    const turn = {
+      elapsedMs: 1200,
+      completedAt: finished,
+      input: 300,
+      output: 5,
+      cost: 0,
+      cacheRead: 700,
+      cacheWrite: 100,
+    };
+    expect(formatTurnFooter(turn)).toEqual({
+      text: "1.2s · 305 tok this turn",
+      title: "This turn: 1.2s · 305 tokens (300 in · 5 out)\nCache hit rate 70%\nFinished 2026/11/08 09:05:07",
+    });
+    // 只写了缓存、还没读到：0%，照样显示。
+    expect(formatTurnFooter({ ...turn, cacheRead: 0, completedAt: null }).title).toBe(
+      "This turn: 1.2s · 305 tokens (300 in · 5 out)\nCache hit rate 0%",
+    );
+    expect(formatTurnFooter({ ...turn, cacheRead: 0, cacheWrite: 0, completedAt: null }).title).toBe(
+      "This turn: 1.2s · 305 tokens (300 in · 5 out)",
+    );
+  });
+
+  it("omp 实时画的用量行：悬停原文后面补缓存命中率和完成时刻；对不上轮（null）原样", () => {
+    const finished = new Date(2026, 10, 8, 9, 5, 7).getTime();
+    const omp = "This turn: 10m39s · 121,021 tokens (84,549 in · 36,472 out) · $0.15";
+    const turn = {
+      elapsedMs: 1,
+      completedAt: finished,
+      input: 84_549,
+      output: 36_472,
+      cost: 0.15,
+      cacheRead: 1_000_000,
+      cacheWrite: 0,
+    };
+    expect(withTurnDetails(omp, turn)).toBe(`${omp}\nCache hit rate 92%\nFinished 2026/11/08 09:05:07`);
+    expect(withTurnDetails(omp, null)).toBe(omp);
   });
 });
 
@@ -176,7 +283,7 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
       assistant("aborted", tokens(0, 0, 0), 900),
     ].join("\n");
     expect(parseSession(text).turns).toEqual([
-      { elapsedMs: 600, completedAt: 700, input: 30, output: 4, cost: 0.002 },
+      { elapsedMs: 600, completedAt: 700, input: 30, output: 4, cost: 0.002, cacheRead: 0, cacheWrite: 0 },
       null,
     ]);
   });
@@ -190,7 +297,7 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
     ].join("\n");
     expect(parseSession(text).turns).toEqual([
       null,
-      { elapsedMs: 600, completedAt: 2600, input: 7, output: 3, cost: 0.004 },
+      { elapsedMs: 600, completedAt: 2600, input: 7, output: 3, cost: 0.004, cacheRead: 0, cacheWrite: 0 },
     ]);
   });
 
@@ -206,7 +313,15 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
     const { turns } = parseSession(text);
     expect(turns).toHaveLength(2);
     expect(turns[0]?.cost).toBeCloseTo(0.3);
-    expect(turns[1]).toEqual({ elapsedMs: 10, completedAt: 20, input: 5, output: 5, cost: 0.05 });
+    expect(turns[1]).toEqual({
+      elapsedMs: 10,
+      completedAt: 20,
+      input: 5,
+      output: 5,
+      cost: 0.05,
+      cacheRead: 0,
+      cacheWrite: 0,
+    });
   });
 
   it("合成的 developer 消息（omp 的 chat-transcript-builder 同样清零）：用户发起的从它的时间戳起算，否则没有耗时", () => {
@@ -216,10 +331,12 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
       developer(1500, { userInitiated: true }),
       assistant("stop", tokens(7, 3, 0.004), 1900),
     ].join("\n");
-    expect(parseSession(text).turns).toEqual([{ elapsedMs: 400, completedAt: 1900, input: 7, output: 3, cost: 0.004 }]);
+    expect(parseSession(text).turns).toEqual([
+      { elapsedMs: 400, completedAt: 1900, input: 7, output: 3, cost: 0.004, cacheRead: 0, cacheWrite: 0 },
+    ]);
     const background = [user(1000), developer(1500), assistant("stop", tokens(7, 3, 0.004), 1900)].join("\n");
     expect(parseSession(background).turns).toEqual([
-      { elapsedMs: null, completedAt: 1900, input: 7, output: 3, cost: 0.004 },
+      { elapsedMs: null, completedAt: 1900, input: 7, output: 3, cost: 0.004, cacheRead: 0, cacheWrite: 0 },
     ]);
   });
 

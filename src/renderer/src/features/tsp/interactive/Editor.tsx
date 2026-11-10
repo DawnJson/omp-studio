@@ -1,7 +1,8 @@
 // `editor` / `input`：文字和光标由 omp 决定，这边是一个透明的 textarea（接键盘、选区、输入法、粘贴）叠在背景层上，
 // 背景层按 omp 的 text / decor / ghost / placeholder 画。规范 protocol-input.md「Native editing」：
-// - 没有选区时，打字、删除、方向键、Enter 等都按 keys.ts 编码写进伪终端，omp 回新的 text / cursor；
-// - Tern 自己的选区（Shift+方向键、拖选、Ctrl+A）上的输入 / 删除 / 粘贴 / 剪切 → `edit` 事件；
+// - 打字的文字只由 beforeinput 送出（keydown 不发，见 keys.ts 的 isTextKey）：没有选区写进伪终端，有选区是 edit；
+// - 没有选区时，删除、方向键、Enter 等按 keys.ts 编码写进伪终端，omp 回新的 text / cursor；
+// - Tern 自己的选区（Shift+方向键、拖选、Ctrl+A）上的删除 / 粘贴 / 剪切 → `edit` 事件；
 // - 点击 / ↑↓ 画出来的行 / Home End 移动光标 → `edit`（from == to）；Ctrl+Z → `undo`；
 // - 点击没有焦点的输入框 → `focus`，等 omp 回 focus 操作再拿键盘；
 // - 输入法：组合期间交给浏览器（预编辑文字画在光标处），提交时再写进伪终端（有选区则是 edit）。
@@ -11,6 +12,7 @@ import {
   encodeKey,
   encodePaste,
   isComposingKey,
+  isTextKey,
   routeEditorKey,
   type EditorKeyRoute,
   type EditorKeyState,
@@ -162,7 +164,7 @@ export function Editor(props: NodeProps) {
     return () => document.removeEventListener("selectionchange", onSelectionChange);
   }, [reportCaret]);
 
-  // 不经 keydown 的插入（Windows 表情面板、听写）：没有选区写进伪终端，有选区发 edit。
+  // 插入文字的唯一出口（打字、Windows 表情面板、听写、输入法英文模式）：没有选区写进伪终端，有选区发 edit。
   useEffect(() => {
     const el = field.current;
     if (!el) return;
@@ -189,6 +191,8 @@ export function Editor(props: NodeProps) {
     const pasteKey = (e.ctrlKey && e.key.toLowerCase() === "v" && !e.altKey) || (e.shiftKey && e.key === "Insert");
     if (pasteKey) return; // 交给 paste 事件
     moveArmed.current = false;
+    // 打字不在 keydown 发：输入法英文模式下 keydown 是字母，preventDefault 拦不住输入法再送一遍文字。只读时没有 beforeinput。
+    if (!readonly && isTextKey(like)) return;
 
     let route: EditorKeyRoute = "pty";
     if (native) {
@@ -224,10 +228,7 @@ export function Editor(props: NodeProps) {
         const from = el.selectionStart;
         const to = el.selectionEnd;
         if (e.key === "Backspace" || e.key === "Delete") sendEdit(from, to, "", from);
-        else {
-          const insert = e.key === "Enter" ? "\n" : e.key;
-          sendEdit(from, to, insert, from + insert.length);
-        }
+        else sendEdit(from, to, "\n", from + 1);
         return;
       }
       case "pty": {

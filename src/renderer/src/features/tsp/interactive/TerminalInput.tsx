@@ -1,7 +1,8 @@
 // 不显示的 <input>：picker / prefs 的搜索框是 omp 自己的（query 由 omp 回），这边只负责收键盘和输入法，
-// 按键编码后写进伪终端；输入法提交的文字、粘贴也写进去。字符永远不留在 input 里。
+// 写进伪终端：打字的文字只由 beforeinput 送（keydown 不发，见 keys.ts 的 isTextKey），其余按键编码后写；
+// 输入法提交的文字、粘贴也写进去。字符永远不留在 input 里。
 import { useEffect, useRef } from "react";
-import { encodeKey, encodePaste, isComposingKey } from "../keys.ts";
+import { encodeKey, encodePaste, isComposingKey, isTextKey } from "../keys.ts";
 import type { TspContext } from "../node-props.ts";
 import { likeOf } from "./key-event.ts";
 
@@ -20,7 +21,7 @@ export function TerminalInput({ ctx, autoFocus = false, label }: TerminalInputPr
     if (autoFocus) input.current?.focus({ preventScroll: true });
   }, [autoFocus]);
 
-  // 不经 keydown 的插入（Windows 表情面板、听写）。
+  // 插入文字的唯一出口（打字、Windows 表情面板、听写、输入法英文模式）。
   useEffect(() => {
     const el = input.current;
     if (!el) return;
@@ -38,6 +39,8 @@ export function TerminalInput({ ctx, autoFocus = false, label }: TerminalInputPr
     const like = likeOf(e.nativeEvent);
     if (isComposingKey(like)) return;
     if ((e.ctrlKey && e.key.toLowerCase() === "v" && !e.altKey) || (e.shiftKey && e.key === "Insert")) return;
+    // 输入法英文模式下 keydown 是字母，preventDefault 拦不住输入法再送一遍文字：打字只走 beforeinput。
+    if (isTextKey(like)) return;
     const data = encodeKey(like);
     if (data === null) return;
     e.preventDefault();

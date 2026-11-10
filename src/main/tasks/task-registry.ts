@@ -191,4 +191,11 @@ export class TaskRegistry {
     await this.save();
     return next;
   }
+
+  /** 去掉任务记录并写盘（会话已不在：在 omp 里删了，或经 `/delete` 删了）。记录不存在时什么也不做。 */
+  async removeTask(id: TaskId): Promise<void> {
+    if (!this.findTask(id)) return;
+    this.#data = { ...this.#data, tasks: this.#data.tasks.filter((task) => task.id !== id) };
+    await this.save();
+  }
 }

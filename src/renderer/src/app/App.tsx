@@ -43,7 +43,7 @@ import {
   SettingsView,
 } from "./lazy-views.tsx";
 import { emitStudioCommand, onStudioCommand } from "../features/palette/studio-command.ts";
-import { jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
+import { DeleteSessionHost, jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
 import { addProjectAsDraft } from "../features/sidebar/sidebar-actions.ts";
 import { useLocale, useT } from "../i18n/use-t.ts";
 import { openReview } from "../store/review-store.ts";
@@ -505,6 +505,7 @@ export function App() {
       <ReviewHost />
       <GitDialogHost />
       <SessionInfoHost />
+      <DeleteSessionHost />
       <NoticeLayer />
       <CommandPalette />
       <OmpSetupView />

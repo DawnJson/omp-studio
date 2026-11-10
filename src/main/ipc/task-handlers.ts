@@ -54,6 +54,7 @@ export const taskHandlers: HandlerGroup<
   | "renameTask"
   | "setTaskKeepAlive"
   | "archiveTask"
+  | "deleteTask"
   | "listTaskModels"
   | "setTaskModel"
   | "setTaskThinkingLevel"
@@ -249,6 +250,8 @@ export const taskHandlers: HandlerGroup<
     (await getTaskPool()).setTaskKeepAlive(parseTaskId(taskId), parseBoolean(on, "on")),
 
   archiveTask: async (taskId) => (await getTaskPool()).archiveTask(parseTaskId(taskId)),
+
+  deleteTask: async (taskId) => (await getTaskPool()).deleteTask(parseTaskId(taskId)),
 
   listTaskModels: async (taskId) => (await getTaskPool()).listTaskModels(parseTaskId(taskId)),
 

@@ -3,11 +3,13 @@
 import { useCallback, useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Project, SessionSummary, TaskId, TaskState } from "../../../../shared/ipc.ts";
-import { Branch, Close, Folder } from "../../icons.tsx";
+import { taskTitle, sessionTitle } from "../../../../shared/ui/sidebar-model.ts";
+import { Branch, Close, Folder, Trash } from "../../icons.tsx";
 import { Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { cleanupOrphans } from "../git/git-actions.ts";
 import { refreshProjects } from "./projects-store.ts";
 import { attempt, buildTaskMenu } from "./task-menu.tsx";
+import { confirmDelete } from "./delete-session.tsx";
 import { ArchiveIcon } from "./icons.tsx";
 import { isTaskPinned, refreshHistorySessions } from "./use-history-sessions.ts";
 
@@ -39,6 +41,7 @@ export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): 
       items: buildTaskMenu({
         t,
         taskId: task.id,
+        title: taskTitle(task),
         keepAlive: task.keepAlive,
         pinned: isTaskPinned(task.id),
         selectedTaskId,
@@ -46,25 +49,37 @@ export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): 
       }),
     });
 
-  // 历史会话（终端里开的、归档过的任务的）：没归档的可以归档；归档了的从"已归档"点开就恢复，不用菜单。
+  // 历史会话（终端里开的、归档过的任务的）：没归档的可以归档；都可以删除（删除确认框，经 omp 的 `/delete`）。
+  // 归档了的从"已归档"点开就恢复，菜单里只有删除。
   const openSessionMenu = (session: SessionSummary, x: number, y: number, trigger: HTMLElement) => {
-    if (session.archived) return;
+    const remove: MenuEntry = {
+      id: "delete",
+      label: t("task.delete"),
+      icon: <Trash />,
+      tone: "danger",
+      testId: "session-menu-delete",
+      onSelect: () => confirmDelete({ kind: "session", sessionId: session.id, title: sessionTitle(session) ?? "" }),
+    };
     setOpen({
       anchor: { x, y, returnFocus: trigger },
       label: t("task.more"),
-      items: [
-        {
-          id: "archive",
-          label: t("task.archive"),
-          icon: <ArchiveIcon />,
-          onSelect: () =>
-            void attempt(t, async () => {
-              await window.studio.archiveSession(session.id);
-              await refreshProjects();
-              refreshHistorySessions();
-            }),
-        },
-      ],
+      items: session.archived
+        ? [remove]
+        : [
+            {
+              id: "archive",
+              label: t("task.archive"),
+              icon: <ArchiveIcon />,
+              onSelect: () =>
+                void attempt(t, async () => {
+                  await window.studio.archiveSession(session.id);
+                  await refreshProjects();
+                  refreshHistorySessions();
+                }),
+            },
+            { kind: "separator", id: "sep-delete" },
+            remove,
+          ],
     });
   };
 

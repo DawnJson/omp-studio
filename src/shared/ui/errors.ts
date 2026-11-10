@@ -20,6 +20,7 @@ const taskErrorKinds: Record<TaskError["kind"], Parameters<TFunction>[0]> = {
 /** 主进程里可预期错误的措辞 → 文案。主进程改了措辞只会退化成通用句，不会显示错的内容。 */
 const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/the session is busy|session_busy/i, "error.sessionBusy"],
+  [/the session is open in another omp process/i, "error.sessionInUse"],
   [/composer_unavailable/i, "error.composerUnavailable"],
   [/screen_open/i, "error.screenOpen"],
   [/worktree is shared with another task/i, "error.worktreeShared"],

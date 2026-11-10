@@ -1,9 +1,11 @@
 // 防的是：键编码错了，omp 收到的不是用户按的键（Alt+P 打不开模型选择器、Ctrl+Enter 变成 Enter）；
-// 输入法选词时的按键被写进终端；输入框里该留给 omp 的键被 Tern 吃掉（或反过来）。
+// 输入法选词时的按键被写进终端；输入框里该留给 omp 的键被 Tern 吃掉（或反过来）；
+// 输入法英文模式下打的字在 keydown 和 beforeinput 各发一次（fork → ffoorrkk）。
 import { describe, expect, it } from "vitest";
 import {
   encodeKey,
   encodePaste,
+  isTextKey,
   routeEditorKey,
   type EditorKeyState,
   type KeyEventLike,
@@ -104,6 +106,37 @@ describe("encodePaste", () => {
   });
 });
 
+describe("isTextKey", () => {
+  it.each<[string, KeyEventLike, boolean]>([
+    ["字母", ev("f", { code: "KeyF", keyCode: 70 }), true],
+    ["Shift+字母", ev("F", { shiftKey: true }), true],
+    ["数字", ev("4"), true],
+    ["标点", ev("?", { shiftKey: true }), true],
+    ["空格", ev(" "), true],
+    ["非 ASCII 字符", ev("中"), true],
+    ["代理对字符", ev("😀"), true],
+    ["AltGr 字符", ev("@", { ctrlKey: true, altKey: true, altGraph: true }), true],
+    ["Ctrl+字母", ev("a", { ctrlKey: true }), false],
+    ["Ctrl+空格", ev(" ", { ctrlKey: true }), false],
+    ["Alt+字母", ev("p", { altKey: true }), false],
+    ["Mac Option 字符", ev("π", { altKey: true, code: "KeyP" }), false],
+    ["Ctrl+Alt 不是 AltGr", ev("c", { ctrlKey: true, altKey: true }), false],
+    ["Cmd+字母", ev("c", { metaKey: true }), false],
+    ["输入法组合中", ev("a", { isComposing: true }), false],
+    ["输入法 229", ev("a", { keyCode: 229 }), false],
+    ["Process", ev("Process"), false],
+    ["Enter", ev("Enter"), false],
+    ["Backspace", ev("Backspace"), false],
+    ["方向键", ev("ArrowLeft"), false],
+    ["Tab", ev("Tab"), false],
+    ["Esc", ev("Escape"), false],
+    ["死键", ev("Dead"), false],
+    ["单独的 Shift", ev("Shift", { shiftKey: true }), false],
+  ])("%s", (_name, e, expected) => {
+    expect(isTextKey(e)).toBe(expected);
+  });
+});
+
 describe("routeEditorKey", () => {
   const state = (over: Partial<EditorKeyState> = {}): EditorKeyState => ({
     hasSelection: false,
@@ -152,14 +185,11 @@ describe("routeEditorKey", () => {
     expect(routeEditorKey(ev("ArrowLeft"), state({ hasSelection: true }))).toBe("move");
   });
 
-  it("有选区时输入、删除、Shift+Enter 替换选区；没有选区时都归 omp", () => {
+  it("有选区时删除、Shift+Enter 替换选区；没有选区时归 omp", () => {
     const sel = state({ hasSelection: true });
-    expect(routeEditorKey(ev("x"), sel)).toBe("replace");
-    expect(routeEditorKey(ev("中"), sel)).toBe("replace");
     expect(routeEditorKey(ev("Backspace"), sel)).toBe("replace");
     expect(routeEditorKey(ev("Delete"), sel)).toBe("replace");
     expect(routeEditorKey(ev("Enter", { shiftKey: true }), sel)).toBe("replace");
-    expect(routeEditorKey(ev("x"), state())).toBe("pty");
     expect(routeEditorKey(ev("Backspace"), state())).toBe("pty");
   });
 

@@ -1,5 +1,6 @@
 // TSP 任务的会话命令：切模型 / 思考强度、读上下文报告、斜杠命令（`/compact` `/handoff` `/todo` 模式命令、`/goal`、`/fast` `/slow`）。
 // 都是往 omp 的输入框发命令（或点输入框卡片上的控件）再等 omp 的回应；一律串在任务的界面操作队列里（宿主的 `exclusive`）。
+import { setTimeout as sleep } from "node:timers/promises";
 import type { ContextReport, ModelKey, TaskState, TaskThinkingLevel } from "../../shared/ipc.ts";
 import type { TspDocument } from "../../shared/tsp/document.ts";
 import {
@@ -14,7 +15,7 @@ import {
   type TspComposerTargets,
 } from "../../shared/tsp/composer-state.ts";
 import { compactionMark, compactionOutcome } from "../../shared/tsp/compaction.ts";
-import { errorLines, newErrorLine } from "../../shared/tsp/error-lines.ts";
+import { errorLines, newErrorLine, warningLines } from "../../shared/tsp/error-lines.ts";
 import { ACTION_CONTEXT_REPORT, findContextReport } from "../../shared/tsp/context-report.ts";
 import { deriveTaskStatus } from "../../shared/tsp/task-status.ts";
 import { findMessageTarget } from "../../shared/tsp/gate.ts";
@@ -30,6 +31,7 @@ import { toTaskThinkingLevel } from "../../shared/ui/new-task-default.ts";
 import { log } from "../log/log.ts";
 import type { TspSession } from "../tsp/tsp-session.ts";
 import type { TspGoalTracker } from "./tsp-goal.ts";
+import { sessionFileMissing } from "./session-file-missing.ts";
 
 /** 切模型、切思考强度时等 omp 响应的上限：选择器（要读模型目录）打开、确认提示出现。 */
 export const PICKER_TIMEOUT_MS = 8_000;
@@ -39,6 +41,9 @@ export const ESC_KEY = "\x1b";
 const QUIET_SETTLE_MS = 1_500;
 /** `/compact` 要调模型：等压缩结局的上限。 */
 const COMPACT_TIMEOUT_MS = 5 * 60_000;
+/** `/delete` 之后等会话文件消失的上限和轮询间隔（实测删除在 200ms 内完成）。 */
+const DELETE_TIMEOUT_MS = 10_000;
+const DELETE_POLL_MS = 100;
 const QUIET_SETTLED = "quiet-settled";
 /** 思考强度循环的最多步数（omp 最多 8 个级别，转满一圈就不会再有新的）。 */
 const MAX_THINKING_CYCLES = 10;
@@ -301,6 +306,37 @@ export class TspCommands {
       } catch (error) {
         if (error instanceof Error && error.message === QUIET_SETTLED) return "";
         throw error;
+      }
+    });
+  }
+
+  /**
+   * 删掉当前会话：发 `/delete`（omp 18.18.6 实测，docs/architecture/session-history.md「删除会话」）。omp 删会话的 JSONL 和
+   * artifact 目录，main 里写一行 `Session deleted`，换到一个还没落盘的新会话；vibe 模式下不删，写一条警告行 `Exit vibe mode first.`。
+   * omp 的删除是尽力而为：删不掉（别的 omp 占着这个会话等）也照样说 `Session deleted`，所以成功的判据是 `file` 真的不在了。
+   * 轮询 `file`：不在了 resolve；在那之前出现新的错误行、警告行或状态 toast 就以原文 reject；到点还在 reject。
+   */
+  deleteSession(file: string): Promise<void> {
+    return this.#host.exclusive(async () => {
+      await this.#host.start();
+      const target = await this.#host.awaitComposer();
+      const session = this.#host.liveSession();
+      const toastsBefore = statusToastTexts(session.document);
+      const errorsBefore = errorLines(session.document);
+      const warningsBefore = warningLines(session.document);
+      session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: "/delete" });
+      const deadline = Date.now() + DELETE_TIMEOUT_MS;
+      for (;;) {
+        if (await sessionFileMissing(file)) return;
+        const live = this.#host.session();
+        if (live === null) throw new Error("the omp process exited");
+        const failure =
+          newErrorLine(live.document, errorsBefore) ??
+          [...warningLines(live.document)].find(([key]) => !warningsBefore.has(key))?.[1] ??
+          freshToast(live.document, toastsBefore);
+        if (failure != null) throw new Error(failure);
+        if (Date.now() > deadline) throw new Error("omp did not delete the session file");
+        await sleep(DELETE_POLL_MS);
       }
     });
   }

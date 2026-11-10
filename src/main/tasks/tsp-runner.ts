@@ -78,6 +78,7 @@ import {
 } from "../tsp/tsp-session.ts";
 import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
+import { sessionFileMissing } from "./session-file-missing.ts";
 import { looksLikeConsoleTitle, stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { holdSessionFile, readSessionFile, type SessionFileState } from "../tsp/session-files.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
@@ -648,15 +649,10 @@ export class TspRunner {
       )
         throw new StartError({ kind: "worktree_missing", message: "the task's worktree no longer exists" });
       // 会话文件被删了（在 omp 的会话列表里删的，issue #8）：`--resume` 会让 omp 报 `Session … not found` 退出。不起进程，
-      // 报 session_missing；输入框说明原因，发消息时在这个任务里开新会话（sendPrompt）。
+      // 报 session_missing；输入框说明原因，发消息时在这个任务里开新会话（sendPrompt）。只认"文件不在"（ENOENT / ENOTDIR）：
+      // 权限、被占用之类照常起 omp，由它报自己的错，不把会话当成没了。
       const sessionFile = this.#record.sessionFile;
-      if (
-        sessionFile !== null &&
-        !(await stat(sessionFile).then(
-          () => true,
-          () => false,
-        ))
-      )
+      if (sessionFile !== null && (await sessionFileMissing(sessionFile)))
         throw new StartError({ kind: "session_missing", message: "the task's session file no longer exists" });
       const movedTo = this.#record.cwd;
       if (
@@ -1414,6 +1410,12 @@ export class TspRunner {
 
   runQuietCommand(text: string): Promise<string> {
     return this.#commands.runQuietCommand(text);
+  }
+
+  /** 经 omp 的 `/delete` 删掉这个任务现在的会话（TspCommands.deleteSession）；还没有会话文件时什么也不做。没有进程时先起进程。 */
+  async deleteSession(): Promise<void> {
+    const file = this.#currentSessionFile();
+    if (file !== null) await this.#commands.deleteSession(file);
   }
 
   compact(): Promise<void> {

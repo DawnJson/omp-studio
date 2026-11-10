@@ -45,6 +45,7 @@ export const composer = {
   "usage.costTipSub": "Estimated at API prices; counts against your plan, not billed",
   "usage.subagents": "In parentheses: subagents {cost}, not in the first number",
   "usage.cacheWrite": "Cache write",
+  "usage.cacheHit": "Cache hit rate",
   "context.title": "Context breakdown",
   "context.systemPrompt": "System prompt",
   "context.systemTools": "System tools",

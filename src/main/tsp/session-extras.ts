@@ -4,7 +4,8 @@
 // 统计口径照抄 omp 的 TurnUsageAggregator（`l7e`，packages/tui 的 chat-transcript-builder / usage-row）：非 agent 的用户消息
 // （和合成的 developer 消息）清零累计，assistant 消息累计 input+cacheWrite（+orchestration.input）、output（+orchestration.output）、
 // cost.total，遇到 stopReason 不是 toolUse 的消息结算（被打断、出错的消息也结算）；耗时 = 该消息 completedAt − 开这一轮的用户消息
-// timestamp（≤0 当没有）。每轮用量合一：这里是唯一一份解析（SessionExtrasAccumulator；整段文本和增量读文件都喂给它），
+// timestamp（≤0 当没有）。另外累计 cacheRead、cacheWrite（omp 的脚注不用，studio 悬停里的缓存命中率用；同样清零、结算）。
+// 每轮用量合一：这里是唯一一份解析（SessionExtrasAccumulator；整段文本和增量读文件都喂给它），
 // turn 里直接带 cost，文字由 turn-footer.ts 按 omp 的 `tLo` 写（`<$0.01`）。
 import type { TspTurnFooter } from "../../shared/ipc.ts";
 import { tokensPerSecond } from "../../shared/ui/session-trace.ts";
@@ -41,6 +42,8 @@ export class SessionExtrasAccumulator implements SessionEntryConsumer {
   #input = 0;
   #output = 0;
   #cost = 0;
+  #cacheRead = 0;
+  #cacheWrite = 0;
 
   entry(entry: SessionFileEntry): void {
     if (entry["type"] !== "message" || !isRecord(entry["message"])) return;
@@ -49,13 +52,13 @@ export class SessionExtrasAccumulator implements SessionEntryConsumer {
     if (message["role"] === "user" && message["attribution"] !== "agent") {
       this.#turns.push(null);
       this.#userAt = timestamp > 0 ? timestamp : null;
-      this.#input = this.#output = this.#cost = 0;
+      this.#clearTurn();
       return;
     }
     // 合成的 developer 消息（omp 的 chat-transcript-builder 同样清零）：用户发起的从它的时间戳起算，否则没有起点。
     if (message["role"] === "developer" && message["synthetic"] === true) {
       this.#userAt = message["userInitiated"] === true && timestamp > 0 ? timestamp : null;
-      this.#input = this.#output = this.#cost = 0;
+      this.#clearTurn();
       return;
     }
     if (message["role"] !== "assistant") return;
@@ -67,6 +70,8 @@ export class SessionExtrasAccumulator implements SessionEntryConsumer {
     this.#input += finite(usage["input"]) + finite(usage["cacheWrite"]) + finite(orchestration["input"]);
     this.#output += finite(usage["output"]) + finite(orchestration["output"]);
     this.#cost += usageCost;
+    this.#cacheRead += finite(usage["cacheRead"]);
+    this.#cacheWrite += finite(usage["cacheWrite"]);
     if (message["stopReason"] === "toolUse") return;
     const input = this.#input;
     const output = this.#output;
@@ -81,16 +86,22 @@ export class SessionExtrasAccumulator implements SessionEntryConsumer {
         input,
         output,
         cost,
+        cacheRead: this.#cacheRead,
+        cacheWrite: this.#cacheWrite,
       };
     }
-    this.#input = this.#output = this.#cost = 0;
+    this.#clearTurn();
+  }
+
+  #clearTurn(): void {
+    this.#input = this.#output = this.#cost = this.#cacheRead = this.#cacheWrite = 0;
   }
 
   reset(): void {
     this.#turns = [];
     this.#tokensPerSecond = null;
     this.#userAt = null;
-    this.#input = this.#output = this.#cost = 0;
+    this.#clearTurn();
   }
 
   /** 新数组：之后接着累加不会改到已经交出去的结果（每轮的对象结算后不再改）。 */

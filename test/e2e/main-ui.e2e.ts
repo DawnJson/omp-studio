@@ -428,6 +428,9 @@ test("空状态、对话里的用量", async () => {
     await page.getByTestId("context-meter").click();
     await expect(page.getByTestId("session-usage")).toBeVisible();
     await expect(page.getByTestId("model-usage")).toHaveCount(3);
+    // 每个模型一格缓存命中率：缓存读取 ÷ (输入 + 缓存读取 + 缓存写入) = (T/4) ÷ (T/2 + T/4) = 33%。
+    await expect(page.getByTestId("model-usage-cache-hit")).toHaveText(["33%", "33%", "33%"]);
+    await expect(page.getByTestId("model-usage").first()).toContainText(/缓存命中率|Cache hit rate/);
     expect(await breakdown.boundingBox()).toEqual(single);
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);

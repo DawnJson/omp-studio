@@ -447,7 +447,7 @@ test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文�
   }
 });
 
-test('窗口重新获得焦点时重扫历史会话；从列表移除只藏起文件夹（任务不归档），历史会话可归档、在"已归档"里列出；分叉缩进（issue #8、#9）', async () => {
+test('窗口重新获得焦点时重扫历史会话；从列表移除只藏起文件夹（任务不归档），历史会话可归档、在"已归档"里列出、可删除；分叉缩进（issue #8、#9、#10）', async () => {
   const agentDir = await makeAgentDir();
   // 从终端会话分叉出来的会话：parentSession 写父会话文件的路径（omp 从某条消息分叉时就这么写）。
   const bucketA = path.join(agentDir, "sessions", "--E--研究 项目-my app--");
@@ -539,9 +539,43 @@ test('窗口重新获得焦点时重扫历史会话；从列表移除只藏起�
     await expect(parent).toHaveCount(0);
     await sidebar.getByTestId("sidebar-history-by-archived").click();
     await expect(sidebar.getByTestId("sidebar-session")).toHaveText([/在终端里排查内存泄漏/]);
-    // 归档了的会话没有菜单（点开就是恢复）。
-    await sidebar.getByTestId("sidebar-session").click({ button: "right" });
-    await expect(page.getByRole("menuitem")).toHaveCount(0);
+    // 归档了的会话的菜单只有"删除会话…"（点开就是恢复，issue #10）：先弹 danger 确认框，取消不删；确认后经主进程删掉，行消失。
+    // 主进程的 deleteSession 换成桩：真的删要起 omp 发 `/delete`（主进程的流程在 test/task-pool.test.ts「删除会话」）；桩只把文件删掉。
+    await app.evaluate(
+      ({ ipcMain }, file) => {
+        const calls: [string, unknown[]][] = Reflect.get(globalThis, "__calls");
+        ipcMain.removeHandler("studio:deleteSession");
+        ipcMain.handle("studio:deleteSession", (_event, ...args: unknown[]) => {
+          calls.push(["deleteSession", args]);
+          process.getBuiltinModule("node:fs").rmSync(file);
+        });
+      },
+      path.join(bucketA, "a_terminal.jsonl"),
+    );
+    const archivedRow = sidebar.getByTestId("sidebar-session").filter({ hasText: "在终端里排查内存泄漏" });
+    await archivedRow.click({ button: "right" });
+    await expect(page.getByRole("menuitem")).toHaveText(["删除会话…"]);
+    await page.getByTestId("session-menu-delete").click();
+    const dialog = page.getByTestId("delete-session-dialog");
+    await expect(dialog).toContainText("在终端里排查内存泄漏");
+    await dialog.getByTestId("delete-session-dialog-cancel").click();
+    await expect(dialog).toHaveCount(0);
+    expect(await mainCalls(app, "deleteSession")).toEqual([]);
+    await archivedRow.click({ button: "right" });
+    await page.getByTestId("session-menu-delete").click();
+    await page.getByTestId("delete-session-dialog-confirm").click();
+    await expect(archivedRow).toHaveCount(0);
+    expect(await mainCalls(app, "deleteSession")).toEqual([["sess-terminal"]]);
+
+    // 任务菜单（侧栏右键）最后一项是"删除会话…"，红字；取消不删。
+    await myApp.getByTestId("task-row").filter({ hasText: "整理日志格式" }).click({ button: "right" });
+    await expect(page.getByRole("menuitem").last()).toHaveText("删除会话…");
+    await expect(page.getByTestId("task-menu-delete")).toHaveAttribute("data-tone", "danger");
+    await page.getByTestId("task-menu-delete").click();
+    await expect(page.getByTestId("delete-session-dialog")).toContainText("整理日志格式");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("delete-session-dialog")).toHaveCount(0);
+    expect(await mainCalls(app, "deleteTask")).toEqual([]);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

@@ -672,9 +672,12 @@ export interface TspTurnFooter {
   elapsedMs: number | null;
   /** 最终回复完成的时刻（epoch 毫秒）；会话文件里没有时为 null。用量行悬停里显示。 */
   completedAt: number | null;
-  /** 输入 token（含缓存写入）。 */
+  /** 输入 token（含缓存写入，不含缓存读取）。 */
   input: number;
   output: number;
+  /** 缓存读取 / 缓存写入 token（会话文件 usage 的 `cacheRead` / `cacheWrite`）；悬停里的缓存命中率用。 */
+  cacheRead: number;
+  cacheWrite: number;
   /** 美元。 */
   cost: number;
 }
@@ -1177,6 +1180,8 @@ export interface StudioInvokeApi {
   setTaskKeepAlive(taskId: TaskId, on: boolean): Promise<void>;
   /** 关掉进程并从侧栏移除；会话文件不动。 */
   archiveTask(taskId: TaskId): Promise<void>;
+  /** 删除会话（不可撤销）：经任务自己的（或临时起的）omp 发 `/delete` 删掉会话文件，确认删掉后去掉任务记录（taskRemoved）。失败时任务不动，错误带 omp 的原话。 */
+  deleteTask(taskId: TaskId): Promise<void>;
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
   setTaskModel(taskId: TaskId, model: ModelKey): Promise<void>;
   setTaskThinkingLevel(taskId: TaskId, level: TaskThinkingLevel): Promise<void>;
@@ -1223,6 +1228,8 @@ export interface StudioInvokeApi {
   ensureSessionProject(sessionId: string): Promise<Project>;
   /** 归档一条历史会话（还没挂在任务上的，或挂在任务上的按任务归档）：不在列表里列出，从"已归档"点开恢复。会话文件不动。 */
   archiveSession(sessionId: string): Promise<void>;
+  /** 删除一条历史会话（已归档的、终端里开的；挂在任务上的按任务删），同 deleteTask。别的 omp 正开着这个会话时拒绝。 */
+  deleteSession(sessionId: string): Promise<void>;
   /** 在系统文件管理器里显示项目目录（主进程用自己记的路径，渲染进程不传路径）。 */
   revealProject(projectId: ProjectId): Promise<void>;
   /** 在系统文件管理器里选中任务的会话文件；任务还没有会话文件时拒绝。 */
@@ -1741,6 +1748,7 @@ export const invokeNames = {
   renameTask: true,
   setTaskKeepAlive: true,
   archiveTask: true,
+  deleteTask: true,
   listTaskModels: true,
   setTaskModel: true,
   setTaskThinkingLevel: true,
@@ -1750,6 +1758,7 @@ export const invokeNames = {
   resumeSession: true,
   ensureSessionProject: true,
   archiveSession: true,
+  deleteSession: true,
   revealProject: true,
   revealTaskSession: true,
   getTaskSessionRef: true,

@@ -19,6 +19,7 @@ import { applyMessage, createDocument, restoreDocument, snapshotDocument } from 
 import { titleFromPrompt } from "../src/main/tasks/convert.ts";
 import { TaskPool, type PoolDeps } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
+import { log } from "../src/main/log/log.ts";
 import { findAgentHub, findFocus, listAgents } from "../src/shared/tsp/agent-hub.ts";
 import { findMessageTarget } from "../src/shared/tsp/gate.ts";
 import { hasQueuedMessages } from "../src/shared/tsp/queue-restore.ts";
@@ -1102,12 +1103,15 @@ describe("2026-11-06 之前误存成任务标题的控制台标题（issue #9）
     expect(h.registry.findTask("named" as TaskId)?.title).toBe("我的任务");
   }, 60_000);
 
-  it("启动时读不到会话文件的：打开后按会话文件里 omp 的标题换掉", async () => {
+  it("启动时会话文件不在（ENOENT）的：当成还没有会话文件，标题留空、不记警告；打开后用会话文件里 omp 的标题", async () => {
     const dir = await mkdtemp(path.join(scratch, "console-"));
     const sessionFile = path.join(dir, "later.jsonl");
     const file = await seed(dir, [record("later", "管理员: C:\\WINDOWS\\system32\\cmd.exe", sessionFile)]);
+    const warn = vi.spyOn(log, "warn");
     const h = await harness(file);
-    expect(h.pool.listTasks()[0]?.title).toBe("管理员: C:\\WINDOWS\\system32\\cmd.exe");
+    expect(h.pool.listTasks()[0]?.title).toBe("");
+    expect(warn.mock.calls.filter(([message]) => String(message).includes("console title"))).toEqual([]);
+    warn.mockRestore();
 
     await writeFile(
       sessionFile,

@@ -12,6 +12,12 @@ export const task = {
   renameLabel: "Task title",
   archive: "Archive",
   archived: "Archived",
+  delete: "Delete conversation…",
+  deleteTitle: "Delete conversation?",
+  deleteBody:
+    "“{title}” will be deleted from disk, and omp in the terminal won’t find it either. This can’t be undone.",
+  deleteConfirm: "Delete",
+  deleteFailed: "Couldn’t delete the conversation: {message}",
   undo: "Undo",
   openFolder: "Open working folder",
   reveal: "Show session file",

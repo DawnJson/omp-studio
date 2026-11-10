@@ -9,13 +9,14 @@
 //   --log：把收到的每条 TSP 消息、按键原样追加成 JSONL（{kind:"tsp", verb, body} / {kind:"keys", data}），测试据此断言 omp 收到了什么。
 //   --exit-after-end：回放完立刻以 0 退出（默认继续活着，和真实 omp 一样等输入）。
 // 环境变量：FAKE_TSP_SESSION_FILE（回放开始时发 OSC 1337 SetUserVar=omp_session_file）、FAKE_TSP_TITLE（OSC 0，换行分隔的几条依次发）、
+// FAKE_TSP_DELETE_FILE（收到 `/delete` 时删掉这个文件，像真实 omp 删会话）、
 // FAKE_OMP_CWD_FILE / FAKE_OMP_PID_FILE（同 fake-omp.ts，e2e 用）、FAKE_OMP_BROWSER_FILE（记下浏览器面板的 CDP 地址）。
 // 必须跑在伪终端里（TspSession 总是 node-pty）：往 stdout 写 APC，从 stdin 读终端发来的事件。
 //
 // 行为：写 hello 查询和 DA1 → 收到 hello 回复后才开始回放 → 按录制的时间间隔写 `out` 消息 → 录制里的 `in`（ack 除外）
 // 按顺序等待匹配（事件名和内容都要相同；不匹配的事件忽略，早到的事件留着等回放到它）→ 信用值：未被 ack 的帧达到
 // hello 回复里的 credits 就停，收到 ack 再继续（回放里的 ack 不参与匹配，用真实收到的）。
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { isRecord } from "../../src/shared/type-guards.ts";
@@ -139,6 +140,10 @@ const parser = new TspStreamParser((event) => {
     }
   } else {
     received.push(body);
+    // 测试用：真实 omp 的 `/delete` 删掉当前会话文件（omp 18.18.6，docs/architecture/session-history.md「删除会话」）；
+    // 给了 FAKE_TSP_DELETE_FILE 时收到 `/delete` 就删这个文件，录制照常往下放。
+    const deleteFile = process.env["FAKE_TSP_DELETE_FILE"];
+    if (deleteFile && body["ev"] === "send" && body["text"] === "/delete") rmSync(deleteFile, { force: true });
   }
   for (const waiter of waiters) waiter();
 });

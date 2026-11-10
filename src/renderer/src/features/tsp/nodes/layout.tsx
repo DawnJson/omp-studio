@@ -32,7 +32,7 @@ import { runOutputSpan } from "../../../../../shared/tsp/run-output.ts";
 import { answerText } from "../../../../../shared/tsp/last-answer.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { useTaskValue } from "../../../store/index.ts";
-import { formatTurnFooter, withFinishedAt } from "../turn-footer.ts";
+import { formatTurnFooter, withTurnDetails } from "../turn-footer.ts";
 import { copyAnswerPlainText, copyText, showAnswerCopyMenu, TURN_COPY_ROLE } from "../actions.ts";
 import { editUserCard, forkAfterAnswer, forkFromUserCard } from "../../conversation/fork-actions.ts";
 import { reportErrorNow } from "../../../ui/errors.ts";
@@ -208,16 +208,15 @@ export function Row(props: NodeProps) {
 }
 
 /**
- * omp 实时画的每轮用量行：悬停里补上回答完成的时刻（会话文件里的 completedAt；轮数对不上时不补）。
+ * omp 实时画的每轮用量行：悬停里补上缓存命中率和回答完成的时刻（会话文件里这一轮的数据，withTurnDetails；轮数对不上时不补）。
  * studio 的 AnswerActions 插在 omp 的复制图标后面（没有复制图标时放在行末）。
  */
 function UsageRow(props: NodeProps) {
   const { taskId, sf } = props.ctx;
   const turnCount = useSessionExtras(taskId, (extras) => extras.turns.length);
   const index = useUsageTurnIndex(taskId, sf, props.node.id, turnCount);
-  const completedAt = useSessionExtras(taskId, (extras) =>
-    index >= 0 ? (extras.turns[index]?.completedAt ?? null) : null,
-  );
+  // 内容没变的轮沿用旧对象（session-extras-store.ts 的 share），别的轮刷新不重画这一行。
+  const turn = useSessionExtras(taskId, (extras) => (index >= 0 ? (extras.turns[index] ?? null) : null));
   const blank = useBlank(props, true);
   const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p), blank });
   const children = props.node.c.map((id) => peekTspNode(taskId, sf, id));
@@ -225,7 +224,7 @@ function UsageRow(props: NodeProps) {
   const studio = <AnswerActions ctx={props.ctx} anchorId={props.node.id} />;
   const cut = copyAt < 0 ? props.node.c.length : copyAt + 1;
   return (
-    <div {...dom} title={dom.title === undefined ? undefined : withFinishedAt(dom.title, completedAt)}>
+    <div {...dom} title={dom.title === undefined ? undefined : withTurnDetails(dom.title, turn)}>
       {props.node.c.slice(0, cut).map((id) => (
         <TspNode key={id} id={id} ctx={props.ctx} />
       ))}

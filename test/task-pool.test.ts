@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { IdleClose, ProjectId, StudioSettings, TaskId, TaskState } from "../src/shared/ipc.ts";
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
-import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
+import { TaskRegistry, type TaskRecord } from "../src/main/tasks/task-registry.ts";
 import { loadTspFixture, recordedUserEvents } from "./tsp-fixtures.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -91,26 +91,64 @@ interface Harness {
   /** 下一次 spawn 用的假 omp 参数：录制名和额外的命令行参数；按顺序消耗，用完回落到 `slash-status`。 */
   next: { fixture: string; flags?: string[]; env?: Record<string, string> }[];
   launches: Launch[];
+  /** 删除会话时临时起的 omp（不是任务）：它们 `--resume` 的会话文件。 */
+  temporaryLaunches: (string | null)[];
+  tasksFile: string;
 }
+
+const SEED_PROJECT = "p-seed" as ProjectId;
 
 const pools: TaskPool[] = [];
 async function harness(
-  options: { maxLive?: number; idleClose?: IdleClose; buildLaunchError?: Error; gate?: Promise<void> } = {},
+  options: {
+    maxLive?: number;
+    idleClose?: IdleClose;
+    buildLaunchError?: Error;
+    gate?: Promise<void>;
+    /** 启动前写进 tasks.json 的任务记录（项目是 projectDir，id SEED_PROJECT）。 */
+    seed?: Partial<TaskRecord>[];
+    sessionInUse?: (sessionFile: string) => Promise<boolean>;
+    waitBeforeRecheck?: () => Promise<void>;
+  } = {},
 ): Promise<Harness> {
   const events = new Events();
-  const registry = new TaskRegistry(path.join(await mkdtemp(path.join(scratch, "ud-")), "tasks.json"));
+  const tasksFile = path.join(await mkdtemp(path.join(scratch, "ud-")), "tasks.json");
+  if (options.seed) {
+    const tasks = options.seed.map((patch, index) => ({
+      id: `seed-${index}`,
+      projectId: SEED_PROJECT,
+      sessionFile: null,
+      title: `任务 ${index}`,
+      createdAt: 1,
+      updatedAt: 1,
+      archived: false,
+      model: null,
+      thinkingLevel: null,
+      worktreePath: null,
+      worktreeBranch: null,
+      worktreeBase: null,
+      ...patch,
+    }));
+    const projects = [{ id: SEED_PROJECT, path: projectDir, name: "项目 一", hidden: false }];
+    await writeFile(tasksFile, JSON.stringify({ version: 1, projects, tasks }), "utf8");
+  }
+  const registry = new TaskRegistry(tasksFile);
   const next: Harness["next"] = [];
   const launches: Launch[] = [];
+  const temporaryLaunches: (string | null)[] = [];
   const pool = new TaskPool({
     registry,
     getSettings: async () => settings(options.maxLive, options.idleClose),
     events: events.sink,
+    ...(options.sessionInUse && { sessionInUse: options.sessionInUse }),
+    ...(options.waitBeforeRecheck && { waitBeforeRecheck: options.waitBeforeRecheck }),
     tsp: {
-      buildLaunch: async (record, project) => {
+      buildLaunch: async (record, project, launchOptions) => {
         if (options.buildLaunchError) throw options.buildLaunchError;
         await options.gate;
         const spec = next.shift() ?? { fixture: "slash-status" };
-        launches.push({ sessionFile: record.sessionFile, fixture: spec.fixture });
+        if (launchOptions?.temporary) temporaryLaunches.push(record.sessionFile);
+        else launches.push({ sessionFile: record.sessionFile, fixture: spec.fixture });
         return {
           command: process.execPath,
           args: [fakeTsp, spec.fixture, "--speed=100", ...(spec.flags ?? [])],
@@ -128,7 +166,7 @@ async function harness(
   pools.push(pool);
   await pool.init();
   const project = await pool.ensureProject(projectDir);
-  return { pool, events, registry, projectId: project.id, next, launches };
+  return { pool, events, registry, projectId: project.id, next, launches, temporaryLaunches, tasksFile };
 }
 afterEach(async () => {
   await Promise.all(pools.splice(0).map((pool) => pool.shutdown()));
@@ -504,4 +542,167 @@ describe("任务池：已停止的任务", () => {
     expect(h.launches).toHaveLength(launchesBefore);
     expect(h.pool.listTasks()[0]?.status).toBe("stopped");
   }, 60_000);
+});
+
+describe("任务池：会话文件在 omp 里被删了（issue #10 对账）", () => {
+  const sessionsDir = () => path.join(scratch, "对账 会话");
+  async function sessionFile(name: string): Promise<string> {
+    await mkdir(sessionsDir(), { recursive: true });
+    const file = path.join(sessionsDir(), name);
+    await writeFile(file, "{}\n");
+    return file;
+  }
+  const missing = (name: string) => path.join(sessionsDir(), "不存在", name);
+
+  it("没归档、没有进程、文件确实不在（ENOENT / ENOTDIR）的任务记录被去掉，推 taskRemoved；在的、已归档的不动", async () => {
+    const kept = await sessionFile("还在.jsonl");
+    const notDir = path.join(kept, "下面.jsonl");
+    const h = await harness({
+      seed: [
+        { sessionFile: missing("没了.jsonl") },
+        { sessionFile: notDir },
+        { sessionFile: kept },
+        { sessionFile: missing("归档的.jsonl"), archived: true },
+      ],
+      waitBeforeRecheck: async () => {},
+    });
+    expect(await h.pool.pruneMissingSessions()).toEqual(["seed-0", "seed-1"]);
+    expect(h.events.removed).toEqual(["seed-0", "seed-1"]);
+    expect(h.pool.listTasks().map((task) => task.id)).toEqual(["seed-2"]);
+    expect(h.registry.listTasks().map((task) => task.id)).toEqual(["seed-2", "seed-3"]);
+    // 落盘了：重新载入也没有。
+    await h.registry.flushed();
+    const reloaded = new TaskRegistry(h.tasksFile);
+    await reloaded.load();
+    expect(reloaded.listTasks().map((task) => task.id)).toEqual(["seed-2", "seed-3"]);
+  });
+
+  it("stat 报的不是“不在”（这里是非法路径）、没有会话文件、有 worktree 的任务不动", async () => {
+    const h = await harness({
+      seed: [
+        { sessionFile: path.join(sessionsDir(), "坏\u0000路径.jsonl") },
+        { sessionFile: null },
+        {
+          sessionFile: missing("工作区.jsonl"),
+          worktreePath: projectDir,
+          worktreeBranch: "studio/x",
+          worktreeBase: "main",
+        },
+      ],
+    });
+    expect(await h.pool.pruneMissingSessions()).toEqual([]);
+    expect(h.events.removed).toEqual([]);
+    expect(h.registry.listTasks()).toHaveLength(3);
+  });
+
+  it("第一次看不在、隔一会儿再看又在了（omp 原子重写会话文件时短暂不在原处）：不动", async () => {
+    const file = missing("短暂.jsonl");
+    const h = await harness({
+      seed: [{ sessionFile: file }],
+      waitBeforeRecheck: async () => {
+        await mkdir(path.dirname(file), { recursive: true });
+        await writeFile(file, "{}\n");
+      },
+    });
+    expect(await h.pool.pruneMissingSessions()).toEqual([]);
+    expect(h.registry.listTasks()).toHaveLength(1);
+    await rm(path.dirname(file), { recursive: true, force: true });
+  });
+
+  it("有进程的任务、前台任务不动", async () => {
+    const h = await harness({ seed: [{ sessionFile: missing("前台.jsonl") }] });
+    // 前台：打开它（文件不在，报 session_missing，不起进程），还是选中的任务。
+    await h.pool.openTask("seed-0" as TaskId);
+    await h.events.until("seed-0" as TaskId, (state) => state.error?.kind === "session_missing");
+    // 有进程：新建的任务跑起来之后，记录里的会话文件被指到一个不在的路径。
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.registry.updateTask(created.id, { sessionFile: missing("在跑.jsonl") });
+    expect(await h.pool.pruneMissingSessions()).toEqual([]);
+    expect(h.events.removed).toEqual([]);
+  }, 60_000);
+});
+
+describe("任务池：删除会话（经 omp 的 /delete，issue #10）", () => {
+  const sessionsDir = () => path.join(scratch, "删除 会话");
+  async function sessionFile(name: string): Promise<string> {
+    await mkdir(sessionsDir(), { recursive: true });
+    const file = path.join(sessionsDir(), name);
+    await writeFile(file, "{}\n");
+    return file;
+  }
+  const exists = (file: string) =>
+    access(file).then(
+      () => true,
+      () => false,
+    );
+
+  it("有进程的任务：在它自己的 omp 里发 /delete，文件没了才去掉任务记录，不另起进程", async () => {
+    const file = await sessionFile("在跑.jsonl");
+    const h = await harness();
+    h.next.push({ fixture: "slash-status", env: { FAKE_TSP_SESSION_FILE: file, FAKE_TSP_DELETE_FILE: file } });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(
+      created.id,
+      (state) => state.status === "idle" && h.registry.findTask(created.id)?.sessionFile === file,
+    );
+    await h.pool.deleteTask(created.id);
+    expect(await exists(file)).toBe(false);
+    expect(h.registry.findTask(created.id)).toBeUndefined();
+    expect(h.events.removed).toEqual([created.id]);
+    expect(h.pool.listTasks()).toEqual([]);
+    expect(h.temporaryLaunches).toEqual([]);
+  }, 60_000);
+
+  it("没有进程的任务（含已归档的）：起一个临时 omp 删，临时进程不推状态；删完去掉记录", async () => {
+    const idle = await sessionFile("没在跑.jsonl");
+    const archived = await sessionFile("归档.jsonl");
+    const h = await harness({ seed: [{ sessionFile: idle }, { sessionFile: archived, archived: true }] });
+    h.next.push({ fixture: "slash-status", env: { FAKE_TSP_DELETE_FILE: idle } });
+    await h.pool.deleteTask("seed-0" as TaskId);
+    h.next.push({ fixture: "slash-status", env: { FAKE_TSP_DELETE_FILE: archived } });
+    await h.pool.deleteSession({ sessionFile: archived, cwd: projectDir });
+    expect([await exists(idle), await exists(archived)]).toEqual([false, false]);
+    expect(h.temporaryLaunches).toEqual([idle, archived]);
+    expect(h.launches).toEqual([]);
+    expect(h.registry.listTasks()).toEqual([]);
+    expect(h.events.removed).toEqual(["seed-0", "seed-1"]);
+    expect(h.events.states.filter((state) => state.id !== ("seed-0" as TaskId))).toEqual([]);
+  }, 60_000);
+
+  it("没挂在任务上的会话（终端里开的）：临时 omp 删掉文件，不建任务记录", async () => {
+    const file = await sessionFile("终端.jsonl");
+    const h = await harness();
+    h.next.push({ fixture: "slash-status", env: { FAKE_TSP_DELETE_FILE: file } });
+    await h.pool.deleteSession({ sessionFile: file, cwd: projectDir });
+    expect(await exists(file)).toBe(false);
+    expect(h.registry.listTasks()).toEqual([]);
+    expect(h.events.removed).toEqual([]);
+  }, 60_000);
+
+  it("别的 omp 正开着这个会话（omp session lease）：拒绝，不起进程，文件和记录都不动", async () => {
+    const file = await sessionFile("被占着.jsonl");
+    const asked: string[] = [];
+    const h = await harness({
+      seed: [{ sessionFile: file }],
+      sessionInUse: async (sessionFile) => {
+        asked.push(sessionFile);
+        return true;
+      },
+    });
+    await expect(h.pool.deleteTask("seed-0" as TaskId)).rejects.toThrow("the session is open in another omp process");
+    expect(asked).toEqual([file]);
+    expect(h.temporaryLaunches).toEqual([]);
+    expect(await exists(file)).toBe(true);
+    expect(h.registry.findTask("seed-0" as TaskId)).toBeDefined();
+    expect(h.events.removed).toEqual([]);
+  });
+
+  it("会话文件已经不在：不起 omp，直接去掉记录", async () => {
+    const h = await harness({ seed: [{ sessionFile: path.join(sessionsDir(), "早没了.jsonl") }] });
+    await h.pool.deleteTask("seed-0" as TaskId);
+    expect(h.temporaryLaunches).toEqual([]);
+    expect(h.registry.listTasks()).toEqual([]);
+    expect(h.events.removed).toEqual(["seed-0"]);
+  });
 });

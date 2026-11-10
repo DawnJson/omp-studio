@@ -1,4 +1,5 @@
-// 上下文浮层左栏的按模型明细（照 Claude Code 的 Usage → Breakdown）：头一行本会话 token 总数，下面一行输出速度，每个模型的输入 / 输出 / 缓存读取 / 缓存写入和费用。
+// 上下文浮层左栏的按模型明细（照 Claude Code 的 Usage → Breakdown）：头一行本会话 token 总数，下面一行输出速度，每个模型的输入 / 输出 / 缓存读取 / 缓存写入、
+// 缓存命中率（没有缓存数据时不显示）和费用。
 // 数据由主进程读会话文件得到（getSessionModelUsage），范围和 omp 的会话统计一致；压缩过时底部另给整个会话（含压缩前）的合计。
 // 浮层打开时读一次；打开期间一轮结束（updatedAt 变了）再读。还没有回复（会话文件里没有模型记录）时没有左栏，浮层保持单栏。
 import { useEffect, useState } from "react";
@@ -9,7 +10,7 @@ import { deriveComposerFacts, sameComposerFacts } from "../../../../shared/tsp/c
 import { useSessionExtras } from "../tsp/session-extras-store.ts";
 import { useTspDerived } from "../tsp/tsp-store.ts";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
-import { formatCount, formatMoney } from "./usage-format.ts";
+import { cacheHitRate, formatCount, formatMoney, formatPercent } from "./usage-format.ts";
 
 export type ModelUsageLoad =
   { kind: "idle" } | { kind: "ready"; data: SessionModelUsage } | { kind: "error"; error: unknown };
@@ -79,34 +80,45 @@ export function ModelBreakdown({ task, load, speed }: { task: TaskState; load: M
         </p>
       )}
       {load.kind === "ready" &&
-        load.data.models.map((row) => (
-          <section key={`${row.provider}/${row.modelId}`} className="mb-model" data-testid="model-usage">
-            <div className="mb-model-head">
-              <span className="mb-model-name" title={`${row.provider}/${row.modelId}`}>
-                {nameOf(row.provider, row.modelId)}
-              </span>
-              <span className="ctx-num">{row.cost > 0 ? formatMoney(row.cost) : null}</span>
-            </div>
-            <dl className="mb-grid">
-              <div>
-                <dt>{t("composer.usage.input")}</dt>
-                <dd className="ctx-num">{formatCount(row.input)}</dd>
+        load.data.models.map((row) => {
+          const hitRate = cacheHitRate(row);
+          return (
+            <section key={`${row.provider}/${row.modelId}`} className="mb-model" data-testid="model-usage">
+              <div className="mb-model-head">
+                <span className="mb-model-name" title={`${row.provider}/${row.modelId}`}>
+                  {nameOf(row.provider, row.modelId)}
+                </span>
+                <span className="ctx-num">{row.cost > 0 ? formatMoney(row.cost) : null}</span>
               </div>
-              <div>
-                <dt>{t("composer.usage.output")}</dt>
-                <dd className="ctx-num">{formatCount(row.output)}</dd>
-              </div>
-              <div>
-                <dt>{t("composer.usage.cache")}</dt>
-                <dd className="ctx-num">{formatCount(row.cacheRead)}</dd>
-              </div>
-              <div>
-                <dt>{t("composer.usage.cacheWrite")}</dt>
-                <dd className="ctx-num">{formatCount(row.cacheWrite)}</dd>
-              </div>
-            </dl>
-          </section>
-        ))}
+              <dl className="mb-grid">
+                <div>
+                  <dt>{t("composer.usage.input")}</dt>
+                  <dd className="ctx-num">{formatCount(row.input)}</dd>
+                </div>
+                <div>
+                  <dt>{t("composer.usage.output")}</dt>
+                  <dd className="ctx-num">{formatCount(row.output)}</dd>
+                </div>
+                <div>
+                  <dt>{t("composer.usage.cache")}</dt>
+                  <dd className="ctx-num">{formatCount(row.cacheRead)}</dd>
+                </div>
+                <div>
+                  <dt>{t("composer.usage.cacheWrite")}</dt>
+                  <dd className="ctx-num">{formatCount(row.cacheWrite)}</dd>
+                </div>
+                {hitRate !== null && (
+                  <div>
+                    <dt>{t("composer.usage.cacheHit")}</dt>
+                    <dd className="ctx-num" data-testid="model-usage-cache-hit">
+                      {formatPercent(hitRate * 100)}%
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          );
+        })}
       {load.kind === "ready" && load.data.whole !== null && (
         <p className="ctx-note" data-testid="model-usage-whole">
           {t("composer.breakdown.whole", {

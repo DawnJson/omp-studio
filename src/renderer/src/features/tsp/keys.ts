@@ -96,6 +96,17 @@ export function isComposingKey(e: Pick<KeyEventLike, "isComposing" | "keyCode" |
 }
 
 /**
+ * 打字的键（字母、数字、标点、空格、AltGr 字符）：可写的输入框里 keydown 不发，文字只由随后的 beforeinput 送出。
+ * Windows 输入法英文模式下 keydown 是真实字母（不是 229），文字又由输入法经 beforeinput 送一遍，两边都发会每个字母重复。
+ * Ctrl / Alt / Cmd 组合不算（照常编码成控制字符、ESC 前缀），AltGr 除外。
+ */
+export function isTextKey(e: KeyEventLike): boolean {
+  if (isComposingKey(e) || e.metaKey) return false;
+  if ((e.ctrlKey || e.altKey) && e.altGraph !== true) return false;
+  return [...e.key].length === 1;
+}
+
+/**
  * 编码一个 keydown。返回 null = 不该写进终端：输入法组合期间、单独的修饰键、Cmd/Win 组合（留给系统和应用）、
  * 没有对应序列的键。
  */
@@ -172,7 +183,7 @@ export function encodePaste(text: string): string {
  * - "select"：浏览器原生移动 / 扩展选区（Shift+方向键、Ctrl+Shift+←/→/Home/End、拖选），不发事件；
  * - "move"：原生移动光标，随后作为一个 `edit` 事件（from == to）告诉 omp；
  * - "selectAll"：全选；"copy"：本地复制选区；"cut"：复制并发 edit 删除；
- * - "replace"：删除 / 输入 / 粘贴等替换选区，发 edit；
+ * - "replace"：删除 / Shift+Enter 替换选区，发 edit（打字替换选区走 beforeinput，见 isTextKey）；
  * - "undo"：发 `undo` 事件。
  */
 export type EditorKeyRoute = "pty" | "select" | "move" | "selectAll" | "copy" | "cut" | "replace" | "undo";
@@ -227,7 +238,6 @@ export function routeEditorKey(e: KeyEventLike, s: EditorKeyState): EditorKeyRou
 
   if (s.hasSelection) {
     if (!e.ctrlKey && (key === "Backspace" || key === "Delete")) return "replace";
-    if (!e.ctrlKey && [...key].length === 1) return "replace";
     if (key === "Enter" && e.shiftKey && !e.ctrlKey) return "replace";
   }
   return "pty";

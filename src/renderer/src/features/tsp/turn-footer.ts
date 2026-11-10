@@ -1,7 +1,9 @@
 // 每轮用量脚注（omp.turn.usage）的文字：omp 恢复会话时不重发这一行，studio 用会话文件算出的数据补一行。
 // 格式和 omp 的 `tLo`（packages/tui/src/overlays/usage-row.ts）完全一致（"13.4s · 728 tok · <$0.01 this turn"，悬停 "This turn: …"），
-// 恢复出来的行和实时的行写法相同；"this turn" 是 omp 自己写死的英文，不走 i18n。
+// 恢复出来的行和实时的行写法相同；"this turn" 是 omp 自己写死的英文，不走 i18n。悬停里 studio 补的两行（缓存命中率、完成时刻）
+// 同样是英文（过程区文字不汉化）。
 import type { TspTurnFooter } from "../../../../shared/ipc.ts";
+import { cacheHitRate, formatPercent } from "../composer/usage-format.ts";
 
 /** omp 的费用写法：不到半分钱 `<$0.01`，否则两位小数。 */
 function formatTurnCost(usd: number): string {
@@ -49,7 +51,7 @@ export function formatFinishedAt(epochMs: number): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-/** 脚注的文字和悬停提示（omp 的 `tLo`）；悬停再加一行回答完成的时刻（omp 没有，studio 补）。 */
+/** 脚注的文字和悬停提示（omp 的 `tLo`）；悬停再加缓存命中率和回答完成的时刻（omp 没有，studio 补，见 withTurnDetails）。 */
 export function formatTurnFooter(footer: TspTurnFooter): { text: string; title: string } {
   const total = footer.input + footer.output;
   const cost = footer.cost > 0 ? formatTurnCost(footer.cost) : undefined;
@@ -57,10 +59,23 @@ export function formatTurnFooter(footer: TspTurnFooter): { text: string; title: 
   const short = [elapsed, `${formatTokens(total)} tok`, cost].filter((part) => part !== undefined).join(" · ");
   const detail = `${total.toLocaleString("en-US")} tokens (${footer.input.toLocaleString("en-US")} in · ${footer.output.toLocaleString("en-US")} out)`;
   const long = [elapsed, detail, cost].filter((part) => part !== undefined).join(" · ");
-  return { text: `${short} this turn`, title: withFinishedAt(`This turn: ${long}`, footer.completedAt) };
+  return { text: `${short} this turn`, title: withTurnDetails(`This turn: ${long}`, footer) };
 }
 
-/** 用量行的悬停加上回答完成的时刻（omp 实时画的用量行也用它）；没有时刻时原样返回。 */
-export function withFinishedAt(title: string, completedAt: number | null): string {
-  return completedAt === null ? title : `${title}\nFinished ${formatFinishedAt(completedAt)}`;
+/**
+ * 用量行的悬停加上这一轮的缓存命中率和回答完成的时刻（omp 实时画的用量行也用它）：
+ * `Cache hit rate 96%`（缓存读取 ÷ 整个提示；脚注的 input 含缓存写入，这里拆出来，算法同 cacheHitRate），这一轮没有缓存数据时不加；
+ * `Finished 2026/11/08 09:05:07`，会话文件里没有完成时刻时不加。没有这一轮的数据（footer 为 null）时原样返回。
+ */
+export function withTurnDetails(title: string, footer: TspTurnFooter | null): string {
+  if (footer === null) return title;
+  const lines = [title];
+  const rate = cacheHitRate({
+    input: footer.input - footer.cacheWrite,
+    cacheRead: footer.cacheRead,
+    cacheWrite: footer.cacheWrite,
+  });
+  if (rate !== null) lines.push(`Cache hit rate ${formatPercent(rate * 100)}%`);
+  if (footer.completedAt !== null) lines.push(`Finished ${formatFinishedAt(footer.completedAt)}`);
+  return lines.join("\n");
 }

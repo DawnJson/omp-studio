@@ -1077,7 +1077,7 @@ test("bash 命令区(omp 18.18.6 录制,声明了 shell):按 omp 的行画 Pseud
   }
 });
 
-test("提问(omp 18.18.3 录制):选项前有序号,按数字选第 N 项(omp 不认数字键,studio 换成 select);选 Other… 后 omp 加一个带焦点的输入框,键盘直接进去,打字写给 omp;Enter 收起", async () => {
+test("提问(omp 18.18.3 录制):选项前有序号,按数字选第 N 项(omp 不认数字键,studio 换成 select);选 Other… 后 omp 加一个带焦点的输入框,键盘直接进去,打字写给 omp(每个字只写一次,输入法英文模式也是);Enter 收起", async () => {
   const { launched, received, receivedKeys, cleanup } = await start("ask-other");
   try {
     const { page } = launched;
@@ -1096,9 +1096,19 @@ test("提问(omp 18.18.3 录制):选项前有序号,按数字选第 N 项(omp �
     const field = item("t").locator("textarea");
     await expect(field).toBeFocused();
     expect((await receivedKeys()).join("")).not.toContain("4");
+    const before = (await receivedKeys()).length;
     await page.keyboard.type("purple");
-    await expect.poll(async () => (await receivedKeys()).join("")).toContain("purple");
+    await expect.poll(async () => (await receivedKeys()).slice(before).join("")).toBe("purple");
     await expect(other).toContainText("Other: purple");
+    // Windows 输入法英文模式:keydown 是真实字母(keyCode 不是 229)、自己不产生字符,文字由输入法另外提交(beforeinput insertText)。
+    // 以前 keydown 和 beforeinput 各写一次,fork 变成 ffoorrkk;现在只写一个 f。
+    const cdp = await page.context().newCDPSession(page);
+    const keyF = { key: "f", code: "KeyF", windowsVirtualKeyCode: 70, nativeVirtualKeyCode: 70 };
+    await cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...keyF });
+    await cdp.send("Input.insertText", { text: "f" });
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...keyF });
+    await cdp.detach();
+    await expect.poll(async () => (await receivedKeys()).slice(before).join("")).toBe("purplef");
     await page.keyboard.press("Enter");
     await expect.poll(receivedKeys).toContain("\r");
     await expect(item("t")).toHaveCount(0);
@@ -1383,8 +1393,11 @@ test("恢复会话:omp 不重发的每轮用量脚注补回;history.db 里有回
     await expect(usage.nth(1)).toHaveText("47.5s · 2.8K tok · <$0.01 this turn");
     await expect(usage.nth(2)).toHaveText("4.7s · 1.1K tok · <$0.01 this turn");
     await expect(usage.nth(2)).toHaveAttribute("title", /^This turn: 4\.7s · 1,097 tokens \(838 in · 259 out\)/);
-    // 悬停里补上回答完成的时刻（会话文件的 completedAt，本地时间）。
-    await expect(usage.nth(2)).toHaveAttribute("title", /\nFinished \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/);
+    // 悬停里补上这一轮的缓存命中率（缓存读取 56192 ÷ (838 + 56192) ≈ 98.5%）和回答完成的时刻（会话文件的 completedAt，本地时间）。
+    await expect(usage.nth(2)).toHaveAttribute(
+      "title",
+      /\nCache hit rate 99%\nFinished \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/,
+    );
     // 补的行在每轮最后一个助手消息里面(和 omp 实时的位置一样),不是游离在外。
     await expect(page.locator('[data-role="omp.assistant"] > [data-role="omp.turn.usage"]')).toHaveCount(3);
     // 补的行和 omp 画的一样以复制回答开头（issue #9：恢复的会话之前没有）：点击复制 markdown，右键可复制纯文本。

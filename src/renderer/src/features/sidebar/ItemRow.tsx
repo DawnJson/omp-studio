@@ -41,7 +41,6 @@ const SessionRow = memo(function SessionRow({ session, tabStop, depth, pinned, f
       data-testid="sidebar-session"
       {...depthProps(depth)}
       onContextMenu={(event) => {
-        if (session.archived) return;
         event.preventDefault();
         rows.onOpenSessionMenu(
           session,

@@ -1,8 +1,8 @@
 // 任务菜单：侧栏任务行的 ⋯ / 右键和顶栏的 ⋯ 打开的是同一份（项一致、顺序一致）。
-// 第一组是任务本身（重命名、置顶、保持运行、会话信息、会话树、请求记录、分享链接），第二组是文件（工作目录、会话文件、复制、导出），最后是归档。
+// 第一组是任务本身（重命名、置顶、保持运行、会话信息、会话树、请求记录、分享链接），第二组是文件（工作目录、会话文件、复制、导出），最后是归档和删除。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { Bolt, Branch, CopyIcon, External, FileIcon, Folder, Info, Pencil, Pin } from "../../icons.tsx";
+import { Bolt, Branch, CopyIcon, External, FileIcon, Folder, Info, Pencil, Pin, Trash } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
 import { openSessionTree } from "../conversation/session-tree-store.ts";
 import { reportError } from "../../ui/errors.ts";
@@ -12,6 +12,7 @@ import { exportConversationReporting } from "../composer/export-html.ts";
 import { openSessionInfo, openShareDialog } from "../session-info/session-info-store.ts";
 import { togglePin } from "../session-info/session-info-actions.ts";
 import { archiveWithUndo } from "./archive-store.ts";
+import { confirmDelete } from "./delete-session.tsx";
 import { ArchiveIcon, ExportIcon, ProcessIcon } from "./icons.tsx";
 
 export async function attempt(t: TFunction, action: () => Promise<void>): Promise<void> {
@@ -33,6 +34,8 @@ async function copySession(t: TFunction, taskId: TaskId, pick: "sessionId" | "se
 export function buildTaskMenu(options: {
   t: TFunction;
   taskId: TaskId;
+  /** 显示用的标题（去掉图标字形；空串 = 未命名），删除确认框里用。 */
+  title: string;
   keepAlive: boolean;
   /** 任务的会话在 omp 的置顶列表里（`session-pins.json`）。 */
   pinned: boolean;
@@ -114,6 +117,15 @@ export function buildTaskMenu(options: {
       icon: <ArchiveIcon />,
       shortcut: "Del",
       onSelect: () => archiveWithUndo(taskId, options.selectedTaskId, t),
+    },
+    // 真删除（issue #10，2026-11-10 仓库所有者批准）：先弹 danger 确认框，经 omp 的 `/delete` 删掉会话文件，不可撤销。
+    {
+      id: "delete",
+      label: t("task.delete"),
+      icon: <Trash />,
+      tone: "danger",
+      testId: "task-menu-delete",
+      onSelect: () => confirmDelete({ kind: "task", taskId, title: options.title }),
     },
   ];
 }

@@ -41,6 +41,7 @@ export const composer = {
   "usage.costTipSub": "按 API 价格估算；计入订阅额度，不另收费",
   "usage.subagents": "括号内：subagent {cost}，未计入前数",
   "usage.cacheWrite": "缓存写入",
+  "usage.cacheHit": "缓存命中率",
   "context.title": "Context 构成",
   "context.systemPrompt": "System prompt",
   "context.systemTools": "System tools",
