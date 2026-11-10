@@ -9,7 +9,7 @@ description: 发一个新版本：结束占着 release\ 的进程、跑发版脚
 
 ## 1. 定版本号
 
-修 bug 和小改动升第三位（0.3.16 → 0.3.17），加功能升第二位。版本号必须比已发布的高：同一个版本重新打包，装好的应用不会当成更新。`CHANGELOG.md` 的「未发布」和 `CHANGELOG.en.md` 的「Unreleased」都不能是空的，两边写的是同一批改动。
+默认升第三位（0.3.16 → 0.3.17）：修 bug、小改动，以及小功能（加一个菜单项、一个开关、一处排序这类）。只有大功能（新的一整块界面或子系统）、界面结构改了、或者用户要重新适应的变化才升第二位；拿不准就升第三位（2026-11-10 仓库所有者定：之前"加功能就升第二位"，两天里从 0.5 升到了 0.7，置顶这种小功能发成了 0.7.0）。版本号必须比已发布的高：同一个版本重新打包，装好的应用不会当成更新。`CHANGELOG.md` 的「未发布」和 `CHANGELOG.en.md` 的「Unreleased」都不能是空的，两边写的是同一批改动。
 
 ## 2. 结束占着 `release\` 的进程
 
@@ -43,15 +43,15 @@ npm run release -- <版本>
 
 ## 4. 推送和上传
 
-本机环境变量里的 `GITHUB_TOKEN` 不是仓库所有者的账号、写不了这个仓库：`gh` 和发布脚本前面一律加 `env -u GITHUB_TOKEN`，用 `gh auth` 登录的账号。
+本机环境变量里的 `GITHUB_TOKEN` 不是仓库所有者的账号、写不了这个仓库：`gh` 前面加 `env -u GITHUB_TOKEN`，发布脚本放进子 shell 里 `unset GITHUB_TOKEN` 再跑（`env -u GITHUB_TOKEN node ...` 在 Git Bash 里报 `exec: D:\Nodejs\node: not found`，v0.7.0），都用 `gh auth` 登录的账号。
 
 ```bash
 git push origin main
 git push origin v<版本>
-env -u GITHUB_TOKEN node scripts/publish-release.ts <版本> release/latest.yml release/omp-studio-<版本>-setup.exe release/omp-studio-<版本>-setup.exe.blockmap
+(unset GITHUB_TOKEN; node scripts/publish-release.ts <版本> release/latest.yml release/omp-studio-<版本>-setup.exe release/omp-studio-<版本>-setup.exe.blockmap)
 ```
 
-最后一条是发版脚本最后打印的命令，前面加上 `env -u GITHUB_TOKEN`。它把三个文件传到这个版本的 GitHub Release（没有就建，说明是 `CHANGELOG.en.md` 和 `CHANGELOG.md` 里这一版，英文在前、中文在后；仓库所有者 2026-10-25 批准），`latest.yml` 最后传。装着的旧版本从这个 Release 自动更新（`docs/architecture/auto-update.md`），三个文件缺一不可。
+最后一条是发版脚本最后打印的命令，包进上面的子 shell。它把三个文件传到这个版本的 GitHub Release（没有就建，说明是 `CHANGELOG.en.md` 和 `CHANGELOG.md` 里这一版，英文在前、中文在后；仓库所有者 2026-10-25 批准），`latest.yml` 最后传。装着的旧版本从这个 Release 自动更新（`docs/architecture/auto-update.md`），三个文件缺一不可。
 
 ## 5. 确认 mac 和 Linux 构建
 
