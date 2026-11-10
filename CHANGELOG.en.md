@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- You now decide the order of sidebar folders: drag a folder to move it (or press Alt+↑ / Alt+↓ on its header), and a finished task no longer moves its folder to the top; new folders appear right below the default folder.
+
 ## [0.7.3] - 2026-11-10
 
 ### Fixed

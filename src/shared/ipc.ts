@@ -1042,6 +1042,8 @@ export interface ShellState {
   historyOrder: HistoryOrder;
   /** 对话列宽度：占主区面板宽度的百分比（40–100，最多两位小数）；null = 默认 80。实际宽度仍夹在 840–1200 和主区 − 2×留白之间。 */
   conversationWidth: number | null;
+  /** 侧栏"按文件夹"排列里文件夹的顺序（文件夹 key：小写、正斜杠、无尾斜杠的路径），用户拖出来的；最多 limits.folderOrderMax 个。 */
+  folderOrder: string[];
 }
 
 export type HistoryOrder = "folder" | "time";
@@ -1708,6 +1710,9 @@ export const limits = {
   backdropMaxBytes: 20 * 1024 * 1024,
   /** 预览网页（registerHtmlPreview）的最大字符数。 */
   htmlPreviewMaxChars: 20 * 1024 * 1024,
+  /** 侧栏文件夹顺序（ShellState.folderOrder）：最多记多少个、每个 key 多长。 */
+  folderOrderMax: 500,
+  folderKeyMaxChars: 4096,
 } as const;
 
 /** userData/backdrops 里自选背景图的文件名：内容的 sha256 + 扩展名（复制进来时定的，见 main/settings/backdrop-image.ts）。

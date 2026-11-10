@@ -1,5 +1,5 @@
 // 侧栏的纯数据整理：项目标签、任务和历史会话合并成文件夹/时间两种列表、等待中的任务。不依赖 React 和 window，可直接单测。
-import type { Project, ProjectId, SessionSummary, TaskId, TaskState } from "../ipc.ts";
+import { limits, type Project, type ProjectId, type SessionSummary, type TaskId, type TaskState } from "../ipc.ts";
 import { stripIconGlyphs } from "./clean-title.ts";
 import { lastActivityAt } from "./task-time.ts";
 
@@ -48,7 +48,7 @@ export interface SidebarFolder {
   items: SidebarItem[];
 }
 
-function folderKey(cwd: string): string {
+export function folderKey(cwd: string): string {
   return cwd.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
 
@@ -99,6 +99,8 @@ export interface SidebarInput {
   query: string;
   /** 默认文件夹（AppInfo.chatsDir）；文件夹排列里永远排第一。 */
   defaultCwd?: string | null;
+  /** 用户拖出来的文件夹顺序（文件夹 key，ShellState.folderOrder）；不在里面的是新文件夹，排在默认文件夹后面。 */
+  folderOrder?: readonly string[];
 }
 
 function matches(needle: string, title: string | null): boolean {
@@ -223,9 +225,10 @@ export function buildArchived(input: Pick<SidebarInput, "sessions" | "query">): 
 
 /**
  * 文件夹排列：studio 项目和历史会话的 cwd 按文件夹键合并成一个列表；移出列表的项目（hidden）不列。
- * 文件夹按其中最新的一行从新到旧；没有任何行的项目排在最后（保持项目顺序），搜索时不显示；
- * 没有行、但有归档会话的项目也不列（里面的都归档了：归档一条还不是项目的目录里的会话会把目录加成项目，不能因此多出一个空文件夹）。
- * 默认文件夹（defaultCwd）永远第一个，不受最近活动影响；有置顶行的文件夹紧跟在它后面（2026-11-10 仓库所有者定）；搜索时默认文件夹没有匹配行就和别的文件夹一样不显示。
+ * 顺序由用户拖动决定（folderOrder），任务跑完、发消息都不挪文件夹（2026-11-10 仓库所有者定：学 Claude Code，列表不在眼前自己跳）：
+ * 默认文件夹（defaultCwd）永远第一个；folderOrder 里没有的新文件夹紧跟其后（按最新一行从新到旧，空项目在它们最后）；其余按 folderOrder。
+ * 搜索时没有匹配行的文件夹不显示（默认文件夹也一样）；没有行、但有归档会话的项目也不列
+ * （里面的都归档了：归档一条还不是项目的目录里的会话会把目录加成项目，不能因此多出一个空文件夹）。
  * 分叉只在同一个文件夹里缩进。
  */
 export function buildFolders(input: SidebarInput): SidebarFolder[] {
@@ -256,13 +259,13 @@ export function buildFolders(input: SidebarInput): SidebarFolder[] {
       });
   }
   for (const folder of folders.values()) folder.items = nestForks(folder.items, input.sessions);
-  const pinned = input.defaultCwd == null ? null : folderKey(input.defaultCwd);
+  const fixed = input.defaultCwd == null ? null : folderKey(input.defaultCwd);
   const archivedFolders = new Set(
     input.sessions.filter((session) => session.archived).map((session) => folderKey(session.cwd)),
   );
   const list = [...folders.values()].filter((folder) =>
     needle === ""
-      ? folder.items.length > 0 || folder.key === pinned || !archivedFolders.has(folder.key)
+      ? folder.items.length > 0 || folder.key === fixed || !archivedFolders.has(folder.key)
       : folder.items.length > 0,
   );
   const nameCount = new Map<string, number>();
@@ -272,9 +275,46 @@ export function buildFolders(input: SidebarInput): SidebarFolder[] {
     if (parent !== "") folder.label = `${parent}/${folder.label}`;
   }
   const newest = (folder: SidebarFolder) => folder.items.reduce((latest, item) => Math.max(latest, item.at), -1);
-  const rank = (folder: SidebarFolder) =>
-    folder.key === pinned ? 0 : folder.items.some((item) => item.pinned) ? 1 : 2;
-  return list.sort((a, b) => rank(a) - rank(b) || newest(b) - newest(a));
+  const position = new Map((input.folderOrder ?? []).map((key, index) => [key, index]));
+  const rank = (folder: SidebarFolder) => (folder.key === fixed ? 0 : position.has(folder.key) ? 2 : 1);
+  return list.sort(
+    (a, b) => rank(a) - rank(b) || (position.get(a.key) ?? 0) - (position.get(b.key) ?? 0) || newest(b) - newest(a),
+  );
+}
+
+/**
+ * 把显示着的文件夹里还没记下的（新文件夹）记进顺序：放在最前面，保持它们现在的显示顺序。没有新的返回 null。默认文件夹不记。
+ * 移出列表、删掉的目录也留在顺序里（再打开时回到原位），超过 limits.folderOrderMax 个时从末尾丢。
+ */
+export function adoptNewFolders(
+  stored: readonly string[],
+  shown: readonly SidebarFolder[],
+  defaultCwd: string | null | undefined,
+): string[] | null {
+  const known = new Set(stored);
+  const fixed = defaultCwd == null ? null : folderKey(defaultCwd);
+  const added = shown.map((folder) => folder.key).filter((key) => key !== fixed && !known.has(key));
+  return added.length === 0 ? null : [...added, ...stored].slice(0, limits.folderOrderMax);
+}
+
+/**
+ * 把文件夹 key 移到显示列表里的第 to 个位置（0 起，按移走之后的列表算），返回新的存储顺序：显示着的按新顺序在前，
+ * 没显示的（移出列表的项目、搜索时藏起来的）保持原来的相对顺序接在后面。默认文件夹不动、也不能被插到它前面。
+ */
+export function moveFolder(
+  stored: readonly string[],
+  shown: readonly SidebarFolder[],
+  key: string,
+  to: number,
+  defaultCwd: string | null | undefined,
+): string[] {
+  const fixed = defaultCwd == null ? null : folderKey(defaultCwd);
+  const keys = shown.map((folder) => folder.key).filter((candidate) => candidate !== fixed);
+  if (key === fixed || !keys.includes(key)) return [...stored];
+  const rest = keys.filter((candidate) => candidate !== key);
+  rest.splice(Math.max(0, Math.min(rest.length, to)), 0, key);
+  const visible = new Set(rest);
+  return [...rest, ...stored.filter((candidate) => !visible.has(candidate))].slice(0, limits.folderOrderMax);
 }
 
 /** 选中的任务、正在跑或等你确认的任务：不能被"显示更多"或收起的分叉藏起来。 */

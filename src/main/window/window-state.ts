@@ -3,7 +3,14 @@
 import { app, screen, type BrowserWindow, type Rectangle } from "electron";
 import path from "node:path";
 import { historyOrders, limits, type ShellState } from "../../shared/ipc.ts";
-import { IpcValidationError, parseBoolean, parseInteger, parseOneOf, parseRecord } from "../ipc/validate.ts";
+import {
+  IpcValidationError,
+  parseBoolean,
+  parseInteger,
+  parseOneOf,
+  parseRecord,
+  parseString,
+} from "../ipc/validate.ts";
 import { readJsonFile, writeJsonFileAtomic } from "../settings/json-file.ts";
 
 export const sidebarWidthRange = [200, 360] as const;
@@ -15,6 +22,7 @@ const defaultShellState: ShellState = {
   terminalHeight: 280,
   historyOrder: "folder",
   conversationWidth: null,
+  folderOrder: [],
 };
 
 /** 对话列宽度（占主区的百分比）：null = 默认；数字要在 limits.conversationWidthRange 里，存两位小数。 */
@@ -25,6 +33,16 @@ export function parseConversationWidth(value: unknown): number | null {
     throw new IpcValidationError(`conversationWidth 必须是 null 或 ${min}–${max} 的数`);
   }
   return Math.round(value * 100) / 100;
+}
+
+/** 侧栏文件夹顺序：字符串数组，不超过 limits.folderOrderMax 个，每个非空、不超过 limits.folderKeyMaxChars，不重复。 */
+export function parseFolderOrder(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > limits.folderOrderMax) {
+    throw new IpcValidationError(`folderOrder 必须是不超过 ${limits.folderOrderMax} 项的数组`);
+  }
+  const keys = value.map((key, index) => parseString(key, `folderOrder[${index}]`, limits.folderKeyMaxChars));
+  if (new Set(keys).size !== keys.length) throw new IpcValidationError("folderOrder 有重复项");
+  return keys;
 }
 
 interface WindowBounds {
@@ -113,6 +131,11 @@ function load(): PersistedState {
     shell.conversationWidth = parseConversationWidth(raw["conversationWidth"]);
   } catch {
     // 保留默认值（缺字段、越界都按默认宽度）。
+  }
+  try {
+    shell.folderOrder = parseFolderOrder(raw["folderOrder"]);
+  } catch {
+    // 保留默认值：所有文件夹当新文件夹，按最近活动排一次后记下来。
   }
   state = {
     bounds: parseBounds(record["bounds"]),

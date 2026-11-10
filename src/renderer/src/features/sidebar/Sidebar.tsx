@@ -5,7 +5,7 @@ import { publishVisibleTaskIds } from "./visible-order-store.ts";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectId, TaskId, TaskState } from "../../../../shared/ipc.ts";
-import { setHistoryOrder, useShellValue } from "../../app/shell-store.ts";
+import { setFolderOrder, setHistoryOrder, useShellValue } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { shortcutLabel } from "../../app/platform-keys.ts";
 import {
@@ -38,7 +38,10 @@ import { addProjectAsDraft, startDraftInFolder } from "./sidebar-actions.ts";
 import { startDraft } from "../empty/index.ts";
 import { isDefaultFolder } from "../empty/default-folder.ts";
 import {
+  adoptNewFolders,
+  folderKey,
   buildFolders,
+  moveFolder,
   buildArchived,
   buildTimeline,
   nextWaitingTask,
@@ -48,7 +51,7 @@ import {
   type SidebarFolder,
 } from "../../../../shared/ui/sidebar-model.ts";
 import type { RowHandlers } from "./TaskRow.tsx";
-import { useHistorySessions } from "./use-history-sessions.ts";
+import { useHistorySessions, useHistorySessionsLoaded } from "./use-history-sessions.ts";
 import { useSidebarMenus } from "./use-sidebar-menus.tsx";
 import "./sidebar.css";
 
@@ -113,6 +116,10 @@ export function Sidebar() {
   const hasArchived = useMemo(() => sessions.some((session) => session.archived), [sessions]);
   const mode = showArchived && hasArchived ? "archived" : order;
   // 任务和会话合成一个列表（搜索同时过滤两者）；默认文件夹（chats 目录）叫"默认文件夹"，不露出目录名。
+  // 文件夹顺序是用户拖出来的（ShellState.folderOrder），任务跑完不挪（spec §4.5）。
+  const folderOrder = useShellValue("folderOrder");
+  const shellLoaded = useShellValue("loaded");
+  const sessionsLoaded = useHistorySessionsLoaded();
   const folders = useMemo(
     () =>
       buildFolders({
@@ -122,8 +129,21 @@ export function Sidebar() {
         hidden,
         query,
         defaultCwd: chatsDir,
+        folderOrder,
       }).map((folder) => (isDefaultFolder(folder.cwd, chatsDir) ? { ...folder, label: defaultLabel } : folder)),
-    [projectsState.list, tasksState.list, sessions, hidden, query, chatsDir, defaultLabel],
+    [projectsState.list, tasksState.list, sessions, hidden, query, chatsDir, defaultLabel, folderOrder],
+  );
+  // 新出现的文件夹（新开的项目、终端里新目录的会话）一出现就记进顺序的最前面，之后不再因为活动挪动。
+  // 等项目、任务、历史会话、外壳状态都读回来再记：否则还没读到的目录会被当成新的，存盘的顺序也会被默认值盖掉。
+  const ready = shellLoaded && projectsState.loaded && tasksState.loaded && sessionsLoaded && chatsDir !== null;
+  useEffect(() => {
+    if (!ready || searching) return;
+    const next = adoptNewFolders(folderOrder, folders, chatsDir);
+    if (next !== null) setFolderOrder(next);
+  }, [ready, searching, folderOrder, folders, chatsDir]);
+  const onMoveFolder = useCallback(
+    (folder: SidebarFolder, to: number) => setFolderOrder(moveFolder(folderOrder, folders, folder.key, to, chatsDir)),
+    [folderOrder, folders, chatsDir],
   );
   const timeline = useMemo(
     () =>
@@ -395,6 +415,8 @@ export function Sidebar() {
             }
             onNewTask={(folder) => void startDraftInFolder(folder, t)}
             onOpenProjectMenu={openProjectMenu}
+            fixedFolderKey={chatsDir === null ? null : folderKey(chatsDir)}
+            onMoveFolder={onMoveFolder}
           />
           {searching && (mode === "folder" ? folders.length === 0 : flat.length === 0) && (
             <p className="sb-note" role="status">

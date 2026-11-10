@@ -1,5 +1,6 @@
 // 文件夹分组（spec §4.3）：头部 [名称][箭头] + 任务和历史会话混排的行。头部右侧常驻 +（在这个文件夹新建任务，纯历史文件夹会先把它加成项目）；
 // + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
+// 文件夹的顺序由用户定（spec §4.5）：拖头部换位置（插入线画在落点那个文件夹的上边或下边），焦点在头部时 Alt+↑ / Alt+↓ 上下移一格；默认文件夹不能动。
 import { useRef } from "react";
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import { visibleItems, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
@@ -27,6 +28,28 @@ interface FolderGroupProps {
   onShowMore(folder: SidebarFolder): void;
   onNewTask(folder: SidebarFolder): void;
   onOpenProjectMenu(project: Project, x: number, y: number, trigger: HTMLElement): void;
+  /** 能拖动、能 Alt+↑/↓（默认文件夹不能）。 */
+  movable: boolean;
+  /** 正在被拖的就是它。 */
+  dragging: boolean;
+  /** 插入线画在它的上边 / 下边。 */
+  dropEdge: DropEdge | undefined;
+  onDragStart(): void;
+  /** 拖着别的文件夹经过它；返回 false = 不是在拖文件夹（拖文件进来之类），不接。 */
+  onDragOver(edge: DropEdge): boolean;
+  onDrop(): void;
+  onDragEnd(): void;
+  /** 键盘：上移（-1）/ 下移（+1）一格。 */
+  onMoveBy(delta: -1 | 1): void;
+}
+
+export type DropEdge = "before" | "after";
+
+/** 拖着经过这个文件夹：指针在头部中线以上算"上边"，以下（含展开的行）算"下边"。 */
+function edgeAt(section: HTMLElement, clientY: number): DropEdge {
+  const head = section.querySelector<HTMLElement>(".sb-group-head") ?? section;
+  const box = head.getBoundingClientRect();
+  return clientY < box.top + box.height / 2 ? "before" : "after";
 }
 
 export function FolderGroup(props: FolderGroupProps) {
@@ -43,12 +66,35 @@ export function FolderGroup(props: FolderGroupProps) {
   );
   const moreId = moreNavId(folder.key);
   const body = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
   useFlip(body);
 
   return (
-    <section className="sb-folder" aria-label={folder.label} data-testid="sidebar-folder">
+    <section
+      className="sb-folder"
+      aria-label={folder.label}
+      data-testid="sidebar-folder"
+      data-dragging={props.dragging || undefined}
+      data-drop={props.dropEdge}
+      onDragOver={(event) => {
+        if (!props.onDragOver(edgeAt(event.currentTarget, event.clientY))) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        props.onDrop();
+      }}
+    >
       <div
         className="sb-group-head"
+        draggable={props.movable}
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", folder.cwd);
+          props.onDragStart();
+        }}
+        onDragEnd={props.onDragEnd}
         onContextMenu={(event) => {
           if (project === null) return;
           event.preventDefault();
@@ -61,6 +107,7 @@ export function FolderGroup(props: FolderGroupProps) {
         }}
       >
         <button
+          ref={toggle}
           type="button"
           className="sb-group-toggle"
           data-nav={navId}
@@ -68,11 +115,18 @@ export function FolderGroup(props: FolderGroupProps) {
           tabIndex={props.tabStopId === navId ? 0 : -1}
           aria-expanded={open}
           aria-label={t("sidebar.toggleProject", { project: folder.label })}
+          aria-keyshortcuts={props.movable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
           title={folder.cwd}
           onFocus={() => rows.onFocusItem(navId)}
           onClick={() => props.onToggle(folder, !open)}
           onKeyDown={(event) => {
-            if (event.key === "ArrowLeft" && open) {
+            if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+              event.preventDefault();
+              if (!props.movable) return;
+              props.onMoveBy(event.key === "ArrowUp" ? -1 : 1);
+              // React 挪动 DOM 节点会让焦点丢掉：挪完把焦点放回这个头部。
+              requestAnimationFrame(() => toggle.current?.focus());
+            } else if (event.key === "ArrowLeft" && open) {
               event.preventDefault();
               props.onToggle(folder, false);
             } else if (event.key === "ArrowRight" && !open) {

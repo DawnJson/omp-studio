@@ -130,6 +130,8 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
         locale: data.locale,
         isPackaged: false,
         runtime: { electron: "0", chromium: "0", node: "0" },
+        // 不存在的目录：默认文件夹不出现在列表里，但侧栏知道它是什么（文件夹顺序要等它读到才开始记）。
+        chatsDir: "E:\\不存在的 chats",
       }));
       stub("listProjects", () => data.projects);
       stub("listTasks", () => data.tasks);
@@ -142,9 +144,18 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
       });
       stub("createTask", () => data.tasks[0]);
       stub("listSlashCommands", () => data.slash);
-      stub("getShellState", () => ({ sidebarWidth: 264, sidebarCollapsed: false, historyOrder: "folder" }));
+      // 外壳状态在主进程这一侧记着：重新加载页面后读回来（文件夹顺序要跨重载保持）。
+      const shell: Record<string, unknown> = {
+        sidebarWidth: 264,
+        sidebarCollapsed: false,
+        historyOrder: "folder",
+        terminalHeight: 280,
+        conversationWidth: null,
+        folderOrder: [],
+      };
+      stub("getShellState", () => shell);
       stub("ensureSessionProject", () => ({ id: "pn", path: "E:\\其他 目录\\notes", name: "notes", hidden: false }));
-      stub("setShellState", () => undefined);
+      stub("setShellState", (patch) => Object.assign(shell, patch));
     },
     {
       locale,
@@ -441,6 +452,66 @@ test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文�
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(deploy).toHaveCount(0);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("文件夹顺序：拖动换位置，Alt+↑/↓ 移一格；任务跑完文件夹不挪；重新加载后顺序还在", async () => {
+  const agentDir = await makeAgentDir();
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  const { app, page } = launched;
+  try {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await stubMain(app, "zh-CN");
+    await page.reload();
+    const history = page.getByTestId("sidebar").getByTestId("sidebar-history");
+    const folders = history.getByTestId("sidebar-folder");
+    const labels = async () => Promise.all((await folders.all()).map((folder) => folder.getAttribute("aria-label")));
+    const head = (name: string) => history.getByRole("region", { name }).locator(".sb-group-head");
+    await expect(folders).toHaveCount(3);
+    // api server 的最新一行（15 分钟前）比两个刚写的会话文件旧：一开始排最后。三个文件夹一读到就记进顺序。
+    await expect.poll(labels).toEqual([expect.any(String), expect.any(String), "api server"]);
+    const [first, second] = (await labels()) as string[];
+    await expect
+      .poll(async () =>
+        (await mainCalls(app, "setShellState")).some((args) =>
+          Array.isArray((args[0] as { folderOrder?: unknown }).folderOrder),
+        ),
+      )
+      .toBe(true);
+
+    // 拖到第一个文件夹头部的上半截：排到最前。
+    await head("api server").dragTo(head(first!), { targetPosition: { x: 20, y: 2 } });
+    await expect.poll(labels).toEqual(["api server", first, second]);
+
+    // 键盘：焦点在头部，Alt+↓ 两次回到最后；焦点留在它的头部上。
+    const toggle = history.getByRole("region", { name: "api server" }).locator(".sb-group-toggle");
+    await toggle.focus();
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect.poll(labels).toEqual([first, "api server", second]);
+    await expect(toggle).toBeFocused();
+    await page.keyboard.press("Alt+ArrowDown");
+    await expect.poll(labels).toEqual([first, second, "api server"]);
+
+    // api server 里的任务刚跑完一轮（成了最新的一行）：文件夹不往前挪。
+    const finished = {
+      ...tasks.find((task) => task.id === "t8")!,
+      status: "idle",
+      updatedAt: Date.now() + 60_000,
+      lastTurn: { status: "completed", endedAt: Date.now() },
+    };
+    await app.evaluate(({ BrowserWindow }, state) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:taskState", state);
+    }, finished);
+    await expect(history.getByRole("region", { name: "api server" }).getByTestId("task-row").first()).toBeVisible();
+    expect(await labels()).toEqual([first, second, "api server"]);
+
+    // 顺序存在主进程那边：重新加载后还是这样。
+    await page.reload();
+    await expect(folders).toHaveCount(3);
+    await expect.poll(labels).toEqual([first, second, "api server"]);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

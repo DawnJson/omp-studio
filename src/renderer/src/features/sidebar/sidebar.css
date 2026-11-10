@@ -195,6 +195,29 @@
 .sb-folder + .sb-folder {
   margin-top: var(--space-1);
 }
+/* 拖文件夹换位置：被拖的那个变淡，插入线画在落点文件夹的上边或下边（落在两个文件夹之间的空隙里） */
+.sb-folder {
+  position: relative;
+}
+.sb-folder[data-dragging] {
+  opacity: 0.5;
+}
+.sb-folder[data-drop]::after {
+  content: "";
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  pointer-events: none;
+}
+.sb-folder[data-drop="before"]::after {
+  top: calc(-1 * var(--space-1) / 2 - 1px);
+}
+.sb-folder[data-drop="after"]::after {
+  bottom: calc(-1 * var(--space-1) / 2 - 1px);
+}
 .sb-show-more-flat {
   padding-left: var(--space-2);
 }

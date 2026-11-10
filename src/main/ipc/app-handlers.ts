@@ -12,7 +12,13 @@ import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
 import { chooseBackdropImage } from "../settings/backdrop-image.ts";
-import { getShellState, parseConversationWidth, setShellState, sidebarWidthRange } from "../window/window-state.ts";
+import {
+  getShellState,
+  parseConversationWidth,
+  parseFolderOrder,
+  setShellState,
+  sidebarWidthRange,
+} from "../window/window-state.ts";
 import {
   getMainWindow,
   glassSupported,
@@ -109,6 +115,7 @@ export const appHandlers: HandlerGroup<
       ...(record["conversationWidth"] !== undefined && {
         conversationWidth: parseConversationWidth(record["conversationWidth"]),
       }),
+      ...(record["folderOrder"] !== undefined && { folderOrder: parseFolderOrder(record["folderOrder"]) }),
     });
   },
   setTitleBarDimmed: async (dimmed, fade) =>

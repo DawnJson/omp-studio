@@ -44,6 +44,11 @@ export function useLoadedHistorySessions(): readonly SessionSummary[] {
   return useStoreValue(store, (sessions) => sessions ?? none);
 }
 
+/** 已经取到过一次历史会话：之前文件夹列表里还缺只在历史里出现的目录，不能拿来记"新文件夹"。 */
+export function useHistorySessionsLoaded(): boolean {
+  return useStoreValue(store, (sessions) => sessions !== null);
+}
+
 /** 任务挂着的会话是否置顶（omp `/pin`）：按已经取到的列表算，不重取。 */
 function pinnedOf(sessions: readonly SessionSummary[] | null, taskId: TaskId): boolean {
   return sessions?.some((session) => session.taskId === taskId && session.pinned) === true;
