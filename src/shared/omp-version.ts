@@ -1,4 +1,4 @@
-// 支持的最低 omp 版本（决策 D4：wire 文件和两份 fixture 的录制版本）。主进程判断 belowMinimum，界面显示要求的版本。
+// 支持的最低 omp 版本（决策 D4：当初 wire 文件和两份 fixture 的录制版本；协议类型后来跟到了 18.18.5，见 omp-boundaries.md，最低版本没跟着提）。主进程判断 belowMinimum，界面显示要求的版本。
 export const MIN_OMP_VERSION = "18.12.0";
 
 /** 比较 `18.12.1` 这类版本号：数字段逐段比，数字相同时带预发布后缀（`-canary.1`）的小于不带的。 */

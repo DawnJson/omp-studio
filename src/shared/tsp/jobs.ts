@@ -5,8 +5,9 @@
 // - hud 的作业胶囊 `omp.hud.seg`（`actions.click === "jobs.open"`）：只在有作业**运行中**时存在（全结束就整条消失）。
 //   `title` = `"2 jobs running  /jobs\n<id>  <标题>\n<id>  <标题>"`，第一行之后每行一个作业，id 和标题之间是两个空格。
 //   bash 作业的 id 是 `bg_N`，子代理作业的 id 就是子代理名（同一个名字有 `agent` 节点）。
-// - `/jobs` 弹窗（`omp.overlay.jobs`）里 `omp.jobs.master` 下的 `list`：每个 `item` 的 `title` 第二行是
-//   `<状态> · <类型> · <id>`（`Running|Done|Failed|Cancelled · bash · bg_1`），`label` 是命令，`value` 是时长（`43.9s`、`305ms`）。
+// - `/jobs` 弹窗（`omp.overlay.jobs`）里 `omp.jobs.master` 下的 `list`：每个 `item` 的 `title` **最后一行**是
+//   `<状态> · <类型> · <id>`（`Running|Done|Failed|Cancelled · bash · bg_1`），倒数第二行是命令（18.15 起前面可能多 intent、caption 两行，
+//   见 overlayItem），`value` 是时长（`43.9s`、`305ms`）。
 //   弹窗里有全部状态，但只有它开着的时候在文档里。
 // 终端里弹窗关了作业就只剩 hud；所以渲染进程在相关节点（JOBS_NODES）变了的批次后把快照并进已知作业（mergeTspJobs）：运行中消失的作业记为结束。
 // 纯函数，不碰 DOM；解析不了的行跳过，界面只是少一行，不会报错。
@@ -128,16 +129,25 @@ function jobType(kind: string, id: string, agents: JobAgents): Job["type"] {
   return agents.has(id) ? "agent" : "task";
 }
 
+/**
+ * `/jobs` 弹窗列表项的 `title`：最后一行是 `<状态> · <类型> · <id>`，倒数第二行是命令（job-manager 的 `label`）。
+ * omp 18.12–18.14 是两行 `<命令>\n<状态> · <类型> · <id>`；18.15 起前面可能多出模型的 intent 和 caption：
+ * `[<intent>\n][<caption>\n]<命令>\n<状态> · <类型> · <id>`（18.18.5 `packages/tui/src/overlays/jobs-panel.ts` 的 describeJobItem）。
+ * 所以按行尾数，不能按行首数。多行命令（job-manager 的 label 只截 120 字、不去换行）这时只拿到它的最后一行：
+ * intent / caption 各一行但可有可无，标题里分不出命令从哪行开始。
+ */
 function overlayItem(item: DocNode, now: number, agents: JobAgents): Job | null {
   const title = typeof item.p["title"] === "string" ? item.p["title"] : "";
-  const meta = /^(\S+) · (\S+) · (.+)$/.exec(title.split("\n")[1] ?? "");
+  const lines = title.split("\n");
+  const meta = lines.length >= 2 ? /^(\S+) · (\S+) · (.+)$/.exec(lines.at(-1) ?? "") : null;
   if (!meta) return null;
   const word = meta[1] ?? "";
   const kind = meta[2] ?? "";
   const id = meta[3] ?? "";
   const status = statusFromWord(word, item.p["tone"]);
-  // 标题第一行是纯命令；`label` 的 span 里子代理自己起的作业前面带树形前缀（`└─ sleep 75`，hub-steer 录制）。
-  const label = (title.split("\n")[0] ?? "") || spansText(item.p["label"]).replace(/^[│├└─ ]+/, "") || id;
+  // label 仍取命令（和 hud 胶囊、bash 卡片一致），不取 intent：18.15 起 `label` 的 span 有 intent 时显示 intent，
+  // 所以只在标题拿不到命令时退回 span；子代理自己起的作业 span 前面带树形前缀（`└─ sleep 75`，hub-steer 录制）。
+  const label = (lines.at(-2) ?? "") || spansText(item.p["label"]).replace(/^[│├└─ ]+/, "") || id;
   const durationMs = parseJobDuration(spansText(item.p["value"]));
   return {
     id,

@@ -665,6 +665,15 @@
   flex: none;
   margin: var(--space-1) var(--space-3) 0;
 }
+/* omp 的分段标签（tabs variant segmented，Tabs.tsx）：外观同 .ui-seg，选中态看 tab 的 aria-selected（.ui-seg 自己看 radio 的 aria-checked）。 */
+.ui-seg[role="tablist"] {
+  align-self: flex-start;
+}
+.ui-seg[role="tablist"] > button[aria-selected="true"] {
+  color: var(--text);
+  background: var(--control-on);
+  box-shadow: var(--shadow-1);
+}
 .tspi-pk-colhead {
   display: flex;
   flex: none;

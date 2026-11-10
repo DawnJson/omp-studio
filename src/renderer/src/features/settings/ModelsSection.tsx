@@ -30,6 +30,7 @@ import {
   saveOmpModelRole,
   useOmpConfigValue,
 } from "./config-store.ts";
+import { Cells } from "./Cells.tsx";
 import { ChainLevel, levelText } from "./ChainLevel.tsx";
 import { CommonConfig } from "./ConfigSection.tsx";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
@@ -418,7 +419,7 @@ export function ModelsSection() {
 
   // 默认思考强度是一项普通设置，不占角色表的一格（2026-10-29 审计：它的长标签把左半边的角色名列撑宽，左右两半的下拉对不齐）。
   const thinkingRow = (
-    <div className="st-cells">
+    <Cells>
       <Row label={t("settings.defaultThinking")}>
         {(labelId) => (
           <Select
@@ -434,7 +435,7 @@ export function ModelsSection() {
           />
         )}
       </Row>
-    </div>
+    </Cells>
   );
   const chatLead = (
     <>

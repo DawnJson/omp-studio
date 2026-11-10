@@ -147,6 +147,59 @@ async function dockLayout(
   })()`);
 }
 
+// 子代理列表的行不闪(2026-11-09 仓库所有者:行一直闪):agent-progress 回放里每帧记下每行的第二行文字和用时离行右端的距离。
+// 两次工具调用之间 omp 发 tool: null,第二行接着显示上一个工具,不跳回任务说明;右端从"运行中"换成进度环时用时不横跳。
+test("子代理列表的行不闪:工具之间第二行不跳回任务说明,右端换成进度环时用时不动", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("agent-progress");
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("agent-progress"))[0]!.event["text"]));
+    const taskHead = role(page, "omp.tool.task").locator(".tsp-tool-head");
+    await expect(taskHead).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
+    await page.getByTestId("pill-agents").click({ timeout: 60_000 });
+    const panel = page.getByTestId("agents-panel");
+    await expect(panel.getByTestId("agents-row")).toHaveCount(2);
+    await page.evaluate(`(() => {
+      const frames = [];
+      globalThis.__agentFrames = frames;
+      const tick = () => {
+        for (const row of document.querySelectorAll('[data-testid="agents-row"]')) {
+          const time = row.querySelector('[data-testid="agents-row-time"]');
+          frames.push({
+            name: row.dataset.name,
+            line: row.querySelector(".agents-row-line")?.textContent ?? "",
+            timeRight: time === null ? null : Math.round(row.getBoundingClientRect().right - time.getBoundingClientRect().right),
+          });
+        }
+        if (globalThis.__agentFrames === frames) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    })()`);
+    // 录制里探针点开过 Task 卡片,omp 收到才往下发:点开后回放走到两个子代理都有完成度(进度环)为止。
+    await taskHead.click();
+    await expect(panel.getByTestId("agents-row-progress")).toHaveCount(2, { timeout: 60_000 });
+    const frames = (await page.evaluate(`(() => {
+      const frames = globalThis.__agentFrames;
+      globalThis.__agentFrames = null;
+      return frames;
+    })()`)) as { name: string; line: string; timeRight: number | null }[];
+    for (const name of ["Alpha", "Beta"]) {
+      const own = frames.filter((frame) => frame.name === name);
+      const firstTool = own.findIndex((frame) => frame.line.includes(" · "));
+      expect(firstTool).toBeGreaterThanOrEqual(0);
+      // 用过工具之后一直是"工具 · 意图",录制里至少换过一次工具(bash -> wait -> bash)。
+      expect(
+        [...new Set(own.slice(firstTool).map((frame) => frame.line))].filter((line) => !line.includes(" · ")),
+      ).toEqual([]);
+      expect(new Set(own.map((frame) => frame.line)).size).toBeGreaterThan(2);
+      expect(new Set(own.map((frame) => frame.timeRight))).toEqual(new Set([own[0]!.timeRight]));
+    }
+  } finally {
+    await cleanup();
+  }
+});
+
 test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理、bash、回答按 omp 的节点画出来,跑完侧栏回到空闲", async () => {
   test.setTimeout(120_000);
   const { launched, received, cleanup } = await start("task");
@@ -432,6 +485,42 @@ test("重开会话:顶栏标题旁的按钮;门开着时置灰,悬停出自绘�
   } finally {
     await cleanup();
     await rm(scratch, { recursive: true, force: true, maxRetries: 10 });
+  }
+});
+
+// 回答下面那行用量自己带 title(本轮用时、token):指到行里的复制 / 分叉图标时,图标的 title 被自绘提示拿掉,
+// 浏览器就拿外层这行的 title 出 Windows 样式的原生提示(2026-11-09 仓库所有者)。原生提示截不到图:改为断言提示出着时指针下方的元素和祖先都没有 title。
+test("悬停提示只出自绘的:指到回答用量行里的复制 / 分叉图标,外层行的 title 也拿掉,移开后放回;移到行本身出它自己的提示", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("task");
+  try {
+    const { page } = launched;
+    await sendFirst(page, TASK_PROMPT);
+    const usage = role(page, "omp.turn.usage").last();
+    await expect(usage).toBeVisible({ timeout: 60_000 });
+    const rowTitle = await usage.getAttribute("title");
+    expect(rowTitle).toMatch(/\S/);
+    const tip = page.getByTestId("tooltip");
+    const titledUnderPointer = (x: number, y: number) =>
+      page.evaluate(`document.elementFromPoint(${x}, ${y})?.closest("[title]")?.getAttribute("title") ?? null`);
+    for (const icon of [usage.locator('[data-role="omp.turn.copy"]'), usage.getByTestId("tsp-answer-fork")]) {
+      await icon.hover();
+      await expect(tip).toBeVisible();
+      const box = (await icon.boundingBox())!;
+      expect(await titledUnderPointer(box.x + box.width / 2, box.y + box.height / 2)).toBeNull();
+      await page.getByTestId("composer-input").hover();
+      await expect(tip).toHaveCount(0);
+      await expect(usage).toHaveAttribute("title", rowTitle!);
+    }
+    // 从图标移到这行的空白处:行的 title 放回来,出它自己的提示。
+    const fork = (await usage.getByTestId("tsp-answer-fork").boundingBox())!;
+    const row = (await usage.boundingBox())!;
+    await page.mouse.move(fork.x + fork.width / 2, fork.y + fork.height / 2);
+    await expect(tip).toBeVisible();
+    await page.mouse.move(fork.x + fork.width + 40, row.y + row.height / 2);
+    await expect(tip).toHaveText(rowTitle!.replace(/\s+/g, " ").trim());
+  } finally {
+    await cleanup();
   }
 });
 
@@ -825,6 +914,164 @@ test("多题提问(omp 18.12.5 录制):多选题点高亮项是勾选不跳页;R
       { ev: "select", sf: "s:1", id: "s.q2", item: "s.q2/option:1" },
       { ev: "action", sf: "s:1", id: "s.actions/submit", act: "submit" },
     ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+/** 录制里 studio 发的第一句话（假 omp 只认逐字相同的 send）。 */
+const recordedPrompt = (fixture: string): string =>
+  recordedUserEvents(loadTspFixture(fixture)).find((entry) => entry.event["ev"] === "send")!.event["text"] as string;
+
+test("提问(omp 18.18.6 录制,声明了 button):底栏按钮是 button 节点,画成真按钮、带快捷键小字;点选项再点 Submit 发 action submit", async () => {
+  test.setTimeout(90_000);
+  const { launched, received, cleanup } = await start("button-ask");
+  try {
+    const { page } = launched;
+    await sendFirst(page, recordedPrompt("button-ask"));
+    const item = (id: string) => page.locator(`[data-testid="tsp-view"] [data-id="${id}"]`);
+    const submit = item("t.actions/submit");
+    await expect(submit).toBeVisible({ timeout: 30_000 });
+    await expect(submit).toHaveJSProperty("tagName", "BUTTON");
+    await expect(submit).toContainText("Submit");
+    await expect(submit).toContainText("Enter");
+    await expect(submit).toHaveAttribute("data-variant", "primary");
+    await expect(item("t.actions/hide")).toContainText("Alt+H");
+    // omp.btn 一律 sm（omp 不给 size）。
+    await expect(submit).toHaveAttribute("data-size", "sm");
+    await item("t.body0/0/s0/0/f0/o1").click();
+    await submit.click();
+    await expect(role(page, "omp.editor.ask")).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    expect(await received()).toEqual([
+      expect.objectContaining({ ev: "send" }),
+      { ev: "select", sf: "s:1", id: "t.body0/0/s0/0/f0", item: "t.body0/0/s0/0/f0/o1" },
+      { ev: "action", sf: "s:1", id: "t.actions/submit", act: "submit" },
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("审批(omp 18.18.6 录制,声明了 button):Deny / Approve 不画,Details 是真按钮且和标题同一行,点了发 action expand;Ctrl+Enter 发出门上的批准 action", async () => {
+  test.setTimeout(90_000);
+  const { launched, received, cleanup } = await start("button-approval");
+  try {
+    const { page } = launched;
+    await sendFirst(page, recordedPrompt("button-approval"));
+    const gate = role(page, "omp.editor.ask.approval");
+    await expect(gate).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "needs_you");
+    await expect(gate.locator('[data-id="t.actions/approve"], [data-id="t.actions/deny"]')).toHaveCount(0);
+    const details = gate.locator('[data-id="t.actions/expand"]');
+    await expect(details).toHaveJSProperty("tagName", "BUTTON");
+    await expect(details).toContainText("Ctrl+O");
+    const title = (await gate.locator('[data-role="omp.approval.title"]').boundingBox())!;
+    const box = (await details.boundingBox())!;
+    expect(Math.abs(title.y + title.height / 2 - (box.y + box.height / 2))).toBeLessThan(2);
+    expect(box.x).toBeGreaterThan(title.x + title.width);
+    await details.click();
+    await expect(details).toContainText("Less");
+    // 点按钮不抢焦点：键盘还在输入框，Ctrl+Enter 照常批准。
+    await expect(page.getByTestId("composer-input")).toBeFocused();
+    await page.getByTestId("composer-input").press("Control+Enter");
+    await expect(gate).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    expect((await received()).filter((event) => event["ev"] === "action")).toEqual([
+      { ev: "action", sf: "s:1", id: "t.actions/expand", act: "expand" },
+      { ev: "action", sf: "s:1", id: "t.actions/approve", act: "approve" },
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("bash 命令区(omp 18.18.6 录制,声明了 shell):按 omp 的行画 Pseudo,运行中只有一行标 ▶;第一行右端 Pseudo | Raw,点 Raw 发 shell-viz 动作、omp 回来后是原命令;折叠块点开;复制命令照旧;窄窗不越界", async () => {
+  test.setTimeout(120_000);
+  // 原速回放：for 循环跑着的几帧（▶ 在 sleep 那一行）要留得住，断言才看得到。
+  const { launched, received, cleanup } = await start("shell-bash", {}, 1);
+  try {
+    const { page } = launched;
+    await sendFirst(page, recordedPrompt("shell-bash"));
+    const shells = role(page, "omp.tool.bash.command");
+    await expect(shells.first()).toBeVisible({ timeout: 30_000 });
+    await expect(shells.first()).toHaveClass(/\btsp-shell\b/);
+    // 运行中：只有正在执行的那一行标 ▶（data-active），同一张卡上其余的行淡化。
+    const active = page.locator('[data-testid="tsp-view"] .tsp-shell [data-active]');
+    await expect(active).toHaveCount(1, { timeout: 30_000 });
+    await expect(active.locator(".tsp-sh-gut")).toHaveText("▶");
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 60_000 });
+    await expect(active).toHaveCount(0);
+    await expect(shells).toHaveCount(4);
+    const first = shells.first();
+    const rows = first.locator(".tsp-sh-ln");
+    await expect(rows.first()).toContainText("curl -s --max-time 8 https://example.com → grep");
+    await expect(first.locator('.tsp-sh-ln[data-depth="1"]')).toHaveCount(2);
+    // 重定向是药丸；omp 给的片段带前导空格（" >count.txt"），空格不包进底色（折行时不多出一截空药丸）。
+    await expect(rows.first().locator(".tsp-sh-seg[data-pill]")).toHaveJSProperty("textContent", ">count.txt");
+    // effects 图标中性灰，悬停是 omp 的说明。
+    await expect(rows.first().locator(".tsp-sh-fx").first()).toHaveAttribute("title", /^network: curl → example\.com/);
+    // Raw / Pseudo 常显在第一行右端，当前是 omp 的默认 Pseudo。
+    const raw = rows.first().locator('.tsp-sh-view [data-view="raw"]');
+    const pseudo = rows.first().locator('.tsp-sh-view [data-view="pseudo"]');
+    await expect(raw).toBeVisible();
+    await expect(pseudo).toHaveAttribute("aria-checked", "true");
+    await raw.click();
+    await expect(rows).toHaveCount(1);
+    // 正文片段（不含 effects 图标和行尾的 meta）就是原命令。
+    await expect
+      .poll(async () => (await rows.first().locator(".tsp-sh-piece").allTextContents()).join(""))
+      .toBe("curl -s --max-time 8 https://example.com | grep -c html > count.txt && cat count.txt && rm -f count.txt");
+    await expect(raw).toHaveAttribute("aria-checked", "true");
+    await pseudo.click();
+    await expect(rows).toHaveCount(3);
+    // 下一张（失败的管道）：× 每个失败的命令一个，exit 1 跟在行尾。
+    const failed = shells.nth(1);
+    await expect(failed.locator(".tsp-sh-fail")).toHaveCount(2);
+    await expect(failed.locator(".tsp-sh-meta[data-fail]")).toHaveText("exit 1");
+    // 录制里接着切了第二、三张卡的视图，照做一遍，假 omp 才往下放。
+    for (const card of [failed, shells.nth(2)]) {
+      await card.locator('[data-view="raw"]').click();
+      await expect(card.locator('[data-view="raw"]')).toHaveAttribute("aria-checked", "true");
+      await card.locator('[data-view="pseudo"]').click();
+      await expect(card.locator('[data-view="pseudo"]')).toHaveAttribute("aria-checked", "true");
+    }
+    // for 循环的 "+1 more" 折叠块：悬停是全文，点了发 expand，omp 回来展开。
+    const fold = shells.nth(2).locator(".tsp-sh-fold");
+    await expect(fold).toHaveText("+1 more");
+    await expect(fold).toHaveAttribute("title", "1\n2\n3");
+    await fold.click();
+    await expect(shells.nth(2).locator(".tsp-sh-ln").first()).toContainText('for i in ["1", "2", "3"]:');
+    expect((await received()).filter((event) => event["ev"] === "action")).toEqual(
+      [
+        ["s", "view:raw"],
+        ["s", "view:pseudo"],
+        ["u", "view:raw"],
+        ["u", "view:pseudo"],
+        ["w", "view:raw"],
+        ["w", "view:pseudo"],
+        ["w", "expand:0:0:2"],
+      ].map(([card, value]) => ({ ev: "action", sf: "s:1", id: `${card}.run/input`, act: "shell-viz", value })),
+    );
+    // 复制命令读的是卡片头的 command，和命令区画成什么无关。
+    const unlock = await lockClipboard();
+    try {
+      const head = role(page, "omp.tool.bash").first().locator(".tsp-tool-head");
+      await head.hover();
+      await head.getByRole("button", { name: "Copy command" }).click();
+      await expect
+        .poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
+        .toBe(
+          "curl -s --max-time 8 https://example.com | grep -c html > count.txt && cat count.txt && rm -f count.txt",
+        );
+    } finally {
+      await unlock();
+    }
+    await page.setViewportSize({ width: 900, height: 800 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("tsp-view"));
+    }
   } finally {
     await cleanup();
   }
@@ -2914,6 +3161,64 @@ test("作业卡片标出类型:悬停药丸的作业那一段，每个作业块�
   }
 });
 
+test("窗口很矮、作业卡片比药丸上方的空间高时：卡片不出窗口顶，多出的截掉", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("jobs-chart", {}, 2);
+  try {
+    const { page } = launched;
+    await sendFirst(page, JOBS_PROMPT);
+    const pill = page.getByTestId("pill-jobs");
+    await expect(pill).toBeVisible({ timeout: 60_000 });
+    // 比窗口最小（800×560、字号 22 时约 545×382）还矮：药丸上方放不下一整张卡片（作业多时 382 高也会这样）。
+    await page.setViewportSize({ width: 545, height: 200 });
+    await pill.hover();
+    const card = page.getByTestId("jobs-card");
+    await expect(card.getByTestId("jobs-card-tile")).toHaveCount(1);
+    // 等进度条和说明行都出来（卡片长到最高）再量。
+    await expect(card.locator("[role=meter]")).toBeVisible({ timeout: 60_000 });
+    await expect(card).toContainText(/done \d+/);
+    await expect
+      .poll(async () => {
+        const box = (await card.boundingBox())!;
+        const anchor = (await pill.boundingBox())!;
+        return box.y >= 0 && box.y + box.height <= anchor.y;
+      })
+      .toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("对话里的右键菜单贴着窗口右下角打开时翻到另一侧、整个在窗口里；Esc 关闭", async () => {
+  test.setTimeout(90_000);
+  const sent = recordedUserEvents(loadTspFixture("history-select")).find((entry) => entry.event["ev"] === "send");
+  const { launched, cleanup } = await start("history-select");
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(sent!.event["text"]));
+    const copy = role(page, "omp.turn.copy").last();
+    await expect(copy).toBeAttached({ timeout: 60_000 });
+    await page.setViewportSize({ width: 545, height: 382 });
+    // 右键点在离窗口右、下边各 2px 处：向右、向下都放不下（Playwright 的 dispatchEvent 造不出带坐标的 MouseEvent，在页面里造）。
+    await page.evaluate(`(() => {
+      const icons = document.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.turn.copy"]');
+      const init = { bubbles: true, cancelable: true, clientX: 543, clientY: 380, button: 2 };
+      icons[icons.length - 1].dispatchEvent(new MouseEvent("contextmenu", init));
+    })()`);
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("menuitem")).toHaveText(["复制 Markdown", "复制纯文本"]);
+    const box = (await menu.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(545);
+    expect(box.y + box.height).toBeLessThanOrEqual(382);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("作业药丸不数子代理(hub-steer):两个后台子代理在跑时只有 👥 2，没有 ⚡", async () => {
   const hub = await start("hub-steer");
   try {
@@ -2985,6 +3290,104 @@ async function writeImagesFixture(dir: string): Promise<string> {
     ],
   );
 }
+
+test("放大图比窗口大:按窗口缩小、整张都在窗口里(高图、宽图都是)", async () => {
+  test.setTimeout(120_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp zoom fit-"));
+  // 2026-11-09 仓库所有者反馈:ask 里点开截图只看到上半张、也滑不动(网格的 auto 行让 max-height:100% 失效)。
+  const tall = solidPng(600, 3000);
+  const wide = solidPng(4000, 500);
+  const image = (id: string, png: Buffer, alt: string) => ({ id, k: "image", p: { blob: sha(png), alt, w: 160 } });
+  const fixture = await writeCardsFixture(
+    work,
+    [tall, wide],
+    [{ id: "e2e-imgs", k: "row", p: { gap: "md" }, c: [image("e2e-i1", tall, "tall"), image("e2e-i2", wide, "wide")] }],
+  );
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1000, height: 700 });
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
+    const thumbs = page.getByTestId("tsp-img-frame");
+    await expect(thumbs).toHaveCount(2, { timeout: 30_000 });
+    await thumbs.first().click();
+    const img = page.getByTestId("tsp-zoom-image");
+    const fits = async (ratio: number) => {
+      await expect.poll(() => img.evaluate((el) => (el as unknown as { complete: boolean }).complete)).toBe(true);
+      // 开合动画放完
+      await expect
+        .poll(() =>
+          page.evaluate(
+            `document.getAnimations().filter((a) => a.playState === "running" && (a.effect?.pseudoElement?.startsWith("::view-transition") || a.effect?.target?.closest?.(".tsp-zoom"))).length`,
+          ),
+        )
+        .toBe(0);
+      const box = (await img.boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(700);
+      expect(box.x + box.width).toBeLessThanOrEqual(1000);
+      expect(Math.abs(box.width / box.height - ratio)).toBeLessThan(0.02);
+    };
+    await fits(600 / 3000);
+    await page.keyboard.press("ArrowRight");
+    await expect(img).toHaveAttribute("alt", "wide");
+    await fits(4000 / 500);
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true });
+  }
+});
+
+test("行号不连续的代码块(omp 18.18.5 的 grep 结果):行号列是真实行号,跳行处一行 …", async () => {
+  test.setTimeout(120_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp code nums-"));
+  // 节点照真实 omp 18.18.5 的 grep 结果抄(2026-11-09 探针):一个 code、nums 不连续、没有 start。
+  const fixture = await writeCardsFixture(
+    work,
+    [],
+    [
+      {
+        id: "e2e-grep",
+        k: "code",
+        p: {
+          nums: [20, 21, 22, 23, 24, 150, 151, 152, 153, 154],
+          numbers: true,
+          path: "a.txt",
+          marks: [
+            { line: 21, tone: "accent" },
+            { line: 151, tone: "accent" },
+          ],
+          text: "line 20\nneedle 21\nline 22\nline 23\nline 24\nline 150\nneedle 151\nline 152\nline 153\nline 154",
+        },
+      },
+    ],
+  );
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
+    const code = page.locator('[data-testid="tsp-view"] [data-id="e2e-grep"]').first();
+    await expect(code).toBeVisible({ timeout: 30_000 });
+    const gutter = await code.locator(".tsp-gut").allTextContents();
+    expect(gutter.map((text) => text.trim())).toEqual([
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "…",
+      "150",
+      "151",
+      "152",
+      "153",
+      "154",
+    ]);
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 10 });
+  }
+});
 
 test("行号列:两位、四位行号不被折成一位一行;用户消息里的图装进 100×100 的框,比例不变", async () => {
   test.setTimeout(90_000);

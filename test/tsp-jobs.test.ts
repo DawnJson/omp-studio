@@ -225,6 +225,57 @@ describe("只在作业相关节点（JOBS_NODES）变了时合并：tsp-jobs-sto
   });
 });
 
+describe("/jobs 弹窗列表项的 title：状态 · 类型 · id 在最后一行，命令在倒数第二行", () => {
+  // omp 18.12–18.14：`<命令>\n<状态> · <类型> · <id>`；18.15 起前面可能多 intent（工具调用的 `i`）和 caption：
+  // `[<intent>\n][<caption>\n]<命令>\n<状态> · <类型> · <id>`（18.18.5 jobs-panel.ts 的 describeJobItem）。
+  // 用 jobs-bash-18126 录制里弹窗刚打开的文档，把 bg_1 列表项的 title / tone 换成各种形状。
+  const lines = loadTspFixture("jobs-bash-18126");
+  const open = lines.findIndex((line) => JSON.stringify(line.body).includes('["set","u.split/master/jobs/bg_1"'));
+
+  function jobFromTitle(title: string, tone: string): Job | undefined {
+    const set: TspRecordLine = {
+      t: lines[open]!.t + 1,
+      dir: "out",
+      verb: "f",
+      body: {
+        sf: "s:1",
+        s: 33,
+        ops: [["set", "u.split/master/jobs/bg_1", { title, tone, value: [{ t: "12.5s", s: "mono" }] }]],
+      },
+    };
+    const doc = createDocument();
+    for (const { message } of tspDocMessages([...lines.slice(0, open + 1), set])) applyMessage(doc, message);
+    return deriveTspJobs(doc, agentStatuses(doc), 100_000).find((job) => job.id === "bg_1");
+  }
+
+  it.each([
+    ["旧两行（18.12–18.14）", "sleep 60\nDone · bash · bg_1", "success", "bash", "completed"],
+    [
+      "intent + 命令（18.15+，模型起的作业）",
+      "Waiting for the build\nsleep 60\nFailed · bash · bg_1",
+      "error",
+      "bash",
+      "failed",
+    ],
+    [
+      "intent + caption + 命令",
+      "Waiting for the build\nSleeps for a minute\nsleep 60\nCancelled · bash · bg_1",
+      "muted",
+      "bash",
+      "cancelled",
+    ],
+    ["eval 作业", "Counting rows\nsleep 60\nDone · eval · bg_1", "success", "eval", "completed"],
+  ])("%s", (_name, title, tone, type, status) => {
+    expect(jobFromTitle(title, tone)).toMatchObject({
+      id: "bg_1",
+      label: "sleep 60",
+      type,
+      status,
+      durationMs: 12_500,
+    });
+  });
+});
+
 describe("markJobsCancelled / sameJobs", () => {
   const running: Job = {
     id: "bg_1",

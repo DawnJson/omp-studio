@@ -3,7 +3,7 @@
 // 给了 search 时列表上方有搜索框，打开后焦点在搜索框里（↑↓、Enter、Esc 照旧，空格和 Home/End 留给输入）。
 // 选项带 group 时按组排（同组的要挨着），组标题可以点开 / 收起，打开时只展开当前值所在的组；有搜索词时只看匹配、组都展开。
 // 列表 portal 到 body、fixed 定位（设置行在带 contain 的卡片和滚动容器里，不 portal 会被裁掉）；下方放不下就向上展开；
-// 滚动或窗口变化时关闭，免得列表和触发器错位。
+// 展开那一侧剩的高度不够整张列表（窗口矮）时整个弹层不超过它，列表在里面滚。滚动或窗口变化时关闭，免得列表和触发器错位。
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "../i18n/use-t.ts";
@@ -97,9 +97,10 @@ export function Select<T extends string>({
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(new Set());
   const [active, setActive] = useState(0);
-  const [place, setPlace] = useState<{ top?: number; bottom?: number; left: number; width: number }>({
+  const [place, setPlace] = useState<{ top?: number; bottom?: number; left: number; width: number; room: number }>({
     left: 0,
     width: 0,
+    room: 0,
   });
 
   const current = options.find((option) => option.value === value);
@@ -120,6 +121,7 @@ export function Select<T extends string>({
   };
 
   // 打开时按触发器位置定位：下方放不下（且上方更宽松）就向上展开；右缘不超出窗口。有搜索框时按列表最高算，打字时不换方向。
+  // room = 展开那一侧到窗口边（留 8）的高度，是整个弹层（搜索框 + 列表）的上限。
   useLayoutEffect(() => {
     if (!open || !trigger.current) return;
     const rect = trigger.current.getBoundingClientRect();
@@ -127,10 +129,11 @@ export function Select<T extends string>({
     const below = window.innerHeight - rect.bottom;
     const up = below < need + 8 && rect.top > below;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - (popup.current?.offsetWidth ?? rect.width) - 8));
+    const room = Math.max(0, Math.floor((up ? rect.top : below) - 12));
     setPlace(
       up
-        ? { bottom: window.innerHeight - rect.top + 4, left, width: rect.width }
-        : { top: rect.bottom + 4, left, width: rect.width },
+        ? { bottom: window.innerHeight - rect.top + 4, left, width: rect.width, room }
+        : { top: rect.bottom + 4, left, width: rect.width, room },
     );
   }, [open, options.length, search]);
 
@@ -320,7 +323,13 @@ export function Select<T extends string>({
             className={mono ? "ui-menu ui-mono" : "ui-menu"}
             data-floating=""
             data-search={search === undefined ? undefined : ""}
-            style={{ top: place.top, bottom: place.bottom, left: place.left, minWidth: place.width }}
+            style={{
+              top: place.top,
+              bottom: place.bottom,
+              left: place.left,
+              minWidth: place.width,
+              maxHeight: place.room,
+            }}
             {...presence.exitProps}
           >
             {search !== undefined && (

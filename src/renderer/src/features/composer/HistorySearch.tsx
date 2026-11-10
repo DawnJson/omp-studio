@@ -1,10 +1,12 @@
-// Ctrl+R 输入历史搜索（spec 4.14）：浮在输入框上方，上面一个搜索框，下面是匹配的历史消息（最新的在前，最多同时显示 8 行，更多的滚动）。
+// Ctrl+R 输入历史搜索（spec 4.14）：浮在输入框上方，上面一个搜索框，下面是匹配的历史消息（最新的在前，最多同时显示 8 行，更多的滚动；
+// 上方放不下时缩到主区顶边为止，useFitInside）。
 // 键盘：↑↓ 选、Enter 填进输入框、Esc 关闭（不触发"停止任务"）；点一行也是填入。焦点在搜索框里；关闭后还给输入框。
 // 条目来自 input-history.ts 合并出的历史；studio 自己持久化，不读 omp 的 history.db（omp 自己的 Ctrl+R 在 tsp-view 里仍然转发给 omp）。
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { searchHistory } from "../../../../shared/input-history.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Search } from "../../icons.tsx";
+import { useFitInside } from "../../ui/Popover.tsx";
 import { usePresence } from "../../ui/presence.ts";
 import { TextField } from "../../ui/controls.tsx";
 
@@ -27,6 +29,7 @@ export function HistorySearch({ open, entries, onPick, onClose }: HistorySearchP
   const presence = usePresence(open);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const results = searchHistory(entries, query);
@@ -44,6 +47,7 @@ export function HistorySearch({ open, entries, onPick, onClose }: HistorySearchP
   useEffect(() => {
     listRef.current?.querySelector(`[id="history-row-${current}"]`)?.scrollIntoView({ block: "nearest" });
   }, [current]);
+  useFitInside(rootRef, open);
 
   if (!presence.mounted) return null;
 
@@ -65,6 +69,7 @@ export function HistorySearch({ open, entries, onPick, onClose }: HistorySearchP
 
   return (
     <div
+      ref={rootRef}
       className="slash history"
       role="dialog"
       aria-label={t("composer.history.label")}

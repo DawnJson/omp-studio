@@ -290,6 +290,35 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
   }
 });
 
+// 格子按"标签 + 控件不折行的宽"占列（Cells.tsx）：文本框、标签输入（flex-basis 260 / 360）的宽量漏过一次，
+// 格子只占一列，框被挤到标签下面，和旁边并排的框参差（2026-11-09）。窗口够宽时高级页里不该有控件换到标签下面的格子。
+test("设置页格子：高级页里文本框、标签输入在 1280 / 1600 / 1920 宽都和标签并排，不被挤到标签下面", async () => {
+  const { launched, agentDir } = await launchSettings({}, { section: "advanced" });
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await expect(page.locator(".st-adv-sub").first()).toBeVisible({ timeout: 30_000 });
+    for (const width of [1280, 1600, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await sectionSettled(page);
+      await expect
+        .poll(
+          () =>
+            page.evaluate(`[...document.querySelectorAll(".st-cells .ui-row")].filter((row) => {
+              const label = row.querySelector(".ui-row-label");
+              const control = row.querySelector(".ui-row-control:has(> .ui-field:not(.ui-number, .ui-select), > .st-tags)");
+              return label && control && control.getBoundingClientRect().top > label.getBoundingClientRect().top + 4;
+            }).map((row) => row.querySelector(".ui-row-label").textContent)`),
+          { message: `${width} 宽时换到标签下面的格子` },
+        )
+        .toEqual([]);
+    }
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
 test("设置分组、搜索：中英文；窄窗口不溢出", async () => {
   const { launched, agentDir } = await launchSettings();
   try {

@@ -161,16 +161,6 @@ html[data-platform="darwin"] .topbar-left {
   padding: 0 var(--space-2) 0 var(--space-4);
 }
 
-/* 切换侧栏图标：左栏填充随显隐淡入淡出 */
-.sidebar-icon-fill {
-  opacity: 0.35;
-  transition: opacity var(--dur-base) var(--ease-out);
-}
-
-.sidebar-icon-fill[data-shown="false"] {
-  opacity: 0;
-}
-
 .topbar-divider {
   width: 1px;
   height: var(--space-4);

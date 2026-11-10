@@ -11,7 +11,9 @@ import {
 } from "react";
 import type { BrowserBounds, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { ArrowLeft, ArrowRight, Close, Restart } from "../../icons.tsx";
+import { ArrowLeft, ArrowRight, Close } from "../../icons.tsx";
+import { MorphIcon } from "../../ui/MorphIcon.tsx";
+import { CLOSE_GLYPH, RESTART_GLYPH } from "../../ui/morph-glyphs.ts";
 import { IconButton, TextField } from "../../ui/controls.tsx";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { scrimsOpen, subscribeScrims } from "../../ui/title-bar-dim.ts";
@@ -193,7 +195,7 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
           disabled={url === ""}
           onClick={() => void act(loading ? "stop" : "reload")}
         >
-          {loading ? <Close size={14} /> : <Restart size={14} />}
+          <MorphIcon glyph={loading ? CLOSE_GLYPH : RESTART_GLYPH} size={14} />
         </IconButton>
         <form
           className="browser-address"

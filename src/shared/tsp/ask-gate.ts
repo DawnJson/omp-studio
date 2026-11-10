@@ -13,7 +13,7 @@ import type { NodeDeps } from "./node-watch.ts";
 
 /** 提问对话框的根节点 role；审批门是 `omp.editor.ask.approval`、隐藏后是 `omp.editor.ask.hidden`，不归这里管。 */
 export const ASK_GATE_ROLE = "omp.editor.ask";
-/** 提问 / 审批的按钮（Hide / Note / Skip / Next / Submit、Details / Deny / Approve）：一个 row，子节点是文字和 `kbd`，`actions.click` 是动作名。 */
+/** 提问 / 审批的按钮（Hide / Note / Skip / Next / Submit、Details / Deny / Approve）：`actions.click` 是动作名。声明了 `button` 的 omp（≥18.14.2）发 `button` 节点，更早的发 row（子节点是文字和 `kbd`）。 */
 export const ASK_BUTTON_ROLE = "omp.btn";
 
 /** 多选题的选项。 */

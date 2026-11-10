@@ -1,6 +1,7 @@
-// `@` 文件菜单：和斜杠菜单同一套外观，每行一个相对路径（目录部分 --text-3，文件名正常色）。键盘由 Composer 处理。
+// `@` 文件菜单：和斜杠菜单同一套外观（上方放不下时一样缩到主区顶边为止），每行一个相对路径（目录部分 --text-3，文件名正常色）。键盘由 Composer 处理。
 import { useEffect, useRef } from "react";
 import { useT } from "../../i18n/use-t.ts";
+import { useFitInside } from "../../ui/Popover.tsx";
 import { usePresence } from "../../ui/presence.ts";
 
 interface FileMenuProps {
@@ -23,6 +24,7 @@ export function FileMenu({ id, open, files: liveFiles, active, onHover, onPick }
   useEffect(() => {
     listRef.current?.querySelector(`[id="${id}-${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [id, active]);
+  useFitInside(listRef, open);
   if (!presence.mounted) return null;
   return (
     <div

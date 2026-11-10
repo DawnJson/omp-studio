@@ -3,7 +3,7 @@
 // 聚焦模式（同 omp 里 Hub 的 Enter），渲染进程在这期间不画 omp 的 Hub。
 //
 // 每一步的事件、等的条件和依据见 shared/tsp/agent-hub.ts 头部（omp 18.12.5 录制 hub-steer / hub-kill，另在真实 omp 上量过
-// 聚焦行的退出按钮 `focus:Main`：toast "Returned to main session"，子代理照常运行）：
+// 聚焦行的退出按钮 `focus:Main`：toast "Returned to main session"，子代理照常运行；omp 18.14.2 起不再弹这个 toast，这里也不等它）：
 //   聚焦  agents.open → [activate item=名字] → 聚焦行出现（不恢复：Hub 已被 omp 关掉，留在聚焦模式）
 //   插话  agents.open → [activate item=名字] → 聚焦行出现 → send 文字 → 回显 → focus:Main → 聚焦行消失
 //   结束  agents.open → [select 名字] → action kill → 该项 dot=error → Esc 关 Hub

@@ -50,6 +50,19 @@ describe("findContextReport（omp 18.12.6 实录）", () => {
   });
 });
 
+describe("findContextReport（omp 18.18.6，hello 声明了 button：Close 是 button 节点）", () => {
+  it("关闭按钮就是录制 button-ask 里 studio 发回去的那个 action", () => {
+    const closes = loadTspFixture("button-ask")
+      .filter((line) => line.dir === "in" && (line.body as { act?: string }).act === "close")
+      .map((line) => line.body as { id: string; act: string });
+    const opened = replay("button-ask").filter((result): result is OmpContextReport => result !== null);
+    expect(opened.length).toBeGreaterThan(0);
+    expect([...new Map(opened.map((result) => [result.close?.id, result.close])).values()]).toEqual(
+      closes.map(({ id, act }) => ({ id, act })),
+    );
+  });
+});
+
 describe("findContextReport（omp 18.13.2 实录）", () => {
   it("按列表读出每类（id 换成驼峰，缩写数字照 omp 显示的），已用取 omp 写的 8.2K，窗口 = 已用 + 预留 + 剩余", () => {
     const first = replay("context-report-18.13").find((result) => result !== null);

@@ -7,6 +7,7 @@ import { Seg, Status } from "./nodes/chrome.tsx";
 import { Badge, Icon, Image, Kbd, Kv, Table, Tree } from "./nodes/data.tsx";
 import { Card, Col, Row, Rule, Section, Spacer } from "./nodes/layout.tsx";
 import { Chart, Effort, Elapsed, Meter, Progress, Rate, Shimmer, Spinner } from "./nodes/motion.tsx";
+import { Shell } from "./nodes/shell.tsx";
 import { Ansi, Code, Diff, MathBlock, Md, Media, Rows, Text } from "./nodes/text.tsx";
 import { Agent, Checklist, Tool } from "./nodes/work.tsx";
 
@@ -26,6 +27,7 @@ export function nodeRegistry(): Readonly<Record<string, ComponentType<NodeProps>
     diff: Diff,
     ansi: Ansi,
     math: MathBlock,
+    shell: Shell,
     rows: Rows,
     media: Media,
     image: Image,

@@ -38,6 +38,10 @@ async function start(fixtureFor?: (work: string, project: string) => Promise<str
     path.join(project, "big.svg"),
     '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="#0b7a66"/><rect width="800" height="500" fill="#7a0b66"/></svg>',
   );
+  await writeFile(
+    path.join(project, "tall.svg"),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="3000"><rect width="400" height="3000" fill="#0b7a66"/></svg>',
+  );
   await writeFile(path.join(project, "page.html"), "<h1>hello page</h1>");
   await writeFile(path.join(project, "blob.bin"), Buffer.from([1, 2, 0, 3, 4]));
   const launched = await launchApp({
@@ -378,6 +382,26 @@ test("预览大图：适应窗口时缩小会更小、放大会更大；放大�
     await page.mouse.up();
     expect(await scroll()).toEqual({ left: 120, top: 80 });
     await expect(page.getByTestId("drop-overlay")).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("适应窗口：比预览区高得多的图整张缩进预览区，比例不变", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1225, height: 756 });
+    await page.getByTestId("topbar-files").click();
+    await page.locator('[data-testid=file-tree-row][data-path="tall.svg"]').click();
+    const img = page.getByTestId("file-preview-image");
+    await expect(img).toBeVisible();
+    await expect.poll(async () => (await img.boundingBox())!.height).toBeLessThan(3000);
+    const area = (await page.locator(".file-preview-image").boundingBox())!;
+    const box = (await img.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(area.y);
+    expect(box.y + box.height).toBeLessThanOrEqual(area.y + area.height);
+    expect(Math.abs(box.width / box.height - 400 / 3000)).toBeLessThan(0.02);
   } finally {
     await cleanup();
   }

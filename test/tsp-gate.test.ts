@@ -97,6 +97,36 @@ describe("approval.jsonl：审批期间输入框还在，发消息 = 拒绝并�
   });
 });
 
+describe("button-approval.jsonl（omp 18.18.6，hello 声明了 button）：门上的按钮是 button 节点，规则照旧", () => {
+  const steps = replay("button-approval");
+  const waiting = steps.filter((step) => step.ask !== null);
+
+  it("Details / Deny / Approve 按动作名找得到（k=button），Ctrl+Enter 发的 approve 就是录制里 studio 发的那个", () => {
+    expect(waiting.length).toBeGreaterThan(0);
+    for (const step of waiting) {
+      expect(step.details).toEqual({ sf: "s:1", id: "t.actions/expand" });
+      expect(step.approve).toEqual({ sf: "s:1", id: "t.actions/approve" });
+    }
+    const sent = recordedUserEvents(loadTspFixture("button-approval")).map((entry) => entry.event);
+    expect(sent).toContainEqual({ ev: "action", sf: "s:1", id: "t.actions/approve", act: "approve" });
+  });
+
+  it("isApprovalDuplicateButton 认得 button 节点：不画的还是 Deny / Approve", () => {
+    const doc = createDocument();
+    const hidden = new Set<string>();
+    const kinds = new Set<string>();
+    for (const { message } of tspDocMessages(loadTspFixture("button-approval"))) {
+      applyMessage(doc, message);
+      for (const node of doc.surfaces.get("s:1")!.nodes.values()) {
+        if (nodeRole(node) === "omp.btn") kinds.add(node.k);
+        if (isApprovalDuplicateButton(node)) hidden.add(`${node.k} ${node.id}`);
+      }
+    }
+    expect([...kinds]).toEqual(["button"]);
+    expect([...hidden].sort()).toEqual(["button t.actions/approve", "button t.actions/deny"]);
+  });
+});
+
 describe("ask.jsonl：提问把输入框换掉，没有可发的地方", () => {
   const steps = replay("ask");
   const asking = steps.filter((step) => step.ask !== null);

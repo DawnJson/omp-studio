@@ -1,7 +1,9 @@
-// 斜杠菜单：浮在输入框上方，行高 32，最多同时显示 8 行，更多的在菜单内滚动（键盘选中行始终可见）。键盘由 Composer 处理（↑↓ 选，Tab/Enter 补全，Esc 关闭）；鼠标点选补全。
+// 斜杠菜单：浮在输入框上方，行高 32，最多同时显示 8 行，更多的在菜单内滚动（键盘选中行始终可见）；上方放不下 8 行（窗口矮）时缩到主区顶边为止（useFitInside）。
+// 键盘由 Composer 处理（↑↓ 选，Tab/Enter 补全，Esc 关闭）；鼠标点选补全。
 import { useEffect, useRef } from "react";
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { useFitInside } from "../../ui/Popover.tsx";
 import { usePresence } from "../../ui/presence.ts";
 
 interface SlashMenuProps {
@@ -24,6 +26,7 @@ export function SlashMenu({ id, open, commands: liveCommands, active, onHover, o
   useEffect(() => {
     listRef.current?.querySelector(`[id="${id}-${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [id, active]);
+  useFitInside(listRef, open);
   if (!presence.mounted) return null;
   return (
     <div

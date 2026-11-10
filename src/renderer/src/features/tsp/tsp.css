@@ -136,13 +136,17 @@
  * 滚动区变高变矮（门出现、对话长过视口）时吸底照旧：use-stick-to-bottom.ts 看着滚动区的尺寸贴回底部。 */
 .tsp-surface[data-mode="inline"] > .tsp-scroller {
   flex: 0 1 auto;
+  /* 底边淡出而不是一刀切（2026-11-10 仓库所有者：输入框和上面的用时、待办行直接放在背景上，不要被一条底色挡着）：
+     遮罩按滚动区自己的框算，内容在它下面滚动；淡出高度等于对话列的下边距，滚到底时最后一项不被淡掉。 */
+  --tsp-fade: var(--space-8);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--tsp-fade)), transparent);
 }
 
 /* 对话列：和旧 ConversationView 同宽同轴（--content-w），块之间 --space-4 */
 .tsp-column {
   width: min(100% - 2 * var(--gutter), var(--content-w));
   margin: 0 auto;
-  padding: var(--space-6) 0 var(--space-8);
+  padding: var(--space-6) 0 var(--tsp-fade, var(--space-8));
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -153,8 +157,8 @@
   margin-top: calc(-1 * var(--space-4));
 }
 /* dock 里有东西时对话列底下只留一个块间距：对话最后一项和门之间就是普通的块间距（没有 dock 时留 --space-8 到 Composer）。 */
-.tsp-surface[data-mode="inline"]:has(> .tsp-dock:not([data-blank])) > .tsp-scroller > .tsp-column {
-  padding-bottom: var(--space-4);
+.tsp-surface[data-mode="inline"]:has(> .tsp-dock:not([data-blank])) > .tsp-scroller {
+  --tsp-fade: var(--space-4);
 }
 /* 对话里的顶层块（main 的子节点，node-dom.ts 给它们 data-anchor）：离屏时不排版、不绘制，长会话的样式 / 排版 / 绘制只算视口附近。
  * 没画过的块按估计高度占位，画过一次后记住实际尺寸（auto）；估计值和实际的差由 useStickToBottom 按阅读锚点补偿、
@@ -997,6 +1001,140 @@
 .tsp-lt {
   min-width: 0;
 }
+/* shell(bash 卡片的命令区,nodes/shell.tsx):每行 = 槽位(× / ▶ / ›,两格宽)+ 按 depth 缩进的正文;折行时续行悬挂在缩进之后。
+ * 配色照 omp 的 ANSI 渲染器(shell-viz-render.ts):comment / kw / var / str / num / op / cmd·fn / chip·badge。
+ * effects 图标是中性灰,危险操作也不标红(2026-11-10 仓库所有者),悬停看原因。 */
+.tsp-shell {
+  min-width: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
+  overflow: hidden;
+}
+.tsp-shell-body {
+  padding: var(--space-2) var(--space-3);
+}
+.tsp-sh-cwd,
+.tsp-sh-msg {
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.tsp-sh-ln {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.tsp-sh-gut {
+  flex: none;
+  width: 1ch;
+  color: var(--text-3);
+  user-select: none;
+}
+.tsp-sh-gut[data-mark="fail"],
+.tsp-sh-fail {
+  color: var(--st-error);
+}
+.tsp-sh-gut[data-mark="active"],
+.tsp-sh-gut[data-mark="selected"] {
+  color: var(--accent);
+}
+.tsp-sh-fail {
+  user-select: none;
+}
+.tsp-sh-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tsp-sh-fx {
+  margin-right: 1ch;
+  color: var(--text-3);
+  cursor: default;
+  user-select: none;
+}
+.tsp-sh-ln[data-muted] .tsp-sh-fx,
+.tsp-sh-ln[data-muted] .tsp-sh-note,
+.tsp-sh-ln[data-muted] .tsp-sh-fail,
+.tsp-sh-seg[data-dim] {
+  opacity: 0.45;
+}
+.tsp-sh-seg[data-strong] {
+  font-weight: var(--fw-strong);
+}
+.tsp-sh-seg[data-tone="comment"] {
+  color: var(--syn-comment);
+}
+.tsp-sh-seg[data-tone="kw"] {
+  color: var(--syn-keyword);
+}
+.tsp-sh-seg[data-tone="var"],
+.tsp-sh-note [data-tone="var"] {
+  color: var(--syn-type);
+}
+.tsp-sh-seg[data-tone="str"],
+.tsp-sh-note [data-tone="str"] {
+  color: var(--syn-string);
+}
+.tsp-sh-seg[data-tone="num"] {
+  color: var(--syn-number);
+}
+.tsp-sh-seg[data-tone="op"] {
+  color: var(--syn-punct);
+}
+.tsp-sh-seg[data-tone="fn"] {
+  color: var(--syn-func);
+}
+.tsp-sh-seg[data-tone="accent"] {
+  color: var(--accent);
+}
+.tsp-sh-seg[data-pill] {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+button.tsp-sh-fold {
+  padding: 0 var(--space-1);
+  font: inherit;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+button.tsp-sh-fold:not([data-pill]) {
+  background: var(--bg-active);
+}
+button.tsp-sh-fold:hover {
+  text-decoration: underline;
+}
+button.tsp-sh-fold:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.tsp-sh-meta {
+  margin-left: 2ch;
+  color: var(--text-3);
+}
+.tsp-sh-meta[data-fail] {
+  color: var(--st-error);
+}
+.tsp-sh-note {
+  margin-left: 2ch;
+  color: var(--text-3);
+}
+/* Pseudo | Raw:常显在第一行右端,高度压到一行代码,不把第一行撑高(Clamp 按 --tsp-lh 数行) */
+.tsp-sh-view.ui-seg {
+  --seg-h: var(--tsp-lh);
+  flex: none;
+  padding: 0 var(--space-0-5);
+  font-family: var(--font-sans);
+}
+.tsp-sh-view.ui-seg > button {
+  height: var(--tsp-lh);
+  font-size: var(--fs-xs);
+  line-height: var(--tsp-lh);
+}
 .tsp-ln[data-mark] {
   margin: 0 calc(-1 * var(--space-3));
   padding: 0 var(--space-3);
@@ -1409,6 +1547,8 @@
   inset: 0;
   z-index: var(--z-dialog);
   display: grid;
+  /* 轨道写成 minmax(0, 1fr)：默认的 auto 行按图片原尺寸撑开，img 的 max-height: 100% 就失效，大图只露出上半张（2026-11-09 仓库所有者反馈）。 */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   padding: var(--space-8);
   background: var(--bg-scrim);
@@ -1454,37 +1594,6 @@
   background: var(--bg-overlay);
   color: var(--text);
   cursor: pointer;
-}
-
-.tsp-menu-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-popover);
-}
-.tsp-menu {
-  position: fixed;
-  z-index: calc(var(--z-popover) + 1);
-  display: flex;
-  flex-direction: column;
-  min-width: calc(var(--space-16) * 2);
-  padding: var(--space-1);
-  border-radius: var(--radius-lg);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-2);
-}
-.tsp-menu-item {
-  height: var(--row-menu);
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.tsp-menu-item:hover {
-  background: var(--bg-hover);
 }
 
 /* ───────────────────────── 动效：spinner、shimmer、elapsed、rate、progress ───────────────────────── */
@@ -2315,6 +2424,7 @@
   min-width: 0;
 }
 .tsp-tool-body > .tsp-code,
+.tsp-tool-body > .tsp-shell,
 .tsp-tool-body > .tsp-diff {
   background: none;
   border-radius: 0;
@@ -2330,22 +2440,28 @@
 .tsp-tool-body > .tsp-text {
   padding: var(--space-1) var(--space-3);
 }
-/* bash 这类卡片的 body 是一层 col(omp.run):命令(code,自带内边距)+ 输出(ansi)+ 底栏(row,Done / Running / Exit)。
+/* bash 这类卡片的 body 是一层 col(omp.run):命令(code / shell,自带内边距)+ 输出(ansi)+ 底栏(row,Done / Running / Exit)。
  * 输出和底栏也要和命令对齐,不贴卡片左边。折叠着按 preview 夹紧时 body 包在 Clamp 里(.tsp-tool-clamp),同样留边:
  * wait 卡片的作业行(omp.wait.job)曾贴着卡片左边、压在状态竖条上(2026-10-29)。 */
-.tsp-tool.card > .tsp-tool-body > .tsp-col > :not(.tsp-code, .tsp-diff),
-.tsp-tool.card > .tsp-tool-clamp > .tsp-clamp > div > .tsp-tool-body > .tsp-col > :not(.tsp-code, .tsp-diff) {
+.tsp-tool.card > .tsp-tool-body > .tsp-col > :not(.tsp-code, .tsp-shell, .tsp-diff),
+.tsp-tool.card
+  > .tsp-tool-clamp
+  > .tsp-clamp
+  > div
+  > .tsp-tool-body
+  > .tsp-col
+  > :not(.tsp-code, .tsp-shell, .tsp-diff) {
   padding-left: var(--space-3);
   padding-right: var(--space-3);
 }
-.tsp-tool.card > .tsp-tool-body > .tsp-col:last-child > :last-child:not(.tsp-code, .tsp-diff),
+.tsp-tool.card > .tsp-tool-body > .tsp-col:last-child > :last-child:not(.tsp-code, .tsp-shell, .tsp-diff),
 .tsp-tool.card
   > .tsp-tool-clamp
   > .tsp-clamp
   > div
   > .tsp-tool-body
   > .tsp-col:last-child
-  > :last-child:not(.tsp-code, .tsp-diff) {
+  > :last-child:not(.tsp-code, .tsp-shell, .tsp-diff) {
   padding-bottom: var(--space-2);
 }
 .tsp-tool.card > .tsp-tool-clamp > .tsp-more {
@@ -2353,7 +2469,7 @@
 }
 /* 过程卡片(bash / eval 的 body 是一层 col)：命令和输出共用卡片底色，不再是一块灰底加一块白底；
  * 输入和输出之间一条细分隔线，输出下面是安静的底栏。code 在卡片里一律折行，不出横向滚动条。 */
-.tsp-tool-body .tsp-col > .tsp-code {
+.tsp-tool-body .tsp-col > :is(.tsp-code, .tsp-shell) {
   background: none;
   border-radius: 0;
 }
@@ -2367,8 +2483,8 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.tsp-tool-body .tsp-col > .tsp-code + .tsp-ansi,
-.tsp-tool-body .tsp-col > .tsp-code + .tsp-run-outputs {
+.tsp-tool-body .tsp-col > :is(.tsp-code, .tsp-shell) + .tsp-ansi,
+.tsp-tool-body .tsp-col > :is(.tsp-code, .tsp-shell) + .tsp-run-outputs {
   margin-top: var(--space-1);
   padding-top: var(--space-2);
   box-shadow: inset 0 1px 0 var(--border-subtle);

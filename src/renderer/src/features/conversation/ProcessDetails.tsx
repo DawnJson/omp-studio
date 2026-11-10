@@ -6,7 +6,9 @@ import { createElement, memo, useMemo, useState, type CSSProperties, type ReactN
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Check, ChevronRight, CopyIcon, Dots, FileIcon, Pencil, Search, Terminal, Users } from "../../icons.tsx";
+import { Check, ChevronRight, Dots, FileIcon, Pencil, Search, Terminal, Users } from "../../icons.tsx";
+import { MorphIcon } from "../../ui/MorphIcon.tsx";
+import { CHECK_GLYPH, COPY_GLYPH } from "../../ui/morph-glyphs.ts";
 import { FileLink } from "../file-preview/index.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { Markdown } from "../../markdown/index.ts";
@@ -236,7 +238,7 @@ function CopyButton({ text }: { text: string }) {
         });
       }}
     >
-      {copied ? <Check size={12} /> : <CopyIcon size={12} />}
+      <MorphIcon glyph={copied ? CHECK_GLYPH : COPY_GLYPH} size={12} />
     </button>
   );
 }

@@ -690,3 +690,36 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await cleanup();
   }
 });
+
+test("很长的悬停提示不出窗：最多 20 行、整张不高过窗口（窗口最小、字号最大时约 545×382）", async () => {
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture) });
+  try {
+    const { page } = launched;
+    await expect(page.getByTestId("empty-state")).toBeVisible();
+    await page.setViewportSize({ width: 545, height: 382 });
+    // 一个带 100 行 title 的按钮（报错全文、整段命令这类 title）：全局 TooltipLayer 读 title 画提示。
+    await page.evaluate(`(() => {
+      const button = document.createElement("button");
+      button.dataset.testid = "long-title";
+      button.textContent = "tip";
+      button.style.cssText = "position:fixed;left:200px;top:180px;z-index:99999";
+      button.title = Array.from({ length: 100 }, (_, i) => "line " + i).join("\\n");
+      document.body.append(button);
+    })()`);
+    await page.getByTestId("long-title").hover();
+    const tip = page.getByTestId("tooltip");
+    await expect(tip).toBeVisible();
+    await expect(tip).toContainText("line 0");
+    const box = (await tip.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(382);
+    // 截在 20 行：第 21 行不在可见区域里（文字区的高度 ≤ 20 行）。
+    const lines = await page.evaluate(`(() => {
+      const text = document.querySelector('[data-testid="tooltip"] .ui-tooltip-text');
+      return text.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight);
+    })()`);
+    expect(lines).toBeLessThanOrEqual(20.01);
+  } finally {
+    await launched.close();
+  }
+});

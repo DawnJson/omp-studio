@@ -512,3 +512,33 @@ test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框�
     await rm(agentDir, { recursive: true, force: true });
   }
 });
+
+test("窗口很矮时模型选择对话框的页脚按钮还在窗口里（窗口最小、字号最大时约 545×382）", async () => {
+  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-picker-short-"));
+  await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
+  await writeFile(path.join(agentDir, "config.yml"), "modelRoles:\n  default: role-local/role-one\n", "utf8");
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  try {
+    const { page } = launched;
+    await expect
+      .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await expect(page.getByTestId("model-chip")).toHaveText("role-one", { timeout: 30_000 });
+    await page.setViewportSize({ width: 545, height: 382 });
+    await openPicker(page);
+    await expect(page.getByTestId("model-option").first()).toBeAttached({ timeout: 30_000 });
+    const foot = page.getByTestId("model-picker").locator(".ui-dialog-foot");
+    await expect
+      .poll(async () => {
+        const box = (await foot.boundingBox())!;
+        return box.y + box.height <= 382;
+      })
+      .toBe(true);
+    await expect(foot.getByRole("button").last()).toBeInViewport({ ratio: 1 });
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});

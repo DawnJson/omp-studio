@@ -32,7 +32,7 @@ omp-studio 和终端版 omp、别人装的 omp 共用一台机器和一份 `~/.o
 
 ## 协议
 
-- **RPC 类型不手写**：`npm run rpc:update-wire -- <omp 版本>` 从官方 tag 拷贝，不装 `@oh-my-pi/pi-coding-agent` npm 包（oxlint 拦这个 import）。生成类型：`src/shared/omp-wire/rpc-wire.generated.ts`、`src/shared/tsp/tsp.generated.ts`。
+- **协议类型不手写**：`npm run omp:update-wire -- <omp 版本>` 从官方 tag 拷贝 RPC 和 TSP 的类型，不装 `@oh-my-pi/pi-coding-agent` npm 包（oxlint 拦这个 import）。生成类型：`src/shared/omp-wire/rpc-wire.generated.ts`、`src/shared/tsp/tsp.generated.ts`（连同它引用的 `shell-viz.generated.ts`、`shell-trace.generated.ts`），当前对应 omp 18.18.5。换了 TSP 类型要看 `tsp-session.ts` 的 `UNSUPPORTED_KINDS`：新种类默认进 hello 的 `kinds`，omp 就会改发它，没写组件前要排除（18.18.5 新增的 `button`、`shell` 都排除了）。
 - 不用 wire schema / TSP 规范里没有的命令、事件或 role；要用先问仓库所有者。
 - **任务只有一种引擎：TSP**（伪终端里的交互式 omp）。经典 rpc 任务引擎已在 0.3.26 删除（仓库所有者 2026-10-21 批准），见 [tsp-migration.md](tsp-migration.md) §11。
 - **rpc-ui 后台进程**（`serviceOmp`、`service/project-omp.ts`；登录、模型列表、斜杠命令列表、内置命令，不跑任务对话）：启动参数用 `--mode rpc-ui`（`--rpc` 会退回 TUI、往 stdout 输出 ANSI）；先 `negotiate_protocol` 协商 v2，处理 `rpc_chunk` 分块，不假设一行就是一个完整事件。见 [omp-rpc.md](omp-rpc.md)。

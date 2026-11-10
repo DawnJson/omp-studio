@@ -1,6 +1,7 @@
 // 列表里的一行：状态点、名字、类型（只在不是默认的 task 时显示）和 `后台` 标签、右端用时 + 状态（运行中有完成度估计时换成进度环 + 百分比）；
 // 第二行是正在用的工具和意图（运行中）或任务说明（去掉 Markdown 标题的 #）。token 和费用在详情里。
 // 点行 = 选中它、下方显示详情（同 omp Hub 里移动光标）；进入它的对话用详情头部的"进入对话"按钮。
+import { useRef } from "react";
 import { isAgentActive, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { formatElapsed } from "../tsp/fmt.ts";
@@ -11,8 +12,12 @@ const RING = 2 * Math.PI * 5.5;
 
 export function AgentRow({ agent, selected, onSelect }: { agent: HubAgent; selected: boolean; onSelect(): void }) {
   const t = useT();
-  const line = agent.tool
-    ? t("agents.usingTool", { tool: agent.tool.name, intent: agent.tool.intent || cleanTask(agent.task) })
+  // 两次工具调用之间 omp 发 tool: null：运行中接着显示上一个工具，不在工具和任务说明之间来回换（2026-11-09 仓库所有者：行一直闪）。
+  const lastTool = useRef(agent.tool);
+  if (agent.tool !== null || !isAgentActive(agent.status)) lastTool.current = agent.tool;
+  const tool = lastTool.current;
+  const line = tool
+    ? t("agents.usingTool", { tool: tool.name, intent: tool.intent || cleanTask(agent.task) })
     : cleanTask(agent.task);
   const progress = agentProgress(agent);
   const context = agentContextPercent(agent);

@@ -2,7 +2,7 @@
 // 同一时刻只开一个：新开的浮层会关掉已开的；Esc 只关最上面（最后打开）的一个，并且被消耗，不会再触发"停止"。
 // Esc 在焦点于输入框、胶囊或浮层里时都管；焦点在 aria-modal 对话框或 TSP 过程区（那里的 Esc 是写给 omp 的按键）时不管。
 // 关闭时先放退出动画再卸载（presence.ts）。
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { usePresence } from "./presence.ts";
 
 interface PopoverProps {
@@ -28,17 +28,46 @@ function clipRect(el: HTMLElement): DOMRect {
   return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
 }
 
-/** 浮层贴着触发它的胶囊弹出；放不下时横向挪回可见区域，宽高也不超过它（不会被主区面板裁掉）。 */
+/**
+ * 浮层贴着触发它的元素弹出；放不下时横向挪回可见区域，宽高也不超过它（不会被主区面板裁掉，内容在浮层里滚）。
+ * 向上弹出的最高到可见区域顶边，向下弹出的（CSS 的 bottom 是 auto，如 .cp-fetch、.agents-kill 的浮层）最高到底边。
+ * 高度只写进 --fit-room，CSS 的 max-height 取它和自己的上限里小的那个（.ui-popover、.slash、.history）：
+ * 不动 max-height 本身，重新摆放时不用先清掉再量，浮层里滚到的位置不会被弹回顶上。
+ */
 function fitInside(el: HTMLElement): void {
   el.style.translate = "";
   const bounds = clipRect(el);
   el.style.maxWidth = `${Math.max(0, bounds.width - 2 * edge)}px`;
+  // 要的是写的值（auto），不是 getComputedStyle 给定位元素解析出来的像素值。
+  const downward = el.computedStyleMap().get("bottom")?.toString() === "auto";
   const rect = el.getBoundingClientRect();
-  el.style.maxHeight = `min(60vh, ${Math.max(0, Math.floor(rect.bottom - bounds.top - edge))}px)`;
+  const room = downward ? bounds.bottom - rect.top - edge : rect.bottom - bounds.top - edge;
+  el.style.setProperty("--fit-room", `${Math.max(0, Math.floor(room))}px`);
   let dx = 0;
   if (rect.right > bounds.right - edge) dx = bounds.right - edge - rect.right;
   if (rect.left + dx < bounds.left + edge) dx = bounds.left + edge - rect.left;
   if (dx !== 0) el.style.translate = `${Math.round(dx)}px 0`;
+}
+
+/**
+ * 开着时让 ref 指的浮层一直 fitInside：打开时、浮层或它贴着的父元素尺寸变化时（读取中 -> 有数据、输入框长高）、窗口变化时重新摆放。
+ * translate 和进入动画的 transform 互不干扰。Popover 和输入框上方的斜杠 / @ 文件 / Ctrl+R 菜单共用。
+ */
+export function useFitInside(ref: RefObject<HTMLElement | null>, open: boolean): void {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!open || el === null) return;
+    const fit = () => fitInside(el);
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    if (el.parentElement) observer.observe(el.parentElement);
+    window.addEventListener("resize", fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", fit);
+    };
+  }, [ref, open]);
 }
 
 /** 已打开的浮层，后开的在后面。 */
@@ -49,22 +78,7 @@ export function Popover({ open, onClose, children, width, align = "start", label
   const presence = usePresence(open);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  // 打开时和内容尺寸变化（读取中 -> 有数据）时重新摆放；translate 和进入动画的 transform 互不干扰。
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!open || el === null) return;
-    fitInside(el);
-    const observer = new ResizeObserver(() => fitInside(el));
-    observer.observe(el);
-    window.addEventListener("resize", onResize);
-    function onResize() {
-      if (el !== null) fitInside(el);
-    }
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", onResize);
-    };
-  }, [open]);
+  useFitInside(ref, open);
   useEffect(() => {
     if (!open) return;
     const trigger = document.activeElement;

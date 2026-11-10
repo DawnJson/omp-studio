@@ -141,12 +141,14 @@ function JobsCard({
   anchor: RefObject<HTMLElement | null>;
 }) {
   const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden" });
+  // 底边贴着药丸往上长：最高到窗口顶（留 8）和 60% 窗口高里较小的那个；作业多、窗口矮时多出的截掉（卡片不接指针），不出窗口顶。
   useLayoutEffect(() => {
     const rect = anchor.current?.getBoundingClientRect();
     if (rect === undefined) return;
     setPlace({
       right: Math.max(GAP_PX, window.innerWidth - rect.right),
       bottom: window.innerHeight - rect.top + GAP_PX,
+      maxHeight: Math.max(0, Math.min(window.innerHeight * 0.6, rect.top - GAP_PX - 8)),
     });
   }, [anchor]);
   return createPortal(

@@ -35,6 +35,7 @@ import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { plainText, cleanGlyphs, spanClass, spansHaveLink, TspSpans } from "../spans.tsx";
 import { asArray, previewToLines } from "../props-util.ts";
+import { codeLineNumbers, codeRows } from "../../../../../shared/tsp/code-rows.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
 import { peekTspNode } from "../tsp-store.ts";
 
@@ -155,41 +156,48 @@ export function MathBlock(props: NodeProps) {
 
 // ───────── code ─────────
 
-/** preview 只在折叠时生效（开着的折叠里让位）：返回要夹到几行，null = 全部显示。 */
-function usePreviewLines(preview: unknown): number | null {
+/** preview 只在折叠时生效（开着的折叠里让位）：返回要夹到几行，null = 全部显示。code、shell、ansi 共用。 */
+export function usePreviewLines(preview: unknown): number | null {
   const fold = useFoldState();
   if (fold.collapsed === false) return null;
   return previewToLines(preview);
 }
 
-/** 代码行；折叠预览时只拿到头几行（code 也只是这几行），高亮也只做这几行。 */
+/** 代码行；折叠预览时只拿到头几行（code 也只是这几行），高亮也只做这几行。
+ * nums 不连续时行号跳跃处画一条 `…` 间隔行：有行号栏画在栏里（同色 --text-3），没有就作为暗色正文。 */
 function CodeLines({
   code,
   lines,
   lang,
-  start,
+  lineNumbers,
   numbers,
   marks,
 }: {
   code: string;
   lines: readonly string[];
   lang: string | null;
-  start: number;
+  lineNumbers: readonly number[];
   numbers: boolean;
   marks: readonly Record<string, unknown>[];
 }) {
   const tokens = useHighlighted(code, lang);
   return (
     <div className="tsp-code-lines">
-      {lines.map((line, index) => {
-        const mark = marks.find((m) => m.line === start + index);
-        const markTone = typeof mark?.tone === "string" ? mark.tone : "accent";
+      {codeRows(lineNumbers, lines.length, marks).map((row) => {
+        if (row.kind === "gap") {
+          return (
+            <div key={`g${row.num}`} className="tsp-ln" data-gap="">
+              {numbers ? <span className="tsp-gut">…</span> : <span className="tsp-lt tsp-t-dim">…</span>}
+            </div>
+          );
+        }
+        const line = lines[row.index]!;
         return (
-          <div key={index} className="tsp-ln" data-mark={mark ? markTone : undefined}>
-            {numbers && <span className="tsp-gut">{start + index}</span>}
+          <div key={row.index} className="tsp-ln" data-mark={row.mark}>
+            {numbers && <span className="tsp-gut">{row.num}</span>}
             <span className="tsp-lt">
-              <Tokens tokens={tokens?.[index]} fallback={line} />
-              {line === "" && tokens?.[index] === undefined ? "\u200b" : null}
+              <Tokens tokens={tokens?.[row.index]} fallback={line} />
+              {line === "" && tokens?.[row.index] === undefined ? "\u200b" : null}
             </span>
           </div>
         );
@@ -205,11 +213,13 @@ export function Code(props: NodeProps) {
   const lang = codeLanguage(p);
   const lines = useMemo(() => code.split("\n"), [code]);
   const start = typeof p.start === "number" ? p.start : 1;
+  const lineNumbers = useMemo(() => codeLineNumbers(lines.length, start, p.nums), [lines.length, start, p.nums]);
   const numbers = p.numbers === true;
   const marks = asArray(p.marks).filter(isRecord);
   const preview = usePreviewLines(p.preview);
   const path = typeof p.path === "string" ? p.path : null;
-  const gutter = String(start + lines.length - 1).length;
+  // 行号栏按最大行号定宽（nums 严格递增，最大的就是最后一个）。
+  const gutter = String(lineNumbers[lineNumbers.length - 1] ?? start).length;
   const body = (shown: number | null) => {
     const visible = shown === null ? lines : lines.slice(0, shown);
     return (
@@ -217,7 +227,7 @@ export function Code(props: NodeProps) {
         code={shown === null ? code : visible.join("\n")}
         lines={visible}
         lang={lang}
-        start={start}
+        lineNumbers={lineNumbers}
         numbers={numbers}
         marks={marks}
       />

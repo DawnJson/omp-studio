@@ -169,12 +169,15 @@
   background: var(--bg-sunken);
   border-radius: var(--radius-sm);
 }
+/* 右端状态 / 进度环占一样宽、靠右：状态文字和"66%"互换时左边的用时不跟着横跳（2026-11-09 仓库所有者：行一直闪） */
 .agents-row-status {
   flex: none;
+  min-width: 5em;
   margin-left: auto;
   padding-left: var(--space-2);
   font-size: var(--fs-xs);
   color: var(--text-3);
+  text-align: right;
 }
 .agents-row-status[data-status="running"],
 .agents-row-status[data-status="pending"] {
@@ -200,6 +203,7 @@
 .agents-progress {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-1);
   font-weight: var(--fw-strong);
   font-variant-numeric: tabular-nums;

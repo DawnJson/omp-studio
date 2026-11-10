@@ -1,5 +1,6 @@
 // 设置 → 通用：外观（主题画廊；格子里背景图、浓度、毛玻璃、语言、字号、减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
-// 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式，两两一行）；空闲任务多久关进程；快捷键（只读，三列；studio 的键，加转发给 omp 的键）。格子排法见 settings.css 的 .st-cells。
+// 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；空闲任务多久关进程；终端 shell；快捷键（只读；studio 的键，加转发给 omp 的键）。
+// 各组共用一套列（Cells.tsx 的 Groups），只占一行的小组并排；格子排法见 settings.css 的 .st-cells。
 import { Fragment, useEffect, useState } from "react";
 import {
   defaultFontSize,
@@ -18,6 +19,7 @@ import { useAppInfo, useSettings } from "../../store/index.ts";
 import { Badge, Button, Row, SectionHead, Segmented, Switch } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { Select } from "../../ui/Select.tsx";
+import { Cells, Group, Groups } from "./Cells.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { systemReducesMotion } from "./motion-preference.ts";
 import { refreshOmpKeybindings, useOmpKeybindings } from "./omp-keybindings-store.ts";
@@ -132,211 +134,221 @@ export function GeneralSection() {
   ];
 
   return (
-    <>
-      <SectionHead title={t("settings.appearance")} />
-      <ThemeGallery value={settings?.theme ?? "system"} />
-      <div className="st-cells">
-        <Row label={t("settings.backdrop")}>
-          {(labelId) => (
-            <>
-              <Segmented<BackdropMode>
+    <Groups>
+      <Group packable={false}>
+        <SectionHead title={t("settings.appearance")} />
+        <ThemeGallery value={settings?.theme ?? "system"} />
+        <Cells>
+          <Row label={t("settings.backdrop")}>
+            {(labelId) => (
+              <>
+                <Segmented<BackdropMode>
+                  size="sm"
+                  value={backdrop}
+                  options={backdropOptions}
+                  labelledBy={labelId}
+                  // 自选图片还没选过：先弹文件对话框（主进程复制好图再切到 custom；取消返回 false，什么都不改）。
+                  onChange={(next) =>
+                    guard(
+                      next === "custom" && (settings?.customBackdrop ?? null) === null
+                        ? window.studio.chooseBackdropImage()
+                        : window.studio.setBackdrop(next),
+                    )
+                  }
+                  testId="setting-backdrop"
+                />
+                {backdrop === "custom" && (
+                  <Button
+                    size="sm"
+                    onClick={() => guard(window.studio.chooseBackdropImage())}
+                    testId="setting-backdrop-choose"
+                  >
+                    {t("settings.backdrop.choose")}
+                  </Button>
+                )}
+              </>
+            )}
+          </Row>
+          {backdrop !== "none" && (
+            <Row label={t("settings.backdropStrength")}>
+              {(labelId) => (
+                <Segmented<BackdropStrength>
+                  size="sm"
+                  value={settings?.backdropStrength ?? "medium"}
+                  options={strengthOptions}
+                  labelledBy={labelId}
+                  onChange={(next) => guard(window.studio.setBackdropStrength(next))}
+                  testId="setting-backdrop-strength"
+                />
+              )}
+            </Row>
+          )}
+          {glassSupported && (
+            <Row label={t("settings.glass")}>
+              {(labelId) => (
+                <Switch
+                  checked={settings?.glass ?? false}
+                  labelledBy={labelId}
+                  onChange={(next) => guard(window.studio.setGlass(next))}
+                  testId="setting-glass"
+                />
+              )}
+            </Row>
+          )}
+          <Row label={t("settings.language")}>
+            {(labelId) => (
+              <Segmented<LocalePreference>
                 size="sm"
-                value={backdrop}
-                options={backdropOptions}
+                value={settings?.locale ?? "system"}
+                options={localeOptions}
                 labelledBy={labelId}
-                // 自选图片还没选过：先弹文件对话框（主进程复制好图再切到 custom；取消返回 false，什么都不改）。
-                onChange={(next) =>
-                  guard(
-                    next === "custom" && (settings?.customBackdrop ?? null) === null
-                      ? window.studio.chooseBackdropImage()
-                      : window.studio.setBackdrop(next),
-                  )
-                }
-                testId="setting-backdrop"
+                onChange={(next) => void window.studio.setLocale(next)}
+                testId="setting-language"
               />
-              {backdrop === "custom" && (
+            )}
+          </Row>
+          <Row label={t("settings.fontSize")}>
+            {(labelId) => (
+              <Select<`${number}`>
+                size="sm"
+                value={`${settings?.fontSize ?? defaultFontSize}`}
+                options={fontSizeOptions}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setFontSize(Number(next))}
+                testId="setting-font-size"
+              />
+            )}
+          </Row>
+          <Row label={t("settings.motion")}>
+            {(labelId) => (
+              <>
+                <Switch
+                  checked={(settings?.reduceMotion ?? false) || systemMotion}
+                  disabled={systemMotion}
+                  labelledBy={labelId}
+                  onChange={(next) => void window.studio.setReduceMotion(next)}
+                  testId="setting-motion"
+                />
+                {systemMotion && <Badge>{t("settings.motion.system")}</Badge>}
+              </>
+            )}
+          </Row>
+          <Row label={t("settings.copyOnSelect")} info={t("settings.copyOnSelect.desc")}>
+            {(labelId) => (
+              <Switch
+                checked={settings?.copyOnSelect ?? true}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setCopyOnSelect(next)}
+                testId="setting-copy-on-select"
+              />
+            )}
+          </Row>
+          <Row label={t("settings.toolHeadsOnly")}>
+            {(labelId) => (
+              <Switch
+                checked={settings?.toolHeadsOnly ?? false}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setToolHeadsOnly(next)}
+                testId="setting-tool-heads-only"
+              />
+            )}
+          </Row>
+          <Row label={t("settings.groupToolCalls")}>
+            {(labelId) => (
+              <Switch
+                checked={settings?.groupToolCalls ?? true}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setGroupToolCalls(next)}
+                testId="setting-group-tool-calls"
+              />
+            )}
+          </Row>
+        </Cells>
+      </Group>
+      <Group>
+        <SectionHead title={t("settings.notifications")} />
+        <Cells testId="notify-settings">
+          {notifyItems.map((item) => (
+            <ConfigRow key={item.key} item={item} />
+          ))}
+          <Row label={t("settings.soundOnDone")}>
+            {(labelId) => (
+              <Switch
+                checked={settings?.soundOnDone ?? false}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setSoundOnDone(next)}
+                testId="setting-sound-on-done"
+              />
+            )}
+          </Row>
+        </Cells>
+      </Group>
+      <Group>
+        <SectionHead title={t("settings.whileRunning")} />
+        <Cells>
+          <Row label={t("settings.enterBehavior")}>
+            {(labelId) => (
+              <Segmented<"steer" | "followUp">
+                size="sm"
+                value={settings?.enterWhileRunning ?? "steer"}
+                options={enterOptions}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setEnterWhileRunning(next)}
+                testId="setting-enter"
+              />
+            )}
+          </Row>
+          {whileRunning.map((item) => (
+            <ConfigRow key={item.key} item={item} />
+          ))}
+        </Cells>
+      </Group>
+      <Group>
+        <SectionHead title={t("settings.idleTasks")} />
+        <Cells>
+          <Row label={t("settings.idleClose")} info={t("settings.idleClose.desc")}>
+            {(labelId) => (
+              <Select<IdleClose>
+                size="sm"
+                value={settings?.idleClose ?? "1h"}
+                options={idleCloseOptions}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setIdleClose(next)}
+                testId="setting-idle-close"
+              />
+            )}
+          </Row>
+        </Cells>
+      </Group>
+      <Group>
+        <SectionHead title={t("settings.terminal")} />
+        <Cells>
+          <Row label={t("settings.terminalShell")}>
+            {(labelId) => (
+              <>
+                <Select<string>
+                  size="sm"
+                  value={terminalShell ?? ""}
+                  options={shellOptions}
+                  labelledBy={labelId}
+                  onChange={(next) => guard(window.studio.setTerminalShell(next === "" ? null : next))}
+                  testId="setting-terminal-shell"
+                />
                 <Button
                   size="sm"
-                  onClick={() => guard(window.studio.chooseBackdropImage())}
-                  testId="setting-backdrop-choose"
+                  onClick={() => guard(window.studio.chooseTerminalShell())}
+                  testId="setting-terminal-shell-choose"
                 >
-                  {t("settings.backdrop.choose")}
+                  {t("settings.terminalShell.choose")}
                 </Button>
-              )}
-            </>
-          )}
-        </Row>
-        {backdrop !== "none" && (
-          <Row label={t("settings.backdropStrength")}>
-            {(labelId) => (
-              <Segmented<BackdropStrength>
-                size="sm"
-                value={settings?.backdropStrength ?? "medium"}
-                options={strengthOptions}
-                labelledBy={labelId}
-                onChange={(next) => guard(window.studio.setBackdropStrength(next))}
-                testId="setting-backdrop-strength"
-              />
+              </>
             )}
           </Row>
-        )}
-        {glassSupported && (
-          <Row label={t("settings.glass")}>
-            {(labelId) => (
-              <Switch
-                checked={settings?.glass ?? false}
-                labelledBy={labelId}
-                onChange={(next) => guard(window.studio.setGlass(next))}
-                testId="setting-glass"
-              />
-            )}
-          </Row>
-        )}
-        <Row label={t("settings.language")}>
-          {(labelId) => (
-            <Segmented<LocalePreference>
-              size="sm"
-              value={settings?.locale ?? "system"}
-              options={localeOptions}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setLocale(next)}
-              testId="setting-language"
-            />
-          )}
-        </Row>
-        <Row label={t("settings.fontSize")}>
-          {(labelId) => (
-            <Select<`${number}`>
-              size="sm"
-              value={`${settings?.fontSize ?? defaultFontSize}`}
-              options={fontSizeOptions}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setFontSize(Number(next))}
-              testId="setting-font-size"
-            />
-          )}
-        </Row>
-        <Row label={t("settings.motion")}>
-          {(labelId) => (
-            <>
-              <Switch
-                checked={(settings?.reduceMotion ?? false) || systemMotion}
-                disabled={systemMotion}
-                labelledBy={labelId}
-                onChange={(next) => void window.studio.setReduceMotion(next)}
-                testId="setting-motion"
-              />
-              {systemMotion && <Badge>{t("settings.motion.system")}</Badge>}
-            </>
-          )}
-        </Row>
-        <Row label={t("settings.copyOnSelect")} info={t("settings.copyOnSelect.desc")}>
-          {(labelId) => (
-            <Switch
-              checked={settings?.copyOnSelect ?? true}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setCopyOnSelect(next)}
-              testId="setting-copy-on-select"
-            />
-          )}
-        </Row>
-        <Row label={t("settings.toolHeadsOnly")}>
-          {(labelId) => (
-            <Switch
-              checked={settings?.toolHeadsOnly ?? false}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setToolHeadsOnly(next)}
-              testId="setting-tool-heads-only"
-            />
-          )}
-        </Row>
-        <Row label={t("settings.groupToolCalls")}>
-          {(labelId) => (
-            <Switch
-              checked={settings?.groupToolCalls ?? true}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setGroupToolCalls(next)}
-              testId="setting-group-tool-calls"
-            />
-          )}
-        </Row>
-      </div>
-      <SectionHead title={t("settings.notifications")} />
-      <div className="st-cells" data-testid="notify-settings">
-        {notifyItems.map((item) => (
-          <ConfigRow key={item.key} item={item} />
-        ))}
-        <Row label={t("settings.soundOnDone")}>
-          {(labelId) => (
-            <Switch
-              checked={settings?.soundOnDone ?? false}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setSoundOnDone(next)}
-              testId="setting-sound-on-done"
-            />
-          )}
-        </Row>
-      </div>
-      <SectionHead title={t("settings.whileRunning")} />
-      <div className="st-cells">
-        <Row label={t("settings.enterBehavior")}>
-          {(labelId) => (
-            <Segmented<"steer" | "followUp">
-              size="sm"
-              value={settings?.enterWhileRunning ?? "steer"}
-              options={enterOptions}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setEnterWhileRunning(next)}
-              testId="setting-enter"
-            />
-          )}
-        </Row>
-        {whileRunning.map((item) => (
-          <ConfigRow key={item.key} item={item} />
-        ))}
-      </div>
-      <SectionHead title={t("settings.idleTasks")} />
-      <div className="st-cells">
-        <Row label={t("settings.idleClose")} info={t("settings.idleClose.desc")}>
-          {(labelId) => (
-            <Select<IdleClose>
-              size="sm"
-              value={settings?.idleClose ?? "1h"}
-              options={idleCloseOptions}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setIdleClose(next)}
-              testId="setting-idle-close"
-            />
-          )}
-        </Row>
-      </div>
-      <SectionHead title={t("settings.terminal")} />
-      <div className="st-cells">
-        <Row label={t("settings.terminalShell")}>
-          {(labelId) => (
-            <>
-              <Select<string>
-                size="sm"
-                value={terminalShell ?? ""}
-                options={shellOptions}
-                labelledBy={labelId}
-                onChange={(next) => guard(window.studio.setTerminalShell(next === "" ? null : next))}
-                testId="setting-terminal-shell"
-              />
-              <Button
-                size="sm"
-                onClick={() => guard(window.studio.chooseTerminalShell())}
-                testId="setting-terminal-shell-choose"
-              >
-                {t("settings.terminalShell.choose")}
-              </Button>
-            </>
-          )}
-        </Row>
-      </div>
-      <section id="settings-shortcuts" tabIndex={-1} className="st-section">
+        </Cells>
+      </Group>
+      <Group id="settings-shortcuts" tabIndex={-1} packable={false}>
         <SectionHead title={t("settings.shortcuts")} />
-        <div className="st-kb-grid">
+        <Cells className="st-kb-grid">
           {shortcuts.map((shortcut) => (
             <div key={shortcut.label} className="st-kb-row">
               <span>{t(shortcut.label)}</span>
@@ -347,9 +359,9 @@ export function GeneralSection() {
               ))}
             </div>
           ))}
-        </div>
+        </Cells>
         <SectionHead title={t("settings.shortcuts.omp")} />
-        <div className="st-kb-grid" data-testid="omp-shortcuts">
+        <Cells className="st-kb-grid" testId="omp-shortcuts">
           {ompKeybindings.map((binding) => (
             <div key={binding.action} className="st-kb-row" data-testid={`omp-shortcut-${binding.action}`}>
               <span>{t(ompActionLabels[binding.action] ?? "shortcut.ompThinkingCycle")}</span>
@@ -365,8 +377,8 @@ export function GeneralSection() {
               ))}
             </div>
           ))}
-        </div>
-      </section>
-    </>
+        </Cells>
+      </Group>
+    </Groups>
   );
 }

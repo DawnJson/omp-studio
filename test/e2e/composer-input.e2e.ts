@@ -222,6 +222,83 @@ test("点输入框外框里的空白（工具行空着的地方、文字区四�
   }
 });
 
+test("窗口很矮时斜杠、@ 文件、Ctrl+R 菜单缩到主区顶边以内，在菜单里滚（窗口最小、字号最大时约 545×382）", async () => {
+  // 斜杠命令表来自任务目录的项目 rpc-ui（PATH 上的 omp）；和第一个用例一样给一个 auth: none 的本地 provider，rpc-ui 才起得来。
+  test.skip((await findOmpOnPath().catch(() => null)) === null, "PATH 上没有 omp");
+  test.setTimeout(150_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp composer e2e-"));
+  const agentDir = path.join(work, "agent");
+  const project = path.join(work, "项目 目录");
+  await mkdir(agentDir, { recursive: true });
+  await mkdir(project);
+  await writeFile(
+    path.join(agentDir, "models.yml"),
+    "providers:\n  slash-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: slash-one\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(agentDir, "config.yml"),
+    "startup:\n  setupWizard: false\nmodelRoles:\n  default: slash-local/slash-one\n",
+    "utf8",
+  );
+  for (let index = 1; index <= 15; index++) await writeFile(path.join(project, `note-${index}.md`), "x");
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  let second: LaunchedApp | null = null;
+  try {
+    // 先存 15 条历史、建好任务，重启后读进来（渲染进程只在第一次用到项目时向主进程读一次历史）。
+    await openFolder(launched, project);
+    await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await launched.page.evaluate(async () => {
+      const [first] = await globalThis.studio.listProjects();
+      for (let index = 1; index <= 15; index++)
+        await globalThis.studio.recordInputHistory(first!.id, `history entry ${index}`);
+      await globalThis.studio.createTask({ projectId: first!.id });
+    });
+    await launched.app.close();
+    second = await launchApp({ STUDIO_USER_DATA: launched.userDataDir, PI_CODING_AGENT_DIR: agentDir });
+    const { page } = second;
+    await expandSidebarFolders(page);
+    await openTaskRow(page);
+    await expect(page.getByTestId("composer-input")).toBeVisible();
+    await page.setViewportSize({ width: 545, height: 382 });
+    const input = page.getByTestId("composer-input");
+    const panel = (await page.getByTestId("main-panel").boundingBox())!;
+    /** 菜单在主区里（上沿不出主区，下沿在输入框上面），内容比菜单高、能在里面滚。 */
+    const expectFits = async (menu: Locator) => {
+      await expect(menu).toBeVisible();
+      await expect
+        .poll(async () => {
+          const box = (await menu.boundingBox())!;
+          const composer = (await page.locator('[data-testid="composer-stack"] .composer').boundingBox())!;
+          return box.y >= panel.y && box.y + box.height <= composer.y + 8;
+        })
+        .toBe(true);
+      const scrolls = await menu.evaluate((el) => {
+        // e2e 的类型检查没有 DOM 类型：只读这两个数。
+        const box = el as unknown as { scrollHeight: number; clientHeight: number };
+        return box.scrollHeight > box.clientHeight;
+      });
+      expect(scrolls).toBe(true);
+    };
+
+    await input.fill("/");
+    await expect(page.getByTestId("slash-menu").getByRole("option").nth(10)).toBeAttached({ timeout: 60_000 });
+    await expectFits(page.getByTestId("slash-menu"));
+    await input.fill("");
+    await input.pressSequentially("@note");
+    await expect(page.getByTestId("file-menu").getByRole("option")).toHaveCount(15);
+    await expectFits(page.getByTestId("file-menu"));
+    await input.fill("");
+    await input.press("Control+r");
+    await expect(page.getByTestId("history-row")).toHaveCount(15);
+    await expectFits(page.getByTestId("history-search"));
+  } finally {
+    await second?.close().catch(() => {});
+    await launched.close().catch(() => {});
+    await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 test("大段粘贴：输入框上方出现一张卡片（编号、行数、第一行），点开预览原文，展开成文字后卡片和芯片都没了；✕ 删掉卡片连同芯片", async () => {
   test.setTimeout(60_000);
   const launched = await launchApp();

@@ -6,6 +6,8 @@ export const tsp = {
   layoutRegion: "对话",
   copyMarkdown: "复制 Markdown",
   copyPlainText: "复制纯文本",
+  /** 节点右键菜单（actions.menu）的无障碍名称。 */
+  nodeMenu: "操作",
   forkHere: "从这条消息之前分叉出新任务",
   forkAfterAnswer: "从这条回答之后分叉出新任务",
   editMessage: "编辑这条消息（放进输入框）",

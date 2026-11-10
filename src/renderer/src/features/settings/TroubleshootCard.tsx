@@ -4,12 +4,13 @@ import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
 import { Button, Row } from "../../ui/controls.tsx";
 import { useAsyncAction } from "./use-async-action.ts";
+import { Cells } from "./Cells.tsx";
 
 export function TroubleshootCard() {
   const t = useT();
   const { busy: exporting, run } = useAsyncAction((error) => reportError(t, error));
   return (
-    <div className="st-cells" data-testid="about-troubleshoot">
+    <Cells testId="about-troubleshoot">
       <Row label={t("settings.about.logs")}>
         {(labelId) => (
           <Button
@@ -35,6 +36,6 @@ export function TroubleshootCard() {
           </Button>
         )}
       </Row>
-    </div>
+    </Cells>
   );
 }

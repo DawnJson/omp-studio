@@ -284,7 +284,10 @@
 .file-preview-image:not([data-fit]):active {
   cursor: grabbing;
 }
+/* 适应窗口：轨道写成 minmax(0, 1fr)，img 的 max-height: 100% 才有参照；默认的 auto 行会按原图撑开，高图只露出上半截（2026-11-09）。
+   放大时仍是 auto 轨道，图比框大才能滚动 / 拖动。 */
 .file-preview-image[data-fit] {
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   overflow: hidden;
 }
 .file-preview-image[data-fit] img {

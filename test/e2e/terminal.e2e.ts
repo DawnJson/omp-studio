@@ -353,6 +353,41 @@ test("拖拽条和键盘调整高度：最小 120px、最大主区 70%，松手�
   }
 });
 
+test("窗口很矮时旁路提问、输入框、终端一起放得下：终端和旁路提问让出高度（终端最低 120），输入框和终端都在主区里", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await openPanel(page);
+    await waitPrompt(page);
+    // `/btw `（不带问题）只打开旁路提问面板，studio 自己接管，不发给 omp。
+    const input = page.getByTestId("composer-input");
+    await input.fill("/btw ");
+    await input.press("Enter");
+    await expect(page.getByTestId("btw-panel")).toBeVisible();
+    // 窗口最小（800×560）、字号最大（22，缩放 22/15）时的视口。
+    await page.setViewportSize({ width: 545, height: 382 });
+    const layout = async () => {
+      const box = async (selector: string) => (await page.locator(selector).first().boundingBox())!;
+      const panel = await box('[data-testid="main-panel"]');
+      const composer = await box('[data-testid="composer-stack"] .composer');
+      const terminal = await box('[data-testid="terminal-panel"]');
+      // xterm 跟着变矮的面板重新排行：屏幕（含提示行）整个在主区里。
+      const screen = await box('[data-testid="terminal-host"] .xterm-screen');
+      return {
+        composerInPanel: composer.y >= panel.y && composer.y + composer.height <= terminal.y,
+        terminalInPanel: terminal.y + terminal.height <= panel.y + panel.height + 0.5,
+        terminalUsable: terminal.height >= 119.5,
+        screenInPanel: screen.height > 0 && screen.y + screen.height <= panel.y + panel.height + 0.5,
+      };
+    };
+    await expect
+      .poll(layout)
+      .toEqual({ composerInPanel: true, terminalInPanel: true, terminalUsable: true, screenInPanel: true });
+  } finally {
+    await cleanup();
+  }
+});
+
 test("命令面板可切换终端", async () => {
   const { launched, cleanup } = await start();
   try {

@@ -3,7 +3,8 @@ import { useMemo, useState, type FocusEvent, type KeyboardEvent, type ReactNode 
 import { ASK_BUTTON_ROLE, ASK_GATE_ROLE } from "../../../../../shared/tsp/ask-gate.ts";
 import type { TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { ChevronDown } from "../../../icons.tsx";
-import { AskButtonRow, AskGateCol } from "../interactive/AskGate.tsx";
+import { AskGateCol } from "../interactive/AskGate.tsx";
+import { Button } from "../interactive/Button.tsx";
 import { ERROR_CARD_ROLE } from "../../../../../shared/tsp/error-turn.ts";
 import { RetryButton } from "../../session-info/RetryButton.tsx";
 import { Clamp } from "../Clamp.tsx";
@@ -200,9 +201,7 @@ function RecapRow(props: NodeProps) {
 
 export function Row(props: NodeProps) {
   if (props.node.p.role === "omp.recap") return <RecapRow {...props} />;
-  if (props.node.p.role === ASK_BUTTON_ROLE) {
-    return <AskButtonRow {...props} dom={nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })} />;
-  }
+  if (props.node.p.role === ASK_BUTTON_ROLE) return <Button {...props} />;
   if (props.node.p.role === "omp.turn.usage") return <UsageRow {...props} />;
   if (props.node.p.role === "omp.user.tools") return <UserToolsRow {...props} />;
   return <PlainRow {...props} />;

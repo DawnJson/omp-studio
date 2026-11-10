@@ -1,11 +1,13 @@
 /* 内置终端面板（spec §4.19）。只用 tokens.css 里的变量；终端内的配色由 xterm 主题从同一批 token 推出。 */
 
+/* 高度是拖出来的（TerminalPanelBody 按主区高度夹取）；和旁路提问、输入框一起放不下时（窗口矮）终端让出高度，最低 120（spec：最小 120px），
+   输入框和终端的提示行都留在主区里，不被面板底边裁掉（2026-11-09）。 */
 .terminal-panel {
   position: relative;
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
   flex-direction: column;
-  min-height: 0;
+  min-height: 120px;
   background: var(--bg-sunken);
   /* 底色已经换成 sunken，分隔线用最轻的一档（2026-10-29） */
   border-top: 1px solid var(--border-subtle);

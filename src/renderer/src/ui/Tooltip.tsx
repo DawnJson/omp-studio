@@ -1,5 +1,5 @@
 // 悬停提示（spec §4.23 Tooltip）：全应用的 title 属性都用这一个自绘提示显示，不再出 Windows 原生的提示框。
-// 做法：指针移到带 title 的元素上，先把 title 从元素上拿掉、暂存起来（原生提示就不会出），500ms 后在元素下方画提示
+// 做法：指针移到带 title 的元素上，先把 title 从元素和它所有的祖先上拿掉、暂存起来（原生提示就不会出；只拿元素自己的，浏览器会拿外层的 title 出原生提示），500ms 后在元素下方画提示
 // （下方放不下画在上方）；刚收起一个提示时移到下一个元素立即出。键盘聚焦（input-modality 的 keyboardFocused）时立即出，title 留在元素上
 // （原生提示不跟键盘出，读屏照常读到它）。离开、按下、按键、滚动、窗口失焦时收起，title 放回原处。
 // 悬停期间 React 改了 title（如"上次刷新于…"）：读出新文字、再拿掉。
@@ -71,16 +71,28 @@ export function TooltipLayer() {
     /** 提示文字来自 target 的 title（悬停期间拿掉、收起时放回）；false = 来自被截断的文字本身。 */
     let titled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    /** 悬停期间从祖先上拿掉的 title：子元素的 title 拿掉后，浏览器会拿离指针最近的祖先的 title 出原生提示
+     * （回答下面那行用量带 title，指到复制 / 分叉图标时出过 Windows 样式的提示，2026-11-09 仓库所有者）。 */
+    let stripped: [HTMLElement, string][] = [];
     let shown = false;
     let warmUntil = 0;
-    const observer = new MutationObserver(() => {
-      // 悬停期间 React 把 title 写回来了（文字变了）：换成新文字，再从元素上拿掉。
-      const el = target;
-      const next = el?.getAttribute("title");
-      if (!el || next === null || next === undefined) return;
-      text = next;
-      el.removeAttribute("title");
-      if (shown) setTip(tipFor(el, text));
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        const el = record.target as HTMLElement;
+        const next = el.getAttribute("title");
+        if (next === null) continue;
+        el.removeAttribute("title");
+        // 拿掉的祖先被 React 写回了 title：记下新文字，收起时放回。
+        const ancestor = stripped.find(([up]) => up === el);
+        if (ancestor !== undefined) {
+          ancestor[1] = next;
+          continue;
+        }
+        // 悬停期间 React 把 title 写回来了（文字变了）：换成新文字。
+        if (el !== target) continue;
+        text = next;
+        if (shown) setTip(tipFor(el, text));
+      }
     });
 
     const hide = () => {
@@ -89,6 +101,8 @@ export function TooltipLayer() {
       if (shown) warmUntil = performance.now() + WARM_MS;
       shown = false;
       if (target && titled && !target.hasAttribute("title")) target.setAttribute("title", text);
+      for (const [el, title] of stripped) if (!el.hasAttribute("title")) el.setAttribute("title", title);
+      stripped = [];
       target = null;
       setTip(null);
     };
@@ -112,6 +126,15 @@ export function TooltipLayer() {
         el.removeAttribute("title");
         observer.observe(el, { attributes: true, attributeFilter: ["title"] });
       }
+      for (
+        let up = el.parentElement?.closest<HTMLElement>(TITLED);
+        up;
+        up = up.parentElement?.closest<HTMLElement>(TITLED)
+      ) {
+        stripped.push([up, up.getAttribute("title") ?? ""]);
+        up.removeAttribute("title");
+        observer.observe(up, { attributes: true, attributeFilter: ["title"] });
+      }
       if (performance.now() < warmUntil) show(el);
       else timer = setTimeout(() => show(el), SHOW_DELAY_MS);
     };
@@ -121,12 +144,10 @@ export function TooltipLayer() {
       const node = event.target instanceof Element ? event.target : null;
       if (node === null) return;
       if (target?.contains(node)) return;
+      // 先放回拿掉的 title：从图标移到带 title 的外层（它的 title 正被拿掉）时要能找到它。
+      if (target !== null) hide();
       const source = tipSource(node);
-      if (source === null) {
-        if (target !== null) hide();
-        return;
-      }
-      begin(source.el, source.text, source.titled, false);
+      if (source !== null) begin(source.el, source.text, source.titled, false);
     };
     const onFocus = (event: FocusEvent) => {
       const el = event.target instanceof HTMLElement ? event.target : null;

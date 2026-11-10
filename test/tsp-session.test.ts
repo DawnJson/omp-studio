@@ -7,7 +7,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyMessage, createDocument, snapshotDocument } from "../src/shared/tsp/document.ts";
 import { deriveTaskStatus } from "../src/shared/tsp/task-status.ts";
-import { TSP_KINDS, type TspEvent } from "../src/shared/tsp/tsp.generated.ts";
+import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
 import {
   buildTspEnv,
   TspExitedError,
@@ -127,7 +127,10 @@ describe("TspSession + 假 omp：整份录制回放", () => {
       dark: true,
       reduceMotion: false,
     });
-    expect(hello?.["kinds"]).toEqual(TSP_KINDS.filter((kind) => kind !== "json"));
+    // 有组件的种类才声明：button（omp.btn 行换成 button 节点）、shell（bash 的命令区换成 shell 节点）有了；json 没有组件，不声明。
+    const kinds = hello?.["kinds"] as string[];
+    expect(kinds).not.toContain("json");
+    expect(kinds).toEqual(expect.arrayContaining(["md", "code", "ansi", "tabs", "button", "shell"]));
     expect(hello?.["features"]).toEqual(["blobs", "settle", "adopt", "dock", "reduce-motion"]);
     // DA1 应答在 hello 回复之后。
     expect(records.findIndex((record) => record.kind === "da1-reply")).toBeGreaterThan(

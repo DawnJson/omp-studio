@@ -627,13 +627,22 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2);
 }
-/* 浮动的菜单 / 下拉列表（Menu.tsx、Select.tsx）：fixed 定位，挂在 body 上 */
+/* 浮动的菜单 / 下拉列表（Menu.tsx、Select.tsx）：fixed 定位，挂在 body 上。
+   最高到窗口高减上下各 8（Menu.tsx 的 edge），再高自己滚：窗口矮时任务菜单下半截出窗、够不着（2026-11-09）。 */
 .ui-menu[data-floating] {
   position: fixed;
   z-index: var(--z-menu);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  scrollbar-width: thin;
   animation: pop-in var(--dur-base) var(--ease-out);
 }
-/* 下拉的选项列表（Select.tsx）：自己滚，滚动条用 OverlayScrollbar */
+/* 下拉的选项列表（Select.tsx）：自己滚，滚动条用 OverlayScrollbar。弹层被 Select 按展开那一侧剩的高度限高时，
+   列表跟着缩（flex 子项、可滚动的 min-height 为 0），滚的是列表，不是整个弹层。 */
+.ui-menu[data-floating]:has(> .ui-select-list) {
+  display: flex;
+  flex-direction: column;
+}
 .ui-select-list {
   overflow-y: auto;
   scrollbar-width: none;
@@ -780,7 +789,8 @@
   display: flex;
   flex-direction: column;
   max-width: calc(100vw - var(--space-8));
-  max-height: 60vh;
+  /* --fit-room：Popover.tsx 的 fitInside 量出的到可见区域边缘的高度 */
+  max-height: min(60vh, var(--fit-room, 60vh));
   padding: var(--space-1-5);
   overflow: hidden auto;
   background: var(--bg-overlay);
@@ -1180,7 +1190,9 @@
   border-radius: var(--radius-xs);
 }
 
-/* 悬停提示（ui/Tooltip.tsx）：全应用的 title 都画成这个，不出系统原生提示框 */
+/* 悬停提示（ui/Tooltip.tsx）：全应用的 title 都画成这个，不出系统原生提示框。
+   很长的 title（整段命令、报错全文）最多 20 行、整张不高过窗口（上下各留 8，Tooltip.tsx 的 EDGE_PX），多出的截掉：
+   原来按内容一直长，比窗口还高时上下都出窗（2026-11-09）。 */
 .ui-tooltip {
   position: fixed;
   z-index: var(--z-tooltip);
@@ -1188,6 +1200,8 @@
   gap: var(--space-2);
   align-items: center;
   max-width: 280px;
+  max-height: calc(100vh - 16px);
+  overflow: hidden;
   padding: var(--space-1) var(--space-2);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
@@ -1200,9 +1214,13 @@
   animation: fade-in var(--dur-fast) var(--ease-out);
 }
 .ui-tooltip-text {
+  display: -webkit-box;
   min-width: 0;
+  overflow: hidden;
   white-space: pre-line;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 20;
 }
 .ui-tooltip .ui-kbd {
   flex: none;

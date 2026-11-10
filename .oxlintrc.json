@@ -157,6 +157,8 @@
   "ignorePatterns": [
     "src/shared/omp-wire/rpc-wire.generated.ts",
     "src/shared/tsp/tsp.generated.ts",
+    "src/shared/tsp/shell-viz.generated.ts",
+    "src/shared/tsp/shell-trace.generated.ts",
     "src/main/client-accounts/extension/vendor/**"
   ]
 }

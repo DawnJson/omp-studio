@@ -11,8 +11,10 @@
   margin: 0 auto;
   padding-bottom: var(--space-4);
 }
-/* 内容从输入框后面淡出，而不是被切断。 */
-.composer-stack::before {
+/* 空状态里概览比窗口高时会滚到输入框后面：让内容从它后面淡出，而不是被切断。
+   任务里的输入框不画（2026-11-10 仓库所有者：输入框和上面的用时、待办行直接放在背景上，不要一条底色）；
+   对话在输入框上方的淡出由过程区滚动区自己的遮罩做（tsp.css .tsp-scroller）。 */
+.empty-draft .composer-stack::before {
   content: "";
   position: absolute;
   left: calc(var(--gutter) * -1);
@@ -23,7 +25,7 @@
   pointer-events: none;
 }
 /* 主区有背景图时（app.css 的 .panel[data-backdrop]）不画：渐变尽头是实色 --bg-app，会在输入框上方横出一条盖住图的带子。 */
-.panel[data-backdrop] .composer-stack::before {
+.panel[data-backdrop] .empty-draft .composer-stack::before {
   display: none;
 }
 .composer {
@@ -614,21 +616,6 @@ button.usage-context:hover,
   color: var(--text-disabled);
   cursor: default;
 }
-.send-square {
-  width: 12px;
-  height: 12px;
-  border-radius: var(--radius-xs);
-  background: currentColor;
-}
-/* 发送键左边的"优化提示词"（EnhanceButton.tsx）：.ui-icon-btn 28×28；优化中是和 .ui-btn 加载态同样的环（--icon-md 大小）。 */
-.composer-enhance-spin {
-  width: var(--icon-md);
-  height: var(--icon-md);
-  border: 1.5px solid var(--text-2);
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: ui-spin var(--dur-spin) var(--tick-spin) infinite;
-}
 
 /* 输入框上方（ComposerTop.tsx）：药丸行（有待办板时单独一行、右对齐）+ 状态行（左 = 运行图标 + 翻牌计时 + 分隔线 + 当前活动，
    右 = 待办板；没有待办板时药丸并到右端）。下边距放在这里：Reveal 收起时整块连同间距一起缩没。 */
@@ -1021,8 +1008,8 @@ button.usage-context:hover,
   display: flex;
   flex-direction: column;
   padding: var(--space-1);
-  /* 最多同时显示 8 行，更多的滚动。 */
-  max-height: calc(8 * var(--row-menu) + 2 * var(--space-1));
+  /* 最多同时显示 8 行，更多的滚动；上方放不下 8 行（窗口矮）时到主区顶边为止（--fit-room 由 ui/Popover.tsx 的 useFitInside 写）。 */
+  max-height: min(calc(8 * var(--row-menu) + 2 * var(--space-1)), var(--fit-room, 100vh));
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bg-overlay);
@@ -1088,7 +1075,7 @@ button.usage-context:hover,
 /* Ctrl+R 历史搜索：同斜杠菜单的浮层外观，顶上一个搜索框（不随列表滚走），行里是历史消息的第一行。 */
 .history {
   gap: var(--space-1);
-  max-height: calc(8 * var(--row-menu) + var(--control-h-sm) + 3 * var(--space-1));
+  max-height: min(calc(8 * var(--row-menu) + var(--control-h-sm) + 3 * var(--space-1)), var(--fit-room, 100vh));
 }
 .history > .ui-field {
   flex: none;
@@ -1109,6 +1096,7 @@ button.usage-context:hover,
    右栏一张表（粘性表头）+ 参数行 + 三行控件；页脚左边"添加提供商…"，右边"关闭"+ 主按钮。
    高度取左栏、右栏里较高的那个（正文最低 360、整框最高 84vh，表和左栏各自滚），打开以后只长不缩（ModelPicker 记下见过的
    最大高度写进 min-height）：换到模型少的提供商、打字过滤时对话框不跟着变矮，左栏不被切掉。贴着上方 8vh 放。
+   窗口矮到 84vh 放不下 360 的正文加头尾（136）时正文最低跟着降，页脚按钮不掉出窗口（2026-11-09）。
    数字列按 px 定宽：表头和行字体不同，按 ch 算出来的列宽对不齐。 */
 .mp-dialog {
   --mp-cols: minmax(0, 1fr) 36px 40px 48px 88px var(--space-5);
@@ -1148,7 +1136,7 @@ button.usage-context:hover,
   grid-template-rows: minmax(0, 1fr);
   flex: 1 1 auto;
   gap: 0;
-  min-height: 360px;
+  min-height: min(360px, calc(84vh - 136px));
   padding: 0;
   overflow: hidden;
 }

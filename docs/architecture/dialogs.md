@@ -4,8 +4,9 @@
 
 ## 门在哪里
 
-- **节点**：提问是 dock 里的 `col role=omp.editor.ask`；审批是 `col role=omp.editor.ask.approval`（插在输入框卡片前面，不换掉它）。实测依据和逐帧结构见 [tsp-migration.md](tsp-migration.md) §10.1、§10.6（提问）、§10.7（审批），录制 `fixtures/tsp/{ask,ask-multi,approval}.jsonl`。
-- **渲染**：`features/tsp/interactive/AskGate.tsx`（提问，含多题 / 多选 / Review 页）和审批卡（`omp.btn` 画成真 `<button>`，点 = 节点自己的 `actions.click`）；键盘由对话框根节点接，按键编码后写进伪终端（`keys.ts`）。纯函数在 `src/shared/tsp/ask-gate.ts`、`gate.ts`。
+- **节点**：提问是 dock 里的 `col role=omp.editor.ask`；审批是 `col role=omp.editor.ask.approval`（插在输入框卡片前面，不换掉它）。实测依据和逐帧结构见 [tsp-migration.md](tsp-migration.md) §10.1、§10.6（提问）、§10.7（审批），录制 `fixtures/tsp/{ask,ask-multi,approval}.jsonl`（omp 18.12）、`button-ask.jsonl`、`button-approval.jsonl`（omp 18.18.6）。
+- **按钮的两种形状**：studio 在 hello 里声明了 `button`（2026-11-10 起），omp ≥18.14.2 把门里的按钮发成 `button` 节点（role 仍是 `omp.btn`，文字、`keys`、`variant`、`actions.click` 在 props 里，没有子节点；审批 Details 点开后文字变 `Less`），更早的 omp 发 `row omp.btn`（子节点是文字和 `kbd`）。实测 omp 18.18.6：审批卡 `t.actions/expand|deny|approve`、提问底栏 `t.actions/hide|cancel|submit`、`/context` 的 Close 都是 `button`。`gate.ts`、`btw.ts`、`context-report.ts` 只看 role 和 `actions.click`，两种都认（`test/tsp-gate.test.ts`、`test/context-report.test.ts` 用新录制钉住）。
+- **渲染**：`features/tsp/interactive/AskGate.tsx`（提问，含多题 / 多选 / Review 页）；按钮由 `interactive/Button.tsx` 画成真 `<button>`（两种形状同一个组件，点 = 节点自己的 `actions.click`，`disabled` / `busy` 不发，不抢焦点）；键盘由对话框根节点接，按键编码后写进伪终端（`keys.ts`）。纯函数在 `src/shared/tsp/ask-gate.ts`、`gate.ts`。
 - **输入框的行为**（`shared/tsp/gate.ts` 的 `findMessageTarget`）：提问在等时输入框不能发送（placeholder 提示先回答）；审批在等时输入框里写的字 = 拒绝并说明理由，omp 把这条消息当插话交给模型（omp 18.12.5 实测，[tsp-real-omp-probes.md](tsp-real-omp-probes.md) §14）；Ctrl+Enter 批准，Ctrl+O 看详情，Esc 拒绝。
 
 ## 任务状态里的"门"
@@ -35,4 +36,4 @@ omp 的 `tools.approvalMode`（`always-ask` / `always-ask-cached` / `write` / `y
 
 ## 测试
 
-`test/tsp-task-status.test.ts`、`test/tsp-gate.test.ts`、`test/tsp-ask-gate.test.ts`（纯函数，逐帧重放录制）、`test/task-gate-notifier.test.ts`（通知规则）、`test/task-machine.test.ts`、`test/task-tsp.test.ts`（合成的 `dialogs`）；e2e `test/e2e/tsp.e2e.ts` 的"审批"、"提问"、"多题提问"。
+`test/tsp-task-status.test.ts`、`test/tsp-gate.test.ts`、`test/tsp-ask-gate.test.ts`（纯函数，逐帧重放录制）、`test/task-gate-notifier.test.ts`（通知规则）、`test/task-machine.test.ts`、`test/task-tsp.test.ts`（合成的 `dialogs`）；e2e `test/e2e/tsp.e2e.ts` 的"审批"、"提问"、"多题提问"，以及 omp 18.18.6 `button` 节点的"提问(omp 18.18.6 录制…)"、"审批(omp 18.18.6 录制…)"。

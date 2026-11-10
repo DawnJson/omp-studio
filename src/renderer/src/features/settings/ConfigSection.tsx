@@ -1,6 +1,6 @@
 // omp 设置的展示：各节页面上的常用项（小标题 + 格子）、"高级"（页内目录 + 选中分组的全部项平铺）、搜索结果（格子，同各节页面）。
 // 高级：左侧目录 = omp-studio 的 8 个分组（带个数）+ 当前分组下的前缀小组；右侧是选中分组的项，没有折叠，前缀做小标题。
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { SectionHead } from "../../ui/controls.tsx";
@@ -8,14 +8,15 @@ import { Reveal } from "../../ui/Reveal.tsx";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
+import { Cells, Group, Groups } from "./Cells.tsx";
 import { fitsCell } from "./ConfigControls.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { advancedGroups, commonBlocks, groupTitle, type CommonBlockId } from "./config-meta.ts";
 
 /**
- * 一组设置的排法（spec §4.19 格子排法）：按顺序逐行填进格子，列数随宽度（settings.css 的 .st-cells）。
- * 各节页面上：控件窄的进格子，文本框、标签输入、JSON 排在后面，一行一格（.st-wide，控件靠右，和格子的控件对齐）；
- * `allCells`（高级页）：全部进格子，保持 omp 的顺序。
+ * 一组设置的格子（spec §4.19 格子排法，Cells.tsx）。
+ * 各节页面上：控件窄的在前，文本框、标签输入、JSON 排在后面（它们占两列以上）；
+ * `allCells`（高级页）：保持 omp 的顺序。
  */
 function ConfigGrid({
   items,
@@ -26,25 +27,14 @@ function ConfigGrid({
   keyPrefix?: string;
   allCells?: boolean;
 }) {
-  const cells = allCells ? items : items.filter(fitsCell);
-  const rows = allCells ? [] : items.filter((item) => !fitsCell(item));
+  const ordered = allCells ? items : [...items.filter(fitsCell), ...items.filter((item) => !fitsCell(item))];
+  if (ordered.length === 0) return null;
   return (
-    <>
-      {cells.length > 0 && (
-        <div className="st-cells">
-          {cells.map((item) => (
-            <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
-          ))}
-        </div>
-      )}
-      {rows.length > 0 && (
-        <div className="st-cells st-wide">
-          {rows.map((item) => (
-            <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
-          ))}
-        </div>
-      )}
-    </>
+    <Cells>
+      {ordered.map((item) => (
+        <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
+      ))}
+    </Cells>
   );
 }
 
@@ -67,13 +57,20 @@ export function CommonConfig({
   leads?: Partial<Record<CommonBlockId, ReactNode>>;
 }) {
   const t = useT();
-  return commonBlocks(items, Object.keys(leads) as CommonBlockId[]).map((block) => (
-    <Fragment key={block.id}>
-      {block.id !== "" && hasBlockTitle(block.id) && <SectionHead title={t(`settings.block.${block.id}`)} />}
-      {block.id !== "" && leads[block.id]}
-      <ConfigGrid items={block.items} />
-    </Fragment>
-  ));
+  return (
+    <Groups>
+      {commonBlocks(items, Object.keys(leads) as CommonBlockId[]).map((block) => {
+        const lead = block.id === "" ? undefined : leads[block.id];
+        return (
+          <Group key={block.id} packable={lead === undefined}>
+            {block.id !== "" && hasBlockTitle(block.id) && <SectionHead title={t(`settings.block.${block.id}`)} />}
+            {lead}
+            <ConfigGrid items={block.items} />
+          </Group>
+        );
+      })}
+    </Groups>
+  );
 }
 
 // 目录选中的分组和小组记在模块里（不随 AdvancedConfig 卸载）：换节再回来保持原样。
@@ -180,9 +177,9 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
           );
         })}
       </nav>
-      <div className="st-adv-rows" ref={rowsRef} data-testid={`cfg-advanced-${current.group}`}>
+      <div className="st-adv-rows st-groups" ref={rowsRef} data-testid={`cfg-advanced-${current.group}`}>
         {current.prefixes.map(({ prefix, items: bucket, modified }) => (
-          <section
+          <Group
             key={prefix}
             id={anchorId(current.group, prefix)}
             className="st-adv-sub"
@@ -200,7 +197,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
               count={modified > 0 ? t("settings.cfg.modifiedCount", { count: modified }) : undefined}
             />
             <ConfigGrid items={bucket} keyPrefix={prefix} allCells />
-          </section>
+          </Group>
         ))}
       </div>
     </div>
@@ -211,17 +208,17 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
 export function ConfigResults({ items, query }: { items: readonly OmpConfigItem[]; query: string }) {
   const locale = useLocale();
   return (
-    <>
+    <Groups>
       {[...groupConfigItems(items)].map(([group, inGroup]) => (
-        <section key={group} className="st-section" data-testid={`cfg-result-${group}`}>
+        <Group key={group} data-testid={`cfg-result-${group}`}>
           <SectionHead title={groupTitle(locale, group)} count={inGroup.length} />
-          <div className="st-cells">
+          <Cells>
             {inGroup.map((item) => (
               <ConfigRow key={item.key} item={item} query={query} />
             ))}
-          </div>
-        </section>
+          </Cells>
+        </Group>
       ))}
-    </>
+    </Groups>
   );
 }

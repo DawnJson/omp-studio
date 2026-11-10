@@ -159,6 +159,28 @@ test("任务菜单（顶栏 ⋯）里的会话树：打开当前任务的会话�
   }
 });
 
+test("窗口很矮时任务菜单不出窗：最高到窗口底，最后一项滚过去能点到", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(2, { timeout: 30_000 });
+    await page.setViewportSize({ width: 1000, height: 300 });
+    await page.getByTestId("task-menu").click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    const box = (await menu.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(300);
+    const last = menu.getByRole("menuitem").last();
+    await last.scrollIntoViewIfNeeded();
+    const lastBox = (await last.boundingBox())!;
+    expect(lastBox.y + lastBox.height).toBeLessThanOrEqual(300);
+  } finally {
+    await cleanup();
+  }
+});
+
 test('分叉：面板里点"从这里分叉"新建任务并选中，omp --fork 起的新进程收到 /tree + activate，文字在新任务的输入框里；原任务还在', async () => {
   test.setTimeout(120_000);
   const { launched, received, cleanup } = await start();

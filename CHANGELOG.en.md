@@ -10,6 +10,26 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- The command area of bash cards follows omp's readable view: indentation, colours, a × before failed commands, the rest dimmed while running, and folded long chunks that open on click; the right end of the first line switches between Pseudo and Raw (the original command).
+- Buttons in omp's dialogs, questions and approvals render as real buttons, and segmented tabs (such as in `/git`) as a segmented control.
+
+### Changed
+
+- In a task, the input box and the elapsed-time / todo line above it sit directly on the background with no band behind them; the conversation fades out above that line instead of being cut off.
+- Settings pages fit as many columns as the window allows; each setting takes one or more columns by its content and rows fill up in order with no gaps, and small groups that take a single row (such as "Idle tasks" and "Terminal") sit side by side. Text fields always stay on the same line as their name.
+- The send ↔ stop, copy → check, prompt-enhance ✦ ↔ ×, browser reload ↔ stop and sidebar-toggle icons now morph smoothly instead of swapping instantly; with reduced motion they switch at once.
+
+### Fixed
+
+- Session usage now includes the usage omp records separately (background jobs, task completion, title generation, cache warm-ups) and no longer counts spend from before a `/clear`; on real sessions it matches omp's own numbers exactly.
+- Works with omp 18.18.5: code blocks with non-contiguous lines (grep, ranged reads, LSP results) show the real line numbers with a `…` row where lines are skipped, and match marks land on the right lines (they used to count 1, 2, 3…).
+- Works with the omp 18.15+ background jobs list: jobs started by the model no longer drop out, failed or cancelled jobs are no longer recorded as completed, and eval jobs are no longer labelled bash.
+- Rows in the subagent panel no longer flicker: between two tool calls the second line keeps showing the last tool instead of jumping back to the task description, and the elapsed time no longer shifts sideways when "Running" turns into the progress ring.
+- Hovering the copy and fork icons under an answer no longer also pops up a Windows-style tooltip (the usage text of the row around them); every hover tip now looks the same.
+- In short windows or at large font sizes, tooltips, dropdowns, right-click menus, the slash / @ file / history search menus, the background-jobs card and the model picker no longer extend past the window and scroll when needed, and the input box stays visible with both the side question panel and the terminal open.
+
 ## [0.5.2] - 2026-11-09
 
 ### Added

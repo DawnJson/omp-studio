@@ -3,7 +3,9 @@
 // 任务对话区里（CodeQuoteCtx，spec 4.11）复制后面还有"引用到输入框"：围栏闭合后才出现。
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
-import { Check, Code, CopyIcon, Quote } from "../icons.tsx";
+import { Code, Quote } from "../icons.tsx";
+import { MorphIcon } from "../ui/MorphIcon.tsx";
+import { CHECK_GLYPH, COPY_GLYPH } from "../ui/morph-glyphs.ts";
 import { useQuoteCode } from "./code-quote.ts";
 import { onThemeChange } from "../ui/theme-change.ts";
 import { useHighlighted } from "./highlight.ts";
@@ -89,7 +91,7 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
             aria-label={t("code.copy")}
             title={t("code.copy")}
           >
-            {copied ? <Check size={14} /> : <CopyIcon size={14} />}
+            <MorphIcon glyph={copied ? CHECK_GLYPH : COPY_GLYPH} size={14} />
           </button>
           {quote !== null && closed && (
             <button

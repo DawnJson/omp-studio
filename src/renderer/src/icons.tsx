@@ -1,5 +1,7 @@
 // 界面里用到的少量线性图标：16 或 14px，stroke 取 currentColor，粗细跟 --icon-stroke。
-import type { SVGProps } from "react";
+// 会形变的几个（ui/MorphIcon.tsx）把几何写成 *_NODE 数据（morphicons 的 IconNode，16 栅格），静态图标照同一份数据画。
+import { createElement, type SVGProps } from "react";
+import type { IconNode } from "morphicons";
 
 function Icon({ children, size = 16, ...rest }: SVGProps<SVGSVGElement> & { size?: number }) {
   return (
@@ -21,6 +23,10 @@ function Icon({ children, size = 16, ...rest }: SVGProps<SVGSVGElement> & { size
   );
 }
 
+function Shapes({ node }: { node: IconNode }) {
+  return node.map(([tag, attrs], index) => createElement(tag, { key: index, ...attrs }));
+}
+
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
 export const ChevronRight = (props: IconProps) => (
@@ -38,9 +44,10 @@ export const ChevronDown = (props: IconProps) => (
     <path d="M3.5 6 8 10.5 12.5 6" />
   </Icon>
 );
+export const CHECK_NODE: IconNode = [["path", { d: "m3.5 8.5 3 3 6-7" }]];
 export const Check = (props: IconProps) => (
   <Icon {...props}>
-    <path d="m3.5 8.5 3 3 6-7" />
+    <Shapes node={CHECK_NODE} />
   </Icon>
 );
 /** GitHub 的标志（Octicons mark-github，MIT）：实心，不走线性图标的描边。 */
@@ -49,10 +56,13 @@ export const GithubMark = (props: IconProps) => (
     <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" />
   </Icon>
 );
+export const COPY_NODE: IconNode = [
+  ["rect", { x: 5.5, y: 5.5, width: 7, height: 8, rx: 1.5 }],
+  ["path", { d: "M10.5 3.5v-.2a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v7.2a1 1 0 0 0 1 1h.2" }],
+];
 export const CopyIcon = (props: IconProps) => (
   <Icon {...props}>
-    <rect x="5.5" y="5.5" width="7" height="8" rx="1.5" />
-    <path d="M10.5 3.5v-.2a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v7.2a1 1 0 0 0 1 1h.2" />
+    <Shapes node={COPY_NODE} />
   </Icon>
 );
 /** 源码：尖括号 */
@@ -61,9 +71,10 @@ export const Code = (props: IconProps) => (
     <path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" />
   </Icon>
 );
+export const CLOSE_NODE: IconNode = [["path", { d: "m4 4 8 8M12 4l-8 8" }]];
 export const Close = (props: IconProps) => (
   <Icon {...props}>
-    <path d="m4 4 8 8M12 4l-8 8" />
+    <Shapes node={CLOSE_NODE} />
   </Icon>
 );
 export const Plus = (props: IconProps) => (
@@ -71,9 +82,10 @@ export const Plus = (props: IconProps) => (
     <path d="M8 3.5v9M3.5 8h9" />
   </Icon>
 );
+export const ARROW_UP_NODE: IconNode = [["path", { d: "M8 13V3.5M4 7.5l4-4 4 4" }]];
 export const ArrowUp = (props: IconProps) => (
   <Icon {...props}>
-    <path d="M8 13V3.5M4 7.5l4-4 4 4" />
+    <Shapes node={ARROW_UP_NODE} />
   </Icon>
 );
 export const Shield = (props: IconProps) => (
@@ -126,10 +138,13 @@ export const Terminal = (props: IconProps) => (
     <path d="m3 4.5 3.5 3.5L3 11.500M8 12h5" />
   </Icon>
 );
+export const RESTART_NODE: IconNode = [
+  ["path", { d: "M13 8a5 5 0 1 1-1.6-3.7" }],
+  ["path", { d: "M12.500 2v3h-3" }],
+];
 export const Restart = (props: IconProps) => (
   <Icon {...props}>
-    <path d="M13 8a5 5 0 1 1-1.6-3.7" />
-    <path d="M12.500 2v3h-3" />
+    <Shapes node={RESTART_NODE} />
   </Icon>
 );
 export const Search = (props: IconProps) => (
@@ -300,9 +315,17 @@ export const RoleDot = (props: IconProps) => (
   </Icon>
 );
 /** 生成（提交信息）：四角星 */
+export const SPARKLE_NODE: IconNode = [
+  [
+    "path",
+    {
+      d: "M7 2.5 8.300 6 11.800 7.200 8.300 8.500 7 12 5.700 8.500 2.200 7.200 5.700 6 7 2.500ZM12.200 10.500l.5 1.300 1.300.5-1.300.5-.5 1.300-.5-1.300-1.300-.5 1.300-.5.5-1.300Z",
+    },
+  ],
+];
 export const Sparkle = (props: IconProps) => (
   <Icon {...props}>
-    <path d="M7 2.5 8.300 6 11.800 7.200 8.300 8.500 7 12 5.700 8.500 2.200 7.200 5.700 6 7 2.500ZM12.200 10.500l.5 1.300 1.300.5-1.300.5-.5 1.300-.5-1.300-1.300-.5 1.300-.5.5-1.300Z" />
+    <Shapes node={SPARKLE_NODE} />
   </Icon>
 );
 /** 忽略空白：行尾带空格标记的折线 */

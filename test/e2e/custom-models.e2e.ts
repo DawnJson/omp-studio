@@ -244,6 +244,49 @@ test("自定义提供商：添加（拉取后在浮层里挑选、手动添加�
   }
 });
 
+test("窗口很矮时：接口类型下拉不出窗（展开那一侧放不下时列表在里面滚）；拉取后向下展开的选择浮层最高到可见区域底边", async () => {
+  const models = Array.from({ length: 30 }, (_, index) => `fake-model-${index}`);
+  const fake = await startFakeOpenAi({ apiKey: SECRET, models });
+  const { launched, agentDir } = await launchSettings();
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("custom-add").click();
+    await expect(page.getByTestId("custom-provider-form")).toBeVisible();
+    // 窗口最小（800×560）、字号最大（22，缩放 22/15）时的视口。
+    await page.setViewportSize({ width: 545, height: 382 });
+    const inWindow = async (selector: string) => {
+      const box = (await page.locator(selector).first().boundingBox())!;
+      return box.y >= 0 && box.y + box.height <= 382;
+    };
+
+    const api = page.getByTestId("custom-api");
+    await api.scrollIntoViewIfNeeded();
+    await api.click();
+    const list = page.getByTestId("custom-api-list");
+    await expect(list.getByRole("option")).toHaveCount(6);
+    await expect.poll(() => inWindow('.ui-menu[data-floating]:has([data-testid="custom-api-list"])')).toBe(true);
+    // 最后一项滚过去点得到。
+    await list.getByRole("option").last().scrollIntoViewIfNeeded();
+    await expect(list.getByRole("option").last()).toBeInViewport({ ratio: 1 });
+    await page.keyboard.press("Escape");
+
+    await page.getByTestId("custom-id").fill("fake-proxy");
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-key").fill(SECRET);
+    const fetch = page.getByTestId("custom-fetch");
+    await fetch.scrollIntoViewIfNeeded();
+    await fetch.click();
+    const picker = page.getByTestId("custom-picker");
+    await expect(picker.locator('[data-testid^="custom-pick-fake-model-"]')).toHaveCount(30);
+    await expect.poll(() => inWindow(".cp-fetch > .ui-popover")).toBe(true);
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
 test("自定义提供商：浮层只添加勾选的模型；换到不再列出某个模型的服务后拉取 → 标「已失效」、「移除失效的」一键去掉，保存后 models.yml 只剩上游还有的；拉取失败什么都不标", async () => {
   const before = await startFakeOpenAi({ models: ["model-a", "model-b", "model-c"] });
   const after = await startFakeOpenAi({ models: ["model-a"] });

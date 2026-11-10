@@ -169,20 +169,44 @@
   --row-label-w: 200px;
 }
 
-/* 格子：大框架是 --cols 列；每格是一条 ui/Row，标签和控件放得下一行就并排（标签靠左、控件靠右），放不下控件才换到标签下面（仍靠右）。
-   "恢复默认"夹在标签和控件之间，出现时控件不动。
-   列数随容器宽度（设置内容区；高级页是它右栏）：≤640 一列、到 1100 两列、到 1500 三列、再宽四列。
-   快捷键表用同一个 --cols：上下两张表的列边界对齐（2026-10-29 审计：原来快捷键固定三列，和上面两列的格子错开）。 */
+/* 格子（Cells.tsx，spec §4.19；2026-11-09 仓库所有者定）：列宽至少 --cell-min，能放几列放几列（不再按窗口宽度分档）；
+   每格是一条 ui/Row（或快捷键的一行），按不折行时的宽占一列或几列（Cells.tsx 设 grid-column: span N），
+   按原顺序往前面行的空位里填，宽的放不下才往后挪，行里不留空位。
+   标签和控件放得下一行就并排（标签靠左、控件靠右），比整行还宽时控件换到标签下面（仍靠右）。"恢复默认"夹在标签和控件之间，出现时控件不动。 */
 .st-cells,
-.st-kb-grid {
-  --cols: 2;
+.st-groups {
+  --cell-min: 280px;
   display: grid;
-  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--cell-min), 100%), 1fr));
   column-gap: var(--space-6);
 }
-/* 整行（各节页面上的文本框、标签输入，排在格子后面）：也是格子的排法，只是一行一格；控件靠右，右边和格子的控件对齐，不再从 200 的标签列后面起头 */
-.st-cells.st-wide {
-  --cols: 1;
+/* 分组（Groups / Group）：整页共用一套列，分组和它的格子是 subgrid，上下各组的列边界对齐（快捷键表也是）。
+   只占一行、没填满的小组只占用到的列（Cells.tsx 设在 .st-group 上），相邻的小组排进同一行，各自带小标题。 */
+.st-groups > * {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.st-group {
+  display: grid;
+  grid-template-columns: subgrid;
+  align-content: start;
+}
+.st-group > * {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.st-group > .st-cells {
+  grid-template-columns: subgrid;
+}
+/* 小标题是组里的第一个孩子，ui-section-head 的 :first-child 会清掉上边距：在组里补回来；整页第一行的组由容器往上收回同样的距离 */
+.st-group > .ui-section-head:first-child {
+  margin-top: var(--space-6);
+}
+.settings-section > .st-groups:first-child {
+  margin-top: calc(-1 * var(--space-6));
+}
+.settings-section > .st-groups:first-child > .st-group:first-child > .st-cells:first-child {
+  margin-top: calc(var(--space-6) + var(--space-3));
 }
 /* 换不换行按"标签不折行的宽 + 控件的宽"放不放得下来定（2026-10-23 仓库所有者：原来三段以上的分段、文本框、标签输入一律另起一行）。
    标签不收缩、占满余下的宽，控件被推到右边；标签比整格还长时自己折行（omp 的长 key 只在点后面断开），控件换到下一行。 */
@@ -222,40 +246,24 @@
 .st-cells .ui-row-control:has(> .ui-field:not(.ui-number, .ui-select)) {
   flex: 1 1 260px;
 }
+/* Cells.tsx 量每格"不折行的宽"时（data-measuring，同一帧里量完就去掉）：标签和控件排成一行，文本框、标签输入按上面的原宽算。
+   不这样量的话 flex-basis 不算进内容宽，格子少占一列，框被挤到标签下面（2026-11-09）。 */
+.st-cells[data-measuring] .ui-row {
+  flex-wrap: nowrap;
+}
+.st-cells[data-measuring] .ui-row-control:has(> .st-tags) {
+  width: 360px;
+}
+.st-cells[data-measuring] .ui-row-control:has(> .ui-field:not(.ui-number, .ui-select)) {
+  width: 260px;
+}
 .st-cells .ui-row-control > .st-tags,
 .st-cells .ui-row-control > .ui-field:not(.ui-number, .ui-select) {
   width: 100%;
 }
-/* 整行只有一格，宽得很：文本框、标签输入保持原来的宽，靠右 */
-.st-wide .ui-row-control:has(> .st-tags, > .ui-field:not(.ui-number, .ui-select)) {
-  flex-grow: 0;
-}
-@container (max-width: 640px) {
-  .st-cells,
-  .st-kb-grid {
-    --cols: 1;
-  }
-}
-@container (min-width: 1100px) {
-  .st-cells,
-  .st-kb-grid {
-    --cols: 3;
-  }
-}
-@container (min-width: 1500px) {
-  .st-cells,
-  .st-kb-grid {
-    --cols: 4;
-  }
-}
-/* 关于页的版本（omp-studio、omp 各一格）：永远最多两列；内容宽（版本 + 徽标 + 说明 + 按钮），放不下时照通则换到标签下面。 */
+/* 关于页的版本（omp-studio、omp 各一格）：最多两列（每列至少半宽）；内容宽（版本 + 徽标 + 说明 + 按钮），放不下时照通则换到标签下面。 */
 .st-cells.st-pair {
-  --cols: 2;
-}
-@container (max-width: 640px) {
-  .st-cells.st-pair {
-    --cols: 1;
-  }
+  grid-template-columns: repeat(auto-fill, minmax(max(min(var(--cell-min), 100%), calc(50% - var(--space-6))), 1fr));
 }
 
 /* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填；分隔线和格子一样。默认思考强度不在表里，是表上面的一格普通设置。
@@ -663,8 +671,9 @@
   scrollbar-width: none;
 }
 
+/* 小标题的上边距在分组里面（.st-group > .ui-section-head），跳到小组时扣掉它，标题落在原来的位置 */
 .st-adv-sub {
-  scroll-margin-top: var(--st-adv-top);
+  scroll-margin-top: calc(var(--st-adv-top) - var(--space-6));
 }
 
 .st-toc::-webkit-scrollbar {
@@ -724,14 +733,11 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-/* 高级的右栏自己算宽度：格子按右栏增减列（目录占了一块，按整页宽算会太挤）。
-   标签是 omp 的英文 key（等宽、很长）：和其它格子一样，key 和控件放得下一行才并排，否则控件换到 key 下面，key 不会被挤成一字一行。 */
+/* 高级的右栏是自己的一套列（Groups）：格子按右栏的宽增减列，目录占的那块不算。
+   标签是 omp 的英文 key（等宽、很长）：和其它格子一样，key 和控件放得下一行才并排，否则控件换到 key 下面，key 不会被挤成一字一行。
+   各小组的上边距在组里的小标题上，第一行收回去，和目录顶端对齐。 */
 .st-adv-rows {
-  container-type: inline-size;
-}
-
-.st-adv-sub + .st-adv-sub {
-  margin-top: var(--space-6);
+  margin-top: calc(-1 * var(--space-6));
 }
 
 .st-adv-sub .ui-section-head .ui-count {

@@ -62,10 +62,15 @@ const MAX_BLOB_BYTES = 16 * 1024 * 1024;
  */
 const TSP_TERMINAL_FEATURES = ["blobs", "settle", "adopt", "dock", "reduce-motion"] as const;
 /**
- * hello 回复的 `kinds`：除了 `json` 的全部种类。`json`（omp 18.14 新增，可折叠的 JSON 树）我们没有对应的组件；
- * 不声明时 omp 把工具参数、结果里的 JSON 画成普通的 tree / 文字行（`cx.supports("json")`）。
+ * hello 回复的 `kinds`：TSP_KINDS 里我们有组件的那些。omp 只给声明过的种类发新节点，没声明就退回旧的画法：
+ * - `json`（omp 18.14，可折叠的 JSON 树）：不声明时 omp 把工具参数、结果里的 JSON 画成普通的 tree / 文字行（`cx.supports("json")`）。
+ * 声明了的两种新节点（实测 omp 18.18.6，fixtures/tsp/button-*.jsonl、shell-bash.jsonl）：
+ * - `button`（omp 18.14.2）：Submit、审批、登录等按钮发成 `button`（role 仍是 `omp.btn`），不再发 `omp.btn` 的行；interactive/Button.tsx 两种都画。
+ * - `shell`（omp 18.17）：bash 卡片的命令区发 shell 可视化（ShellVizPresentation），nodes/shell.tsx 画；PTY / `!` 命令等没有 trace 的仍是 `code`。
+ * 拷新版 tsp.generated.ts 时新种类默认会被声明：先排除，写了组件再放开；出问题时把种类加回这里，omp 就退回旧形状。
  */
-const TSP_DECLARED_KINDS = TSP_KINDS.filter((kind) => kind !== "json");
+const UNSUPPORTED_KINDS: ReadonlySet<string> = new Set(["json"]);
+const TSP_DECLARED_KINDS = TSP_KINDS.filter((kind) => !UNSUPPORTED_KINDS.has(kind));
 
 /** 一个伪终端。和 node-pty 的 IPty 结构兼容（onData 在 `encoding: null` 时给 Buffer）。 */
 export interface TspPty {

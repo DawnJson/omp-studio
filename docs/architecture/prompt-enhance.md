@@ -10,7 +10,7 @@
 | `src/main/prompt-enhance/enhance.ts` | `omp -p` 的参数、模板、语言判断、输出清理、结果分类；`chooseModel` 选模型 |
 | `src/main/ipc/prompt-enhance-handlers.ts` | IPC `enhancePrompt(target, text, fallback)` / `cancelEnhancePrompt(target)`：校验、定 cwd、读角色、每个输入框同时一次、退出时全部取消 |
 | `src/renderer/src/features/composer/use-prompt-enhance.ts` | 发起 / 取消 / 过期判断 / 替换 / 提示；Esc |
-| `src/renderer/src/features/composer/EnhanceButton.tsx` | 按钮（`enhance-button`，优化中 `data-busy`、换成转圈） |
+| `src/renderer/src/features/composer/EnhanceButton.tsx` | 按钮（`enhance-button`，优化中 `data-busy`、✦ 形变成 ×，`ui/MorphIcon.tsx`） |
 
 ## 调用 omp
 
