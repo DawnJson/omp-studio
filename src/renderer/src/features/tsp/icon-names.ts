@@ -212,6 +212,8 @@ const SUBSTITUTE: Record<string, string> = {
   plan: "list",
   goal: "pin",
   loop: "redo",
+  // omp 18.18.6 起回答上"Retry turn"的菜单图标；revert 画的就是一圈带箭头的圆
+  refresh: "revert",
   git: "branch",
   "git-branch": "branch",
   pr: "merge",

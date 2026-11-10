@@ -23,6 +23,7 @@ How to write it:
 
 ### Fixed
 
+- The "Retry turn" item in the answer menu shows its icon again (omp 18.18.6).
 - Session usage now includes the usage omp records separately (background jobs, task completion, title generation, cache warm-ups) and no longer counts spend from before a `/clear`; on real sessions it matches omp's own numbers exactly.
 - Works with omp 18.18.5: code blocks with non-contiguous lines (grep, ranged reads, LSP results) show the real line numbers with a `…` row where lines are skipped, and match marks land on the right lines (they used to count 1, 2, 3…).
 - Works with the omp 18.15+ background jobs list: jobs started by the model no longer drop out, failed or cancelled jobs are no longer recorded as completed, and eval jobs are no longer labelled bash.
