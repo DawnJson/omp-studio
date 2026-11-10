@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-11-10
+
 ### Fixed
 
 - Tasks set to "Keep running" now show a bolt icon after their title in the sidebar.
