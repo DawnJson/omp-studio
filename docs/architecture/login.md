@@ -37,7 +37,11 @@
 
 - **添加**（2026-11-06 起）：已有 OAuth 账号的卡片 ⋯ 里 `添加账号`（`ProviderRow.tsx`），走和第一次登录一样的 `login`（OAuth 类）或应用内登录（多步登录类），在浏览器里换一个账号（或同一邮箱的另一个组织 / 工作区）授权。
 - **omp 怎么存**（omp 18.16.0 二进制里的源码 `AuthStorage.upsertOAuth`，没有用真实账号跑过）：把这个 provider 已有的凭据和新的一起按账号身份去重后写回，所以不同账号是追加，同一个账号只刷新那一条；API key 是 `replaceAuthCredentials`，一个 provider 只留一条。终端里 `omp login <provider>` / `/login` 也是同一条路。
-- **怎么轮换**（omp 文档 `providers.md`、`non-compaction-retry-policy.md`、`auth-broker-gateway.md`「How sessions choose and keep an account」，omp 自己做，studio 不参与）：额度用尽时换同一 provider 的另一个账号重发这一轮，用尽的账号屏蔽一段时间；运行中的会话固定在用过的账号上，账号坏了才移走，恢复了也不移回；`retry.usageAwareFallback` 打开才在请求前按配额挑账号。
+- **怎么轮换**（omp 自己做，studio 不参与；读的是 omp GitHub main 分支源码 `packages/ai/src/auth/select.ts`、`rank.ts`、`usage/claude.ts`、`usage.ts`，2026-11-10，没有用真实多账号跑过，装的是 18.18.6）：
+  - 什么都不配时 Claude 也按额度挑号：provider 有排序策略（`claudeRankingStrategy`）且有两个以上账号就排。排序依次是：没被拒的在前 → 5h 用满 85% 的往后 → `priority`（没配都是 0）→ 读到用量的在前 → 7d 的"必须消耗速度"（剩余比例 ÷ 距 7d 重置的小时数）大的在前 → 7d 用得少的 → 5h 同理。即先用"不用就作废得最多、最快"的号。
+  - 只在挑号时排：新会话、绑定的号被拒、绑定的号超过 1 小时没请求（`stickyWarmMs`，只有 Anthropic 有这个时限）、绑定的号读到额度剩 0。在跑的会话不会因为别的号更合适而换，恢复的号也不会被搬回去（除非配了 `auth.accountPolicies` 的 `reclaimAbovePct` 且优先级更高）。
+  - 配了 `auth.accountPolicies` 才有保留线（`reservePct` / `retry.usageReservePct`）参与排序；`retry.usageAwareFallback` 打开后每次调用模型前用缓存的用量（报告缓存 5 分钟，`USAGE_REPORT_TTL_MS`；回复头里的用量最多每 60 秒读一次）检查当前号。
+  - 号被拒（429）时屏蔽到它的重置时间，换同一 provider 的另一个号重发。
 - 已经在跑的任务进程什么时候认得新账号没有实测 [推测：同"应用内登录"成功后，下次启动才用上]。
 
 ## 内置 magpie 插件：第三方客户端账号
