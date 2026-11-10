@@ -12,7 +12,16 @@
 //   （omp 18.12.6 源码 status-line 的 cost 段：`cost - subagentCost`、`max(subagentTreeCost, subagentCost)`）。
 // - 模型选择器：layer 里 `k: "picker"`，`p.items[].id` 是 `provider/model`，`p.current` 是当前模型的 id 列表。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
-import { findNode, nodeRole, plainText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import {
+  findNode,
+  liveSurfaces,
+  nodeRole,
+  plainText,
+  treeNodes,
+  type DocNode,
+  type DocSurface,
+  type TspDocument,
+} from "./document.ts";
 
 export const COMPOSER_ROLE = "omp.editor";
 const MODEL_ROLE = "omp.composer.model";
@@ -142,9 +151,8 @@ export function parseSubagentCost(text: string): number {
 
 /** 文档里的 omp 输入框卡片：dock 里 role `omp.editor` 的节点。composer 被提问/审批替换时没有。 */
 export function findComposerCard(doc: TspDocument): { surface: DocSurface; card: DocNode } | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock")) continue;
     const card = findNode(surface, (node) => nodeRole(node) === COMPOSER_ROLE, "dock");
     if (card) return { surface, card };
   }
@@ -191,9 +199,9 @@ export function findComposerTargets(doc: TspDocument): TspComposerTargets | null
 
 /** layer 里的选择器（omp 的模型选择器）；没有为 null。 */
 export function findPicker(doc: TspDocument): TspPicker | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("layer")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    const sf = surface.id;
+    if (!surface.nodes.has("layer")) continue;
     const node = findNode(surface, (candidate) => candidate.k === "picker", "layer");
     if (!node) continue;
     const items: string[] = [];
@@ -214,10 +222,8 @@ export function findPicker(doc: TspDocument): TspPicker | null {
 /** layer / main 里 omp 的状态 toast（role `omp.toast.status`）的文字；切模型成功时是 "Session-only model: <id>. …"。 */
 export function statusToastTexts(doc: TspDocument): string[] {
   const texts: string[] = [];
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
       if (node.k === "toast" && (nodeRole(node) ?? "").startsWith("omp.toast")) texts.push(plainText(node));
     }
   }

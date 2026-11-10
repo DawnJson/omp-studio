@@ -14,7 +14,7 @@
 import type { TaskGoal } from "../ipc.ts";
 import type { GoalRecord } from "../omp-output/goal.ts";
 import type { GoalFact } from "./composer-facts.ts";
-import { findNode, type TspDocument } from "./document.ts";
+import { findNode, liveSurfaces, type TspDocument } from "./document.ts";
 
 const MULTIPLIER: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9 };
 
@@ -62,9 +62,8 @@ export interface GoalDropPrompt {
 }
 
 export function findGoalDropPrompt(doc: TspDocument): GoalDropPrompt | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("layer")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("layer")) continue;
     const picker = findNode(
       surface,
       (node) => node.k === "picker" && typeof node.p["title"] === "string" && /^Drop goal\b/i.test(node.p["title"]),
@@ -74,7 +73,7 @@ export function findGoalDropPrompt(doc: TspDocument): GoalDropPrompt | null {
     for (const item of picker.p["items"] as readonly unknown[]) {
       if (item === null || typeof item !== "object" || !("id" in item) || typeof item.id !== "string") continue;
       if ("label" in item && typeof item.label === "string" && /^yes$/i.test(item.label))
-        return { sf, id: picker.id, yes: item.id };
+        return { sf: surface.id, id: picker.id, yes: item.id };
     }
   }
   return null;

@@ -12,12 +12,13 @@ omp-studio：oh-my-pi（omp）的桌面端（Electron + React，Windows 为主�
 
 ## 动手前读
 
-- 功能：`docs/architecture/<功能>.md`；界面：`docs/design/spec.md` 对应章节。改完同步更新。
+- 功能：`docs/architecture/<功能>.md`；界面：`docs/design/spec.md` 索引里对应的 `docs/design/spec/<节>.md`（组件先读 §4 通则）。改完同步更新。
 - 测试、e2e、录制回放、探针、隔离：`docs/architecture/testing.md`。
 - omp 的边界（`~/.omp`、配置写入的例外、rpc-ui / TSP、子进程和退出）：`docs/architecture/omp-boundaries.md`。
 - Electron 安全、日志脱敏、私人信息：`docs/architecture/security.md`。
 - 性能和卡顿排查：`docs/architecture/performance.md`。
 - 协议字段以 omp 文档（`omp://rpc.md` 等）和生成类型 `src/shared/omp-wire/rpc-wire.generated.ts`、`src/shared/tsp/tsp.generated.ts` 为准，不凭记忆写。
+- 写文档只写**现在是什么、为什么这样**，改动经过留给 git 和 CHANGELOG，不写"原来是 X、改成 Y"；代码里查得到的值（像素、token、文件内容）不抄；边界情况给一两个典型例子，其余靠测试。所有者拍板的决定留一行：做法 + （所有者定，日期），免得被改回去（2026-11-10 定）。
 
 ## 先停下来问
 
@@ -35,7 +36,7 @@ omp-studio：oh-my-pi（omp）的桌面端（Electron + React，Windows 为主�
 - PATH 上别人的 omp（Tern、install.ps1、bun、npm、brew 装的）只读：不改目录、不换 exe。
 - `~/.omp` 和终端版共用：只读可以，修改只经 omp 的命令；例外只有 `omp-boundaries.md` 列的那几处。
 - 不碰装好的 omp-studio（`%LOCALAPPDATA%\Programs\omp-studio`）、所有者在用的 Tern、全局 Node；升级 Node 前先问装好的版本里有没有在跑的任务（MSI 会让它们一起以 SIGINT 退出）。
-- 多个子代理共用工作区时，谁都不跑 `git checkout` / `restore` / `stash` / `reset` / `clean`；要看原样用 `git show HEAD:<path>` 或 `git diff`。
+- 多个子代理共用工作区时，谁都不跑 `git checkout` / `restore` / `stash` / `reset` / `clean`；要看原样用 `git show HEAD:<path>` 或 `git diff`。`out/` 也是共用的：同一时间只让一个代理 `npm run build` 加跑 e2e，别人 build 会让正在跑的 e2e 读到不一致的产物（2026-11-10 撞过两次）。
 - 常驻 shell 里不 `export` 隔离变量（`PI_CODING_AGENT_DIR`、`HOME`、`USERPROFILE`）：写成命令前缀或放进子 shell，探完 `echo` 确认回到真实值。否则后面的 omp 命令读写错的目录。
 - 不留孤儿进程：所有退出路径都关掉 omp 子进程，新的退出入口走 `window/shutdown.ts`。
 - 仓库公开：被跟踪的文件和提交信息里没有私人信息、密钥（`npm run check` 和 hook 会查，规则见 `security.md`）。
@@ -52,6 +53,7 @@ omp-studio：oh-my-pi（omp）的桌面端（Electron + React，Windows 为主�
 ## 怎么干活
 
 - 先判断大小：小改直接做；中大型（跨模块、改协议或数据格式、改界面结构）先用 skill `plan` 写计划，所有者批准再动手。
+- 需求有几种理解时，把几种列出来（必要时带改动前后的样子）给所有者选，不悄悄挑一种做。
 - 只做这次需要的：不顺手重构、不预留扩展点、不过度防御、错误不吞；同类 bug 一起修或说明为什么不修；没人用的代码一起删。
 - 沿整条路径查：渲染进程 → preload → IPC → 主进程 → omp → 界面。
 - 回归测试要撤掉修复跑一次，确认会失败；只读代码不算验证，改了主进程或协议要起应用真发一次 prompt。

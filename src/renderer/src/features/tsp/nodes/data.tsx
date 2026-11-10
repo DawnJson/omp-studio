@@ -5,6 +5,7 @@ import type { TspText, TspTableColumn, TspTreeNode } from "../../../../../shared
 import { isRecord } from "../../../../../shared/type-guards.ts";
 import { useT } from "../../../i18n/use-t.ts";
 import { ChevronRight } from "../../../icons.tsx";
+import { themedSvgUrl, useFigurePalette } from "../../../markdown/figure-palette.ts";
 import { PiMark } from "../../../ui/PiMark.tsx";
 import { columnChars, columnTrack } from "../../../../../shared/tsp/table-layout.ts";
 import { extentToCss, keycapLabel } from "../fmt.ts";
@@ -15,7 +16,7 @@ import { labels } from "../labels.ts";
 import { asArray, asString } from "../props-util.ts";
 import { plainText, TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
-import { peekTspBlob, peekTspNode, useTspBlob } from "../tsp-store.ts";
+import { peekTspBlob, peekTspNode, useTspBlob, type TspImage } from "../tsp-store.ts";
 import { useReducedMotion } from "../use-clock.ts";
 import { openZoom } from "../zoom-store.ts";
 import { MeterView } from "./motion.tsx";
@@ -291,16 +292,21 @@ export function Icon(props: NodeProps) {
 
 // ───────── image ─────────
 
-// src 是 tsp-store 为每个 blob 建的 object URL（`blob:`，镜像释放时 revoke）。
+// 位图的 src 是 tsp-store 为每个 blob 建的 object URL（`blob:`，镜像释放时 revoke）；SVG 按当前主题换好颜色再给 <img>（TspImage）。
+function imageSrc(image: TspImage, palette: Readonly<Record<string, string>>): string {
+  return image.kind === "svg" ? themedSvgUrl(image.svg, palette) : image.url;
+}
+
 export function Image(props: NodeProps) {
   const { node, ctx } = props;
   const p = node.p;
   const blob = useTspBlob(ctx.taskId, asString(p.blob));
+  const palette = useFigurePalette();
   const alt = asString(p.alt) ?? "";
   const w = typeof p.w === "number" && p.w > 0 ? p.w : undefined;
   const h = typeof p.h === "number" && p.h > 0 ? p.h : undefined;
   const maxH = extentToCss(isRecord(p.max) ? p.max.h : undefined, "h");
-  const src = blob?.url ?? null;
+  const src = useMemo(() => (blob === null ? null : imageSrc(blob, palette)), [blob, palette]);
   const reduced = useReducedMotion();
   const missing = p.builtin !== "omp" && (src === null || !(blob?.mime ?? "").startsWith("image/"));
 
@@ -313,7 +319,7 @@ export function Image(props: NodeProps) {
       const sibling = peekTspNode(ctx.taskId, ctx.sf, id);
       const siblingBlob = sibling?.k === "image" ? peekTspBlob(ctx.taskId, asString(sibling.p.blob)) : null;
       if (sibling && siblingBlob && (siblingBlob.mime ?? "").startsWith("image/")) {
-        items.push({ src: siblingBlob.url, alt: asString(sibling.p.alt) ?? "", id });
+        items.push({ src: imageSrc(siblingBlob, palette), alt: asString(sibling.p.alt) ?? "", id });
       }
     }
     const index = items.findIndex((item) => item.id === node.id);

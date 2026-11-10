@@ -1,11 +1,12 @@
 // 自定义协议 app://studio/：只提供 out/renderer 里的文件，以及 app://studio/@backdrop/<文件名>（userData/backdrops 里的自选背景图）。
 // file:// 下 CSP 的 'self' 等于"本机任意文件"，换成专用协议后 'self' 只剩应用自己的资源。路径穿越（../、编码的 ..、绝对路径）一律 404；
 // 背景图只认 backdropFilePattern（sha256 + 图片扩展名）这种文件名，不解码、不拼子目录。
+// 文件预览的网页走另一个协议 studio-preview://（preview-protocol.ts），在这里一起登记：registerSchemesAsPrivileged 只能调一次。
 import { existsSync } from "node:fs";
-import { net, protocol } from "electron";
+import { app, net, protocol } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { backdropFilePattern } from "../../shared/ipc.ts";
+import { backdropFilePattern, htmlPreviewScheme } from "../../shared/ipc.ts";
 import { backdropsDir } from "../settings/backdrop-image.ts";
 
 const appScheme = "app";
@@ -14,10 +15,18 @@ export const appOrigin = `${appScheme}://studio`;
 const rendererRoot = path.join(import.meta.dirname, "..", "renderer");
 const backdropPrefix = "/@backdrop/";
 
+/** 应用自己的页面地址：开发（未打包）时可由 ELECTRON_RENDERER_URL 指向 Vite 开发服务器；打包后只有 app://studio/。 */
+export function rendererEntryUrl(): string {
+  const dev = app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"];
+  return dev ?? `${appOrigin}/index.html`;
+}
+
 /** 必须在 app ready 之前调用。 */
 export function registerAppScheme(): void {
   protocol.registerSchemesAsPrivileged([
     { scheme: appScheme, privileges: { standard: true, secure: true, supportFetchAPI: true } },
+    // standard：token 当主机名、每页一个独立的源；secure：页面是安全上下文（crypto.subtle 等可用）。不给 fetch / CORS / bypassCSP。
+    { scheme: htmlPreviewScheme, privileges: { standard: true, secure: true } },
   ]);
 }
 

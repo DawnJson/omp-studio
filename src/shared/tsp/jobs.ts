@@ -13,7 +13,7 @@
 // 纯函数，不碰 DOM；解析不了的行跳过，界面只是少一行，不会报错。
 import type { Job } from "../ui/jobs.ts";
 import { isRecord } from "../type-guards.ts";
-import { findNode, nodeRole, spansText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { findNode, liveSurfaces, nodeRole, spansText, treeNodes, type DocNode, type TspDocument } from "./document.ts";
 import type { NodeDeps } from "./node-watch.ts";
 
 type JobStatus = Job["status"];
@@ -77,20 +77,11 @@ function agentStatus(status: unknown): JobStatus | null {
   }
 }
 
-function liveSurfaces(doc: TspDocument): DocSurface[] {
-  const out: DocSurface[] = [];
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (surface) out.push(surface);
-  }
-  return out;
-}
-
 /** 文档里所有 `agent` 节点：名字 → 状态（子代理作业的类型和最终状态靠它）。一批算一次，deriveTspJobs 和 mergeTspJobs 共用。 */
 export function agentStatuses(doc: TspDocument): Map<string, JobStatus | null> {
   const out = new Map<string, JobStatus | null>();
   for (const surface of liveSurfaces(doc)) {
-    for (const node of surface.nodes.values()) {
+    for (const node of treeNodes(surface)) {
       if (node.k === "agent" && typeof node.p["name"] === "string")
         out.set(node.p["name"], agentStatus(node.p["status"]));
     }
@@ -164,7 +155,7 @@ function overlayItem(item: DocNode, now: number, agents: JobAgents): Job | null 
 function hudJobs(doc: TspDocument, now: number, agents: JobAgents): Job[] {
   const jobs: Job[] = [];
   for (const surface of liveSurfaces(doc)) {
-    for (const node of surface.nodes.values()) {
+    for (const node of treeNodes(surface)) {
       if (nodeRole(node) !== HUD_JOBS_ROLE) continue;
       if (!isJobsClick(node)) continue;
       if (typeof node.p["title"] !== "string") continue;
@@ -297,7 +288,7 @@ export const JOB_HUD_NODES: NodeDeps = { roles: [HUD_JOBS_ROLE] };
 /** hud 上的作业胶囊（点它 = omp 打开 `/jobs` 弹窗，动作 `jobs.open`）；没有运行中作业时为 null。 */
 export function findJobsHudSeg(doc: TspDocument): { sf: string; id: string } | null {
   for (const surface of liveSurfaces(doc)) {
-    for (const node of surface.nodes.values()) {
+    for (const node of treeNodes(surface)) {
       if (nodeRole(node) === HUD_JOBS_ROLE && isJobsClick(node)) return { sf: surface.id, id: node.id };
     }
   }

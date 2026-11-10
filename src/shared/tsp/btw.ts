@@ -16,7 +16,15 @@
 import type { BtwHistoryRecord, BtwHistoryTurn, BtwStatus } from "../omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../type-guards.ts";
 import { applyBtwEvent, latestTurn, type BtwUiEvent } from "../btw.ts";
-import { nodeRole, spansText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import {
+  liveSurfaces,
+  nodeRole,
+  spansText,
+  treeNodes,
+  type DocNode,
+  type DocSurface,
+  type TspDocument,
+} from "./document.ts";
 
 const BTW_OVERLAY_ROLE = "omp.overlay.btwHistory";
 const THREAD_ROLE = "omp.btw.thread";
@@ -156,12 +164,17 @@ function readList(surface: DocSurface, node: DocNode): BtwViewList {
 /** layer 里的旁路提问弹窗；没开为 null。 */
 export function findBtwView(doc: TspDocument): BtwView | null {
   let found: BtwView | null = null;
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const overlay of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const overlay of treeNodes(surface)) {
       if (overlay.k !== "overlay" || !isBtwOverlayNode(overlay)) continue;
-      const view: BtwView = { sf, overlayId: overlay.id, list: null, turns: [], composer: null, buttons: {} };
+      const view: BtwView = {
+        sf: surface.id,
+        overlayId: overlay.id,
+        list: null,
+        turns: [],
+        composer: null,
+        buttons: {},
+      };
       subtree(surface, overlay.id, (node) => {
         const role = nodeRole(node);
         if (role === THREAD_ROLE) {

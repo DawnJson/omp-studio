@@ -7,8 +7,7 @@
 //   所以草稿在 omp 的输入框里按顺序重建：文字段用 `edit` 追加到末尾，图片在它在文字里的位置粘贴，最后 `action submit`；
 //   运行中同样是插话，`/queue <文字>` 同样排队、图片跟着走；只有图片没有文字也能提交。
 import type { PromptImage, RestoredDraft } from "../ipc.ts";
-import type { TspDocument } from "./document.ts";
-import { findNode, nodeRole } from "./document.ts";
+import { findNode, liveSurfaces, nodeRole, treeNodes, type TspDocument } from "./document.ts";
 import type { TspComposerEditor } from "./session-tree.ts";
 import type { TspEvent } from "./tsp.generated.ts";
 
@@ -60,10 +59,9 @@ export function imagePasteKeys(file: string): string {
 /** omp 输入框上方挂着的待发送图片数（dock 里带 `image` 子节点的 `omp.composer.chip`）。 */
 export function pendingImageCount(doc: TspDocument): number {
   let count = 0;
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock")) continue;
+    for (const node of treeNodes(surface)) {
       if (nodeRole(node) === CHIP_ROLE && findNode(surface, (child) => child.k === "image", node.id) !== null)
         count += 1;
     }
@@ -85,10 +83,9 @@ const PROMPT_IMAGE_MIMES: ReadonlySet<string> = new Set<PromptImage["mimeType"]>
  */
 export function editorDraft(doc: TspDocument, text: string): RestoredDraft {
   const chips: { n: number; alt: string; image: PromptImage }[] = [];
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock")) continue;
+    for (const node of treeNodes(surface)) {
       if (nodeRole(node) !== CHIP_ROLE) continue;
       const image = findNode(surface, (child) => child.k === "image", node.id);
       const alt = image?.p["alt"];

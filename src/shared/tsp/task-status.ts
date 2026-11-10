@@ -18,7 +18,16 @@
 //     会话树）不在这个名单里：它们是 studio 的界面在操作，不算"等你"。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import { stripIconGlyphs } from "../ui/clean-title.ts";
-import { findNode, nodeRole, plainText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import {
+  findNode,
+  liveSurfaces,
+  nodeRole,
+  plainText,
+  treeNodes,
+  type DocNode,
+  type DocSurface,
+  type TspDocument,
+} from "./document.ts";
 import { blockedOpen, type RunSignal } from "./run-status.ts";
 
 export type TspTaskStatus = "running" | "needs_you" | "idle";
@@ -88,9 +97,7 @@ export function deriveTaskStatus(doc: TspDocument): TspStatusInfo {
   let ask: { title: string; approval: boolean } | null = null;
   let loader: string | null = null;
   let modal: { title: string } | null = null;
-  for (const id of doc.live) {
-    const surface = doc.surfaces.get(id);
-    if (!surface) continue;
+  for (const surface of liveSurfaces(doc)) {
     if (modal === null) {
       for (const region of ["dock", "layer"]) {
         if (!surface.nodes.has(region)) continue;
@@ -152,10 +159,8 @@ export function resolveTaskStatus(nodes: TspStatusInfo, signal: RunSignal): Reso
  * （task.jsonl 的最后一帧）；转到后台的任务会让卡片继续 running，这时进程不能被回收，回收会把它杀掉。
  */
 export function hasRunningWork(doc: TspDocument): boolean {
-  for (const id of doc.live) {
-    const surface = doc.surfaces.get(id);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
       if ((node.k === "tool" || node.k === "agent") && (node.p.status === "pending" || node.p.status === "running"))
         return true;
     }

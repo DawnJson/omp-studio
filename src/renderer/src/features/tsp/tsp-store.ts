@@ -33,15 +33,25 @@ interface Mirror {
   watches: Map<NodeDeps, NodeWatch>;
   /** 文档里有、字节还没取到的 blob id（快照和批次都不带字节）：有组件订阅时才 `getTspBlob` 取。 */
   remoteBlobs: Set<string>;
-  /** 取到的图片：blob id → object URL（每个 id 一个）；镜像丢掉、重拉的快照里不再有它时 revoke。和 remoteBlobs 不相交。 */
+  /** 取到的图片：blob id → 图（位图是 object URL，每个 id 一个）；镜像丢掉、重拉的快照里不再有它时 revoke。和 remoteBlobs 不相交。 */
   images: Map<string, TspImage>;
 }
 
-/** 一张取到字节的图片（`<img src>` 用 url）。 */
-export interface TspImage {
-  readonly mime: string | null;
-  readonly url: string;
+/**
+ * 一张取到字节的图片。位图给 `<img src>` 用的 url；SVG 只给源码，没有 url：omp 让模型画的 SVG（提问表单里的
+ * 内联 `<svg>`、回答里的 ```svg）颜色写的是 `var(--surface)` 这类主题变量，`<img>` 里读不到页面的 CSS 变量，直接显示
+ * 整块变黑（2026-11-10 仓库所有者截图）。所以 SVG 必须先过 markdown/svg-figure.ts 的 `prepareSvg` 换成当前主题的颜色
+ * （nodes/data.tsx 的 Image 用 `useSvgFigureUrl`）；不给 url，类型上就绕不过去。
+ */
+export type TspImage =
+  | { readonly kind: "raster"; readonly mime: string | null; readonly url: string }
+  | { readonly kind: "svg"; readonly mime: string; readonly svg: string };
+
+function releaseImage(image: TspImage): void {
+  if (image.kind === "raster") URL.revokeObjectURL(image.url);
 }
+
+const SVG_MIME = "image/svg+xml";
 
 const SEP = "\u0000";
 const mirrors = new Map<TaskId, Mirror>();
@@ -194,7 +204,7 @@ function fetchSnapshot(taskId: TaskId): void {
         if (kept) images.set(id, kept);
         else remoteBlobs.add(id);
       }
-      if (previous) for (const [id, image] of previous) if (!images.has(id)) URL.revokeObjectURL(image.url);
+      if (previous) for (const [id, image] of previous) if (!images.has(id)) releaseImage(image);
       const mirror: Mirror = {
         seq: snapshot.seq,
         doc,
@@ -233,8 +243,13 @@ function requestBlob(taskId: TaskId, id: string): void {
       // 期间镜像可能换了（重拉快照）或被释放：只填进仍然列着它的那份。
       const current = mirrors.get(taskId);
       if (!current?.remoteBlobs.delete(id) || blob === null) return;
-      const url = URL.createObjectURL(new Blob([blob.bytes], { type: blob.mime ?? "" }));
-      current.images.set(id, { mime: blob.mime, url });
+      const mime = blob.mime ?? "";
+      current.images.set(
+        id,
+        mime.split(";")[0]!.trim().toLowerCase() === SVG_MIME
+          ? { kind: "svg", mime, svg: new TextDecoder().decode(blob.bytes) }
+          : { kind: "raster", mime: blob.mime, url: URL.createObjectURL(new Blob([blob.bytes], { type: mime })) },
+      );
       notify(key);
     },
     (error: unknown) => {
@@ -283,7 +298,7 @@ export function onTspDocumentDropped(listener: (taskId: TaskId) => void): () => 
 
 /** 丢掉镜像和它的图片、推导缓存；按任务记的界面状态（折叠等）不动。之后再 ensure 会重新拉快照。 */
 function forgetMirror(taskId: TaskId): void {
-  for (const image of mirrors.get(taskId)?.images.values() ?? []) URL.revokeObjectURL(image.url);
+  for (const image of mirrors.get(taskId)?.images.values() ?? []) releaseImage(image);
   forgetBirths(taskId);
   mirrors.delete(taskId);
   fetching.delete(taskId);
@@ -575,13 +590,18 @@ export function useBareTurnIndex(
   });
 }
 
-/** omp 画的这条用量行是第几轮（从 0 数）；文档轮数和会话文件轮数对不上时 -1（同 useBareTurnIndex，宁可不补也不补错）。 */
+/**
+ * omp 画的这条用量行对应会话文件里的第几轮（从 0 数）；对不上时 -1。文档里的轮是文件里最后那几轮：压缩时 omp 删掉旧的
+ * 用户消息和回答（compact-ok.jsonl 第 784 帧），所以按末尾对齐。文档比文件多（新的一轮还没写进文件）时 -1。
+ * 对齐的前提（文档最后一轮 = 文件最后一轮）不一定成立，调用方要拿 omp 的用量文字再核对一次。
+ */
 export function useUsageTurnIndex(taskId: TaskId, sf: string, usageId: string, fileTurns: number): number {
   const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
   return useSyncExternalStore(sub, () => {
     const index = roleIndex(taskId, sf);
-    if (index === null || index.turnCount !== fileTurns) return -1;
-    return index.usageTurn.get(usageId) ?? -1;
+    if (index === null || index.turnCount > fileTurns) return -1;
+    const turn = index.usageTurn.get(usageId);
+    return turn === undefined ? -1 : turn + fileTurns - index.turnCount;
   });
 }
 

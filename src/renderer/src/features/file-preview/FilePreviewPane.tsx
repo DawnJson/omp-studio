@@ -37,7 +37,7 @@ export function FilePreviewPane({
   panelKey,
   page,
   path,
-}: { panelKey: TerminalKey } & Omit<PanelState, "key" | "root">) {
+}: { panelKey: TerminalKey } & Omit<PanelState, "key" | "root" | "snippet">) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -48,7 +48,10 @@ export function FilePreviewPane({
   // 树当前看的根；列表缩短（目录被移除、任务重启）后落回任务目录。预览页看的是打开文件时的那个根（PanelState.root）。
   const selected = useSelectedRoot(panelKey);
   const treeRoot = selected <= dirs.length ? selected : 0;
-  const previewRoot = usePreviewPanel()?.root ?? 0;
+  const panel = usePreviewPanel();
+  const previewRoot = panel?.root ?? 0;
+  // 回答里代码块的"在侧栏预览"：预览页显示这段代码，不读文件（preview-store.ts 的 openSnippetPreview）。
+  const snippet = panel?.snippet ?? null;
   const target = useMemo(() => filesTarget(panelKey), [panelKey]);
   const treeTarget = useMemo(() => withRoot(target, treeRoot), [target, treeRoot]);
   const previewTarget = useMemo(() => withRoot(target, previewRoot), [target, previewRoot]);
@@ -125,7 +128,7 @@ export function FilePreviewPane({
         <Tabs
           tabs={[
             { id: "files", label: t("preview.pageFiles") },
-            { id: "preview", label: t("preview.pagePreview"), disabled: path === null },
+            { id: "preview", label: t("preview.pagePreview"), disabled: path === null && snippet === null },
           ]}
           value={page}
           onChange={setPanelPage}
@@ -170,7 +173,9 @@ export function FilePreviewPane({
         selected={previewRoot === treeRoot ? path : null}
         onOpenFile={previewFileInPanel}
       />
-      {path !== null && <PreviewPage target={previewTarget} path={path} hidden={page !== "preview"} />}
+      {(path !== null || snippet !== null) && (
+        <PreviewPage target={previewTarget} path={path} snippet={snippet} hidden={page !== "preview"} />
+      )}
     </section>
   );
 }

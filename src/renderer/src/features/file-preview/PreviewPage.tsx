@@ -1,12 +1,15 @@
 // 文件面板的"预览"页：一条工具栏（文件名、路径、预览/源码、缩放、打开、在文件夹中显示）+ 正文。
 // 内容由主进程 readPreviewFile 读（校验落在根目录内）；这里不拼任何文件路径去加载，避免绕过主进程校验。
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+// 回答里代码块的片段（snippet.ts）不读盘：直接换成同样的 PreviewFile，走同一条渲染路径。
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PreviewFile, ProjectFilesTarget } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { External, FileIcon, Folder } from "../../icons.tsx";
+import { useFigurePalette } from "../../markdown/figure-palette.ts";
 import { Button, Checkbox, IconButton, Segmented } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { baseName, extension, PreviewContent } from "./PreviewContent.tsx";
+import { snippetExtension, snippetFile, snippetLabel, type Snippet } from "./snippet.ts";
 
 type Load = { state: "loading" } | { state: "error"; message: string } | { state: "done"; file: PreviewFile };
 
@@ -23,7 +26,18 @@ interface ZoomAnchor {
   fy: number;
 }
 
-export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarget; path: string; hidden: boolean }) {
+/** 显示 `path` 指的文件，或 `snippet`（有片段时 path 为 null）。 */
+export function PreviewPage({
+  target,
+  path,
+  snippet,
+  hidden,
+}: {
+  target: ProjectFilesTarget;
+  path: string | null;
+  snippet: Snippet | null;
+  hidden: boolean;
+}) {
   const t = useT();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [source, setSource] = useState(false);
@@ -46,12 +60,17 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
   const stepTextZoom = (factor: number) =>
     setTextZoom((current) => Math.min(zoomRange[1], Math.max(zoomRange[0], current * factor)));
 
+  // 片段里的 svg 和回答里画的图一样用主题色（prepareSvg）：切换主题时重算。
+  const palette = useFigurePalette();
+  const shownSnippet = useMemo(() => (snippet === null ? null : snippetFile(snippet, palette)), [snippet, palette]);
+
   useEffect(() => {
     let cancelled = false;
     setLoad({ state: "loading" });
     setSource(false);
     setScripts(false);
     setZoom("fit");
+    if (path === null) return;
     window.studio.readPreviewFile(target, path).then(
       (file) => {
         if (!cancelled) setLoad({ state: "done", file });
@@ -63,14 +82,16 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
     return () => {
       cancelled = true;
     };
-  }, [target, path]);
+  }, [target, path, snippet]);
 
-  const file = load.state === "done" ? load.file : null;
-  const name = baseName(file?.path ?? path);
-  const ext = extension(file?.path ?? path);
+  const file = shownSnippet ?? (load.state === "done" ? load.file : null);
+  const filePath = snippet === null ? (file?.path ?? path ?? "") : "";
+  const name = snippet === null ? baseName(filePath) : t("preview.snippet", { lang: snippetLabel(snippet.kind) });
+  const ext = snippet === null ? extension(filePath) : snippetExtension(snippet.kind);
   const isMarkdown = file?.kind === "text" && (ext === "md" || ext === "markdown");
+  const isMermaid = snippet?.kind === "mermaid";
   const isSvg = file?.kind === "image" && ext === "svg";
-  const toggleable = isMarkdown || isSvg || file?.kind === "html";
+  const toggleable = isMarkdown || isMermaid || isSvg || file?.kind === "html";
   const imageView = file?.kind === "image" && !source;
   const textView = file?.kind === "text" || file?.kind === "html" || (file?.kind === "image" && source);
 
@@ -127,8 +148,8 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
     pending.scroller.scrollTop += rect.top + pending.fy * rect.height - pending.y;
   }, [zoom, textZoom]);
 
-  // 系统打开 / 在文件夹中显示按任务 id 走（只有任务有）；草稿的项目目录里只能预览。
-  const taskId = target.kind === "task" ? target.taskId : null;
+  // 系统打开 / 在文件夹中显示按任务 id 走（只有任务有）；草稿的项目目录里只能预览，片段没有文件，也只能预览。
+  const taskId = snippet === null && target.kind === "task" ? target.taskId : null;
   const run = (action: "openTaskFile" | "revealTaskFile") => {
     if (!file || taskId === null) return;
     window.studio[action](taskId, file.path, target.kind === "task" ? target.root : undefined).catch((error: unknown) =>
@@ -143,10 +164,10 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
         <span className="file-preview-name" data-testid="file-preview-name">
           {name}
         </span>
-        {/* 路径和文件名一样（根目录下的文件）时不重复显示。 */}
-        {(file?.path ?? path) !== name && (
-          <span className="file-preview-path" title={file?.path ?? path}>
-            {file?.path ?? path}
+        {/* 路径和文件名一样（根目录下的文件）时不重复显示；片段没有路径。 */}
+        {snippet === null && filePath !== name && (
+          <span className="file-preview-path" title={filePath}>
+            {filePath}
           </span>
         )}
         {/* 右边的控件是一组：面板窄得放不下时整组换到第二行（file-preview.css）。 */}
@@ -208,8 +229,8 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
         data-testid="file-preview-body"
         style={{ "--preview-zoom": textZoom } as CSSProperties}
       >
-        {load.state === "loading" && <p className="file-preview-note">{t("preview.loading")}</p>}
-        {load.state === "error" && (
+        {snippet === null && load.state === "loading" && <p className="file-preview-note">{t("preview.loading")}</p>}
+        {snippet === null && load.state === "error" && (
           <p className="file-preview-note" role="alert">
             {t("preview.readFailed", { message: load.message })}
           </p>
@@ -224,6 +245,7 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
             zoom={zoom}
             imageRef={imageRef}
             isMarkdown={isMarkdown}
+            isMermaid={isMermaid}
             onExternal={taskId === null ? null : () => run(file.canOpen ? "openTaskFile" : "revealTaskFile")}
           />
         )}

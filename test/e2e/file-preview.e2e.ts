@@ -186,6 +186,149 @@ test("回答里的文件链接（file:// 和相对路径）在右侧预览打开
   }
 });
 
+test("回答里 html / svg / markdown 代码块在侧栏预览：从内存渲染，网页默认不跑脚本，渲染 / 源码可切换", async () => {
+  // 同上，在录制最后的回答“两个并”前面插几个围栏代码块。
+  const recordedPath = path.join(import.meta.dirname, "..", "..", "fixtures", "tsp", "task.jsonl");
+  const recordedLines = (await readFile(recordedPath, "utf8")).split("\n").filter((line) => line.trim() !== "");
+  const prompt = recordedLines
+    .map((line) => JSON.parse(line) as { dir: string; body: { ev?: string; text?: string } })
+    .find((entry) => entry.dir === "in" && entry.body.ev === "send")?.body.text;
+  if (prompt === undefined) throw new Error("task.jsonl 里没有 send 事件");
+  const answer = [
+    "```html",
+    `<h1 id="t">静态页</h1><script>document.getElementById("t").textContent = "脚本跑了";</script>`,
+    "```",
+    "",
+    "```svg",
+    '<svg viewBox="0 0 120 30"><rect width="120" height="30" fill="var(--accent)"/></svg>',
+    "```",
+    "",
+    "```md",
+    "# 片段标题",
+    "",
+    "- 一项",
+    "```",
+    "",
+    "```python",
+    "print(1)",
+    "```",
+    "",
+    "两个并",
+  ].join("\n");
+  const { launched, cleanup } = await start(async (work) => {
+    const fixture = path.join(work, "task-snippets.jsonl");
+    const text = JSON.stringify(answer).slice(1, -1);
+    await writeFile(fixture, `${recordedLines.join("\n").replace('"text":"两个并"', `"text":"${text}"`)}\n`);
+    return testOmp(fixture);
+  });
+  try {
+    const { page } = launched;
+    await page.getByTestId("composer-input").fill(prompt);
+    await page.getByTestId("composer-input").press("Enter");
+    const blocks = page.getByTestId("tsp-view").getByTestId("codeblock");
+    const block = (lang: string) => blocks.filter({ has: page.locator(".md-codelang", { hasText: lang }) }).first();
+    const html = block("html");
+    await expect(html.getByTestId("codeblock-preview")).toHaveAttribute("aria-label", "在侧栏预览", {
+      timeout: 30_000,
+    });
+    await expect(block("python")).toBeVisible();
+    await expect(block("python").getByTestId("codeblock-preview")).toHaveCount(0);
+
+    // html：和网页文件同一个沙箱 iframe（不读盘），脚本默认关；“运行脚本”开关同文件预览。
+    await html.getByTestId("codeblock-preview").click();
+    await expect(page.getByTestId("file-preview")).toBeVisible();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("HTML 片段");
+    await expect(page.getByTestId("file-preview-reveal")).toHaveCount(0);
+    const frame = page.getByTestId("file-preview-frame");
+    await expect(frame).toHaveAttribute("sandbox", "");
+    const content = page.frameLocator('[data-testid="file-preview-frame"]');
+    await expect(content.locator("#t")).toHaveText("静态页");
+    await page.getByRole("checkbox", { name: "运行脚本" }).check();
+    await expect(frame).toHaveAttribute("sandbox", "allow-scripts");
+    await page.getByRole("checkbox", { name: "运行脚本" }).uncheck();
+    await expect(frame).toHaveAttribute("sandbox", "");
+    await page.getByTestId("file-preview-mode-source").click();
+    await expect(page.getByTestId("file-preview-body").locator("pre")).toContainText('<h1 id="t">静态页</h1>');
+
+    // svg：当图片显示，颜色换成主题色；换一段时回到“渲染”。
+    await block("svg").getByTestId("codeblock-preview").click();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("SVG 片段");
+    const image = page.getByTestId("file-preview-image");
+    await expect
+      .poll(() => image.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
+      .toBe(120);
+    expect(await image.evaluate((img) => decodeURIComponent((img as unknown as { src: string }).src))).not.toContain(
+      "var(",
+    );
+
+    // markdown（```md）：Markdown 渲染。
+    await block("md").getByTestId("codeblock-preview").click();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("Markdown 片段");
+    await expect(page.getByTestId("file-preview-md").getByRole("heading", { name: "片段标题" })).toBeVisible();
+    // 面板里的代码块没有这个按钮（只有对话区提供）。
+    await page.getByTestId("file-preview-mode-source").click();
+    await expect(page.getByTestId("file-preview-body").getByTestId("codeblock")).toBeVisible();
+    await expect(page.getByTestId("file-preview-body").getByTestId("codeblock-preview")).toHaveCount(0);
+
+    // 文件页里点文件：照旧读盘预览，片段让位。
+    await page.getByTestId("file-preview-page-files").click();
+    await page.locator('[data-testid="file-tree-row"][data-path="notes.md"]').click();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("notes.md");
+    await expect(page.getByTestId("file-preview-body")).toContainText("预览标题");
+  } finally {
+    await cleanup();
+  }
+});
+
+// 网页预览放在独立源 studio-preview://<token>/（CSP 在响应头里）：以前用 srcdoc，继承应用页面的 script-src 'self'，
+// 勾了“运行脚本”内联脚本也不跑。这里守着：脚本开时跑、关时不跑；页面不能联网，也碰不到应用页面。
+test("网页预览：勾选运行脚本后内联脚本跑，不勾不跑；页面不能联网、拿不到应用页面", async () => {
+  const { launched, project, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await writeFile(
+      path.join(project, "script.html"),
+      '<p id="out">静态</p><script>document.getElementById("out").textContent = "脚本跑了";</script>',
+    );
+    await page.getByTestId("topbar-files").click();
+    await page.locator('[data-testid=file-tree-row][data-path="script.html"]').click();
+    const frame = page.getByTestId("file-preview-frame");
+    const out = page.frameLocator('[data-testid="file-preview-frame"]').locator("#out");
+    await expect(frame).toHaveAttribute("sandbox", "");
+    await expect(frame).toHaveAttribute("src", /^studio-preview:\/\/[0-9a-f-]{36}\/$/);
+    await expect(out).toHaveText("静态");
+
+    const scripts = page.getByRole("checkbox", { name: "运行脚本" });
+    await scripts.check();
+    await expect(frame).toHaveAttribute("sandbox", "allow-scripts");
+    await expect(out).toHaveText("脚本跑了");
+    const content = (await (await frame.elementHandle())!.contentFrame())!;
+    expect(
+      await content.evaluate(() =>
+        fetch("https://example.com/").then(
+          () => "fetched",
+          () => "rejected",
+        ),
+      ),
+    ).toBe("rejected");
+    expect(
+      await content.evaluate(() => {
+        try {
+          return typeof (globalThis as unknown as { parent: { document: unknown } }).parent.document;
+        } catch {
+          return "threw";
+        }
+      }),
+    ).toBe("threw");
+
+    await scripts.uncheck();
+    await expect(frame).toHaveAttribute("sandbox", "");
+    await expect(out).toHaveText("静态");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("源码视图有语法颜色：md 源码里围栏代码块的语言也着色，html 源码同样", async () => {
   const { launched, project, cleanup } = await start();
   try {

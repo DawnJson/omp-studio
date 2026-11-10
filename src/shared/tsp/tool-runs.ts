@@ -3,7 +3,7 @@
 // 18.12.4 resume.jsonl）。夹在两张卡中间、不画正文的助手列（空的、只有思考块的）不打断一串，归进去一起收；
 // 有正文的回答、用户消息之类的其它节点打断。子代理的等待卡（磁贴默认看得见，2026-10-22 定）和提问卡（问答是对话内容）
 // 也打断，自己不进组。至少两张工具卡才算一组。纯函数，渲染进程按它在 MainFlow 里插组头。
-import type { DocNode, DocSurface, TspDocument } from "./document.ts";
+import { spansText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
 import type { NodeDeps } from "./node-watch.ts";
 
 const ASSISTANT_ROLE = "omp.assistant";
@@ -16,8 +16,13 @@ export interface RunTool {
   readonly key: string;
   /** omp 的工具状态：pending / running / done / error / cancelled。 */
   readonly status: string;
-  /** omp 的工具名（`bash`、`read` …）：组头按它画小图标。 */
+  /** omp 的工具名（`bash`、`read` …）：组头按它分种、画小图标和次数。 */
   readonly name: string;
+  /** 卡片标题（`p.title`，字符串或 spans 拼成的纯文字）和目标（`p.target`），没有时为空串：组头悬停每张卡一行。 */
+  readonly title: string;
+  readonly target: string;
+  /** omp 报的这次调用执行用时（`p.took`，毫秒），完成后才有；组头把它们加起来。 */
+  readonly took: number | null;
 }
 
 export interface ToolRun {
@@ -49,12 +54,15 @@ function isQuietAssistant(node: DocNode, peek: (id: string) => DocNode | undefin
 }
 
 function runTool(node: DocNode): RunTool {
-  const key = node.p["key"];
+  const { key, status, name, title, target, took } = node.p;
   return {
     id: node.id,
     key: typeof key === "string" ? key : node.id,
-    status: typeof node.p["status"] === "string" ? node.p["status"] : "done",
-    name: typeof node.p["name"] === "string" ? node.p["name"] : "",
+    status: typeof status === "string" ? status : "done",
+    name: typeof name === "string" ? name : "",
+    title: spansText(title),
+    target: typeof target === "string" ? target : "",
+    took: typeof took === "number" && Number.isFinite(took) && took >= 0 ? took : null,
   };
 }
 
@@ -128,7 +136,15 @@ export function sameToolRuns(a: readonly ToolRun[], b: readonly ToolRun[]): bool
         run.members.every((id, j) => id === other.members[j]) &&
         run.tools.every((tool, j) => {
           const that = other.tools[j]!;
-          return tool.id === that.id && tool.key === that.key && tool.status === that.status && tool.name === that.name;
+          return (
+            tool.id === that.id &&
+            tool.key === that.key &&
+            tool.status === that.status &&
+            tool.name === that.name &&
+            tool.title === that.title &&
+            tool.target === that.target &&
+            tool.took === that.took
+          );
         })
       );
     })

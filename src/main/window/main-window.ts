@@ -4,7 +4,8 @@ import { release } from "node:os";
 import path from "node:path";
 import { defaultFontSize, type TitleBarFade } from "../../shared/ipc.ts";
 import { resolveTheme, themes, type ThemePreference, type ThemeSpec } from "../../shared/themes.ts";
-import { appOrigin } from "./app-protocol.ts";
+import { rendererEntryUrl } from "./app-protocol.ts";
+import { guardPreviewFrames, releaseAllPreviews } from "./preview-protocol.ts";
 import { loadWin32 } from "../platform/win32/ffi.ts";
 import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
 import { blockZoom } from "./security.ts";
@@ -361,12 +362,6 @@ export function getMainWindow(): BrowserWindow | null {
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
 }
 
-/** 应用自己的页面地址：开发（未打包）时可由 ELECTRON_RENDERER_URL 指向 Vite 开发服务器；打包后只有 app://studio/。 */
-function rendererEntryUrl(): string {
-  const dev = app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"];
-  return dev ?? `${appOrigin}/index.html`;
-}
-
 /** url 是不是应用自己的页面：只认入口页面这一个地址（开发服务器时认它的源）。 */
 export function isAppUrl(url: string): boolean {
   const entry = new URL(rendererEntryUrl());
@@ -447,6 +442,7 @@ export function createMainWindow(): BrowserWindow {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
+  guardPreviewFrames(window.webContents);
 
   // 启动：页面第一次绘制（ready-to-show）时先透明着显示，系统趁 React 还在等字体、设置时把窗口的绘制面准备好；
   // 渲染进程报告第一帧画完（windowReady -> revealOnFirstFrame）再淡入。等到那时才 show() 的话，显示后还要约 300ms 才有画面，
@@ -467,9 +463,11 @@ export function createMainWindow(): BrowserWindow {
   };
   nativeTheme.on("updated", onNativeTheme);
   window.once("closed", () => nativeTheme.off("updated", onNativeTheme));
-  // 渲染进程重载时弹窗都没了，不会再报"关闭"：先恢复。
+  // 渲染进程重载时弹窗都没了，不会再报"关闭"：先恢复。它登记的预览网页也没人放手了，一起删（关窗同理）。
   window.webContents.on("did-start-navigation", (details) => {
-    if (details.isMainFrame && !details.isSameDocument) setTitleBarDimmed(false, "scrim");
+    if (!details.isMainFrame || details.isSameDocument) return;
+    setTitleBarDimmed(false, "scrim");
+    releaseAllPreviews();
   });
   applyFontSize(window);
   // 字号 = 整页缩放：重载/导航后 Chromium 会回到按源记的缩放，滚轮缩放（zoom-changed）也可能改动，统一拉回设置里的档位。
@@ -500,6 +498,7 @@ export function createMainWindow(): BrowserWindow {
   trackWindowState(window);
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
+    releaseAllPreviews();
   });
   mainWindow = window;
   attachTaskbarWindow(window);

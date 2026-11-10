@@ -11,6 +11,7 @@ import { holdSpawnsUntil } from "./platform/spawn-gate.ts";
 import { loadSettings } from "./settings/settings-store.ts";
 import { startUpdates } from "./update/instance.ts";
 import { installAppProtocol, registerAppScheme } from "./window/app-protocol.ts";
+import { installPreviewProtocol } from "./window/preview-protocol.ts";
 import { installHideOnClose } from "./window/hide-on-close.ts";
 import { afterFirstReveal, createMainWindow, isAppUrl } from "./window/main-window.ts";
 import { installSessionSecurity } from "./window/security.ts";
@@ -58,6 +59,7 @@ if (!app.requestSingleInstanceLock()) {
         : null,
     );
     installAppProtocol();
+    installPreviewProtocol();
     installSessionSecurity(isAppUrl);
     loadSettings();
     // 下面两件事和窗口同时做，不挡首帧；起子进程（omp、git、终端）的地方先等它们做完（platform/spawn-gate.ts）。

@@ -2234,7 +2234,7 @@ button.tsp-sh-fold:focus-visible {
   outline-offset: -2px;
 }
 /* 连续工具调用的组头（ToolRun.tsx，2026-11-09 起，issue #9）：长得像一张收起的工具卡——浅底、一行；
-   左边每种工具一个小图标，`N tool calls`，有失败时红字，右边状态和箭头。展开时下面照常是每张卡。 */
+   左边每种工具一个小图标 + 调用次数（2026-11-10 起），` · ` 整组用时，有失败时红字，右边状态和箭头。展开时下面照常是每张卡。 */
 .tsp-run-head {
   display: flex;
   align-items: center;
@@ -2254,15 +2254,25 @@ button.tsp-sh-fold:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
-.tsp-run-ics {
+.tsp-run-kinds {
   display: inline-flex;
   flex: none;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-2);
   color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
 }
-.tsp-run-title {
+.tsp-run-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.tsp-run-took {
   flex: none;
-  font-weight: var(--fw-medium);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
 }
 .tsp-run-failed {
   flex: none;
@@ -3010,8 +3020,10 @@ button.tsp-sh-fold:focus-visible {
   box-shadow: none;
   border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-sm) var(--radius-bubble);
 }
+/* 内边距只在 .tsp-user-clamp 上一层；卡片正文（.nohead）自己的内边距去掉，否则两层叠起来四边都多一截（2026-11-10 仓库所有者）。 */
 .tsp-card[data-role="omp.user"] .tsp-card-body {
   gap: var(--space-1);
+  padding: 0;
 }
 /* 用户气泡的内边距放在 Clamp 外层（layout.tsx 的 USER_BUBBLE_LINES）：Clamp 量的是正文高度，按正文行高数行，
  * 内边距算进去会少露、"N more lines" 也会多报。"N more lines" / "Show less" 和正文左边对齐 */

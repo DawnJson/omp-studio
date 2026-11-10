@@ -11,6 +11,7 @@ import { ChevronDown } from "../../icons.tsx";
 import { toolIconName } from "./icon-names.ts";
 import { TspIcon } from "./icons.tsx";
 import { labels } from "./labels.ts";
+import { toolRunHead } from "./tool-run-head.ts";
 import { useTspEnded } from "./tsp-context.ts";
 import { onTspDocumentDropped, useTspToolsExpanded } from "./tsp-store.ts";
 
@@ -64,14 +65,14 @@ export function useToolRunStates(taskId: TaskId, sf: string, runs: readonly Tool
   return states;
 }
 
-/** 组头里的小图标：每种工具一个，按第一次出现的顺序，最多这么多个。 */
-const MAX_ICONS = 6;
-
 export function ToolRunHead({ run, open, onToggle }: { run: ToolRun; open: boolean; onToggle(): void }) {
   const failed = run.tools.filter((tool) => tool.status === "error").length;
   const running = run.tools.some((tool) => LIVE_TOOL_STATUSES.has(tool.status));
   const allDone = run.tools.every((tool) => tool.status === "done");
-  const icons = [...new Set(run.tools.map((tool) => toolIconName(tool.name)))].slice(0, MAX_ICONS);
+  const head = toolRunHead(run);
+  const name = [labels.agentTools(run.tools.length), failed > 0 ? labels.toolsFailed(failed) : null]
+    .filter((part) => part !== null)
+    .join(", ");
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -86,15 +87,21 @@ export function ToolRunHead({ run, open, onToggle }: { run: ToolRun; open: boole
       role="button"
       tabIndex={0}
       aria-expanded={open}
+      aria-label={name}
+      title={head.title}
       onClick={onToggle}
       onKeyDown={onKeyDown}
     >
-      <span className="tsp-run-ics" aria-hidden="true">
-        {icons.map((name) => (
-          <TspIcon key={name} name={name} />
+      <span className="tsp-run-kinds" aria-hidden="true">
+        {head.kinds.map((kind) => (
+          <span key={kind.name} className="tsp-run-kind" data-tool={kind.name}>
+            <TspIcon name={toolIconName(kind.name)} />
+            {kind.count}
+          </span>
         ))}
+        {head.more > 0 && <span className="tsp-run-kind">+{head.more}</span>}
       </span>
-      <span className="tsp-run-title">{labels.agentTools(run.tools.length)}</span>
+      {head.took !== null && <span className="tsp-run-took">· {head.took}</span>}
       {failed > 0 && <span className="tsp-run-failed">{labels.toolsFailed(failed)}</span>}
       <span className="tsp-tool-sp" />
       <span className="tsp-tool-st">

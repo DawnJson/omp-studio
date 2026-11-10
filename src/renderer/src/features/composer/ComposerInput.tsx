@@ -102,7 +102,8 @@ export function ComposerInput(props: ComposerInputProps) {
     const main = field?.closest("main") ?? field?.closest(".composer-stack")?.parentElement;
     if (!field || !main) return;
     const measure = () => {
-      const min = Number.parseFloat(getComputedStyle(field).minHeight) || 0;
+      // 一行高（.composer-field 的 min-height 就是 --lh-prose）：拖过以后行内 min-height 是拖到的高度，不能从 minHeight 读。
+      const min = Number.parseFloat(getComputedStyle(field).lineHeight) || 0;
       setBounds({ min, max: maxFieldHeight(main.clientHeight, min) });
     };
     measure();
@@ -111,8 +112,8 @@ export function ComposerInput(props: ComposerInputProps) {
     return () => observer.disconnect();
   }, [fieldRef]);
 
-  // 高度：没拖过时 CSS 按内容自动增高（field-sizing: content，上下限是 .composer-field 的 min/max-height），按键时不用脚本量 scrollHeight；
-  // 拖过之后是定高（data-sized），夹到 [一行, 主区 60%]。
+  // 高度：CSS 按内容自动增高（field-sizing: content），按键时不用脚本量 scrollHeight。没拖过时上下限是 .composer-field 的
+  // min/max-height；拖过之后拖到的高度是下限（data-sized），内容多了照样长，上限是主区 60%。
   const sizedHeight = userHeight === null ? null : clampFieldHeight(userHeight, bounds.min, bounds.max);
   // 文本框排版后的实际高度（拖拽条的起点和 aria-valuenow）、底层的宽度（要扣掉滚动条）和滚动位置都在尺寸变化时从 ResizeObserver 取：
   // 回调在排版之后，读尺寸不会再强制排一次版；内容区宽度变了（滚动条出现、窗口变窄）也会触发。
@@ -292,7 +293,11 @@ export function ComposerInput(props: ComposerInputProps) {
           data-composer-input
           data-testid="composer-input"
           data-sized={sizedHeight !== null || undefined}
-          style={sizedHeight === null ? undefined : { height: sizedHeight }}
+          style={
+            sizedHeight === null
+              ? undefined
+              : { minHeight: sizedHeight, maxHeight: Number.isFinite(bounds.max) ? bounds.max : undefined }
+          }
           rows={1}
           spellCheck={false}
           value={view.text}

@@ -4,7 +4,7 @@
 // - 失败：main 里新增一个错误行（error-lines.ts）："Error: Compaction failed: Nothing to compact (session too small)" /
 //   "Error: Handoff failed: Nothing to hand off (already compacted)"；omp 18.14.0 的错误行不带 "Error: "
 //   （"Compaction failed: …"，fixtures/tsp/switch-compact-error.jsonl）。
-import type { TspDocument } from "./document.ts";
+import { liveSurfaces, treeNodes, type TspDocument } from "./document.ts";
 import { errorLines } from "./error-lines.ts";
 
 /** 发 `/compact` 之前文档里已经有的压缩分隔和错误文字（按节点 id），之后只看新增的。 */
@@ -19,11 +19,9 @@ const FAILURE = /^(?:Error: )?(?:Compaction|Handoff) failed/;
 
 function scan(doc: TspDocument): { sections: Set<string>; errors: Map<string, string> } {
   const sections = new Set<string>();
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
-      if (node.k === "section" && node.p["role"] === "omp.compaction") sections.add(`${sf}/${node.id}`);
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
+      if (node.k === "section" && node.p["role"] === "omp.compaction") sections.add(`${surface.id}/${node.id}`);
     }
   }
   const errors = new Map([...errorLines(doc)].filter(([, text]) => FAILURE.test(text)));

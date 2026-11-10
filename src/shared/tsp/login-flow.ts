@@ -8,7 +8,7 @@
 // - 成功：omp 在 main 里 `present` 一行 "<图标> Successfully logged in to <provider>[ as <账号>]" 再关登录窗；凭据在那之前已经写进 agent.db。
 //   **成功的帧没有实测**（没有真实账号），文字出自 omp 18.12.6 源码 `selector-controller.ts`。
 // role 和文字都是 omp 自己的，不在 TSP 规范里：omp 改了这条规则就失效，所以判断集中在这里。
-import { nodeRole, plainText, type TspDocument } from "./document.ts";
+import { liveSurfaces, nodeRole, plainText, treeNodes, type TspDocument } from "./document.ts";
 
 /** 登录窗（overlay）的 role；omp 用 `omp.overlay.<名字>` 命名所有模态窗。 */
 const LOGIN_OVERLAY_ROLE = "omp.overlay.login";
@@ -31,10 +31,8 @@ export function deriveLoginFlow(doc: TspDocument): LoginFlowState {
   let running = false;
   let cancelled = false;
   let failed: string | null = null;
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
       const role = nodeRole(node);
       if (node.k === "overlay" && role !== null && role.startsWith(LOGIN_OVERLAY_ROLE)) running = true;
       else if (node.k === "toast" && role === STATUS_TOAST_ROLE)

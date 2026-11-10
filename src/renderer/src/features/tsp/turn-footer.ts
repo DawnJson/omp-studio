@@ -51,15 +51,28 @@ export function formatFinishedAt(epochMs: number): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+/** omp 悬停里的 token 那一段："7,508 tokens (4,880 in · 2,628 out)"。 */
+function tokenDetail(footer: TspTurnFooter): string {
+  const total = footer.input + footer.output;
+  return `${total.toLocaleString("en-US")} tokens (${footer.input.toLocaleString("en-US")} in · ${footer.output.toLocaleString("en-US")} out)`;
+}
+
 /** 脚注的文字和悬停提示（omp 的 `tLo`）；悬停再加缓存命中率和回答完成的时刻（omp 没有，studio 补，见 withTurnDetails）。 */
 export function formatTurnFooter(footer: TspTurnFooter): { text: string; title: string } {
   const total = footer.input + footer.output;
   const cost = footer.cost > 0 ? formatTurnCost(footer.cost) : undefined;
   const elapsed = footer.elapsedMs === null ? undefined : formatDuration(footer.elapsedMs);
   const short = [elapsed, `${formatTokens(total)} tok`, cost].filter((part) => part !== undefined).join(" · ");
-  const detail = `${total.toLocaleString("en-US")} tokens (${footer.input.toLocaleString("en-US")} in · ${footer.output.toLocaleString("en-US")} out)`;
-  const long = [elapsed, detail, cost].filter((part) => part !== undefined).join(" · ");
+  const long = [elapsed, tokenDetail(footer), cost].filter((part) => part !== undefined).join(" · ");
   return { text: `${short} this turn`, title: withTurnDetails(`This turn: ${long}`, footer) };
+}
+
+/**
+ * omp 实时用量行的悬停（"This turn: 23.0s · 7,508 tokens (4,880 in · 2,628 out) · <$0.01"）和会话文件里的这一轮 token 数一样。
+ * 用时不比：omp 自己计时，和会话文件算出来的可能差零点几秒。
+ */
+export function matchesTurnTitle(footer: TspTurnFooter, ompTitle: unknown): boolean {
+  return typeof ompTitle === "string" && ompTitle.includes(` ${tokenDetail(footer)}`);
 }
 
 /**

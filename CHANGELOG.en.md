@@ -10,6 +10,24 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- HTML, SVG, Mermaid and Markdown code blocks in answers can be previewed in the right file panel ("Preview in side panel" in the block header).
+- HTML previews now run inline scripts when "Run scripts" is on; pages load in an isolated sandbox with no network access and no access to the app.
+
+### Changed
+
+- The tool-call group head now shows each tool's icon with its call count and the group's total time; hover lists every call.
+
+### Fixed
+
+- Your message bubbles no longer have a doubled inner padding; each side is back to the designed width.
+- Pressing Ctrl+Shift+↑ at the bottom of a conversation to go back one message no longer occasionally skips one.
+- In conversations whose context was compacted, the hover tip on each answer's usage line now shows the cache hit rate and finish time too (they used to disappear after any compaction).
+- After you've dragged the input box's height, it grows with its content again (the dragged height is the minimum, up to 60% of the main area); it used to stay at a fixed height forever after one drag.
+- Diagrams in ask forms (and other SVG images omp sends) no longer render as solid black blocks; their colours follow the current theme.
+- In the subagent panel, two running subagents no longer keep swapping places in the list, and the details below no longer flicker between them.
+
 ## [0.7.1] - 2026-11-10
 
 ### Added

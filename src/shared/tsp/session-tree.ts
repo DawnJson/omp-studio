@@ -4,7 +4,7 @@
 //   · `activate item=<用户消息的条目 id>` → 选择器关闭，叶子移到这条消息的**父条目**，输入框（dock 里的 editor）被填成这条消息的文字，
 //     出现 toast "Navigated to selected point"（omp.toast.status）；会话文件不变、OSC omp_session_file 也不变（同一个文件内的移动）。
 //   · 选当前叶子：什么都不发生（选择器留着、没有 toast）；调用方超时后按 Esc 并报错。omp 文档说 branchSummary.enabled 打开时会先问要不要摘要（未实测），选择器同样不会立刻关。
-import { nodeRole, findNode, type TspDocument } from "./document.ts";
+import { nodeRole, findNode, liveSurfaces, type TspDocument } from "./document.ts";
 import { statusToastTexts } from "./composer-state.ts";
 
 export interface TspTreePicker {
@@ -21,9 +21,8 @@ export interface TspTreePicker {
 
 /** layer 里的会话树选择器（`layout:"tree"` 的 picker）；没有为 null。模型选择器不是 tree 布局，不会认错。 */
 export function findTreePicker(doc: TspDocument): TspTreePicker | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("layer")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("layer")) continue;
     const node = findNode(surface, (candidate) => candidate.k === "picker" && candidate.p.layout === "tree", "layer");
     if (!node) continue;
     const items: string[] = [];
@@ -43,7 +42,7 @@ export function findTreePicker(doc: TspDocument): TspTreePicker | null {
           actions.push(action.id);
       }
     }
-    return { sf, id: node.id, items, current, actions };
+    return { sf: surface.id, id: node.id, items, current, actions };
   }
   return null;
 }
@@ -52,9 +51,8 @@ export function findTreePicker(doc: TspDocument): TspTreePicker | null {
 export const SUMMARY_NO = "0";
 
 export function findSummaryPicker(doc: TspDocument): { sf: string; id: string } | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("layer")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("layer")) continue;
     const node = findNode(
       surface,
       (candidate) =>
@@ -64,7 +62,7 @@ export function findSummaryPicker(doc: TspDocument): { sf: string; id: string } 
         (candidate.p.items as readonly { id?: unknown }[]).map((item) => item.id).join() === "0,1,2",
       "layer",
     );
-    if (node) return { sf, id: node.id };
+    if (node) return { sf: surface.id, id: node.id };
   }
   return null;
 }
@@ -77,12 +75,11 @@ export interface TspComposerEditor {
 
 /** dock 里 omp 输入框（editor 节点）和它当前的文字；没有输入框（被提问/审批换掉、还没出现）为 null。回溯后它是那条用户消息的文字。 */
 export function findComposerEditor(doc: TspDocument): TspComposerEditor | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock")) continue;
     const card = findNode(surface, (node) => nodeRole(node) === "omp.editor", "dock");
     const editor = card ? findNode(surface, (node) => node.k === "editor", card.id) : null;
-    if (editor) return { sf, id: editor.id, text: typeof editor.p.text === "string" ? editor.p.text : "" };
+    if (editor) return { sf: surface.id, id: editor.id, text: typeof editor.p.text === "string" ? editor.p.text : "" };
   }
   return null;
 }

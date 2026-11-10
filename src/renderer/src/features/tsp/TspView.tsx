@@ -17,8 +17,10 @@ import {
   type RefObject,
 } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
+import { CodePreviewCtx, type PreviewKind } from "../../markdown/code-preview.ts";
 import { CodeQuoteCtx } from "../../markdown/code-quote.ts";
 import { quoteCodeIntoDraft } from "../composer/insert-into-draft.ts";
+import { openSnippetPreview } from "../file-preview/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
@@ -348,6 +350,11 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
   }, [taskId, status]);
   // 回答里代码块的"引用到输入框"（CodeBlock）：只在任务的对话区里有。
   const quoteCode = useCallback((code: string, lang: string) => quoteCodeIntoDraft(taskId, code, lang), [taskId]);
+  // 回答里 html / svg / mermaid / markdown 代码块的"在侧栏预览"：放进这个任务的文件面板。
+  const previewCode = useCallback(
+    (code: string, kind: PreviewKind) => openSnippetPreview(taskId, kind, code),
+    [taskId],
+  );
 
   // 会话本体是最后一个 inline surface（关掉以后留着的也画，对话还要能读）；screen 只画活的，盖在上面。
   const inline = surfaces.findLast((s) => s.mode === "inline");
@@ -368,20 +375,22 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
       <TspParkedCtx.Provider value={parked}>
         <TspEndedAtCtx.Provider value={endedAt}>
           <CodeQuoteCtx.Provider value={quoteCode}>
-            {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
-            <GoalStrip key={`goal:${taskId}`} taskId={taskId} />
-            {showInline ? (
-              <InlineSurface
-                key={`${taskId}:${inlineKey}`}
-                taskId={taskId}
-                sf={inline?.id ?? null}
-                pendingText={firstPrompt?.text}
-              />
-            ) : (
-              <div className="tsp-empty" role="status" />
-            )}
-            {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
-            <TspHosts />
+            <CodePreviewCtx.Provider value={previewCode}>
+              {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
+              <GoalStrip key={`goal:${taskId}`} taskId={taskId} />
+              {showInline ? (
+                <InlineSurface
+                  key={`${taskId}:${inlineKey}`}
+                  taskId={taskId}
+                  sf={inline?.id ?? null}
+                  pendingText={firstPrompt?.text}
+                />
+              ) : (
+                <div className="tsp-empty" role="status" />
+              )}
+              {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
+              <TspHosts />
+            </CodePreviewCtx.Provider>
           </CodeQuoteCtx.Provider>
         </TspEndedAtCtx.Provider>
       </TspParkedCtx.Provider>

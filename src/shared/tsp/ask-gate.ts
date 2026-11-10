@@ -8,7 +8,15 @@
 // - omp 18.18.3（`fixtures/tsp/ask-other.jsonl`，2026-11-09 实测）：题目包在 `omp.ask.form` / `section` / `field` 里，"Other…" 也是
 //   `omp.ask.option`（id 以 `/other` 结尾）；`select` 它时 omp 在题下面加一个带焦点的 `input`（studio 的 Editor 直接拿键盘），
 //   打的字写进去、Enter 收起；数字键 omp 不认（按 `2` 选中项不变，↓ 会动）。
-import { findNode, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import {
+  findNode,
+  liveSurfaces,
+  nodeRole,
+  treeNodes,
+  type DocNode,
+  type DocSurface,
+  type TspDocument,
+} from "./document.ts";
 import type { NodeDeps } from "./node-watch.ts";
 
 /** 提问对话框的根节点 role；审批门是 `omp.editor.ask.approval`、隐藏后是 `omp.editor.ask.hidden`，不归这里管。 */
@@ -104,13 +112,12 @@ export interface OpenAskTool {
  * （2026-10-29 仓库所有者：删掉重复的）；答完（卡片 done、对话框删掉）或对话框隐藏后照常写。没有这样的卡片为 null。
  */
 export function openAskTool(doc: TspDocument): OpenAskTool | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock") || !findNode(surface, (node) => nodeRole(node) === ASK_GATE_ROLE, "dock")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock") || !findNode(surface, (node) => nodeRole(node) === ASK_GATE_ROLE, "dock")) continue;
     let open: OpenAskTool | null = null;
-    for (const node of surface.nodes.values()) {
+    for (const node of treeNodes(surface)) {
       if (nodeRole(node) === ASK_TOOL_ROLE && (node.p.status === "pending" || node.p.status === "running"))
-        open = { sf, id: node.id };
+        open = { sf: surface.id, id: node.id };
     }
     if (open) return open;
   }

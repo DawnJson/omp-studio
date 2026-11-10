@@ -37,6 +37,7 @@ import {
 } from "../../shared/tsp/document.ts";
 import { TSP_COMPOSER_UNAVAILABLE, statusToastTexts } from "../../shared/tsp/composer-state.ts";
 import { deriveTaskStatus, resolveTaskStatus } from "../../shared/tsp/task-status.ts";
+import { deriveWorkingLabel } from "../../shared/tsp/working.ts";
 import {
   NO_RUN_SIGNAL,
   applyRunStatus,
@@ -335,6 +336,8 @@ export class TspRunner {
   #heldSessionFile: { file: string; release: () => void } | null = null;
   /** 用户按了停止、这一轮还没结束：这一轮的结局记为 aborted。 */
   #stopRequested = false;
+  /** 节点和 7501 对"在跑"说法不一（一边已经结束、另一边还在跑）时起的定时器：持续 5 秒就记一行日志，查"回答结束了还显示处理中"（2026-11-10）。 */
+  #splitTimer: ReturnType<typeof setTimeout> | undefined = undefined;
   /** omp 报告的会话文件；文件在第一条回复之后才落盘，落盘之前不能存（恢复会失败）。undefined = 还没报过（用任务记录里的），null = omp 清空了它。 */
   #sessionFile: string | null | undefined = undefined;
   #persistingSessionFile = false;
@@ -570,6 +573,7 @@ export class TspRunner {
     const info = resolveTaskStatus(nodes, this.#signal);
     this.#loaderText = nodes.loader;
     if (info.working) this.#lastActiveAt = Date.now();
+    this.#watchSplit(nodes.working, this.#signal);
     if (info.working !== this.#machine.working) {
       if (info.working) {
         // 7501 没报开始（交接这类只有 loader 的运行）：上一轮留下的结局不能算到这一轮头上。
@@ -617,6 +621,30 @@ export class TspRunner {
     }
     // loader 的文字变了而状态机没有动（上面没发布过）：补发一次。
     if (this.#loaderText !== this.#publishedLoaderText) this.#publish();
+  }
+
+  /** 节点说在跑、7501 说结束了（或反过来）持续 5 秒：记下哪边拖着，以及 omp 状态行上的那句话。两边都在跑就不记（那是 omp 自己还没停）。 */
+  #watchSplit(nodesWorking: boolean, signal: RunSignal): void {
+    if (!signal.seen || nodesWorking === (signal.state === "working" || signal.state === "blocked")) {
+      clearTimeout(this.#splitTimer);
+      this.#splitTimer = undefined;
+      return;
+    }
+    if (this.#splitTimer !== undefined) return;
+    this.#splitTimer = setTimeout(() => {
+      this.#splitTimer = undefined;
+      const document = this.#session?.document;
+      if (!document) return;
+      const nodes = deriveTaskStatus(document);
+      const now = this.#signal;
+      if (!now.seen || nodes.working === (now.state === "working" || now.state === "blocked")) return;
+      log.info(`task ${this.id} status split for 5s`, {
+        nodesWorking: nodes.working,
+        loader: nodes.loader !== null,
+        signal: now.state,
+        label: deriveWorkingLabel(document),
+      });
+    }, 5_000);
   }
 
   // ───── 生命周期 ─────
@@ -820,6 +848,8 @@ export class TspRunner {
     this.#workspace.reset();
     this.#signal = NO_RUN_SIGNAL;
     this.#loaderText = null;
+    clearTimeout(this.#splitTimer);
+    this.#splitTimer = undefined;
     this.#goalTracker.reset();
     this.#factsTracker.reset();
     this.#btw.reset();

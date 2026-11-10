@@ -4,7 +4,7 @@
 // 优先级：studio 自己的键永远赢（STUDIO_RESERVED），不转发。
 
 import type { EscTarget } from "./overlay-esc.ts";
-import type { TspDocument } from "./document.ts";
+import { liveSurfaces, treeNodes, type TspDocument } from "./document.ts";
 
 /** 事件里用得到的字段（DOM KeyboardEvent 的子集 + 触发元素归类）。 */
 export interface ForwardKeyEvent {
@@ -149,10 +149,8 @@ export function chordFromKbd(keys: unknown): string | null {
 /** 文档里活着的 surface 上所有 `kbd` 节点的键（规范写法）。 */
 export function kbdChordsIn(doc: TspDocument): Set<string> {
   const out = new Set<string>();
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
       if (node.k !== "kbd") continue;
       const chord = chordFromKbd(node.p["keys"]);
       if (chord !== null) out.add(chord);

@@ -308,6 +308,13 @@ export const Eye = (props: IconProps) => (
     <circle cx="8" cy="8" r="2" />
   </Icon>
 );
+/** 代码块"在侧栏预览"：窗口右边开一栏 */
+export const PanelRight = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="2" y="3" width="12" height="10" rx="1.5" />
+    <path d="M10 3v10" />
+  </Icon>
+);
 /** 没有专属图标的内置模型角色：中性的小圆点（占住图标列，不冒充别的角色） */
 export const RoleDot = (props: IconProps) => (
   <Icon {...props}>

@@ -116,8 +116,9 @@ export function ConversationLine({ taskId, scroller }: { taskId: TaskId; scrolle
   const stopLanding = useRef<(() => void) | null>(null);
   /** 刚跳到的那条和跳完的 scrollTop：滚动位置没变时它就是"正在读的"（短对话滚不到让它在顶上，按位置算会算成最后一条）。 */
   const pinned = useRef<{ index: number; scrollTop: number } | null>(null);
-  /** 按位置重算当前那条（effect 里装好，键盘上一轮 / 下一轮现算起点用）。 */
-  const reading = useRef<() => number>(() => 0);
+  /** 对话线上标着的那条（和 current 同值，给键盘的上一轮 / 下一轮当起点）。不在按键时按位置现算：吸底时下面的块刚换成实际高度、
+   *  还没贴回底部的那一帧，按位置算出来是倒数第二条，标着最后一条却跳过了一条（2026-11-10，用户气泡变矮 20px 后 e2e 撞上）。 */
+  const shown = useRef(0);
   const nav = useRef<HTMLElement>(null);
   const outline = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
@@ -147,11 +148,11 @@ export function ConversationLine({ taskId, scroller }: { taskId: TaskId; scrolle
       pinned.current = null;
       return currentIndex(el, messages, cardOf);
     };
-    reading.current = compute;
     let frame = 0;
     const update = () => {
       frame = 0;
-      setCurrent(compute());
+      shown.current = compute();
+      setCurrent(shown.current);
     };
     const schedule = () => {
       if (frame === 0) frame = requestAnimationFrame(update);
@@ -188,6 +189,7 @@ export function ConversationLine({ taskId, scroller }: { taskId: TaskId; scrolle
     stopLanding.current?.();
     requestLeaveBottom(taskId);
     place();
+    shown.current = index;
     setCurrent(index);
     stopLanding.current = holdLanding(el, place);
     flashLanding(target);
@@ -205,7 +207,7 @@ export function ConversationLine({ taskId, scroller }: { taskId: TaskId; scrolle
           setFocused(true);
           setFocusRow(true);
         } else if ((command === "prevTurn" || command === "nextTurn") && !parked) {
-          const from = reading.current();
+          const from = Math.min(shown.current, messages.length - 1);
           const to = Math.min(messages.length - 1, Math.max(0, from + (command === "nextTurn" ? 1 : -1)));
           if (to !== from) jumpRef.current(to);
         }

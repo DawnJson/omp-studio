@@ -1,6 +1,8 @@
-// 预览页的正文：md 渲染 / 图片（svg 也只当图片）/ html 沙箱 iframe / 其余文本高亮源码；二进制和过大文件只给提示。
-import { useRef, useState, type RefObject } from "react";
-import type { PreviewFile } from "../../../../shared/ipc.ts";
+// 预览页的正文：md 渲染 / 图片（svg 也只当图片）/ html 沙箱 iframe / mermaid 片段交给代码块画图 / 其余文本高亮源码；
+// 二进制和过大文件只给提示。
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { htmlPreviewUrl, type PreviewFile } from "../../../../shared/ipc.ts";
+import { reportErrorNow } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/index.ts";
 import { CodeBlock } from "../../markdown/CodeBlock.tsx";
@@ -39,6 +41,8 @@ interface ContentProps {
   /** 图片元素：缩放按钮要从"适应窗口"时的实际比例开始算。 */
   imageRef: RefObject<HTMLImageElement | null>;
   isMarkdown: boolean;
+  /** 回答里的 mermaid 片段（snippet.ts）：渲染时和回答里一样由代码块画成图。 */
+  isMermaid: boolean;
   onExternal: (() => void) | null;
 }
 
@@ -95,6 +99,44 @@ function ImageView({
   );
 }
 
+/**
+ * 网页：交给主进程登记，iframe 加载独立源 studio-preview://<token>/（CSP 在响应头里：能跑内联脚本，不能联网；
+ * 见 src/main/window/preview-protocol.ts）。不用 srcdoc：它继承应用页面的 CSP，内联脚本永远不跑。
+ * 没有 allow-same-origin：页面的源不透明，拿不到应用的任何东西；脚本默认关，用户勾选后才放行。
+ * sandbox 只在加载时生效，开关脚本靠 key 换一个 iframe 重新加载。内容换了、组件卸载时放手，主进程删掉那页。
+ */
+function HtmlFrame({ html, scripts, title }: { html: string; scripts: boolean; title: string }) {
+  const [token, setToken] = useState<string | null>(null);
+  useEffect(() => {
+    let unmounted = false;
+    setToken(null);
+    const registered = window.studio.registerHtmlPreview(html);
+    void registered.then((value) => {
+      if (!unmounted) setToken(value);
+    }, reportErrorNow);
+    return () => {
+      unmounted = true;
+      // 登记失败已经报过，这里只放手登记成功的那页（卸载早于登记完成时也等它完成再放）。
+      void registered
+        .then(
+          (value) => window.studio.releaseHtmlPreview(value),
+          () => undefined,
+        )
+        .catch(reportErrorNow);
+    };
+  }, [html]);
+  return (
+    <iframe
+      key={`${token}:${scripts}`}
+      className="file-preview-frame"
+      data-testid="file-preview-frame"
+      title={title}
+      sandbox={scripts ? "allow-scripts" : ""}
+      src={token === null ? undefined : htmlPreviewUrl(token)}
+    />
+  );
+}
+
 export function PreviewContent({
   file,
   ext,
@@ -104,6 +146,7 @@ export function PreviewContent({
   zoom,
   imageRef,
   isMarkdown,
+  isMermaid,
   onExternal,
 }: ContentProps) {
   const t = useT();
@@ -124,22 +167,16 @@ export function PreviewContent({
       );
     case "image": {
       const dataUrl = file.dataUrl ?? "";
-      if (source) return <CodeBlock code={decodeDataUrl(dataUrl)} lang="xml" closed />;
+      // 片段的 svg 带着原文（text）；文件只有 data URL，源码从它还原。
+      if (source) return <CodeBlock code={file.text ?? decodeDataUrl(dataUrl)} lang="xml" closed />;
       return <ImageView src={dataUrl} alt={t("preview.imageAlt", { name })} zoom={zoom} imageRef={imageRef} />;
     }
     case "html":
       if (source) return <CodeBlock code={file.text ?? ""} lang="html" closed />;
-      // 没有 allow-same-origin：页面拿不到应用的任何权限；脚本默认关，用户勾选后才放行。
-      return (
-        <iframe
-          className="file-preview-frame"
-          data-testid="file-preview-frame"
-          title={t("preview.htmlTitle", { name })}
-          sandbox={scripts ? "allow-scripts" : ""}
-          srcDoc={file.text ?? ""}
-        />
-      );
+      return <HtmlFrame html={file.text ?? ""} scripts={scripts} title={t("preview.htmlTitle", { name })} />;
     case "text":
+      if (isMermaid)
+        return <CodeBlock code={file.text ?? ""} lang="mermaid" closed view={source ? "source" : "figure"} />;
       if (isMarkdown && !source) {
         return (
           <div className="file-preview-md" data-testid="file-preview-md">

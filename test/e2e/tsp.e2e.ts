@@ -690,6 +690,53 @@ test("发图片用 omp 自己的附件：输入框顶部卡片 + #1 芯片；发
   }
 });
 
+// omp 让模型画的 SVG（提问表单里的内联 <svg>、ask 工具的图片）颜色写的是 `var(--surface)` 这类主题变量；<img> 里读不到页面的
+// CSS 变量，直接用 blob URL 显示整块变黑（2026-11-10 仓库所有者截图）。SVG blob 要先换成当前主题的颜色再显示。
+test("omp 发来的 SVG 图片按当前主题换好颜色再显示：<img> 里没有 var(--…)，不是整块黑", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp svg blob "));
+  const fixture = path.join(work, "svg-blob.jsonl");
+  const svg =
+    '<svg viewBox="0 0 120 40" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="40" fill="var(--surface)" stroke="var(--border)"/><text x="8" y="24" fill="var(--fg)">现在</text></svg>';
+  const lines = (await readFile(path.join(root, "fixtures", "tsp", "image-attach.jsonl"), "utf8")).split("\n");
+  // blob 的 id 是内容的 sha256（TSP 规范；主进程按它核对）：换了内容就换 id，文档里引用它的地方一起换。
+  const blobLine = lines.find((line) => line.includes('"verb":"b"'))!;
+  const oldId = (JSON.parse(blobLine) as { params: { id: string } }).params.id;
+  const newId = createHash("sha256").update(svg, "utf8").digest("hex");
+  const patched = lines.map((line) => {
+    if (line !== blobLine) return line.replaceAll(oldId, newId);
+    const entry = JSON.parse(line) as { params: { id: string; mime: string }; body: string };
+    entry.params.id = newId;
+    entry.params.mime = "image/svg+xml";
+    entry.body = Buffer.from(svg, "utf8").toString("base64");
+    return JSON.stringify(entry);
+  });
+  await writeFile(fixture, patched.join("\n"));
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    const input = page.getByTestId("composer-input");
+    await input.click();
+    await input.pressSequentially("Describe the color of this image in one short sentence.");
+    await pasteImage(page, solidPng(40, 30));
+    await input.press("Enter");
+    const frame = role(page, "omp.user.images").getByTestId("tsp-img-frame");
+    await expect(frame).toHaveCount(1, { timeout: 20_000 });
+    const src = (await frame.getAttribute("src")) ?? "";
+    expect(src.startsWith("data:image/svg+xml")).toBe(true);
+    const source = decodeURIComponent(src.slice(src.indexOf(",") + 1));
+    expect(source).not.toContain("var(--");
+    expect(source).toContain('fill="');
+    // 画出来了（不是加载失败的 0×0）。
+    await expect
+      .poll(() => frame.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
+      .toBe(120);
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("排队的带图片插话点 Edit：文字和图片一起回到 studio 的输入框（#1 芯片 + 附件卡片），omp 的输入框被清空", async () => {
   test.setTimeout(90_000);
   // omp 18.12.6 实录：运行中发带图片的插话 → 排队区那条点 Edit → omp 把文字放回它的输入框、图片重新挂成 chip。
@@ -765,6 +812,13 @@ test("输入框附件：删掉文字里的 #1 芯片就删掉对应的图片；C
     expect(grown).toBeGreaterThan(before + 100);
     const main = (await page.getByTestId("main-panel").boundingBox())!;
     expect(grown).toBeLessThanOrEqual(main.height * 0.6 + 1);
+    // 拖到的高度是下限：内容再多照样往上长，到主区 60% 为止（2026-11-10 之前拖过就定高，再也不随内容增高）。
+    await input.fill(big);
+    const full = (await input.boundingBox())!.height;
+    expect(full).toBeGreaterThan(grown + 40);
+    expect(full).toBeLessThanOrEqual(main.height * 0.6 + 1);
+    await input.fill("");
+    await expect.poll(async () => (await input.boundingBox())!.height).toBe(grown);
     await grip.dblclick();
     expect((await input.boundingBox())!.height).toBe(before);
   } finally {
@@ -1209,7 +1263,7 @@ test("设置「工具调用只显示标题」：折叠着的工具卡不画输�
   }
 });
 
-test("连续的工具调用合成一组：跑完收成一行组头（N tool calls、✓）；点开 / 收起；Ctrl+O 跟着 omp 报的展开状态全部展开 / 收起；设置关掉照 omp 一张张画", async () => {
+test("连续的工具调用合成一组：跑完收成一行组头（每种工具的图标和次数、整组用时、✓，悬停每张卡一行）；点开 / 收起；Ctrl+O 跟着 omp 报的展开状态全部展开 / 收起；设置关掉照 omp 一张张画", async () => {
   // cards-expand：cards 录制（同一条消息里 bash（要批准）、edit、eval 三张卡连着，后面是回答），跑完后每次 Ctrl+O
   // omp 回 "Tool output expansion: enabled / disabled" 状态行、把卡片的 collapsed 翻过来（omp 18.18.1 实测的样子）。
   const { launched, cleanup } = await start("cards-expand");
@@ -1223,7 +1277,16 @@ test("连续的工具调用合成一组：跑完收成一行组头（N tool call
     const head = page.getByTestId("tsp-tool-run");
     await expect(head).toHaveCount(1);
     await expect(head).toHaveAttribute("data-count", "3");
-    await expect(head).toContainText("3 tool calls");
+    // 每种工具一个图标 + 次数，后面是三张卡 omp 报的 took 之和（10399 + 420 + 113000 ms）；`3 tool calls` 只给读屏。
+    await expect(head.locator(".tsp-run-kind")).toHaveText(["1", "1", "1"]);
+    await expect(head.locator(".tsp-run-kind .tsp-ico")).toHaveCount(3);
+    await expect(head.locator(".tsp-run-took")).toHaveText("· 2m3s");
+    await expect(head).not.toContainText("tool calls");
+    await expect(head).toHaveAttribute("aria-label", "3 tool calls");
+    await expect(head).toHaveAttribute(
+      "title",
+      "Bash · 10.4s\nEdit docs\\content\\docs\\progress\\pending-test.zh-CN.mdx · 420ms\nPushing and deploying · 1m53s",
+    );
     // 跑完收起：组员不画，回答照常在下面。
     await expect(head).toHaveAttribute("aria-expanded", "false");
     await expect(role(page, "omp.tool.bash")).toHaveCount(0);
@@ -1347,6 +1410,12 @@ test("用户气泡超过 12 行收起:露出前 12 行和 N more lines,悬停按
     await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
     const bubble = role(page, "omp.user").first();
     await expect(bubble).toContainText("第 1 行", { timeout: 30_000 });
+    // 气泡内边距只有一层：上下 --space-2-5（10）、左右 --space-3-5（14）。卡片正文自己的内边距曾叠在外面，四边都多出一截（2026-11-10 仓库所有者）。
+    const text = (await bubble.locator(".md").first().boundingBox())!;
+    const box = (await bubble.boundingBox())!;
+    expect(Math.round(text.y - box.y)).toBe(10);
+    expect(Math.round(text.x - box.x)).toBe(14);
+    expect(Math.round(box.x + box.width - (text.x + text.width))).toBe(14);
     const more = bubble.locator(".tsp-more");
     await expect(more).toHaveText(/\d+ more lines/);
     const clamp = bubble.locator(".tsp-clamp");
@@ -1525,6 +1594,67 @@ test("一轮还在跑（会话文件里这一轮已有结算过的用量）时�
     await role(page, "omp.turn.usage").locator('[data-role="omp.turn.copy"]').click({ button: "right" });
     await expect(page.getByRole("menuitem")).toHaveText(["复制 Markdown", "复制纯文本"]);
     await page.keyboard.press("Escape");
+  } finally {
+    await cleanup();
+    await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+// 压缩过的会话：omp 删掉旧的用户消息和回答（compact-ok.jsonl 第 784 帧），文档里的轮比会话文件少。用量行按末尾对齐、
+// token 数和 omp 的悬停对上才补缓存命中率和完成时刻（2026-11-10 之前要求轮数相等，压缩过的会话一条都不补）。
+test("压缩过的会话：文档里只剩最后几轮，omp 实时画的用量行悬停照样补缓存命中率（按末尾对齐、token 数对上）", async () => {
+  test.setTimeout(90_000);
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp tsp compacted footer "));
+  const sessionFile = path.join(scratch, "会话 文件.jsonl");
+  const userAt = 1_793_300_000_000;
+  const user = (id: string, parentId: string | null, at: number) => ({
+    type: "message",
+    id,
+    parentId,
+    timestamp: new Date(at).toISOString(),
+    message: { role: "user", content: [{ type: "text", text: "run it" }], attribution: "user", timestamp: at },
+  });
+  const assistant = (id: string, parentId: string, at: number, usage: Record<string, unknown>) => ({
+    type: "message",
+    id,
+    parentId,
+    timestamp: new Date(at).toISOString(),
+    message: { role: "assistant", content: [{ type: "text", text: "ok" }], stopReason: "stop", usage, completedAt: at },
+  });
+  const lines = [
+    {
+      type: "session",
+      version: 3,
+      id: "01a00000-0000-7000-8000-000000000002",
+      timestamp: "2026-10-30T00:00:00.000Z",
+      cwd: "E:\\work",
+    },
+    // 压缩前的一轮：文档里已经没有了。
+    user("a1", null, userAt - 60_000),
+    assistant("a2", "a1", userAt - 55_000, { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } }),
+    // 录制里这一轮的悬停是 "728 tokens (531 in · 197 out)"：input + cacheWrite = 531。命中率 4000 ÷ (500 + 4000 + 31) = 88%。
+    user("a3", "a2", userAt),
+    assistant("a4", "a3", userAt + 13_000, {
+      input: 500,
+      output: 197,
+      cacheRead: 4000,
+      cacheWrite: 31,
+      cost: { total: 0 },
+    }),
+  ];
+  await writeFile(sessionFile, lines.map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const { launched, cleanup } = await start("approval", { FAKE_TSP_SESSION_FILE: sessionFile });
+  try {
+    const { page } = launched;
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("composer-input").press("Control+Enter");
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    await expect(role(page, "omp.turn.usage")).toHaveCount(1);
+    await expect(role(page, "omp.turn.usage")).toHaveAttribute(
+      "title",
+      /^This turn: 13\.4s · 728 tokens \(531 in · 197 out\) · <\$0\.01\nCache hit rate 88%\nFinished /,
+    );
   } finally {
     await cleanup();
     await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

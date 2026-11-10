@@ -26,6 +26,7 @@ import { agentsHandlers } from "./agents-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
 import { inputHistoryHandlers } from "./input-history-handlers.ts";
 import { registerComposerFilesChannel } from "./composer-files-handlers.ts";
+import { previewHandlers } from "./preview-handlers.ts";
 import { promptEnhanceHandlers } from "./prompt-enhance-handlers.ts";
 import { assertTrustedSender } from "./validate.ts";
 import { log } from "../log/log.ts";
@@ -46,6 +47,7 @@ const handlers: InvokeHandlers = {
   ...btwHandlers,
   ...terminalHandlers,
   ...fileHandlers,
+  ...previewHandlers,
   ...workspaceDirsHandlers,
   ...commandHandlers,
   ...integrationsHandlers,

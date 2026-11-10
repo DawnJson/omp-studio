@@ -496,19 +496,33 @@ export function reuseUnchangedNodes(next: TspDocument, previous: TspDocument): v
 
 // ───────── 查询 ─────────
 
+/**
+ * `from` 下（含自己）按文档顺序（深度优先，子节点按显示顺序）的所有节点。界面上的列表顺序、"取第一个 / 最后一个"一律按它，
+ * 不按节点表（`surface.nodes`）的迭代顺序：表的插入顺序是改动历史，omp 更新卡片是 del + add，节点会挪到表尾
+ * （omp 18.18.6 子代理面板两行每秒对调几次）。scripts/check.ts 的 `node-map-order` 扫描拦着直接迭代节点表。
+ */
+export function* treeNodes(surface: DocSurface, from = surface.id): Generator<DocNode> {
+  const stack = [from];
+  while (stack.length > 0) {
+    const node = surface.nodes.get(stack.pop()!);
+    if (!node) continue;
+    yield node;
+    for (let index = node.c.length - 1; index >= 0; index -= 1) stack.push(node.c[index]!);
+  }
+}
+
+/** 活着的 surface，按打开顺序（`doc.surfaces` 的顺序）：`doc.live` 是 Set，关掉（keep）又接管的 surface 会挪到它的最后。 */
+export function* liveSurfaces(doc: TspDocument): Generator<DocSurface> {
+  for (const surface of doc.surfaces.values()) if (doc.live.has(surface.id)) yield surface;
+}
+
 /** 从根往下深度优先找第一个满足条件的节点。 */
 export function findNode(
   surface: DocSurface,
   predicate: (node: DocNode) => boolean,
   from = surface.id,
 ): DocNode | null {
-  const stack = [from];
-  while (stack.length > 0) {
-    const node = surface.nodes.get(stack.pop()!);
-    if (!node) continue;
-    if (predicate(node)) return node;
-    for (let index = node.c.length - 1; index >= 0; index -= 1) stack.push(node.c[index]!);
-  }
+  for (const node of treeNodes(surface, from)) if (predicate(node)) return node;
   return null;
 }
 

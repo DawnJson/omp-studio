@@ -1,7 +1,8 @@
 // toolRuns（shared/tsp/tool-runs.ts）：main 里连续的工具调用切成一组。
 import { describe, expect, it } from "vitest";
 import { applyMessage, createDocument, type DocSurface } from "../src/shared/tsp/document.ts";
-import { runOpen, toolRuns, type ToolRun } from "../src/shared/tsp/tool-runs.ts";
+import { runOpen, sameToolRuns, toolRuns, type RunTool, type ToolRun } from "../src/shared/tsp/tool-runs.ts";
+import { MAX_RUN_KINDS, toolRunHead } from "../src/renderer/src/features/tsp/tool-run-head.ts";
 import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
 
 function replay(name: string): DocSurface {
@@ -53,10 +54,94 @@ describe("toolRuns", () => {
   });
 });
 
+describe("toolRunHead：组头每种工具的次数、整组用时、悬停每张卡一行", () => {
+  it("实录 cards：bash、edit、eval 各一次，用时是三张卡 took 之和；悬停按卡片标题、目标、用时", () => {
+    const [run] = toolRuns(replay("cards"));
+    expect(run!.tools.map((tool) => tool.took)).toEqual([10399, 420, 113000]);
+    const head = toolRunHead(run!);
+    expect(head.kinds).toEqual([
+      { name: "bash", count: 1 },
+      { name: "edit", count: 1 },
+      { name: "eval", count: 1 },
+    ]);
+    expect(head.more).toBe(0);
+    expect(head.took).toBe("2m3s");
+    // bash 卡没有 target（命令在 body 里），只写标题和用时。
+    expect(head.title.split("\n")).toEqual([
+      "Bash · 10.4s",
+      "Edit docs\\content\\docs\\progress\\pending-test.zh-CN.mdx · 420ms",
+      "Pushing and deploying · 1m53s",
+    ]);
+  });
+
+  it("实录 task：同一种工具合起来数，按第一次出现的顺序；没报 took 的卡（read）不写用时、不算进总数", () => {
+    const [first, second] = toolRuns(replay("task")).map(toolRunHead);
+    expect(first!.kinds).toEqual([
+      { name: "glob", count: 1 },
+      { name: "read", count: 2 },
+      { name: "task", count: 1 },
+    ]);
+    // 18ms + 5399ms。
+    expect(first!.took).toBe("5.4s");
+    expect(first!.title.split("\n")).toEqual([
+      "Glob **/*.py · 18ms",
+      "Read 2 files",
+      "Read 2 files",
+      "Task 2 agents · 5.4s",
+    ]);
+    expect(second!.title.split("\n")).toEqual(["Bash · 585ms", "Read 2 files", "Todo 5/5 · 0ms"]);
+    // resume 录制（--resume 重放）里的工具卡都没有 took：整组不写用时。
+    expect(toolRuns(replay("resume")).map((run) => toolRunHead(run).took)).toEqual([null, null]);
+  });
+
+  let seq = 0;
+  const tool = (name: string, took: number | null, status = "done"): RunTool => ({
+    id: `n${seq++}`,
+    key: `k${seq}`,
+    status,
+    name,
+    title: name,
+    target: "",
+    took,
+  });
+  const runOf = (tools: RunTool[]): ToolRun => ({ members: tools.map((t) => t.id), tools, last: true });
+
+  it("还在跑：只加已完成的卡；一张都没有 took 时不写用时", () => {
+    expect(toolRunHead(runOf([tool("bash", 1500), tool("read", null, "running")])).took).toBe("1.5s");
+    expect(toolRunHead(runOf([tool("bash", null, "running"), tool("read", null, "pending")])).took).toBeNull();
+  });
+
+  it(`超过 ${MAX_RUN_KINDS} 种：前 ${MAX_RUN_KINDS} 种照画，其余几种的调用次数合成 +N`, () => {
+    const names = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const head = toolRunHead(runOf([...names.map((name) => tool(name, 1)), tool("h", 1), tool("a", 1)]));
+    expect(head.kinds.map((kind) => kind.name)).toEqual(names.slice(0, MAX_RUN_KINDS));
+    expect(head.kinds[0]).toEqual({ name: "a", count: 2 });
+    expect(head.more).toBe(3);
+  });
+
+  it("卡片的 took、标题、目标变了，sameToolRuns 认为不同（组头要重画）", () => {
+    const bash = tool("bash", null);
+    const before = runOf([tool("read", 3), bash]);
+    const withTool = (changed: RunTool): ToolRun => ({ ...before, tools: [before.tools[0]!, changed] });
+    expect(sameToolRuns([before], [withTool(bash)])).toBe(true);
+    expect(sameToolRuns([before], [withTool({ ...bash, took: 1200 })])).toBe(false);
+    expect(sameToolRuns([before], [withTool({ ...bash, title: "Bash" })])).toBe(false);
+    expect(sameToolRuns([before], [withTool({ ...bash, target: "ls" })])).toBe(false);
+  });
+});
+
 describe("runOpen：组展开着没有", () => {
   const run = (statuses: string[], last: boolean): ToolRun => ({
     members: statuses.map((_, i) => `n${i}`),
-    tools: statuses.map((status, i) => ({ id: `n${i}`, key: `k${i}`, status, name: "bash" })),
+    tools: statuses.map((status, i) => ({
+      id: `n${i}`,
+      key: `k${i}`,
+      status,
+      name: "bash",
+      title: "",
+      target: "",
+      took: null,
+    })),
     last,
   });
   const idle = { ended: false, busy: false, expanded: false };

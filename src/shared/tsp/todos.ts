@@ -13,7 +13,7 @@
 // - 只认 HUD，不回退到工具卡片：omp 清理待办后 HUD 消失，卡片还留在对话里，回退会让已清理的待办复活。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import type { TodoItem, TodoPhase, TodoStatus } from "../omp-wire/rpc-wire.generated.ts";
-import { nodeRole, type TspDocument } from "./document.ts";
+import { liveSurfaces, nodeRole, treeNodes, type TspDocument } from "./document.ts";
 import type { TspText } from "./tsp.generated.ts";
 
 export const TODO_HUD_ROLE = "omp.hud.todo";
@@ -72,10 +72,8 @@ export function phasesOfChecklist(phases: unknown): TodoPhase[] {
 /** 文档里的待办；没有 HUD 节点（还没写过待办、或已被清理）返回 []。 */
 export function deriveTodoPhases(document: TspDocument): TodoPhase[] {
   let found: unknown = null;
-  for (const id of document.live) {
-    const surface = document.surfaces.get(id);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(document)) {
+    for (const node of treeNodes(surface)) {
       if (node.k === "checklist" && nodeRole(node) === TODO_HUD_ROLE) found = node.p["phases"];
     }
   }

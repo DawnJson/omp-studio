@@ -12,7 +12,7 @@
 // role、action、dot 名都是 omp 自己的、不在 TSP 规范里：omp 改名这里就失效，所以判断全部集中在这个文件（gate.ts 同理）。
 import type { ThinkingLevel } from "../omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../type-guards.ts";
-import { findNode, nodeRole, spansText, type DocNode, type TspDocument } from "./document.ts";
+import { findNode, liveSurfaces, nodeRole, spansText, treeNodes, type DocNode, type TspDocument } from "./document.ts";
 import type { NodeDeps } from "./node-watch.ts";
 
 /** hud 里 `👥` 胶囊（`omp.hud.seg`）的点击动作：打开 Agent Hub。studio 拦截它改开自己的子代理面板。 */
@@ -153,13 +153,14 @@ const LIVENESS: Record<AgentStatus, number> = {
 /** listAgents / countActiveAgents 读的节点（NodeWatch）：`agent` 节点、它下面的任务说明、它所在的 task 卡片。 */
 export const AGENT_NODES: NodeDeps = { kinds: ["agent"], children: true, parent: true };
 
-/** 文档里所有子代理（活着的 surface 里的 `agent` 节点，按名字去重），按首次出现的顺序。 */
+/**
+ * 文档里所有子代理（活着的 surface 里的 `agent` 节点，按名字去重），按文档顺序（surface 按打开顺序，surface 里深度优先）；
+ * 同一个名字留第一次出现的位置，内容取更活的那份。不按节点表的迭代顺序：omp 每次更新卡片是 del + add，按它排两行会来回对调。
+ */
 export function listAgents(doc: TspDocument): HubAgent[] {
   const byName = new Map<string, HubAgent>();
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
       if (node.k !== "agent") continue;
       const agent = toAgent(node, surface.nodes);
       if (!agent) continue;
@@ -202,9 +203,9 @@ export interface AgentHubView {
 
 /** layer 里的 Agent Hub（picker，`tabs` 里有 agents 页）；没开为 null。 */
 export function findAgentHub(doc: TspDocument): AgentHubView | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("layer")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    const sf = surface.id;
+    if (!surface.nodes.has("layer")) continue;
     const node = findNode(
       surface,
       (candidate) =>
@@ -262,12 +263,10 @@ export function hubItemKilled(hub: AgentHubView, name: string): boolean {
 
 /** hud 里 `👥` 胶囊：点击动作是 `agents.open` 的节点；没有子代理在跑时它不在。 */
 export function findHubOpener(doc: TspDocument): { sf: string; id: string } | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
       const actions = node.p["actions"];
-      if (isRecord(actions) && actions["click"] === HUB_OPEN_ACTION) return { sf, id: node.id };
+      if (isRecord(actions) && actions["click"] === HUB_OPEN_ACTION) return { sf: surface.id, id: node.id };
     }
   }
   return null;
@@ -285,9 +284,9 @@ export interface FocusView {
 
 /** composer 卡片里的聚焦行（`omp.composer.focus`，"Viewing subagent <名字>: what you send goes to it"）；没在聚焦为 null。 */
 export function findFocus(doc: TspDocument): FocusView | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    const sf = surface.id;
+    if (!surface.nodes.has("dock")) continue;
     const row = findNode(surface, (node) => nodeRole(node) === FOCUS_ROLE, "dock");
     if (!row) continue;
     const agent = findNode(surface, (node) => nodeRole(node) === FOCUS_AGENT_ROLE, row.id);
@@ -311,10 +310,8 @@ export function focusedAgentName(doc: TspDocument): string | null {
 /** 文档里用户消息 / 排队消息节点的个数：聚焦模式下 `send` 之后 omp 回显它（hub-steer 录制），个数增加 = 消息被接收。 */
 export function countEchoNodes(doc: TspDocument): number {
   let count = 0;
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface) continue;
-    for (const node of surface.nodes.values()) {
+  for (const surface of liveSurfaces(doc)) {
+    for (const node of treeNodes(surface)) {
       const role = nodeRole(node);
       if (role === "omp.user" || role === "omp.queue") count += 1;
     }

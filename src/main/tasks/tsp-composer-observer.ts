@@ -2,7 +2,7 @@
 // 都从 omp 发来的文档里读（composer-state.ts、toggles.ts 等），换算成 TaskState 的字段；变了才请宿主发布。
 // 任务运行时（tsp-runner.ts）每次文档变化调用 `observe`。
 import type { ModelKey, ModelOption, TaskId, TaskState, TaskThinkingLevel } from "../../shared/ipc.ts";
-import type { TspDocument } from "../../shared/tsp/document.ts";
+import { liveSurfaces, type TspDocument } from "../../shared/tsp/document.ts";
 import type { StatusNote } from "../../shared/tsp/status-notes.ts";
 import { deriveComposerInfo, isShownModelName, type TspComposerInfo } from "../../shared/tsp/composer-state.ts";
 import { deriveContextCompaction } from "../../shared/tsp/context-compaction.ts";
@@ -201,7 +201,7 @@ export class TspComposerObserver {
    */
   #syncToggles(document: TspDocument): void {
     const texts = this.#host.scans(document).toastTexts;
-    const notes = [...document.live].flatMap((sf) => document.surfaces.get(sf)?.statusNotes ?? []);
+    const notes = [...liveSurfaces(document)].flatMap((surface) => surface.statusNotes);
     const freshNotes = notes.filter((note) => !this.#seenNotes.has(note));
     for (const note of freshNotes) this.#seenNotes.add(note);
     const fresh = [...freshNotes.map((note) => note.text), ...freshToasts(this.#toastTexts, texts)];

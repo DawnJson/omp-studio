@@ -1,7 +1,7 @@
 // 提问/审批门和全屏面板（Agent Hub 等）对"输入框往哪发"的影响。纯函数，主进程和渲染进程共用。
 //
 // 依据是 omp 18.12.x 的实测录制（fixtures/tsp/{approval,ask,slash}.jsonl，test/tsp-gate.test.ts 逐帧验证），文档见
-// docs/architecture/tsp-migration.md "审批门与输入框"：
+// docs/architecture/tsp-migration.md §10.7「审批门与全屏面板(Agent Hub)时的输入框」：
 // - 审批：审批卡（`omp.editor.ask.approval`）插进 dock、在 composer（`omp.editor`）前面，composer 的编辑器一直是
 //   `sendable`。omp 文档（approval-mode.md）：有审批在等时发消息 = 拒绝所有待批的调用并把这条消息当插话，
 //   所以 `send` 事件原样发给 composer 就是"拒绝并说明理由"，和 TUI 里在输入框打字再回车一样。
@@ -12,7 +12,7 @@
 // role 和 action 名是 omp 自己的，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import { isRecord } from "../type-guards.ts";
 import { COMPOSER_ROLE } from "./composer-state.ts";
-import { findNode, nodeRole, type DocNode, type TspDocument } from "./document.ts";
+import { findNode, liveSurfaces, nodeRole, type DocNode, type TspDocument } from "./document.ts";
 import { deriveTaskStatus } from "./task-status.ts";
 
 /** 主进程为"在等用户"合成的门（TaskState.dialogs）的 id：审批和提问分开，输入框按它区分；`tsp-modal` 是 omp 的模态弹窗（`omp.overlay.hook-*` 等，task-status.ts）。 */
@@ -54,8 +54,8 @@ export type TspMessageTarget =
 
 /** 有没有还活着的全屏 surface（`mode: "screen"`，没收到 `x`）。 */
 export function hasLiveScreen(doc: TspDocument): boolean {
-  for (const sf of doc.live) {
-    if (doc.surfaces.get(sf)?.mode === "screen") return true;
+  for (const surface of liveSurfaces(doc)) {
+    if (surface.mode === "screen") return true;
   }
   return false;
 }
@@ -66,9 +66,8 @@ export function hasLiveScreen(doc: TspDocument): boolean {
  * 这时往同一个编辑器 `send` 就是 steer 那个子代理（实测），不需要特别处理。
  */
 function hasAgentHub(doc: TspDocument): boolean {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("layer")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("layer")) continue;
     const hub = findNode(
       surface,
       (node) =>
@@ -92,22 +91,20 @@ export function findMessageTarget(doc: TspDocument): TspMessageTarget {
   if (hasBlockingPanel(doc)) return { kind: "panel" };
   const ask = deriveTaskStatus(doc).ask;
   if (ask !== null && !ask.approval) return { kind: "ask" };
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock")) continue;
     const card = findNode(surface, (node) => nodeRole(node) === COMPOSER_ROLE, "dock");
     if (!card) continue;
     const editor = findNode(surface, (node) => node.k === "editor" && node.p.sendable === true, card.id);
-    if (editor) return { kind: "ready", sf, id: editor.id, approval: ask !== null };
+    if (editor) return { kind: "ready", sf: surface.id, id: editor.id, approval: ask !== null };
   }
   return { kind: "pending" };
 }
 
 /** 审批/提问卡上点击动作为 `act` 的按钮（给 `action` 事件用）；没有门或没有这个按钮为 null。 */
 export function findGateButton(doc: TspDocument, act: string): { sf: string; id: string } | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock")) continue;
     const gate = findNode(surface, (node) => nodeRole(node)?.startsWith("omp.editor.ask") === true, "dock");
     if (!gate) continue;
     const button = findNode(
@@ -115,7 +112,7 @@ export function findGateButton(doc: TspDocument, act: string): { sf: string; id:
       (node) => nodeRole(node) === BUTTON_ROLE && isRecord(node.p.actions) && node.p.actions.click === act,
       gate.id,
     );
-    if (button) return { sf, id: button.id };
+    if (button) return { sf: surface.id, id: button.id };
   }
   return null;
 }

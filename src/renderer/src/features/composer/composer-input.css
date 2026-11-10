@@ -169,10 +169,10 @@
   /* 没拖过时按内容自动增高，上下限是 .composer-field 的 min-height / max-height（不用每次按键量 scrollHeight） */
   field-sizing: content;
 }
-/* 拖过：定高（行内 style 的 height，已夹到 [一行, 主区 60%]） */
+/* 拖过：拖到的高度是下限，内容再多照样往上长，到主区 60% 为止（行内 style 的 min-height / max-height）。
+   之前是定高：拖过一次（高度存在 localStorage 里）以后输入框再也不随内容增高（2026-11-10 仓库所有者）。 */
 .composer-field[data-sized] {
   max-height: none;
-  field-sizing: fixed;
 }
 .composer-chip {
   border-radius: var(--radius-sm);

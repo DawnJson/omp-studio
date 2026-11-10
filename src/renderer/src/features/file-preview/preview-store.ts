@@ -1,8 +1,11 @@
 // 右侧文件面板的状态：同一时间只有一个面板（任务 id 或新任务草稿的键），两页——文件树 / 预览；关闭时把焦点还给打开它的元素。
+// 预览页显示一个文件（path），或回答里代码块的一段代码（snippet，只在内存里）。
 // 文件树的展开状态按键记在 tree-state.ts（面板关了、切走任务再回来仍在）。
 import type { TaskId, TerminalKey } from "../../../../shared/ipc.ts";
+import type { PreviewKind } from "../../markdown/code-preview.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { selectedRoot } from "./roots-store.ts";
+import type { Snippet } from "./snippet.ts";
 
 export type PanelPage = "files" | "preview";
 
@@ -10,10 +13,12 @@ export interface PanelState {
   /** 面板属于谁：任务 id，或草稿的键（`new:<项目 id>`）。 */
   key: TerminalKey;
   page: PanelPage;
-  /** 预览页显示的文件：调用方给的路径（相对根目录，或落在根内的绝对路径）；还没打开过文件时为 null。 */
+  /** 预览页显示的文件：调用方给的路径（相对根目录，或落在根内的绝对路径）；还没打开过文件、或在看片段时为 null。 */
   path: string | null;
   /** 预览的文件在哪个根里：缺省 = 任务目录，n = 第 n 个额外工作区目录（roots-store.ts）。 */
   root?: number | undefined;
+  /** 预览页显示的代码片段（回答里代码块的"在侧栏预览"）；和 path 二选一，打开文件时清掉。 */
+  snippet?: Snippet | undefined;
 }
 
 const store = createStore<PanelState | null>(null);
@@ -33,6 +38,19 @@ export function openFilePreview(taskId: TaskId, path: string): void {
   if (current?.key === taskId && current.page === "preview" && current.path === path) return;
   rememberFocus();
   store.set({ key: taskId, page: "preview", path });
+}
+
+/** 片段编号：每打开一段加一，不按内容算，不会撞。 */
+let snippetSeq = 0;
+
+/** 在预览页显示回答里的一段代码（代码块的"在侧栏预览"）；同一段已经在显示就不动。 */
+export function openSnippetPreview(key: TerminalKey, kind: PreviewKind, code: string): void {
+  const current = store.get();
+  const shown = current?.snippet;
+  if (current?.key === key && current.page === "preview" && shown?.kind === kind && shown.code === code) return;
+  rememberFocus();
+  snippetSeq += 1;
+  store.set({ key, page: "preview", path: null, snippet: { id: snippetSeq, kind, code } });
 }
 
 /** 顶栏按钮 / 快捷键：当前面板属于 key 就关掉，否则打开它的文件页。 */
@@ -58,7 +76,8 @@ export function openFilesPanel(key: TerminalKey): void {
 
 export function setPanelPage(page: PanelPage): void {
   const current = store.get();
-  if (current === null || current.page === page || (page === "preview" && current.path === null)) return;
+  const empty = current !== null && current.path === null && current.snippet === undefined;
+  if (current === null || current.page === page || (page === "preview" && empty)) return;
   store.set({ ...current, page });
 }
 
@@ -67,7 +86,7 @@ export function previewFileInPanel(path: string): void {
   const current = store.get();
   if (current === null) return;
   const root = selectedRoot(current.key);
-  store.set({ ...current, page: "preview", path, root: root > 0 ? root : undefined });
+  store.set({ ...current, page: "preview", path, root: root > 0 ? root : undefined, snippet: undefined });
 }
 
 export function closeFilePreview(): void {

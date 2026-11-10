@@ -1305,6 +1305,14 @@ export interface StudioInvokeApi {
    */
   readPreviewFile(target: ProjectFilesTarget, relPath: string): Promise<PreviewFile>;
   /**
+   * 文件预览里的网页（HTML 文件、回答里的 html 片段）交给主进程放在内存里，返回随机 token；iframe 加载
+   * `htmlPreviewUrl(token)`。那是独立的源，响应头带固定 CSP（主进程 window/preview-protocol.ts），应用页面的 CSP 管不到它的脚本。
+   * 超过 `limits.htmlPreviewMaxChars` reject。用完（面板关、内容换）调 releaseHtmlPreview；主窗口重载或关闭时主进程全部清掉。
+   */
+  registerHtmlPreview(html: string): Promise<string>;
+  /** 丢掉 registerHtmlPreview 登记的网页，之后那个地址 404；不认识的 token 什么都不做。 */
+  releaseHtmlPreview(token: string): Promise<void>;
+  /**
    * 文件面板的文件树：列根目录（任务 cwd，开了工作树就是工作树目录；或草稿的项目目录）下 relDir 这一层（"" = 根）。
    * 目录在前、文件在后按名字排序，`.git` 不列出，被 .gitignore 忽略的条目带 ignored 标记；
    * relDir 越界（绝对路径、`..`、符号链接指到根外）reject；目录不存在返回空列表；符号链接指到根外的条目不列出。
@@ -1698,11 +1706,17 @@ export const limits = {
   goalObjectiveMaxChars: 4_096,
   /** 自选背景图的大小上限。 */
   backdropMaxBytes: 20 * 1024 * 1024,
+  /** 预览网页（registerHtmlPreview）的最大字符数。 */
+  htmlPreviewMaxChars: 20 * 1024 * 1024,
 } as const;
 
 /** userData/backdrops 里自选背景图的文件名：内容的 sha256 + 扩展名（复制进来时定的，见 main/settings/backdrop-image.ts）。
  *  主进程校验设置、协议放行 app://studio/@backdrop/ 和渲染进程拼背景图地址都只认这种名字。 */
 export const backdropFilePattern = /^[0-9a-f]{64}\.(?:png|jpe?g|webp|gif|avif)$/;
+
+/** 预览网页的协议（主进程 window/preview-protocol.ts）；地址 = `studio-preview://<token>/`。 */
+export const htmlPreviewScheme = "studio-preview";
+export const htmlPreviewUrl = (token: string) => `${htmlPreviewScheme}://${token}/`;
 
 /**
  * StudioInvokeApi 的全部函数名（运行时可枚举；preload 靠它生成转发）。
@@ -1787,6 +1801,8 @@ export const invokeNames = {
   refreshWorkspaceDirs: true,
   openTaskFolder: true,
   readPreviewFile: true,
+  registerHtmlPreview: true,
+  releaseHtmlPreview: true,
   listDirectory: true,
   listProjectFiles: true,
   getSessionTree: true,

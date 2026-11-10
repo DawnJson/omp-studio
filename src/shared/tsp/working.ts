@@ -6,7 +6,7 @@
 // 另有一次性的 `omp.loader`（旋转图标 + `text`）出现在同一个位置，没有 label 时用它的文字。
 import { stripIconGlyphs } from "../ui/clean-title.ts";
 import { parseLoaderText } from "./composer-facts.ts";
-import { findNode, nodeRole, plainText, type DocSurface, type TspDocument } from "./document.ts";
+import { findNode, liveSurfaces, nodeRole, plainText, type DocSurface, type TspDocument } from "./document.ts";
 
 const LABEL_ROLE = "omp.working.label";
 /**
@@ -33,9 +33,8 @@ function labelIn(surface: DocSurface): string | null {
  * 多个活 surface（如 /settings 盖在上面）时取第一个有 dock 且有文字的。
  */
 export function deriveWorkingLabel(doc: TspDocument): string | null {
-  for (const id of doc.live) {
-    const surface = doc.surfaces.get(id);
-    if (!surface?.nodes.has("dock")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("dock")) continue;
     const label = labelIn(surface);
     if (label !== null) return label;
   }

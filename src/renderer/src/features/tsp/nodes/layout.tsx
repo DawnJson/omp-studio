@@ -26,13 +26,14 @@ import {
   useBareTurnIndex,
   useIsLatestRecap,
   useTspNoVisibleChild,
+  useTspTurnCount,
   useUsageTurnIndex,
 } from "../tsp-store.ts";
 import { runOutputSpan } from "../../../../../shared/tsp/run-output.ts";
 import { answerText } from "../../../../../shared/tsp/last-answer.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { useTaskValue } from "../../../store/index.ts";
-import { formatTurnFooter, withTurnDetails } from "../turn-footer.ts";
+import { formatTurnFooter, matchesTurnTitle, withTurnDetails } from "../turn-footer.ts";
 import { copyAnswerPlainText, copyText, showAnswerCopyMenu, TURN_COPY_ROLE } from "../actions.ts";
 import { editUserCard, forkAfterAnswer, forkFromUserCard } from "../../conversation/fork-actions.ts";
 import { reportErrorNow } from "../../../ui/errors.ts";
@@ -208,7 +209,8 @@ export function Row(props: NodeProps) {
 }
 
 /**
- * omp 实时画的每轮用量行：悬停里补上缓存命中率和回答完成的时刻（会话文件里这一轮的数据，withTurnDetails；轮数对不上时不补）。
+ * omp 实时画的每轮用量行：悬停里补上缓存命中率和回答完成的时刻（会话文件里这一轮的数据，withTurnDetails）。按末尾对齐找到的那一轮
+ * 还要和 omp 的用量文字对得上才补（压缩后文档只剩最后几轮；2026-11-10 之前要求轮数相等，压缩过的会话一条都不补）。
  * studio 的 AnswerActions 插在 omp 的复制图标后面（没有复制图标时放在行末）。
  */
 function UsageRow(props: NodeProps) {
@@ -216,7 +218,10 @@ function UsageRow(props: NodeProps) {
   const turnCount = useSessionExtras(taskId, (extras) => extras.turns.length);
   const index = useUsageTurnIndex(taskId, sf, props.node.id, turnCount);
   // 内容没变的轮沿用旧对象（session-extras-store.ts 的 share），别的轮刷新不重画这一行。
-  const turn = useSessionExtras(taskId, (extras) => (index >= 0 ? (extras.turns[index] ?? null) : null));
+  const candidate = useSessionExtras(taskId, (extras) => (index >= 0 ? (extras.turns[index] ?? null) : null));
+  // 轮数相等时一一对应；文档少了前面几轮（压缩过）时按末尾对齐，token 数和 omp 的悬停对上才算这一轮。
+  const aligned = useTspTurnCount(taskId, sf) === turnCount;
+  const turn = candidate !== null && (aligned || matchesTurnTitle(candidate, props.node.p.title)) ? candidate : null;
   const blank = useBlank(props, true);
   const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p), blank });
   const children = props.node.c.map((id) => peekTspNode(taskId, sf, id));

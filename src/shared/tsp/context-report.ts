@@ -12,7 +12,7 @@
 import type { ContextReport, ContextReportRow } from "../ipc.ts";
 import { isRecord } from "../type-guards.ts";
 import { parseTokenCount } from "./composer-state.ts";
-import { findNode, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { findNode, liveSurfaces, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
 
 export const ACTION_CONTEXT_REPORT = "status.context";
 const REPORT_ROLE = "omp.overlay.report";
@@ -34,9 +34,8 @@ export interface OmpContextReport {
 
 /** 文档里 omp 的 /context 报告；没打开、行还没画全（没有剩余空间那一行）时为 null。 */
 export function findContextReport(doc: TspDocument): OmpContextReport | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("layer")) continue;
+  for (const surface of liveSurfaces(doc)) {
+    if (!surface.nodes.has("layer")) continue;
     const overlay = findNode(surface, (node) => node.k === "overlay" && nodeRole(node) === REPORT_ROLE, "layer");
     if (!overlay) continue;
     const body = findNode(surface, (node) => nodeRole(node) === CONTEXT_ROLE, overlay.id);
@@ -50,7 +49,7 @@ export function findContextReport(doc: TspDocument): OmpContextReport | null {
     const actions = button?.p["actions"];
     const act = isRecord(actions) && typeof actions["click"] === "string" ? actions["click"] : null;
     return {
-      sf,
+      sf: surface.id,
       close: button && act !== null ? { id: button.id, act } : null,
       report: { rows, used, window: total > used ? total : null },
     };

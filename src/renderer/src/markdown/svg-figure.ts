@@ -22,6 +22,13 @@ export const FIGURE_TOKENS: Readonly<Record<string, string>> = {
   c6: "--chart-6",
 };
 
+/** 当前主题下每个图色名的实际颜色（`style` 是根元素的计算样式）。 */
+export function figurePalette(style: { getPropertyValue(name: string): string }): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(FIGURE_TOKENS).map(([name, value]) => [name, style.getPropertyValue(value).trim()]),
+  );
+}
+
 /** 图里没写字体时用的字体：<img> 里的 SVG 用不到页面的 Geist，用系统字体（Windows 落到 Segoe UI / 微软雅黑，mac 落到 San Francisco / 苹方；不存在的字体名自然跳过）。 */
 const FIGURE_FONT = "-apple-system, 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif";
 

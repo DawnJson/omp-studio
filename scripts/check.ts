@@ -46,6 +46,18 @@ const ALLOW: { id: string; file: string; text: string; reason: string }[] = [
     text: ".tsp-card-body:not(:has(> .si-retry))",
     reason: "只在错误卡片的正文上、只看直接子元素；重试按钮由 session-info 渲染，卡片自己不知道它在不在",
   },
+  {
+    id: "node-map-order",
+    file: "src/shared/tsp/node-watch.ts",
+    text: "for (const node of surface.nodes.values()) if (this.#matches(node))",
+    reason: "重扫时把符合条件的节点记进 Map，只拿来查有没有、数个数，顺序不出去",
+  },
+  {
+    id: "node-map-order",
+    file: "src/renderer/src/features/tsp/tsp-store.ts",
+    text: "markKnown(taskId, surface.id, surface.nodes.values())",
+    reason: "把快照里已有的节点记成「见过」（进场动画不播），是集合，顺序不出去",
+  },
 ];
 
 const CODE = /\.(ts|tsx|mts|mjs|js|cjs)$/;
@@ -163,6 +175,80 @@ function scanNativeTooltips(files: SourceFile[]): Finding[] {
     "悬停提示用元素的 title 属性（TooltipLayer 自绘），不用 SVG <title>、<abbr>、<details>",
     true,
   );
+}
+
+/** `spec §4.x` 的引用要能在 docs/design/spec.md 的索引里找到对应文件（2026-11-10 规范按节拆成 docs/design/spec/*.md）。 */
+function scanSpecRefs(files: SourceFile[]): Finding[] {
+  const index = files.find((file) => file.path === "docs/design/spec.md");
+  if (index === undefined) return [];
+  const known = new Set(
+    index.lines.flatMap((line) => [...line.matchAll(/^\| §([\d.A-B]+) \|/g)].map((match) => match[1])),
+  );
+  const findings: Finding[] = [];
+  for (const file of files) {
+    if (file.path.startsWith("docs/design/direction-") || file.path.startsWith("CHANGELOG")) continue;
+    file.lines.forEach((line, index) => {
+      for (const match of line.matchAll(/spec[^§\n]{0,20}§\s?(\d+\.\d+)/g)) {
+        const section = match[1]!;
+        if (!section.startsWith("4.") || known.has(section)) continue;
+        findings.push({
+          file: file.path,
+          line: index + 1,
+          id: "spec-ref",
+          message: `spec §${section} 在 docs/design/spec.md 的索引里没有对应文件`,
+        });
+      }
+    });
+  }
+  return findings;
+}
+
+/**
+ * 用 <img> 显示的 SVG 一律先过 prepareSvg（markdown/svg-figure.ts）：omp 让模型画的 SVG 颜色写的是 `var(--surface)` 这类主题变量，
+ * <img> 里读不到页面的 CSS 变量，直接显示整块变黑（2026-11-10 仓库所有者截图：提问表单里的内联 <svg>）。
+ * 所以不给 SVG 建 object URL（tsp-store 的 TspImage 里 SVG 只有源码），`svgDataUrl(` 只接 prepare 过的源码。
+ */
+function scanUnthemedSvg(files: SourceFile[]): Finding[] {
+  const targets = files.filter(
+    (file) =>
+      file.path.startsWith("src/renderer/") &&
+      CODE.test(file.path) &&
+      file.path !== "src/renderer/src/markdown/svg-figure.ts",
+  );
+  return grepLines(
+    targets,
+    /svgDataUrl\((?!\s*prepare)|createObjectURL\(.*svg/i,
+    "unthemed-svg",
+    "SVG 先用 prepareSvg 换成当前主题的颜色再给 <img>（markdown/figure-palette.ts 的 themedSvgUrl），不直接建 URL",
+    true,
+  );
+}
+
+/**
+ * TSP 文档的节点表（`surface.nodes`，Map）和 `doc.live`（Set）的迭代顺序是改动历史：omp 更新卡片是 del + add，节点挪到表尾；
+ * 按它排列表、取第一个 / 最后一个，界面会跟着 omp 的更新来回跳（2026-11-10 仓库所有者视频：子代理面板两行每秒对调几次，"杜绝这种问题"）。
+ * test/tsp-tree-order.test.ts 用打乱插入顺序的文档对拍各个推导；这里拦住新写的直接迭代。
+ */
+function scanNodeMapOrder(files: SourceFile[]): Finding[] {
+  const targets = files.filter(
+    (file) => file.path.startsWith("src/") && CODE.test(file.path) && file.path !== "src/shared/tsp/document.ts",
+  );
+  return [
+    ...grepLines(
+      targets,
+      /\.nodes\??\.(values|entries|keys|forEach)\(|(\bof|\.\.\.)\s*[\w.?]+\.nodes\s*[)\]]/,
+      "node-map-order",
+      "节点按文档顺序走：treeNodes(surface[, from]) / findNode（shared/tsp/document.ts），不迭代 surface.nodes；顺序无关的用法加进 check.ts 的 ALLOW",
+      true,
+    ),
+    ...grepLines(
+      targets,
+      /(\bof|\.\.\.)\s*(doc|document)\.live\b(?![.\w])/,
+      "node-map-order",
+      "活着的 surface 用 liveSurfaces(doc)（shared/tsp/document.ts，按打开顺序），不迭代 doc.live",
+      true,
+    ),
+  ];
 }
 
 function scanBrowserWindowFlags(files: SourceFile[]): Finding[] {
@@ -565,6 +651,9 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...scanInnerHtml(files),
     ...scanShellTrue(files),
     ...scanNativeTooltips(files),
+    ...scanUnthemedSvg(files),
+    ...scanNodeMapOrder(files),
+    ...scanSpecRefs(files),
     ...scanBrowserWindowFlags(files),
     ...scanInterval1000(files),
     ...scanE2eLocaleTheme(files),

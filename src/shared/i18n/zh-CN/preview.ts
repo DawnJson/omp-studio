@@ -20,6 +20,7 @@ export const preview = {
   readFailed: "读取失败：{message}",
   imageAlt: "图片预览：{name}",
   htmlTitle: "网页预览：{name}",
+  snippet: "{lang} 片段",
   resize: "调整预览宽度",
   pages: "面板页",
   pageFiles: "文件",

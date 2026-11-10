@@ -21,6 +21,7 @@ export const preview = {
   readFailed: "Failed to read: {message}",
   imageAlt: "Image preview: {name}",
   htmlTitle: "Web page preview: {name}",
+  snippet: "{lang} snippet",
   resize: "Resize preview",
   pages: "Panel pages",
   pageFiles: "Files",

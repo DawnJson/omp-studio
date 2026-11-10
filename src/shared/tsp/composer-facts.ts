@@ -24,7 +24,7 @@ import type { TaskMode } from "../ipc.ts";
 import { stripIconGlyphs } from "../ui/clean-title.ts";
 import { findFocus, type FocusView } from "./agent-hub.ts";
 import { findComposerCard } from "./composer-state.ts";
-import { nodeRole, plainText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { liveSurfaces, nodeRole, plainText, treeNodes, type DocNode, type TspDocument } from "./document.ts";
 
 const FACT_ROLE = "omp.composer.fact";
 const RATE_ROLE = "omp.composer.rate";
@@ -142,17 +142,6 @@ function segmentName(node: DocNode): string {
   return node.id.slice(node.id.lastIndexOf("/") + 1);
 }
 
-/** `from` 下（含自己）按文档顺序的所有节点。 */
-function* descendants(surface: DocSurface, from: string): Generator<DocNode> {
-  const stack = [from];
-  while (stack.length > 0) {
-    const node = surface.nodes.get(stack.pop()!);
-    if (!node) continue;
-    yield node;
-    for (let index = node.c.length - 1; index >= 0; index -= 1) stack.push(node.c[index]!);
-  }
-}
-
 function targetOf(sf: string, node: DocNode | null): ActionTarget | null {
   const actions = node?.p["actions"];
   if (node === null || typeof actions !== "object" || actions === null) return null;
@@ -169,10 +158,10 @@ function readStatusArea(doc: TspDocument): {
   let interrupted = false;
   let retry: AutoRetryFact | null = null;
   let compaction: CompactionFact | null = null;
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
-    for (const node of descendants(surface, "dock")) {
+  for (const surface of liveSurfaces(doc)) {
+    const sf = surface.id;
+    if (!surface.nodes.has("dock")) continue;
+    for (const node of treeNodes(surface, "dock")) {
       const role = nodeRole(node);
       if (role === RETRY_HINT_ROLE) interrupted = true;
       if (role !== WORKING_ROLE) continue;
@@ -180,7 +169,7 @@ function readStatusArea(doc: TspDocument): {
       let ring: number | null = null;
       let progress = false;
       let stop: DocNode | null = null;
-      for (const child of descendants(surface, node.id)) {
+      for (const child of treeNodes(surface, node.id)) {
         const childRole = nodeRole(child);
         if (childRole === WORKING_LABEL_ROLE) label = plainText(child).trim();
         else if (childRole === WORKING_STOP_ROLE) stop = child;
@@ -205,7 +194,7 @@ export function deriveComposerFacts(doc: TspDocument): ComposerFacts {
   let mode: ComposerMode | null = null;
   let rate: number | null = null;
   const extStatuses: string[] = [];
-  for (const node of descendants(surface, card.id)) {
+  for (const node of treeNodes(surface, card.id)) {
     const role = nodeRole(node);
     if (role === RATE_ROLE) {
       const value = node.p["value"];

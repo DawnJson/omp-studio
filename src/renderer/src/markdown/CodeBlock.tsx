@@ -1,18 +1,20 @@
 // 代码块（spec 4.10）：头部语言名 + 复制；围栏闭合后才高亮（只改颜色）；全文显示（omp 的 md 节点不限行数）。
 // ```svg 和 ```mermaid 围栏闭合后画成图，头部多一个切回源码的按钮。
-// 任务对话区里（CodeQuoteCtx，spec 4.11）复制后面还有"引用到输入框"：围栏闭合后才出现。
+// 任务对话区里（CodeQuoteCtx，spec 4.11）复制后面还有"引用到输入框"：围栏闭合后才出现；
+// html / svg / mermaid / markdown 再多一个"在侧栏预览"（CodePreviewCtx，code-preview.ts）。
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
-import { Code, Quote } from "../icons.tsx";
+import { Code, PanelRight, Quote } from "../icons.tsx";
 import { MorphIcon } from "../ui/MorphIcon.tsx";
 import { CHECK_GLYPH, COPY_GLYPH } from "../ui/morph-glyphs.ts";
+import { previewKind, usePreviewCode } from "./code-preview.ts";
 import { useQuoteCode } from "./code-quote.ts";
 import { onThemeChange } from "../ui/theme-change.ts";
 import { useHighlighted } from "./highlight.ts";
 import { resolveLanguage } from "./highlight-languages.ts";
 import { tokenProps } from "./highlight-tokens.ts";
 import { useMermaid } from "./mermaid.ts";
-import { FIGURE_TOKENS, prepareMermaidSvg, prepareSvg, svgDataUrl } from "./svg-figure.ts";
+import { figurePalette, prepareMermaidSvg, prepareSvg, svgDataUrl } from "./svg-figure.ts";
 
 function lineClass(line: string, isDiff: boolean): string {
   if (!isDiff) return "md-line";
@@ -25,12 +27,19 @@ interface CodeBlockProps {
   code: string;
   lang: string;
   closed: boolean;
+  /**
+   * 图（svg / mermaid）显示图还是源码由外面定（侧栏预览页的 `渲染 / 源码`），头部不再有自己的 <> 按钮；
+   * 缺省时由头部的 <> 切换。
+   */
+  view?: "figure" | "source" | undefined;
 }
 
-export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlockProps) {
+export const CodeBlock = memo(function CodeBlock({ code, lang, closed, view }: CodeBlockProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   const quote = useQuoteCode();
+  const preview = usePreviewCode();
+  const previewAs = preview !== null && closed ? previewKind(lang) : null;
   // ```svg 围栏闭合后画成图（svg-figure.ts）；```mermaid 先在 worker 里画成 SVG（mermaid.ts），画好之前照常显示源码。
   // 头部的 <> 切回源码，画不出来时也退回源码。
   const kind = closed ? lang.toLowerCase() : "";
@@ -43,12 +52,12 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
   const prepare = useCallback(
     (style: CSSStyleDeclaration) =>
       mermaidSvg === null
-        ? prepareSvg(code, readPalette(style))
+        ? prepareSvg(code, figurePalette(style))
         : prepareMermaidSvg(mermaidSvg, { bg: token(style, "--bg-tool"), fg: token(style, "--text") }),
     [code, mermaidSvg],
   );
   const ready = figure && !failed && (kind === "svg" || mermaidSvg !== null);
-  const drawing = ready && !showSource;
+  const drawing = ready && (view === undefined ? !showSource : view === "figure");
   const tokens = useHighlighted(code, closed && !drawing ? lang : null);
   const lines = code.split("\n");
   const isDiff = resolveLanguage(lang) === "diff";
@@ -71,7 +80,7 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
       <div className="md-codehead">
         <span className="md-codelang">{lang === "" ? "text" : lang}</span>
         <span className="md-codeactions">
-          {ready && (
+          {ready && view === undefined && (
             <button
               type="button"
               className="md-codebtn"
@@ -103,6 +112,18 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
               data-testid="codeblock-quote"
             >
               <Quote size={14} />
+            </button>
+          )}
+          {preview !== null && previewAs !== null && (
+            <button
+              type="button"
+              className="md-codebtn"
+              onClick={() => preview(code, previewAs)}
+              aria-label={t("code.preview")}
+              title={t("code.preview")}
+              data-testid="codeblock-preview"
+            >
+              <PanelRight size={14} />
             </button>
           )}
         </span>
@@ -143,11 +164,6 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
 
 function token(style: CSSStyleDeclaration, name: string): string {
   return style.getPropertyValue(name).trim();
-}
-
-/** 当前主题下每个图色名的实际颜色（tokens.css）。 */
-function readPalette(style: CSSStyleDeclaration): Record<string, string> {
-  return Object.fromEntries(Object.entries(FIGURE_TOKENS).map(([name, value]) => [name, token(style, value)]));
 }
 
 /** 图本身：<img> 显示（不执行脚本、不加载外部资源）；切换主题时按新颜色重画。 */
