@@ -311,8 +311,9 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
     const projects = await page.evaluate(() => globalThis.studio.listProjects());
     expect(projects.map((project) => path.resolve(project.path))).toEqual([path.resolve(chats)]);
     await expect(page.getByTestId("task-row")).toHaveCount(1);
-    // 侧栏里这一组叫"默认文件夹"，不露出 chats 这个目录名。
-    await expect(page.getByTestId("sidebar")).toContainText(/默认文件夹|Default folder/);
+    // 侧栏自己切到"对话"（默认文件夹里的任务在那一段），不露出 chats 这个目录名。
+    await expect(page.getByTestId("sidebar-history-by-chats")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByTestId("sidebar-folder")).toHaveCount(0);
     await expect(page.getByTestId("sidebar")).not.toContainText("chats");
     await expect(page.getByTestId("sidebar-new-task")).not.toHaveAttribute("aria-current", "page");
 
@@ -693,7 +694,7 @@ test("空状态、对话里的用量", async () => {
   }
 });
 
-test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史会话合在一个列表里（文件夹 / 时间）；搜索过滤两者", async () => {
+test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史会话合在一个列表里（项目 / 对话）；搜索过滤两者", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
@@ -733,14 +734,13 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
     await history.getByTestId("sidebar-history-more").click();
     await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
-    // 切到按时间：任务和全部会话平铺一列，新到旧（刚跑完的任务在最上面）。
-    await page.getByTestId("sidebar-history-by-time").click();
-    await expect(page.getByTestId("sidebar-history-by-time")).toHaveAttribute("aria-checked", "true");
+    // 切到"对话"：只有默认文件夹里的任务和会话，这里都在项目里，所以是空的。
+    await page.getByTestId("sidebar-history-by-chats").click();
+    await expect(page.getByTestId("sidebar-history-by-chats")).toHaveAttribute("aria-checked", "true");
     await expect(folders).toHaveCount(0);
-    await expect(history.getByTestId("task-row")).toHaveCount(1);
-    await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
-    await expect(history.locator(".sb-row-main").first()).toHaveAttribute("data-nav", /^task:/);
-    await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
+    await expect(history.locator(".sb-row-main")).toHaveCount(0);
+    await page.getByTestId("sidebar-history-by-folder").click();
+    await expect(folders).toHaveCount(2);
     await search.fill("zzz-no-match");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     await expect(sidebar).toContainText(/无匹配|No matches/);

@@ -258,17 +258,15 @@ for (const [locale, colorScheme] of [
       await expect(myApp.getByTestId("sidebar-session")).toHaveCount(1);
       await search.fill("");
 
-      // 按时间：任务和会话平铺成一列，没有文件夹；先显示 40 行，这里一共 11 行，全部露出、没有"显示更多"。
-      await sidebar.getByTestId("sidebar-history-by-time").click();
+      // 对话：默认文件夹里的任务和会话平铺成一列，没有文件夹；这里的默认文件夹不存在，所以是空的。
+      await sidebar.getByTestId("sidebar-history-by-chats").click();
       await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(0);
-      await expect(sidebar.getByTestId("sidebar-session")).toHaveCount(2);
-      await expect(history.locator(".sb-row-main")).toHaveCount(11);
-      await expect(history.getByTestId("sidebar-history-more")).toHaveCount(0);
+      await expect(history.locator(".sb-row-main")).toHaveCount(0);
       await sidebar.getByTestId("sidebar-history-by-folder").click();
       await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(3);
 
-      // 排列切换两段等宽，短的那段（"时间"）文字也在格子正中。
-      const timeTextOffset = await sidebar.getByTestId("sidebar-history-by-time").evaluate((button) => {
+      // 分段两格等宽，短的那段（"对话"）文字也在格子正中。
+      const timeTextOffset = await sidebar.getByTestId("sidebar-history-by-chats").evaluate((button) => {
         const page = globalThis as unknown as {
           document: { createRange(): { selectNodeContents(node: unknown): void; getBoundingClientRect(): PageRect } };
         };

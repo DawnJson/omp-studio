@@ -1,6 +1,6 @@
 // 文件夹分组（spec §4.3）：头部 [名称][箭头] + 任务和历史会话混排的行。头部右侧常驻 +（在这个文件夹新建任务，纯历史文件夹会先把它加成项目）；
 // + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
-// 文件夹的顺序由用户定（spec §4.5）：拖头部换位置（插入线画在落点那个文件夹的上边或下边），焦点在头部时 Alt+↑ / Alt+↓ 上下移一格；默认文件夹不能动。
+// 文件夹的顺序由用户定（spec §4.5）：拖头部换位置（插入线画在落点那个文件夹的上边或下边），焦点在头部时 Alt+↑ / Alt+↓ 上下移一格。
 import { useRef } from "react";
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import { visibleItems, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
@@ -28,8 +28,6 @@ interface FolderGroupProps {
   onShowMore(folder: SidebarFolder): void;
   onNewTask(folder: SidebarFolder): void;
   onOpenProjectMenu(project: Project, x: number, y: number, trigger: HTMLElement): void;
-  /** 能拖动、能 Alt+↑/↓（默认文件夹不能）。 */
-  movable: boolean;
   /** 正在被拖的就是它。 */
   dragging: boolean;
   /** 插入线画在它的上边 / 下边。 */
@@ -88,7 +86,7 @@ export function FolderGroup(props: FolderGroupProps) {
     >
       <div
         className="sb-group-head"
-        draggable={props.movable}
+        draggable
         onDragStart={(event) => {
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/plain", folder.cwd);
@@ -115,14 +113,13 @@ export function FolderGroup(props: FolderGroupProps) {
           tabIndex={props.tabStopId === navId ? 0 : -1}
           aria-expanded={open}
           aria-label={t("sidebar.toggleProject", { project: folder.label })}
-          aria-keyshortcuts={props.movable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
           title={folder.cwd}
           onFocus={() => rows.onFocusItem(navId)}
           onClick={() => props.onToggle(folder, !open)}
           onKeyDown={(event) => {
             if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
               event.preventDefault();
-              if (!props.movable) return;
               props.onMoveBy(event.key === "ArrowUp" ? -1 : 1);
               // React 挪动 DOM 节点会让焦点丢掉：挪完把焦点放回这个头部。
               requestAnimationFrame(() => toggle.current?.focus());

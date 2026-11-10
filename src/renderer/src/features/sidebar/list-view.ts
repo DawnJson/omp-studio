@@ -2,14 +2,14 @@
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { pinnedItem, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
 
-/** 按时间排列时先显示几行。 */
-export const initialByTime = 40;
+/** "对话"和"归档"平铺列表先显示几行。 */
+export const initialFlat = 40;
 /** 按文件夹排列时，一个展开的文件夹先显示几行。 */
 export const initialPerFolder = 5;
 /** "显示更多"每次多露出几行。 */
 export const showMoreStep = 20;
-/** 时间排列的"显示更多"状态键（文件夹用它自己的 key）。 */
-export const timeLimitKey = "\u0000time";
+/** 平铺列表的"显示更多"状态键（文件夹用它自己的 key）。 */
+export const flatLimitKey = "\u0000flat";
 
 export const folderNavId = (folder: SidebarFolder) => `folder:${folder.key}`;
 export const moreNavId = (key: string) => `more:${key}`;

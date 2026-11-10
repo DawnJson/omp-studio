@@ -9,7 +9,7 @@ import {
   adoptNewFolders,
   buildArchived,
   buildFolders,
-  buildTimeline,
+  buildChats,
   dotKind,
   foldForks,
   moveFolder,
@@ -181,7 +181,7 @@ describe("buildSections", () => {
   });
 });
 
-describe("buildFolders / buildTimeline", () => {
+describe("buildFolders / buildChats", () => {
   const past = (id: string, cwd: string, modifiedAt: number, patch: Partial<SessionSummary> = {}): SessionSummary => ({
     id,
     title: id,
@@ -235,10 +235,14 @@ describe("buildFolders / buildTimeline", () => {
     expect(folders[0]?.cwd).toBe("E:/other/lib");
   });
 
-  it("omp 置顶的历史会话排在文件夹和时间线的最前；文件夹本身不因为有置顶行而往前排", () => {
+  it("omp 置顶的历史会话排在文件夹和对话列表的最前；文件夹本身不因为有置顶行而往前排", () => {
     const sessions = [past("old-pinned", "C:\\work\\app", 5, { pinned: true }), past("new", "C:\\work\\app", 60)];
     const tasks = [task("t", "p1", { updatedAt: 50 })];
-    expect(ids(buildTimeline(input({ tasks, sessions })))).toEqual(["session:old-pinned", "session:new", "task:t"]);
+    expect(ids(buildChats(input({ tasks, sessions, defaultCwd: "C:/work/app" })))).toEqual([
+      "session:old-pinned",
+      "session:new",
+      "task:t",
+    ]);
     const chats = project("pc", "C:\\Users\\me\\omp-studio\\chats", "chats");
     const folders = buildFolders(
       input({
@@ -248,11 +252,11 @@ describe("buildFolders / buildTimeline", () => {
         defaultCwd: "C:/Users/me/omp-studio/chats",
       }),
     );
-    expect(folders.map((folder) => folder.label)).toEqual(["chats", "lib", "app", "empty"]);
-    expect(ids(folders[2]!.items)).toEqual(["session:old-pinned", "session:new", "task:t"]);
+    expect(folders.map((folder) => folder.label)).toEqual(["lib", "app", "empty"]);
+    expect(ids(folders[1]!.items)).toEqual(["session:old-pinned", "session:new", "task:t"]);
   });
 
-  it("文件夹按存下的顺序排，最近活动不挪它们；没记下的新文件夹排在默认文件夹后面", () => {
+  it("文件夹按存下的顺序排，最近活动不挪它们；没记下的新文件夹排在最前；默认文件夹不在项目里", () => {
     const chats = project("pc", "C:\\Users\\me\\omp-studio\\chats", "chats");
     const base = input({
       projects: [...projects, chats],
@@ -261,19 +265,13 @@ describe("buildFolders / buildTimeline", () => {
       defaultCwd: "C:/Users/me/omp-studio/chats",
     });
     const folderOrder = ["c:/work/empty", "e:/other/lib", "c:/work/app"];
-    expect(buildFolders({ ...base, folderOrder }).map((f) => f.label)).toEqual([
-      "chats",
-      "fresh",
-      "empty",
-      "lib",
-      "app",
-    ]);
+    expect(buildFolders({ ...base, folderOrder }).map((f) => f.label)).toEqual(["fresh", "empty", "lib", "app"]);
     // app 刚跑完一轮（最新）也不往前挪。
     const busier = { ...base, folderOrder, tasks: [task("t", "p1", { updatedAt: 500 }), task("c", "pc")] };
-    expect(buildFolders(busier).map((f) => f.label)).toEqual(["chats", "fresh", "empty", "lib", "app"]);
+    expect(buildFolders(busier).map((f) => f.label)).toEqual(["fresh", "empty", "lib", "app"]);
   });
 
-  it("新文件夹记进顺序的最前面（默认文件夹不记）；拖动只重排显示着的，藏着的保持原位接在后面", () => {
+  it("新文件夹记进顺序的最前面；拖动只重排显示着的，藏着的保持原位接在后面", () => {
     const chats = project("pc", "C:\\Users\\me\\omp-studio\\chats", "chats");
     const defaultCwd = "C:/Users/me/omp-studio/chats";
     const shown = buildFolders(
@@ -284,35 +282,29 @@ describe("buildFolders / buildTimeline", () => {
         defaultCwd,
       }),
     );
-    expect(shown.map((f) => f.key)).toEqual([
-      "c:/users/me/omp-studio/chats",
-      "d:/fresh",
-      "e:/other/lib",
-      "c:/work/app",
-      "c:/work/empty",
-    ]);
+    expect(shown.map((f) => f.key)).toEqual(["d:/fresh", "e:/other/lib", "c:/work/app", "c:/work/empty"]);
     const stored = ["e:/other/lib", "c:/gone", "c:/work/app", "c:/work/empty"];
-    const adopted = adoptNewFolders(stored, shown, defaultCwd);
+    const adopted = adoptNewFolders(stored, shown);
     expect(adopted).toEqual(["d:/fresh", ...stored]);
-    expect(adoptNewFolders(adopted!, shown, defaultCwd)).toBeNull();
-    // 把 empty 拖到最前（默认文件夹之后）；c:/gone 没显示，接在后面。
-    expect(moveFolder(adopted!, shown, "c:/work/empty", 0, defaultCwd)).toEqual([
+    expect(adoptNewFolders(adopted!, shown)).toBeNull();
+    // 把 empty 拖到最前；c:/gone 没显示，接在后面。
+    expect(moveFolder(adopted!, shown, "c:/work/empty", 0)).toEqual([
       "c:/work/empty",
       "d:/fresh",
       "e:/other/lib",
       "c:/work/app",
       "c:/gone",
     ]);
-    // 默认文件夹拖不动。
-    expect(moveFolder(adopted!, shown, "c:/users/me/omp-studio/chats", 3, defaultCwd)).toEqual(adopted);
   });
 
   it("任务按挂在它上面的会话置顶：排在更新的未置顶任务前面", () => {
     const tasks = [task("old", "p1", { updatedAt: 5 }), task("new", "p1", { updatedAt: 80 })];
     const sessions = [past("s-old", "C:\\work\\app", 5, { taskId: "old" as TaskId, pinned: true })];
-    const timeline = buildTimeline(input({ tasks, sessions: [...sessions, past("lib", "E:/other/lib", 90)] }));
-    expect(ids(timeline)).toEqual(["task:old", "session:lib", "task:new"]);
-    expect(timeline[0]!.pinned).toBe(true);
+    const chats = buildChats(
+      input({ tasks, sessions: [...sessions, past("lib", "E:/other/lib", 90)], defaultCwd: "C:/work/app" }),
+    );
+    expect(ids(chats)).toEqual(["task:old", "task:new"]);
+    expect(chats[0]!.pinned).toBe(true);
     const folders = buildFolders(input({ tasks, sessions: [...sessions, past("lib", "E:/other/lib", 90)] }));
     expect(folders.map((folder) => [folder.label, ids(folder.items)])).toEqual([
       ["lib", ["session:lib"]],
@@ -321,7 +313,7 @@ describe("buildFolders / buildTimeline", () => {
     ]);
   });
 
-  it("默认文件夹永远排第一，不管多久没动；没记下顺序的文件夹按最近活动；搜索时没有匹配行就不显示", () => {
+  it("默认文件夹不在项目里（在对话里）；没记下顺序的文件夹按最近活动；搜索时没有匹配行就不显示", () => {
     const chats = project("pc", "C:\\Users\\me\\omp-studio\\chats", "chats");
     const base = input({
       projects: [project("p1", "C:\\work\\app", "app"), chats],
@@ -329,13 +321,11 @@ describe("buildFolders / buildTimeline", () => {
       sessions: [past("a", "E:/other/lib", 90), past("old", "c:/users/me/omp-studio/chats/", 5, { title: "旧会话" })],
     });
     const withDefault = { ...base, defaultCwd: "C:/Users/me/omp-studio/chats" };
-    expect(buildFolders(withDefault).map((f) => f.label)).toEqual(["chats", "lib", "app"]);
+    expect(buildFolders(withDefault).map((f) => f.label)).toEqual(["lib", "app"]);
     expect(buildFolders(base).map((f) => f.label)).toEqual(["lib", "app", "chats"]);
-    expect(buildFolders({ ...withDefault, query: "旧" }).map((f) => f.label)).toEqual(["chats"]);
+    expect(ids(buildChats({ ...withDefault, query: "旧" }))).toEqual(["session:old"]);
+    expect(buildFolders({ ...withDefault, query: "旧" }).map((f) => f.label)).toEqual([]);
     expect(buildFolders({ ...withDefault, query: "a" }).map((f) => f.label)).toEqual(["lib"]);
-    expect(buildFolders({ ...withDefault, projects: [chats], tasks: [], sessions: [] }).map((f) => f.label)).toEqual([
-      "chats",
-    ]);
   });
 
   it("文件夹重名时标签带上级目录；归档的任务、已挂任务的会话、指向未知项目的任务都不出现", () => {
@@ -353,14 +343,17 @@ describe("buildFolders / buildTimeline", () => {
     ]);
   });
 
-  it("时间排列：任务和会话平铺，按最近活动；一轮刚跑完的任务按结束时间算", () => {
-    const items = buildTimeline(
-      input({
-        tasks: [task("touched", "p1", { updatedAt: 50 }), task("finished", "p1", { updatedAt: 90 })],
-        sessions: [past("s", "E:/x", 60), past("old", "E:/y", 5)],
-      }),
-    );
-    expect(ids(items)).toEqual(["task:finished", "session:s", "task:touched", "session:old"]);
+  it("对话：只列默认文件夹里的任务和会话，平铺、按最近活动（一轮刚跑完的任务按结束时间算）；没有默认文件夹时为空", () => {
+    const base = input({
+      tasks: [task("touched", "p1", { updatedAt: 50 }), task("finished", "p1", { updatedAt: 90 })],
+      sessions: [past("s", "c:/work/APP/", 60), past("old", "E:/y", 5)],
+    });
+    expect(ids(buildChats({ ...base, defaultCwd: "C:\\work\\app" }))).toEqual([
+      "task:finished",
+      "session:s",
+      "task:touched",
+    ]);
+    expect(buildChats(base)).toEqual([]);
   });
 
   it("搜索同时过滤任务和会话（标题里的图标字形不参与匹配），没有匹配行的文件夹（含空项目）不显示", () => {
@@ -371,7 +364,7 @@ describe("buildFolders / buildTimeline", () => {
       ["x", ["session:s1"]],
       ["app", ["task:t1"]],
     ]);
-    expect(ids(buildTimeline(input({ tasks, sessions, query })))).toEqual(["session:s1", "task:t1"]);
+    expect(ids(buildChats(input({ tasks, sessions, query, defaultCwd: "C:/work/app" })))).toEqual(["task:t1"]);
   });
 
   it("标题去掉私用区图标字形；去完为空时会话退回第一条消息", () => {
@@ -388,16 +381,17 @@ describe("buildFolders / buildTimeline", () => {
       sessions: [past("s-app", "c:/work/APP/", 8), past("s-lib", "C:\\work\\lib", 7)],
     });
     expect(buildFolders(base).map((f) => [f.label, ids(f.items)])).toEqual([["lib", ["session:s-lib", "task:t2"]]]);
-    expect(ids(buildTimeline(base))).toEqual(["session:s-lib", "task:t2"]);
+    expect(ids(buildChats({ ...base, defaultCwd: "C:/work/lib" }))).toEqual(["session:s-lib", "task:t2"]);
+    expect(buildChats({ ...base, defaultCwd: "C:/work/app" })).toEqual([]);
   });
 
-  it('归档的会话不在文件夹和时间线里，只在"已归档"里（按最近活动，可搜索）', () => {
+  it('归档的会话不在文件夹和对话里，只在"已归档"里（按最近活动，可搜索）', () => {
     const sessions = [
       past("live", "E:/x", 5),
       past("arch-old", "E:/x", 1, { archived: true, title: "旧的 数据" }),
       past("arch-new", "E:/y", 9, { archived: true, title: "新的" }),
     ];
-    expect(ids(buildTimeline(input({ sessions })))).toEqual(["session:live"]);
+    expect(ids(buildChats(input({ sessions, defaultCwd: "E:/x" })))).toEqual(["session:live"]);
     expect(buildFolders(input({ sessions })).flatMap((f) => ids(f.items))).toEqual(["session:live"]);
     expect(ids(buildArchived({ sessions, query: "" }))).toEqual(["session:arch-new", "session:arch-old"]);
     expect(ids(buildArchived({ sessions, query: "数据" }))).toEqual(["session:arch-old"]);
@@ -422,15 +416,18 @@ describe("buildFolders / buildTimeline", () => {
       ["task:fork-task", 1],
       ["session:orphan", 0],
     ];
-    expect(depths(buildTimeline(input({ tasks, sessions })))).toEqual(expected);
+    const app = "C:/work/app";
+    expect(depths(buildChats(input({ tasks, sessions, defaultCwd: app })))).toEqual(expected);
     expect(depths(buildFolders(input({ tasks, sessions }))[0]!.items)).toEqual(expected);
     // 原会话被搜索过滤掉：分叉回到顶层。
-    expect(depths(buildTimeline(input({ tasks, sessions, query: "fork-a" })))).toEqual([["session:fork-a", 0]]);
+    expect(depths(buildChats(input({ tasks, sessions, query: "fork-a", defaultCwd: app })))).toEqual([
+      ["session:fork-a", 0],
+    ]);
   });
 
   it("父子成环（会话文件被手改过）时每行仍只出现一次，不死循环", () => {
     const sessions = [past("a", "E:/x", 2, { parentId: "b" }), past("b", "E:/x", 1, { parentId: "a" })];
-    expect(ids(buildTimeline(input({ sessions }))).sort()).toEqual(["session:a", "session:b"]);
+    expect(ids(buildChats(input({ sessions, defaultCwd: "E:/x" }))).sort()).toEqual(["session:a", "session:b"]);
   });
 
   it("一直在用的分叉不被旧的原会话拖到后面：整组排在中间那些会话前面", () => {
@@ -439,22 +436,24 @@ describe("buildFolders / buildTimeline", () => {
       ...Array.from({ length: 5 }, (_, i) => past(`mid${i}`, "E:/x", 2 + i)),
       past("fork", "E:/x", 100, { parentId: "old" }),
     ];
-    expect(ids(buildTimeline(input({ sessions }))).slice(0, 3)).toEqual([
+    expect(ids(buildChats(input({ sessions, defaultCwd: "E:/x" }))).slice(0, 3)).toEqual([
       "session:old",
       "session:fork",
       "session:mid4",
     ]);
   });
 
-  it("里面只剩归档会话的项目（归档一条历史会话时目录被加成项目）不列空文件夹；新打开的空项目、默认文件夹照常列", () => {
+  it("里面只剩归档会话的项目（归档一条历史会话时目录被加成项目）不列空文件夹；新打开的空项目照常列", () => {
     const notes = project("pn", "E:\\notes", "notes");
     const sessions = [past("gone", "e:/notes/", 3, { archived: true })];
     expect(buildFolders(input({ projects: [notes, ...projects], sessions })).map((f) => f.label)).toEqual([
       "app",
       "empty",
     ]);
-    expect(buildFolders(input({ projects: [notes], sessions, defaultCwd: "E:/notes" })).map((f) => f.label)).toEqual([
+    expect(buildFolders(input({ projects: [notes, ...projects], sessions: [] })).map((f) => f.label)).toEqual([
       "notes",
+      "app",
+      "empty",
     ]);
   });
 
@@ -468,7 +467,7 @@ describe("buildFolders / buildTimeline", () => {
       past("grand", "C:\\work\\app", 90, { parentId: "fork-a" }),
       past("orphan", "C:\\work\\app", 40),
     ];
-    const items = buildTimeline(input({ tasks, sessions }));
+    const items = buildChats(input({ tasks, sessions, defaultCwd: "C:/work/app" }));
 
     it("每行记着缩进在哪一行下面；默认全部展开，有分叉的行给出全部后代行数", () => {
       expect(items.map((item) => [item.key, item.parent])).toEqual([
@@ -497,7 +496,7 @@ describe("buildFolders / buildTimeline", () => {
     });
 
     it("选中 / 在跑 / 等你确认的分叉和通往它的上级照常显示，同一收起行下面别的分叉照样藏着", () => {
-      const deep = buildTimeline(
+      const deep = buildChats(
         input({
           tasks: [
             task("top", "p1", { updatedAt: 1 }),
@@ -505,11 +504,12 @@ describe("buildFolders / buildTimeline", () => {
             task("leaf", "p1", { updatedAt: 3, status: "running" }),
           ],
           sessions: [
-            past("s-top", "E:/x", 1, { taskId: "top" as TaskId }),
-            past("s-mid", "E:/x", 2, { taskId: "mid" as TaskId, parentId: "s-top" }),
-            past("s-leaf", "E:/x", 3, { taskId: "leaf" as TaskId, parentId: "s-mid" }),
-            past("other", "E:/x", 1, { parentId: "s-top" }),
+            past("s-top", "C:\\work\\app", 1, { taskId: "top" as TaskId }),
+            past("s-mid", "C:\\work\\app", 2, { taskId: "mid" as TaskId, parentId: "s-top" }),
+            past("s-leaf", "C:\\work\\app", 3, { taskId: "leaf" as TaskId, parentId: "s-mid" }),
+            past("other", "C:\\work\\app", 1, { parentId: "s-top" }),
           ],
+          defaultCwd: "C:/work/app",
         }),
       );
       const running = foldForks(deep, new Set(["task:top", "task:mid"]), null);

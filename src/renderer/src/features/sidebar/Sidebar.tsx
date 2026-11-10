@@ -27,11 +27,11 @@ import { HistorySection } from "./HistorySection.tsx";
 import {
   defaultOpen,
   folderNavId,
-  initialByTime,
+  flatLimitKey,
+  initialFlat,
   initialPerFolder,
   moreNavId,
   showMoreStep,
-  timeLimitKey,
 } from "./list-view.ts";
 import { refreshProjects, useProjectsState } from "./projects-store.ts";
 import { addProjectAsDraft, startDraftInFolder } from "./sidebar-actions.ts";
@@ -39,11 +39,10 @@ import { startDraft } from "../empty/index.ts";
 import { isDefaultFolder } from "../empty/default-folder.ts";
 import {
   adoptNewFolders,
-  folderKey,
   buildFolders,
   moveFolder,
   buildArchived,
-  buildTimeline,
+  buildChats,
   nextWaitingTask,
   projectLabels,
   visibleItems,
@@ -111,12 +110,12 @@ export function Sidebar() {
 
   const order = useShellValue("historyOrder");
   const sessions = useHistorySessions(searching, historyKey);
-  // "已归档"不记进外壳状态：重开应用回到平常的列表。最后一条归档的恢复后自己回到平常的列表。
+  // "归档"不记进外壳状态：重开应用回到平常的列表。最后一条归档的恢复后自己回到平常的列表。
   const [showArchived, setShowArchived] = useState(false);
   const hasArchived = useMemo(() => sessions.some((session) => session.archived), [sessions]);
   const mode = showArchived && hasArchived ? "archived" : order;
-  // 任务和会话合成一个列表（搜索同时过滤两者）；默认文件夹（chats 目录）叫"默认文件夹"，不露出目录名。
-  // 文件夹顺序是用户拖出来的（ShellState.folderOrder），任务跑完不挪（spec §4.5）。
+  // 任务和会话合成一个列表（搜索同时过滤两者）。"项目"是除默认文件夹（chats 目录）以外的文件夹，
+  // 顺序是用户拖出来的（ShellState.folderOrder），任务跑完不挪（spec §4.5）；默认文件夹里的在"对话"。
   const folderOrder = useShellValue("folderOrder");
   const shellLoaded = useShellValue("loaded");
   const sessionsLoaded = useHistorySessionsLoaded();
@@ -130,31 +129,51 @@ export function Sidebar() {
         query,
         defaultCwd: chatsDir,
         folderOrder,
-      }).map((folder) => (isDefaultFolder(folder.cwd, chatsDir) ? { ...folder, label: defaultLabel } : folder)),
-    [projectsState.list, tasksState.list, sessions, hidden, query, chatsDir, defaultLabel, folderOrder],
+      }),
+    [projectsState.list, tasksState.list, sessions, hidden, query, chatsDir, folderOrder],
   );
   // 新出现的文件夹（新开的项目、终端里新目录的会话）一出现就记进顺序的最前面，之后不再因为活动挪动。
   // 等项目、任务、历史会话、外壳状态都读回来再记：否则还没读到的目录会被当成新的，存盘的顺序也会被默认值盖掉。
   const ready = shellLoaded && projectsState.loaded && tasksState.loaded && sessionsLoaded && chatsDir !== null;
   useEffect(() => {
     if (!ready || searching) return;
-    const next = adoptNewFolders(folderOrder, folders, chatsDir);
+    const next = adoptNewFolders(folderOrder, folders);
     if (next !== null) setFolderOrder(next);
-  }, [ready, searching, folderOrder, folders, chatsDir]);
+  }, [ready, searching, folderOrder, folders]);
   const onMoveFolder = useCallback(
-    (folder: SidebarFolder, to: number) => setFolderOrder(moveFolder(folderOrder, folders, folder.key, to, chatsDir)),
-    [folderOrder, folders, chatsDir],
+    (folder: SidebarFolder, to: number) => setFolderOrder(moveFolder(folderOrder, folders, folder.key, to)),
+    [folderOrder, folders],
   );
-  const timeline = useMemo(
+  const chats = useMemo(
     () =>
-      order === "time"
-        ? buildTimeline({ projects: projectsState.list, tasks: tasksState.list, sessions, hidden, query })
-        : [],
-    [order, projectsState.list, tasksState.list, sessions, hidden, query],
+      buildChats({
+        projects: projectsState.list,
+        tasks: tasksState.list,
+        sessions,
+        hidden,
+        query,
+        defaultCwd: chatsDir,
+      }),
+    [projectsState.list, tasksState.list, sessions, hidden, query, chatsDir],
   );
   const archived = useMemo(() => buildArchived({ sessions, query }), [sessions, query]);
-  // 平铺的列表：按时间排列，或"已归档"。
-  const flat = mode === "archived" ? archived : timeline;
+  // 平铺的列表："对话"，或"归档"。
+  const flat = mode === "archived" ? archived : chats;
+  // 选中的任务换了、而它在另一段（比如在"项目"里点了新任务、在默认文件夹里发出第一条）：切到它所在的那一段，免得刚建的任务看不见。
+  // 只在选中项变化时看一次，之后用户自己切走不拉回来。
+  const selectedSegment = useMemo(() => {
+    const task = tasksState.list.find((candidate) => candidate.id === selectedTaskId);
+    const project = task && projectsState.list.find((candidate) => candidate.id === task.projectId);
+    if (project === undefined || chatsDir === null) return null;
+    return isDefaultFolder(project.path, chatsDir) ? "chats" : "folder";
+  }, [tasksState.list, projectsState.list, selectedTaskId, chatsDir]);
+  const followedTask = useRef<TaskState["id"] | null>(null);
+  useEffect(() => {
+    if (selectedSegment === null || followedTask.current === selectedTaskId) return;
+    followedTask.current = selectedTaskId;
+    setShowArchived(false);
+    if (selectedSegment !== order) setHistoryOrder(selectedSegment);
+  }, [selectedSegment, selectedTaskId, order]);
   const waiting = useMemo(
     () => waitingTasks(tasksState.list, projectsState.list, hidden),
     [projectsState.list, tasksState.list, hidden],
@@ -238,11 +257,11 @@ export function Sidebar() {
     if (mode !== "folder") {
       const { shown, remaining } = visibleItems(
         flat,
-        searching ? Infinity : (limits[timeLimitKey] ?? initialByTime),
+        searching ? Infinity : (limits[flatLimitKey] ?? initialFlat),
         selectedTaskId,
         foldedForks,
       );
-      return [...shown.map((item) => item.key), ...(remaining > 0 ? [moreNavId(timeLimitKey)] : [])];
+      return [...shown.map((item) => item.key), ...(remaining > 0 ? [moreNavId(flatLimitKey)] : [])];
     }
     return folders.flatMap((folder) => {
       if (!isOpen(folder)) return [folderNavId(folder)];
@@ -398,6 +417,7 @@ export function Sidebar() {
             folders={folders}
             flat={flat}
             hasArchived={hasArchived}
+            empty={folders.length === 0 && chats.length === 0 && !hasArchived}
             searching={searching}
             isOpen={isOpen}
             limits={limits}
@@ -410,12 +430,11 @@ export function Sidebar() {
             onShowMore={(key) =>
               setLimits((current) => ({
                 ...current,
-                [key]: (current[key] ?? (key === timeLimitKey ? initialByTime : initialPerFolder)) + showMoreStep,
+                [key]: (current[key] ?? (key === flatLimitKey ? initialFlat : initialPerFolder)) + showMoreStep,
               }))
             }
             onNewTask={(folder) => void startDraftInFolder(folder, t)}
             onOpenProjectMenu={openProjectMenu}
-            fixedFolderKey={chatsDir === null ? null : folderKey(chatsDir)}
             onMoveFolder={onMoveFolder}
           />
           {searching && (mode === "folder" ? folders.length === 0 : flat.length === 0) && (

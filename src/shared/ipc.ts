@@ -1038,7 +1038,7 @@ export interface ShellState {
   sidebarCollapsed: boolean;
   /** 终端面板高度（px），120–4000；实际上限（主区 70%）由界面夹取。 */
   terminalHeight: number;
-  /** 侧栏历史会话的排列：按文件夹（cwd）分组，或全部按时间。默认按文件夹。 */
+  /** 侧栏列表的分段：项目（按项目分组，默认）或对话（默认文件夹里的任务和会话）。旧版存的 "time" 读回来按默认处理。 */
   historyOrder: HistoryOrder;
   /** 对话列宽度：占主区面板宽度的百分比（40–100，最多两位小数）；null = 默认 80。实际宽度仍夹在 840–1200 和主区 − 2×留白之间。 */
   conversationWidth: number | null;
@@ -1046,8 +1046,8 @@ export interface ShellState {
   folderOrder: string[];
 }
 
-export type HistoryOrder = "folder" | "time";
-export const historyOrders: readonly HistoryOrder[] = ["folder", "time"];
+export type HistoryOrder = "folder" | "chats";
+export const historyOrders: readonly HistoryOrder[] = ["folder", "chats"];
 
 /** 输入框右键菜单的编辑命令（editField），名字和 webContents 的方法一致。 */
 export const editCommands = ["undo", "cut", "copy", "paste", "selectAll"] as const;

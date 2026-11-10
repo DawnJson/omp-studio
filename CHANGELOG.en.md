@@ -10,9 +10,14 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- A table in an answer with a long file name or path no longer squeezes the other columns to one word per line and cuts them off on the right: file names now wrap at _, / and `.`.
+
 ### Changed
 
-- You now decide the order of sidebar folders: drag a folder to move it (or press Alt+↑ / Alt+↓ on its header), and a finished task no longer moves its folder to the top; new folders appear right below the default folder.
+- You now decide the order of sidebar folders: drag a folder to move it (or press Alt+↑ / Alt+↓ on its header), and a finished task no longer moves its folder to the top; new folders appear at the top.
+- The sidebar list is split into "Projects | Chats | Archive": Projects holds your folders, Chats holds tasks that don't belong to a project (where new tasks start), and Archive holds archived sessions; the old "Time" view is gone. Selecting a task in the other view switches the sidebar to it.
 
 ## [0.7.3] - 2026-11-10
 
