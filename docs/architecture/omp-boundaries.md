@@ -15,7 +15,7 @@ omp-studio 和终端版 omp、别人装的 omp 共用一台机器和一份 `~/.o
 - **自动写入只有两处**，都是未设置时经 `omp config set` 写一次、用户设过就不碰：
   - `goal.continuationModes` 加上 `rpc`（`omp-config/goal-default.ts`）；
   - `startup.setupWizard` 设为 `false`，免得 omp 的首次运行引导占满第一个 TSP 任务（`omp-config/setup-wizard-default.ts`，仓库所有者 2026-10-21 批准）。
-- **omp 已经算好的值直接用 RPC 给的**（模型的智能分 `int`、速度 `tps` 等，`get_available_models`），不自己读 omp 的库重算：omp 查库前会按 provider 的各种写法归一，studio 原样查时中转站和改过写法的 provider 大多查不到（2026-10-22，`model-insights.ts` 去掉 `models.db` 读取）。
+- **omp 已经算好的值直接用 RPC 给的**（模型的智能分 `int`、速度 `tps` 等，`get_available_models`），不自己读 omp 的库重算：omp 查库前会按 provider 的各种写法归一，studio 原样查时中转站和改过写法的 provider 大多查不到。
 - 让 omp 多出一种能力（provider、模型）时，先确认终端版 omp 和 `omp commit` 这类子命令也看得到；做法见 [client-accounts.md](client-accounts.md)「0. 结论」。
 
 ## 自己写 omp 配置的例外（只有这五处）
@@ -32,9 +32,9 @@ omp-studio 和终端版 omp、别人装的 omp 共用一台机器和一份 `~/.o
 
 ## 协议
 
-- **协议类型不手写**：`npm run omp:update-wire -- <omp 版本>` 从官方 tag 拷贝 RPC 和 TSP 的类型，不装 `@oh-my-pi/pi-coding-agent` npm 包（oxlint 拦这个 import）。生成类型：`src/shared/omp-wire/rpc-wire.generated.ts`、`src/shared/tsp/tsp.generated.ts`（连同它引用的 `shell-viz.generated.ts`、`shell-trace.generated.ts`），当前对应 omp 18.18.5。换了 TSP 类型要看 `tsp-session.ts` 的 `UNSUPPORTED_KINDS`：新种类默认进 hello 的 `kinds`，omp 就会改发它，没写组件前要排除（18.18.5 新增的 `button`、`shell` 都排除了）。
+- **协议类型不手写**：`npm run omp:update-wire -- <omp 版本>` 从官方 tag 拷贝 RPC 和 TSP 的类型，不装 `@oh-my-pi/pi-coding-agent` npm 包（oxlint 拦这个 import）。生成类型：`src/shared/omp-wire/rpc-wire.generated.ts`、`src/shared/tsp/tsp.generated.ts`（连同它引用的 `shell-viz.generated.ts`、`shell-trace.generated.ts`），当前对应 omp 18.18.5。换了 TSP 类型要看 `tsp-session.ts` 的 `UNSUPPORTED_KINDS`：新种类默认进 hello 的 `kinds`，omp 就会改发它，没写组件前要排除。
 - 不用 wire schema / TSP 规范里没有的命令、事件或 role；要用先问仓库所有者。
-- **任务只有一种引擎：TSP**（伪终端里的交互式 omp）。经典 rpc 任务引擎已在 0.3.26 删除（仓库所有者 2026-10-21 批准），见 [tsp-migration.md](tsp-migration.md) §11。
+- **任务只有一种引擎：TSP**（伪终端里的交互式 omp），不做经典 rpc 任务引擎（仓库所有者 2026-10-21 批准），见 [tsp-migration.md](tsp-migration.md) §11。
 - **rpc-ui 后台进程**（`serviceOmp`、`service/project-omp.ts`；登录、模型列表、斜杠命令列表、内置命令，不跑任务对话）：启动参数用 `--mode rpc-ui`（`--rpc` 会退回 TUI、往 stdout 输出 ANSI）；先 `negotiate_protocol` 协商 v2，处理 `rpc_chunk` 分块，不假设一行就是一个完整事件。见 [omp-rpc.md](omp-rpc.md)。
 - **TSP 任务**：用 node-pty 自带的 ConPTY（`useConptyDll: true`），系统 ConPTY 会吞掉 APC。节点 `role`（如 `omp.editor.ask*`）不是公开契约，按 role 判断的逻辑集中在 `src/shared/tsp/` 的纯函数里，用录制的帧测。
 - 给 omp 的命令统一加参数前，对每个会走到的子命令真跑一次：各子命令有自己的 flag 表（`-e` 的教训见 [client-accounts.md](client-accounts.md)「加载」）。

@@ -20,21 +20,23 @@
 
 ## 界面
 
-- 导航只有一列（3.2 起占侧栏的位置：进设置时 App.tsx 在侧栏位置渲染 `SettingsNav`，顶上 `‹ 返回任务 Esc`、搜索全部设置、9 节；窗口窄到侧栏变抽屉、或侧栏被收起时，导航改成内容顶上的一个节下拉 + 搜索框 `SettingsCompactNav`；当前节和搜索词在 `ui-store` 的 `settingsPage` / `settingsQuery`，内容从 x≈281 开始、最宽 880 左对齐），不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型角色（`models`，2026-10-24 由"模型"改名，照 omp 的 model roles）、Provider 与订阅、集成与插件（`extensions`，2026-10-23 由原来的集成、插件两节合并，旧节名不留别名；2026-10-24 起排在 Provider 与订阅后面）、工具与权限、Context 与记忆、Subagent 与规划、高级、关于，9 节固定（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定，原来按 omp 分组自动出节，共 13 节）。**各节只放常用项**——有人话标签的键（`ompcfg` 字典里有 `<key>.label` 的，`config-meta.ts` 的 `commonItems`，按字典顺序），和管理卡片同页：模型 = 默认模型 / 思考强度 + "模型与 reasoning"组的常用项（`defaultThinkingLevel` 上面已有控件，不再重复一行，`useCommonConfigItems` 的 `omit`）；通用的"任务运行中"卡 = studio 的 Enter 行为 + "对话行为"组的常用项；工具与权限、Context 与记忆、Subagent 与规划 = 各自组的常用项。**其余全部在"高级"**（`AdvancedConfig`）：每个 omp-studio 分组一个小标题，组内按 key 第一段折叠成小组（`prefixGroups`，只有一项的前缀并进末尾的"其他"），默认收起；常用项不在高级里重复。搜索覆盖全部可见项。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
-- 每项是一个 `ui/Row`（最小 40 高，标签列 200，控件一律 sm 28）：标签 + ⓘ（描述、key、"omp 原文"标记都在悬停/聚焦/点击出现的说明里，紧贴标签文字），控件后面是保存反馈、被覆盖的徽标；改过的值（和 omp 默认不同）左侧一道强调色竖线 + 控件后一个"恢复默认"图标（悬停提示写出默认值）。搜索命中的是描述时，才在控件下面显示那一句。保存或校验出错时才多一行。没有人话标签的项显示 key（等宽、不截断）。
-- 控件（`ConfigControls.tsx`，两种语言一致、只看个数不看宽度）：boolean → 开关；enum ≤4 个值 → 分段，更多 → 下拉（有人话标签的常用项显示翻译后的取值，其余原样显示 omp 的取值并用等宽字）；number → 112 宽数字框，单位从 key 末段后缀推（`Ms` → ms、`Seconds` → 秒 / s、`Percent` → %），标签里不再写单位；omp 说明里写了 -1 / 0 含义的四个键（`compaction.thresholdPercent`、`compaction.thresholdTokens`、`task.maxRuntimeMs`、`retry.maxDelayMs`，`config-meta.ts` 的 `numberSpecials`）在框里显示成占位文字（`ompcfg` 的 `<key>.special`），清空输入 = 存回特殊值，没有说明的键照原值；string → 文本框；字符串数组 → 标签输入（`TagInput.tsx`，增删立即存）；对象和其余 JSON → "编辑…"按钮 + 等宽摘要，点开 `ui/Dialog` 里编辑并校验（解析失败、类型不对就地报错、不能保存）。文本和数字停手 700 ms、失焦或 Enter 保存；开关、选择、标签增删立即保存。
-- **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`，`ompcfg` 里有标签和说明，所以也在“常用”里）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。
-- **`startup.setupWizard` 启动时默认关掉**：空 agent 目录里 omp 的 5 步首次运行引导会占满第一个 TSP 任务（`tsp-real-omp-probes.md` §1）。omp-studio 启动时若 config.yml 里没有这个键（嵌套或平铺都算；读不了、解析不了按设过处理），就经 `omp config set startup.setupWizard false` 设一次并发 `ompConfigChanged`（`omp-config/setup-wizard-default.ts`，`test/setup-wizard-default.test.ts`；仓库所有者 2026-10-21 批准）。设过的（包括明确设成 true）不碰，设置页照常能改。和 goal 的默认依次执行，TSP 任务的 omp 进程启动前等它们（`omp-config/startup-defaults.ts`）。
-- 常用项（模型角色、思考、审批/工具、上下文压缩、记忆、子代理 task、retry）有人话标签和中英文说明，在 i18n 的 `ompcfg` 命名空间（`<key>.label` / `<key>.desc`），排在每个 tab 的"常用"组最前面；其余项显示 key 和 omp 原文。tab 名也在 `ompcfg`（`tab.<名>`）。
-- 高级（`ConfigSection.tsx` 的 `AdvancedConfig`）：页内左侧目录 = 8 个分组 + 当前分组下的前缀小组（带个数），右侧是选中分组的行，全部平铺、没有折叠；前缀做小标题（`服务商 providers.*  20 项 · 1 项改过`），行里的 key 去掉前缀；选中的分组记在模块里。搜索在导航顶上，覆盖全部设置。
+界面规格（节、行、控件、高级、搜索、格子排法）见 spec §4.19；这里只记和数据有关的约定。
 
-## 打磨（第三轮）
+- 分节和"不分 omp-studio 的 / omp 的"是仓库所有者定的（2026-10-19、2026-10-22），见 spec §4.19。**各节只放常用项**——有人话标签的键（`ompcfg` 字典里有 `<key>.label` 的，`config-meta.ts` 的 `commonItems`，按字典顺序）；已有专门控件的键不再重复一行（`useCommonConfigItems` 的 `omit`，如 `defaultThinkingLevel`）。**其余全部在"高级"**（`AdvancedConfig`），常用项不在高级里重复。
+- 分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。终端专用、隐藏的项（见下节）搜索也不找。
+- 主进程自己改了设置（启动时 `goal.continuationModes`、`startup.setupWizard` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。
+- 常用项的人话标签和中英文说明在 i18n 的 `ompcfg` 命名空间（`<key>.label` / `<key>.desc`）；其余项显示 key 和 omp 原文。number 的特殊值（如 -1 / 0）的占位文字在 `ompcfg` 的 `<key>.special`，键列表是 `config-meta.ts` 的 `numberSpecials`。
+- **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。
+- **`startup.setupWizard` 启动时默认关掉**：空 agent 目录里 omp 的 5 步首次运行引导会占满第一个 TSP 任务（`tsp-real-omp-probes.md` §1）。omp-studio 启动时若 config.yml 里没有这个键（嵌套或平铺都算；读不了、解析不了按设过处理），就经 `omp config set startup.setupWizard false` 设一次并发 `ompConfigChanged`（`omp-config/setup-wizard-default.ts`，`test/setup-wizard-default.test.ts`；仓库所有者批准，2026-10-21）。设过的（包括明确设成 true）不碰，设置页照常能改。和 goal 的默认依次执行，TSP 任务的 omp 进程启动前等它们（`omp-config/startup-defaults.ts`）。
 
-- 下拉用 `ui/Select`（portal + fixed 定位、↑↓/Home/End/Enter/空格/Esc、首字母跳转、当前项 ✓、Esc 只关弹层）；旧的 `settings/Dropdown.tsx`、`InfoTip.tsx`、`controls.tsx` 已被 `ui/` 取代。
-- 导航顶上有"返回任务"（Esc 也回去，Ctrl+F 聚焦搜索）；滚动用共用的 `OverlayScrollbar`；页头右侧有一个槽（`PageHeadActions.tsx`），各节用它放范围下拉、"连接提供商…"这类 sm 控件。
-- `modelRoles`、`retry.fallbackChains` 用结构化编辑（`StructuredEditors.tsx`），行上同样是"编辑…"按钮 + 摘要（角色名 / 每条回退链的 key，如 `anthropic/*`；2026-11-06 前只写条数），对话框里：角色一行一个、模型用下拉选（候选按角色或备用链 key 能用的模型类别筛，和设置 → 模型的角色表同一份，见 `login.md`「角色和备用模型的候选」；列表里没有的值原样保留）、回退链可增删和上下移、每项可选思考强度（见 `login.md`「备用模型」），每次改动立即保存；值的形状不符时退回 JSON 对话框。
-- `getDefaultModel()` / `defaultModel` 事件：服务进程 `get_state` 读新任务实际会用的模型和思考强度；改了 modelRoles、defaultThinkingLevel 等之后约 0.7 秒重读并推事件（`src/main/service/default-model.ts`）。
-- **角色值的格式与"选了模型前缀消失"（2026-10-23 实测，omp 18.x，临时 `PI_CODING_AGENT_DIR`）**：`omp config set modelRoles '{"default":"anthropic/claude-opus-5-5:xhigh","smol":"anthropic/claude-haiku-4-5"}'` 之后 `omp config get modelRoles` 和 config.yml 原样是 `provider/model-id[:档位]`。原先的现象有两个独立原因：①显示——值能在模型目录里匹配上（`provider/id`）时下拉触发器显示模型显示名（`Claude Opus 5.5`，没有 provider），匹配不上（带 `:xhigh` 后缀，选择器不等于目录项）时退回原文；②**写入真的丢档位**——`writeModelRole` 原来一律写 `provider/modelId`，在设置里给已有 `:xhigh` 的角色换模型会把后缀丢掉（provider 前缀没丢）。现在 `setModelRole(role, model, thinking)` 带档位写（`omp-config/model-defaults.ts`，`test/model-defaults.test.ts`），拆 / 拼在 `shared/ui/role-value.ts`（`test/role-value.test.ts`）；设置 → 模型的角色格里主模型下拉始终显示 `provider/模型 id`，档位是同格里单独一个下拉（见 spec §4.19）。模型选择对话框里给角色"应用"仍只写模型、不带档位。
+## 结构化编辑与模型角色
+
+- `modelRoles`、`retry.fallbackChains` 用结构化编辑（`StructuredEditors.tsx`）：候选按角色或备用链 key 能用的模型类别筛，和模型角色页同一份（`login.md`「角色和备用模型的候选」）；列表里没有的值原样保留；每项可选思考强度（`login.md`「备用模型」）；值的形状不符时退回 JSON 对话框。
+- `getDefaultModel()` / `defaultModel` 事件：服务进程 `get_state` 读新任务实际会用的模型和思考强度；改了 modelRoles、defaultThinkingLevel 等之后稍等重读并推事件（`src/main/service/default-model.ts`）。
+- **角色值的格式**（2026-10-23 实测，omp 18.x，临时 `PI_CODING_AGENT_DIR`）：`omp config set modelRoles '{"default":"anthropic/claude-opus-5-5:xhigh","smol":"anthropic/claude-haiku-4-5"}'` 之后 `omp config get modelRoles` 和 config.yml 原样是 `provider/model-id[:档位]`。坑：
+  - 写入必须带档位：只写 `provider/modelId` 会在给已有 `:xhigh` 的角色换模型时把后缀丢掉。`setModelRole(role, model, thinking)` 带档位写（`omp-config/model-defaults.ts`，`test/model-defaults.test.ts`），拆 / 拼在 `shared/ui/role-value.ts`（`test/role-value.test.ts`）。
+  - 显示：带 `:xhigh` 后缀的值不等于模型目录项，按目录匹配显示名会退回原文；所以主模型下拉一律显示 `provider/模型 id`，档位是同格里单独一个下拉（spec §4.19）。
+  - 模型选择对话框里给角色"应用"只写模型、不带档位。
 
 ## rpc-ui 下的逐项核对（2026-10-18，omp 18.12.1，555 项）
 
@@ -55,7 +57,6 @@
 | `composer.*` | TUI 输入框的形状、token 速率、被清空草稿的回溯、"预测下一条"灰字；omp-studio 有自己的输入框 |
 | `input.*`、`doubleEscapeAction`、`treeFilterMode`、`autocompleteMaxVisible`、`spelling.*`、`emojiAutocomplete`、`paste.*` | TUI 编辑器的键位和自动补全 |
 | `startup.*`、`update.channel`、`marketplace.autoUpdate`、`setupVersion`、`autoResume` | 交互式启动时的闪屏、更新检查、引导；rpc-ui 由 omp-studio 自己管会话和更新（`autoResume` 是"续上当前目录最近会话"，omp-studio 总是显式打开会话） |
-| ~~`completion.notify`、`error.notify`、`ask.notify`、`recap.*`~~、~~`hideThinkingBlock`、`expandThinkingBlocks`~~ | **2026-10-23 起不再隐藏**：TSP 下实测起作用 / studio 的通知读它们，见下面「TSP 下的逐项核对」 |
 | `title.icons`、`task.showResolvedModelBadge`、`goal.statusInFooter`、`git.enabled` | TUI 标题图标、子代理徽标、页脚、git 状态栏 |
 
 "未能确认、保留显示"：`power.sleepPrevention`、`loop.*`、`magicKeywords.*`、`stt.*`、`speech.*`、`tts.*`、`live.*`、`collab.*`、`share.*`、`stream.*`。差分实测无变化，但描述不是纯终端界面，可能在 rpc-ui 的某些命令（`live_start`、`/share` 等）里起作用，没有逐个实测，按"认不出的不隐藏"保留。
@@ -83,7 +84,7 @@
 |---|---|---|
 | `hideThinkingBlock`、`expandThinkingBlocks` | 模型与 reasoning（模型页“思考块”小块） | **实测，TSP 下起作用**（`STUDIO_TEST_MODEL` 那个便宜模型，`--thinking high`，同一句 prompt，三次运行：默认 / `hideThinkingBlock=true` / `expandThinkingBlocks=true`）。默认：思考块 `omp.thinking.live` 以 `collapsed:false` 出现，思考结束时 `set q.k0 {role:"omp.thinking", collapsed:true, took}`、头部换成 `Thought for 1s`。`expandThinkingBlocks=true`：结束时 **不再** 发 `collapsed:true`，块保持展开（`took` 照发）。`hideThinkingBlock=true`：思考中的块一出现就是 `collapsed:true`（正文仍在流），思考一结束整个块 `del q.k0`（对话里不留）。omp 的 `assistant-message` 组件按这两个设置取舍同一棵节点树，studio 的折叠状态跟着节点的 `collapsed` 走，所以两项都直接生效，studio 不用另做 |
 | `recap.enabled`、`recap.idleSeconds` | 对话行为 | omp 空闲一段时间后发 `omp.recap` 节点（studio 的 `RecapRow` 渲染，只显示最新一条）；关掉就不再发、也不再写 `history.db` 的 `session_recaps`（恢复会话时补的回顾同样没有）。设置决定 omp 发不发这个节点，所以放出来。没有逐项录制对比，依据是 omp 源码 `interactive-mode` 里的回顾定时器和 studio 已有的 `omp.recap` 处理 [推测，未单独实测关掉后的帧] |
-| `ask.notify`、`completion.notify`、`error.notify` | 对话行为（通用页“通知与回顾”一节） | **studio 的系统通知直接读这三项**（见下），不再有 studio 自己的开关。取值 `on` \| `off`，默认 ask 开、completion 开、error 关（`omp config list` 实测） |
+| `ask.notify`、`completion.notify`、`error.notify` | 对话行为（通用页“通知与回顾”一节） | **studio 的系统通知直接读这三项**（见下），studio 没有自己的开关。取值 `on` \| `off`，默认 ask 开、completion 开、error 关（`omp config list` 实测） |
 
 ### 仍然隐藏的，以及核对结果
 
@@ -95,15 +96,15 @@
 
 `GateNotifier`（`src/main/tasks/gate-notifier.ts`）每次要发通知前问 `notifyEnabled(task, kind)`：主进程在任务所在项目目录里跑 `omp config list --json`（和审批模式、模型默认值同一条通道，项目的 `.omp/config.yml` 盖过全局），取对应的 `ask.notify` / `completion.notify` / `error.notify`，`on` 才发（`omp-config/notify-settings.ts`，`test/notify-settings.test.ts`、`test/task-gate-notifier.test.ts`）：
 
-| 场景 | 看哪一项 | 其余条件（不变） |
+| 场景 | 看哪一项 | 其余条件 |
 |---|---|---|
 | 任务进入 `needs_you`（提问、审批） | `ask.notify` | 窗口没有焦点 |
 | 一轮正常跑完 | `completion.notify` | 窗口看不见（托盘 / 最小化） |
 | 任务出错 | `error.notify` | 窗口看不见 |
 
-- **去掉了 studio 自己的 `notifyOnGate` 开关**（设置 → 通用里的“有任务在等你时通知我”）：它和 omp 的三项管同一件事，只留 omp 的。要关通知，在通用页“通知与回顾”里改 omp 的那三项（终端版 omp 共用）。“任务完成时响提示音”（`soundOnDone`）是另一件事（声音，不是系统通知），仍是 studio 自己的设置：窗口在托盘、且 `completion.notify` 开着时发了通知就不再另响；`completion.notify` 关着时照样按它响。
-- **没有迁移**（仓库所有者 2026-10-23 定）：[omp-boundaries.md](omp-boundaries.md) 只批准了两处自动写 omp 配置，studio 不为这个开关新增第三处。旧开关已删，`settings.json` 里残留的 `notifyOnGate` 由 `sanitize` 丢掉；以前关过它的用户需要在“通知与回顾”里自己把 omp 的三项关掉，否则会按 omp 的默认值收到通知。
-- 行为变化：`error.notify` 默认是 `off`，所以不改设置的话，窗口在托盘时任务出错不再有系统通知（以前有）；要保留就在设置里把“任务出错时通知”打开。
+- **studio 没有自己的系统通知开关**：和 omp 的三项管同一件事，只留 omp 的；要关通知，在通用页“通知与回顾”里改 omp 的那三项（终端版 omp 共用）。“任务完成时响提示音”（`soundOnDone`）是另一件事（声音，不是系统通知），是 studio 自己的设置：窗口在托盘、且 `completion.notify` 开着时发了通知就不再另响；`completion.notify` 关着时照样按它响。
+- **旧的 `notifyOnGate` 不迁移**（仓库所有者定，2026-10-23）：[omp-boundaries.md](omp-boundaries.md) 只批准了两处自动写 omp 配置，不为它新增第三处；`settings.json` 里残留的 `notifyOnGate` 由 `sanitize` 丢掉。
+- `error.notify` 的 omp 默认是 `off`：不改设置时，窗口在托盘时任务出错没有系统通知；要就把“任务出错时通知”打开。
 - `ask.notify` 在 omp 里的说明是 “Notify when the ask tool is waiting for input”；studio 的“等你处理”包括审批门（`needs_you` 状态），这里把审批也算在 `ask.notify` 下 [推测：omp 对审批门用不用同一项没有从源码里确认，omp 打包的 JS 里读这个键的位置没提取到]。
 
 ### omp 快捷键（转发给 omp 的键）
@@ -124,7 +125,7 @@
 
 ## 集成卡片：MCP、SSH、可用工具、记忆、更新日志（S5，omp 18.12.5 实测）
 
-斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页对应节里的卡片（集成与插件 = MCP + SSH + 插件与市场，工具与权限 = 可用工具，Context 与记忆 = 记忆，关于 = 更新日志里 omp 那一项，只取最新一节；spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,Changelog,ScopePicker}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
+斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页对应节里的卡片（集成与插件 = MCP + SSH + 插件与市场，工具与权限 = 可用工具，Context 与记忆 = 记忆，关于 = 更新日志里 omp 那一项，只取最新一节；spec §4.19「管理列表」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,Changelog,ScopePicker}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
 
 ### `/mcp`（rpc-ui 的 `command_output`，全部 `agentInvoked:false`，不调模型）
 
@@ -182,9 +183,9 @@ omp 只有 `/mcp add|remove|enable|disable|test|list|reload…`，没有修改�
 
 ### `/changelog`
 
-整段 markdown：`## [18.12.3] - 2026-10-19` + `### Added` 等。`splitChangelog` 按 `## ` 拆版本（代码块里的不算），界面按节折叠、只展开最新一节，渲染用对话流的 `Markdown`（markdown-it）。输出很长，所以点开才读。
+整段 markdown：`## [18.12.3] - 2026-10-19` + `### Added` 等。`splitChangelog` 按 `## ` 拆版本（代码块里的不算），界面只显示最新一节（`Changelog.tsx`），渲染用对话流的 `Markdown`（markdown-it）。输出很长，所以点开才读。
 
-**顺序和范围（2026-10-21 实测，`omp --version` = 18.12.5，PATH 上的 Tern 管理的 `omp.exe`；服务进程用的就是它）：** omp 的 `/changelog` 按**时间正序**输出，而且只有最近几版：`rpc-ui` 里发 `/changelog` 得到 `## [18.12.3] - 2026-10-19`、`18.12.4`、`18.12.5` 三节，最新的在**最后**（18.12.5 的二进制里内嵌的更新日志也含 18.12.0–18.12.5 各节，所以不是 studio 读了旧来源，也不是 omp 没带上新版本）。早先界面按原顺序列、只展开第一节，于是最上面是 18.12.3 而不是已装的 18.12.5。现在 `splitChangelog` 按版本号从新到旧排（`Unreleased` 之类非数字版本排最前，版本比较用 `shared/omp-version.ts` 的 `compareVersions`，和主进程共用），最新的一节在最上面并默认展开。来源仍是服务进程里 omp 的 `/changelog`，studio 不自己读任何更新日志文件（"最近更新"用的是随包的 `CHANGELOG.md`，是 studio 自己的）。
+**顺序和范围（2026-10-21 实测，`omp --version` = 18.12.5，PATH 上的 Tern 管理的 `omp.exe`；服务进程用的就是它）：** omp 的 `/changelog` 按**时间正序**输出，而且只有最近几版：`rpc-ui` 里发 `/changelog` 得到 `## [18.12.3] - 2026-10-19`、`18.12.4`、`18.12.5` 三节，最新的在**最后**（18.12.5 的二进制里内嵌的更新日志也含 18.12.0–18.12.5 各节，所以不是 studio 读了旧来源，也不是 omp 没带上新版本）。所以不能按原顺序取第一节：`splitChangelog` 按版本号从新到旧排（`Unreleased` 之类非数字版本排最前，版本比较用 `shared/omp-version.ts` 的 `compareVersions`，和主进程共用）。来源是服务进程里 omp 的 `/changelog`，studio 不自己读 omp 的更新日志文件（"最近更新"用的是随包的 `CHANGELOG.md`，是 studio 自己的）。
 
 ### 测试
 

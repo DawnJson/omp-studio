@@ -1,10 +1,10 @@
-# 输入框的附件、大段粘贴和高度（2026-10-21，v0.3.26）
+# 输入框的附件、大段粘贴和高度
 
 代码：`src/renderer/src/features/composer/` 的 `composer-tokens.ts`（纯函数，`test/composer-tokens.test.ts`）、`ComposerInput.tsx`（输入框本体）、`Attachments.tsx`（顶部卡片）、`use-attach.ts`、`use-draft-view.ts`、`draft-store.ts`、`field-height{,-store}.ts`、`caret-request.ts`、`composer-input.css`。界面规格见 `docs/design/spec.md` §4.14。
 
 ## 1. omp 18.12.5 的行为（实测）
 
-方法：`omp --version` = 18.12.5；`omp config list --json`（`paste.largeMenuThreshold`）；`omp://keybindings.md`、`omp://tui-core-renderer.md`；读 `omp.exe` 里内嵌的 TypeScript 源码（`strings` 级别，`Editor` 类的 `#nt` / `#$e` / `getExpandedText`、`packages/tui/src/prompt/*` 的占位符函数）。**没有**在真机输入框里按键复现（TSP 的 `send` 事件不走粘贴路径，见下），下面标"源码"的是读源码得到的。
+方法：`omp config list --json`（`paste.largeMenuThreshold`）；`omp://keybindings.md`、`omp://tui-core-renderer.md`；读 `omp.exe` 里内嵌的 TypeScript 源码（`strings` 级别，`Editor` 类的 `#nt` / `#$e` / `getExpandedText`、`packages/tui/src/prompt/*` 的占位符函数）。**没有**在真机输入框里按键复现（TSP 的 `send` 事件不走粘贴路径，见下），下面标"源码"的是读源码得到的。
 
 | 项目 | omp 18.12.5 |
 |---|---|
@@ -25,39 +25,38 @@
 studio 通过 TSP 的 `send` 事件把整条消息当文字交给 omp（`tsp-runner.ts` 的 `sendPrompt`）；带图片的消息改走 omp 自己的图片附件（见下面「发图片」）。所以占位符展开必须在 studio 这一侧做，语义照抄 omp：
 
 - **草稿文字**（`draft.text`）里放 omp 的占位符：图片 `[Image #N, WxH]`，大段粘贴 `[Paste #N, +X lines]` / `[Paste #N, M chars]`。草稿另存 `images`（带像素尺寸）、`pastes`（编号 → 原文）、`pasteCounter`（只增不减）。
-- **折叠**：粘贴（`Ctrl+V`）文字按 omp 的整理方式处理后，超过 10 行或 1000 字符的折叠成占位符，原文记进草稿；不大的交给文本框按原样粘贴。`Ctrl+Shift+V`（`Alt+Shift+V`、`Cmd+Shift+V`）永远原样粘贴：keydown 里记一个标记，紧接着的 paste 事件跳过折叠。
-- **图片**：粘贴 / 拖入的图片在**粘贴那一刻的光标处**插入占位符（转换是异步的，光标位置在转换前记下；落在别的占位符里面就挪到它后面；输入框没有焦点的拖入插在末尾；前后补空格，和 omp 的 `insertAtom` 一样），图片长边缩到 1568 px 转 WebP（`image-resize.ts`），占位符里的尺寸就是缩放后的。当前模型不收图片时 toast 并拒绝。
-- **发送**（`buildSubmission`，`actions.ts` 的 `sendDraft` 和草稿页的 `send` 都用它）：粘贴占位符换回原文；图片按文字里引用的编号排序、重新编号 1..k（占位符同步改写），没被引用的图片不发。发出去的文字是 `…[Image #1, 1568x165]…`；主进程按占位符在 omp 的输入框里重建这条消息（下面「发图片」），占位符本身不进 omp。
-- **删除联动**：文字里的占位符没了（Backspace、剪切、选中删除、`setDraftText` 换文字），对应的图片 / 粘贴原文跟着删（`reconcileDraft`），后面的图片往前补号；点附件卡片的 ✕ = 去掉文字里的占位符。大段粘贴也有卡片（2026-11-09 起）：点开是只读预览，"展开成文字"（`expandPaste`）把占位符换回原文、粘贴记录随之清掉，发送内容和不展开时一样。
-- **输入历史**：存"粘贴换回原文、图片占位符去掉"的文字（`historyText`），studio 自己按项目持久化（`userData/input-history.json`，只存文字、不存附件二进制；见 [composer-input.md](composer-input.md) §4）；草稿里有附件时 ↑ 不翻历史（换掉文字会把附件一起丢掉）。草稿落盘（`saveDraft`，主进程存盘的只有文字）同样存展开后的文字，超过 200000 字符时退回占位符。
+- **折叠**：粘贴（`Ctrl+V`）文字按 omp 的整理方式处理后，超过 omp 阈值的折叠成占位符，原文记进草稿；不大的交给文本框按原样粘贴。`Ctrl+Shift+V`（`Alt+Shift+V`、`Cmd+Shift+V`）永远原样粘贴：keydown 里记一个标记，紧接着的 paste 事件跳过折叠。
+- **图片**：粘贴 / 拖入的图片在**粘贴那一刻的光标处**插入占位符（转换是异步的，光标位置在转换前记下；落在别的占位符里面就挪到它后面；输入框没有焦点的拖入插在末尾；前后补空格，和 omp 的 `insertAtom` 一样），图片缩放转 WebP（`image-resize.ts`），占位符里的尺寸就是缩放后的。当前模型不收图片时 toast 并拒绝。
+- **发送**（`buildSubmission`，`actions.ts` 的 `sendDraft` 和草稿页的 `send` 都用它）：粘贴占位符换回原文；图片按文字里引用的编号排序、重新编号 1..k（占位符同步改写），没被引用的图片不发。主进程按占位符在 omp 的输入框里重建这条消息（下面「发图片」），占位符本身不进 omp。
+- **删除联动**：文字里的占位符没了（Backspace、剪切、选中删除、`setDraftText` 换文字），对应的图片 / 粘贴原文跟着删（`reconcileDraft`），后面的图片往前补号；点附件卡片的 ✕ = 去掉文字里的占位符。大段粘贴也有卡片：点开是只读预览，"展开成文字"（`expandPaste`）把占位符换回原文、粘贴记录随之清掉，发送内容和不展开时一样。
+- **输入历史**：存"粘贴换回原文、图片占位符去掉"的文字（`historyText`），studio 自己按项目持久化（`userData/input-history.json`，只存文字、不存附件二进制；见 [composer-input.md](composer-input.md) §4）；草稿里有附件时 ↑ 不翻历史（换掉文字会把附件一起丢掉）。草稿落盘（`saveDraft`，主进程存盘的只有文字）同样存展开后的文字，超过上限（`draft-store.ts` 的 `maxPersistedChars`）时退回占位符。
 - **发送失败 / 撤回排队消息**（`restoreDraft` / `appendToDraft`）：把整份草稿接回现在的草稿后面，后面那份的占位符编号顺延（`appendDraft`，omp 的 `g5`）。主进程交回的每条消息是 `RestoredDraft`：文字里已用 `[Image #k]` 标好 `images[k-1]` 的位置，渲染进程逐条接起来（`draftFromRestored`）。
-- **显示编号 ≠ 草稿 / 发送编号**（v0.3.26）：omp 的图片 `[Image #N]` 和粘贴 `[Paste #N]` 各有一套编号，但在 studio 界面里图片 `#1`、文件 `#1`、粘贴 `#1` 并排出现会让人分不清是哪个。所以**界面上**（顶部卡片、文字里的芯片）所有附件共用一个计数 `#1..#N`：图片在前（按图片编号），然后文件，然后粘贴（按粘贴编号排）。换算在 `composer-tokens.ts` 的 `displayNumber`（草稿类别编号 → 显示编号）和 `viewToText` 里的反向换算。草稿文字（`draft.text`）里的占位符、`reconcileDraft` 的补号、`buildSubmission` 发给 omp 的文字（`[Image #k]` 重新编号 1..k、粘贴换回原文、文件换成 `@"路径"`）完全不变，仍是 omp 自己的写法和编号。例：2 张图片 + 1 个文件 + 1 段粘贴，界面显示 `#1 #2`（图片）、`#3`（文件）、`#4`（粘贴），发给 omp 的是 `[Image #1…] [Image #2…]`、`@"路径"` 和粘贴原文。删掉前面的附件时后面的显示编号跟着往前补。
+- **显示编号 ≠ 草稿 / 发送编号**：omp 的图片和粘贴各有一套编号，但界面里图片 `#1`、文件 `#1`、粘贴 `#1` 并排出现会让人分不清。所以**界面上**（顶部卡片、文字里的芯片）所有附件共用一个计数 `#1..#N`：图片在前，然后文件，然后粘贴。换算在 `composer-tokens.ts` 的 `displayNumber` 和 `viewToText` 里的反向换算。草稿文字里的占位符、`reconcileDraft` 的补号、`buildSubmission` 发给 omp 的文字（图片重新编号、粘贴换回原文、文件换成 `@"路径"`）仍是 omp 自己的写法和编号。例：2 张图片 + 1 个文件 + 1 段粘贴，界面显示 `#1 #2`（图片）、`#3`（文件）、`#4`（粘贴）；删掉前面的附件时后面的显示编号跟着往前补。
 
 ### 2.1 文件附件（非图片）
 
-omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插入，文字里内联，带空格的路径用引号，studio 给图片追加的也是这个写法）。`omp://keybindings.md` 的 OSC 5522 / 括号粘贴说明里，只有"粘贴单个图片文件路径会被读成图片"是自动处理，别的文件路径只是文字。所以 studio 的文件附件**内联换成 `@"路径"`**：
+omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插入，文字里内联，带空格的路径用引号）。`omp://keybindings.md` 的 OSC 5522 / 括号粘贴说明里，只有"粘贴单个图片文件路径会被读成图片"是自动处理，别的文件路径只是文字。所以 studio 的文件附件**内联换成 `@"路径"`**：
 
-- 草稿里的占位符是 studio 自己的 `[File #N, 名字]`（图片之外另一类位置编号，规则同图片：删掉占位符文件就没了、后面的补号、没引用的不发）；输入框里是 `#N 名字` 芯片，顶部是文件卡片（文件图标 + `#N 名字` + 大小 + ✕）。
-- **路径不进渲染进程**（[security.md](security.md)：渲染进程传来的路径不可信）：拖到输入框（`[data-composer-drop]`）或粘贴的文件，由 preload 在隔离世界里用 `webUtils.getPathForFile` 取路径，经内部通道 `composerFilesChannel` 交给主进程（2026-10-22 起没有附件按钮和系统文件对话框，附件只来自拖入和粘贴）。主进程（`src/main/files/composer-files.ts`）校验：绝对路径、不含 `"`、确实是普通文件，一次最多 20 个，登记表最多 500 条；登记成不透明 id，推送 `composerFilesAdded`（id + 名字 + 大小）。目录不登记：拖放仍按"拖入文件夹 = 选项目"，粘贴的目录仍是把路径当文字插进输入框。
+- 草稿里的占位符是 studio 自己的 `[File #N, 名字]`（图片之外另一类位置编号，规则同图片：删掉占位符文件就没了、后面的补号、没引用的不发）；输入框里是 `#N 名字` 芯片，顶部是文件卡片（`#N 名字` + 大小 + ✕）。
+- **路径不进渲染进程**（[security.md](security.md)：渲染进程传来的路径不可信）：拖到输入框（`[data-composer-drop]`）或粘贴的文件，由 preload 在隔离世界里用 `webUtils.getPathForFile` 取路径，经内部通道 `composerFilesChannel` 交给主进程（没有附件按钮和系统文件对话框，附件只来自拖入和粘贴）。主进程（`src/main/files/composer-files.ts`）校验：绝对路径、不含 `"`（会破坏 `@"…"` 提及）、确实是普通文件，单次个数和登记表大小有上限；登记成不透明 id，推送 `composerFilesAdded`（id + 名字 + 大小）。目录不登记：拖放仍按"拖入文件夹 = 选项目"，粘贴的目录仍是把路径当文字插进输入框。
 - 发送：`buildSubmission` 把文件占位符换成 `\uE000file:N\uE001`，`PromptInput.fileIds[N-1]` 带 id；`tsp-runner.ts` 的 `sendPrompt` 在主进程用 id 换回路径（登记表里没有或文件已不在就 reject，草稿放回去），把占位符换成 `@"路径"`（反斜杠换成正斜杠）。第一句话的气泡里显示 `@名字`，不显示路径。
 - e2e 用 PowerShell 的 `Set-Clipboard -LiteralPath` 放真实的文件列表（CF_HDROP，同资源管理器里 Ctrl+C）再 Ctrl+V，覆盖粘贴文件 → 卡片 → 芯片 → 发送出去的 `@"路径"`（`test/e2e/tsp.e2e.ts`、`clipboard.e2e.ts`）；拖入造不出带磁盘路径的 File，没有 e2e；登记表的校验和占位符替换有单测（`test/composer-files.test.ts`）。
 
+### 发图片（omp 自己的图片附件）
 
-### 发图片（omp 自己的图片附件，2026-10-25 起）
-
-以前主进程在文字后面加 `@"<临时文件路径>"` 提及：omp 用 read 工具读图，对话里多出 "Read <路径> (image)" 行、用户气泡里是那串路径。现在和 Tern 一样用 omp 的"粘贴图片路径"附件（`tsp-runner.ts` 的 `#sendWithImages`，`shared/tsp/image-paste.ts`）：
+和 Tern 一样用 omp 的"粘贴图片路径"附件（`tsp-runner.ts` 的 `#sendWithImages`，`shared/tsp/image-paste.ts`），不用 `@"<临时文件>"` 提及：提及会让 omp 用 read 工具读图，对话里多出 "Read <路径> (image)" 行、用户气泡里是那串路径。
 
 1. 图片写成 `os.tmpdir()/omp-studio-images/<任务 id>/` 下的临时文件（任务移除时删目录）。
 2. 按 `[Image #N, …]` 占位符把消息拆成文字段和图片（`imagePasteParts`；图片后面那段开头的一个空格去掉，omp 的占位自带尾随空格；没被引用的图片接在最后）。期间 `#editorClaims` 让通用回填（`#syncEditorText`）让开；omp 输入框里先有的文字先清掉。
-3. 依次：文字段用 `edit` 追加到 omp 输入框末尾（等文字变了）；图片往 pty 写一次括号粘贴 `ESC[200~"<路径>"ESC[201~`（路径用正斜杠），等输入框上方多一个带 `image` 的 `omp.composer.chip`。**只以 chip 出现为成功**；5 秒内没挂上图片时，期间有新的状态 toast 就以最后一条的原文报错（omp 18.13.1 源码里粘贴失败的几种：`Image not found at …`、`Pasted path is not a supported image`、`Failed to read pasted image path` 等），没有就报 `omp did not attach the image`。不能见到新 toast 就报错：新任务的 omp 起来约一秒后会弹 MCP 挂载通知 `xdev: xd://: mounted …`（omp 18.13.1，2026-10-27 实际出过：新任务第一句带图，这条通知正好落在粘贴和挂图之间，消息没发出去），后台作业结束也弹 toast。
+3. 依次：文字段用 `edit` 追加到 omp 输入框末尾（等文字变了）；图片往 pty 写一次括号粘贴 `ESC[200~"<路径>"ESC[201~`（路径用正斜杠），等输入框上方多一个带 `image` 的 `omp.composer.chip`。**只以 chip 出现为成功**；超时没挂上图片时，期间有新的状态 toast 就以最后一条的原文报错（omp 18.13.1 源码里粘贴失败的几种：`Image not found at …`、`Pasted path is not a supported image` 等），没有就报 `omp did not attach the image`。不能见到新 toast 就报错：新任务的 omp 起来约一秒后会弹 MCP 挂载通知 `xdev: xd://: mounted …`（omp 18.13.1 实测，正好落在粘贴和挂图之间），后台作业结束也弹 toast。
 4. `action submit`（`act: "submit"`），等 omp 清空输入框再放开通用回填（否则刚发出的文字会被当成 omp 的预填搬回 studio 的输入框）。
-5. **排队后点 Edit / Esc 撤回带图片的插话**（Edit 是 omp 18.12.6 实测，2026-10-25，`fixtures/tsp/queue-edit-image.jsonl`；Esc 走同一个取回函数，带图片的没有单独录制）：omp 把文字放回它的输入框（图片位置还是图标 + ` #N` 占位），图片重新挂成 `omp.composer.chip`，blob 是发的时候就收到过的那份 webp（不重发）。主进程清空 omp 输入框之前先读出图片（`editorDraft`，`shared/tsp/image-paste.ts`）：按 chip 里 `image` 节点的 `alt`（图标 + ` #N`）把文字里的占位换成 `[Image #k]`，blob 解码成 `PromptImage`；经 `composerPrefill` 事件（Edit、Ctrl+R 等 omp 自己往输入框写的）或停止时的 `steering`（Esc）回到 studio 的输入框，成为附件卡片 + `#1` 芯片。之前只搬文字，图片丢掉、文字里留着 omp 的图标占位。
+5. **排队后点 Edit / Esc 撤回带图片的插话**（Edit 是 omp 18.12.6 实测，`fixtures/tsp/queue-edit-image.jsonl`；Esc 走同一个取回函数，带图片的没有单独录制）：omp 把文字放回它的输入框（图片位置还是图标 + ` #N` 占位），图片重新挂成 `omp.composer.chip`，blob 是发的时候就收到过的那份 webp（不重发）。主进程清空 omp 输入框之前先读出图片（`editorDraft`，`shared/tsp/image-paste.ts`）：按 chip 里 `image` 节点的 `alt` 把文字里的占位换成 `[Image #k]`，blob 解码成 `PromptImage`；经 `composerPrefill` 事件（Edit、Ctrl+R 等 omp 自己往输入框写的）或停止时的 `steering`（Esc）回到 studio 的输入框，成为附件卡片 + 芯片。
 
 实测（omp 18.12.6，deepseek-v4-flash，2026-10-25，录制 `fixtures/tsp/image-attach.jsonl`；单测 `test/tsp-image-paste.test.ts`、`test/task-tsp.test.ts`，e2e `tsp.e2e.ts`"发图片用 omp 自己的附件"）：
 
 | 项目 | 结果 |
 |---|---|
-| 括号粘贴带引号的绝对路径 | 源码 `xO`：空格分隔、可加引号、`.png/.jpg/.jpeg/.gif/.webp`；omp 读文件（转成 webp、缩放成宽 200 的显示图，窄图会被放大：omp 18.12.6、2026-10-25 实测 44×220 的截图成了 200×1000；宽图是不是也定宽 200 没测。`omp.user.images` 里的 `image` 节点 `w`/`h` 就是显示图的尺寸、不带 `max`，studio 把它装进 100×100 的框，见 `tsp.css`），12-25 ms 内输入框上方出现 `omp.composer.chip`（`image` 子节点，blob 当场用 `b` 发来），光标处插入占位（nerd 图标 + ` #1 `，5 个字符） |
+| 括号粘贴带引号的绝对路径 | 源码 `xO`：空格分隔、可加引号、`.png/.jpg/.jpeg/.gif/.webp`；omp 读文件（转成 webp、缩放成宽 200 的显示图，窄图会被放大：44×220 的截图成了 200×1000；宽图是不是也定宽 200 没测。`omp.user.images` 里的 `image` 节点 `w`/`h` 就是显示图的尺寸、不带 `max`，studio 把它装进固定的框，见 `tsp.css`），十几毫秒内输入框上方出现 `omp.composer.chip`（`image` 子节点，blob 当场用 `b` 发来），光标处插入占位（nerd 图标 + ` #1 `） |
 | 路径写法 | 反斜杠、正斜杠都行；但 omp 把反斜杠当转义，目录名以 `(` 开头时 `\(` 丢掉反斜杠、找不到文件，所以一律用正斜杠 |
 | `send` 事件 | 源码 `clearDraftForRecall` → `clearDraft` 清掉待发送图片再提交：**图片丢掉**（实测用户消息里只有文字） |
 | `action submit` | 提交输入框里现有的草稿：用户消息是 `omp.user` 里一行 `omp.user.images`（`image` 节点，`alt`/`title` `#1`，blob 同粘贴时那个）+ `md`（文字 + 占位）；同一帧清空输入框、删掉 chip；没有 "Read … (image)" 行 |
@@ -70,7 +69,7 @@ omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插
 
 ## 3. 输入框里的芯片是怎么画出来的
 
-文本框是普通 `<textarea>`（输入法、撤销、选区、`@` 补全都沿用），不是 contenteditable。显示用的 view 文本（`buildView`）把每个占位符换成 `OPEN nbsp #N nbsp CLOSE`：`OPEN` / `CLOSE` 是零宽的 `U+2062/2063/2064`（图片 / 粘贴 / 结束），所以 view 里每个字符的宽度和下面那一层逐字对应。文本框下面垫一个同字体、同宽（脚本把它的宽度设成文本框的 `clientWidth`）、文字透明的 `.composer-backdrop`，只给芯片画圆角底色；`aria-hidden`，不进无障碍树。
+文本框是普通 `<textarea>`（输入法、撤销、选区、`@` 补全都沿用），不是 contenteditable。显示用的 view 文本（`buildView`）把每个占位符换成 `OPEN nbsp #N nbsp CLOSE`：`OPEN` / `CLOSE` 是零宽字符（图片 / 粘贴 / 结束各一个），所以 view 里每个字符的宽度和下面那一层逐字对应。文本框下面垫一个同字体、同宽（脚本把它的宽度设成文本框的 `clientWidth`）、文字透明的 `.composer-backdrop`，只给芯片画圆角底色；`aria-hidden`，不进无障碍树。
 
 - 文本框的值是 view 文本；`onChange` 里 `viewToText` 把完整的芯片换回占位符、被改坏的芯片只留可见的字、其余零宽字符丢掉。`@` 菜单、斜杠菜单拿的是 view 文本（它们的光标偏移就是文本框的）。
 - 原子性：选区不能落在芯片里面（`onSelect` 里 `snapSelection`：光标贴到近的一边，选区整个包住）；紧贴芯片时 Backspace / Delete 一步删掉整个芯片，← / → 一步越过它；复制 / 剪切含芯片的选区时剪贴板里放占位符文字，不放零宽字符。
@@ -78,13 +77,13 @@ omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插
 
 ## 4. 高度
 
-顶边一条拖拽条（`role="separator"`，`composer-resize`，悬停 / 聚焦时露出一根短横线）：向上拖 = 变高；下限是输入框自己的最小高度（一行），上限是主区（`<main>`）高度的 60%（窗口变矮时重新夹取）；键盘 ↑↓ 每次 16 px，双击还原成自动增高（最大 `min(40vh, 12 行)`）。拖过之后高度固定为拖出来的值，内容超出时内部滚动。整个应用一个值，记在 `localStorage["composer.fieldHeight"]`（和 ModelPicker 的最近使用同一种存法，没有进 `ShellState`：那要动 IPC 和主进程校验）。
+顶边一条拖拽条（`role="separator"`，`composer-resize`，悬停 / 聚焦时露出一根短横线）：向上拖 = 变高；范围见 `field-height.ts`（下限一行，上限按主区（`<main>`）高度的比例，窗口变矮时重新夹取）；键盘 ↑↓ 按步长调，双击还原成自动增高。拖出来的值是下限（行内 min-height），内容多了照样自动增高到上限（行内 max-height），再多才内部滚动——不能做成定高，否则拖过一次以后输入框再也不随内容增高。一行高从 line-height 读，不从 minHeight 读（拖过以后它是拖出来的值）。整个应用一个值，记在 `localStorage["composer.fieldHeight"]`（和 ModelPicker 的最近使用同一种存法，没有进 `ShellState`：那要动 IPC 和主进程校验）。
 
 ## 5. `!command`
 
-omp 18.12.5 的提交路径（`send` 事件走的 `submit()` → 输入框 `onSubmit`）自己处理以 `!` 开头的文字：`!cmd` 在会话里跑 bash 并把输出放进上下文，`!!cmd` 跑但不进上下文（源码：`handleBashCommand(command, excluded)`；已有命令在跑时提示 `A bash command is already running`）。所以 TSP 任务里 `!cmd` 原样 `send` 即可，studio 不再有自己的 `runBash`（读 `omp.exe` 内嵌源码得到，没有在真机上按键复现）。
+omp 18.12.5 的提交路径（`send` 事件走的 `submit()` → 输入框 `onSubmit`）自己处理以 `!` 开头的文字：`!cmd` 在会话里跑 bash 并把输出放进上下文，`!!cmd` 跑但不进上下文（源码：`handleBashCommand(command, excluded)`；已有命令在跑时提示 `A bash command is already running`）。所以 TSP 任务里 `!cmd` 原样 `send` 即可，studio 没有自己的 bash 执行（读 `omp.exe` 内嵌源码得到，没有在真机上按键复现）。
 
 ## 6. 没做的
 
-- omp 的"大段粘贴菜单"（`paste.largeMenuThreshold`，≥100 行时选包成代码块 / XML / 存文件）：studio 一律折叠成芯片，不弹菜单，也不读这个设置。
+- omp 的"大段粘贴菜单"（`paste.largeMenuThreshold`）：studio 一律折叠成芯片，不弹菜单，也不读这个设置。
 - 视频（omp 的 `[Video #N]`）：studio 没有。

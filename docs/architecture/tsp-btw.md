@@ -49,11 +49,11 @@ layer.ov-<x>  overlay  role=omp.overlay.btwHistory  modal  head="BTW history"
 | 文档里的弹窗 | 实时：问题、答案（流式）、状态、错误、可点的按钮 | `shared/tsp/btw.ts`（`findBtwView` 等纯函数） |
 | 会话旁边的 `btw-history/` | 话题 id、历史（含没有进程的任务、恢复的会话） | `main/tsp/btw-history.ts`（只读）+ `parseBtwEntry` / `mergeBtwDisk` |
 
-镜像 `TspBtw.#records`（`main/tasks/tsp-btw.ts`）是 `BtwHistoryRecord[]`，和 rpc 的一样；推给渲染进程用同一组 `BtwUiEvent`（`record` / `delta` / `records`），渲染进程的 `btw-store`、`BtwPanel` 一行没改。
+镜像 `TspBtw.#records`（`main/tasks/tsp-btw.ts`）是 `BtwHistoryRecord[]`，和 rpc 的一样；推给渲染进程用同一组 `BtwUiEvent`（`record` / `delta` / `records`），所以渲染进程的 `btw-store`、`BtwPanel` 不区分来源。
 
 - 每次文档变化（`TspRunner` 的 `onChange`）调 `sync`：读弹窗 → 话题 id（有 list 用选中项；没有就按第一问的文字在镜像里找；找不到先用临时 id `live:N`）→ `viewToRecord` → `btwEventsFor`（答案只是追加就发 `delta`，别的发整条 `record`）。
 - 磁盘记录并进镜像（`mergeBtwDisk`）：临时 id 按第一问换成真 id；问答多的一方为准（镜像多一问 = 磁盘还没写追问）；回答中以镜像为准（磁盘上的答案要等收尾才写）；磁盘上写着 running 而镜像里没有在跑的 → `interrupted`（omp 重读历史时也这么标）。`getBtw` 每次先读一遍磁盘（不为它起进程），面板打开时调一次。
-- `ask` 返回前最多等 ~0.9 秒让临时 id 换成真 id（面板选中的就是真 id，追问要靠它在 list 里 `select`）。
+- `ask` 返回前短暂等临时 id 换成真 id（`ID_POLLS` × `ID_POLL_MS`；面板选中的就是真 id，追问要靠它在 list 里 `select`）。
 
 **动作**（都在任务的界面操作队列 `#exclusive` 里，期间 `#btwDriving`：`#awaitComposer` 等它结束，主会话不会收到别的消息）
 
@@ -64,11 +64,11 @@ layer.ov-<x>  overlay  role=omp.overlay.btwHistory  modal  head="BTW history"
 收尾   一问不再 running、没有在写追问 → action close（sync 里自动，驱动期间不关）
 ```
 
-出错一律以 omp 没有响应的具体步骤为错误文字 reject（`omp did not open the side question…`、`omp did not select the side-question topic`…），超时 8 秒（打开）/ 6 秒（其余），不吞。本地先拒绝：空问题、不认识的话题（`Unknown /btw topic: <id>`）、已有一个在跑（`A /btw question is still running; cancel it first`，和 rpc 同一句）。
+出错一律以 omp 没有响应的具体步骤为错误文字 reject（`omp did not open the side question…`、`omp did not select the side-question topic`…），超时见 `BTW_OPEN_TIMEOUT_MS` / `BTW_STEP_TIMEOUT_MS`，不吞。本地先拒绝：空问题、不认识的话题（`Unknown /btw topic: <id>`）、已有一个在跑（`A /btw question is still running; cancel it first`，和 rpc 同一句）。
 
 **不画 omp 的弹窗**：`TspChildren` 里按 role 不挂载 `omp.overlay.btwHistory`（`isBtwOverlayNode`，同输入框卡片、待办药丸的做法）。弹窗的 Esc 处理器因此也不装。弹窗开着时 omp 的 Esc 落在弹窗上，所以**停止主轮**时 `TspRunner.stop()` 先让开弹窗（见下）。
 
-**入口**：`/btw [问题]`（`studio-slash-table.ts` 改成 `tsp: "studio"`）和命令面板“旁路提问（/btw）”现在对 TSP 任务也有；`App.tsx` 在 TSP 分支里挂 `BtwPanel`。
+**入口**：`/btw [问题]`（`studio-slash-table.ts`，`tsp: "studio"`）和命令面板“旁路提问（/btw）”；`App.tsx` 在 TSP 分支里挂 `BtwPanel`。
 
 ## 3. 依赖的 omp 约定（omp 升级时先看这里）
 
@@ -78,10 +78,10 @@ role `omp.overlay.btwHistory` / `omp.btw.*` / `omp.btn`、按钮动作名 `stop`
 
 - 弹窗里只有选中话题的问答：非选中话题的内容只能从磁盘读（实时的只有正在回答的那个）。
 - 终端里的 omp 在 studio 之外追问同一个话题（另一个进程）：磁盘上问答更多时以磁盘为准，实时流式看不到。
-- **停止（已处理）**：弹窗开着时 Esc 只会落在弹窗上，停不了主轮（实测 omp 18.12.5，录制 `btw-stop.jsonl`；对照：只发 Esc 时弹窗被关掉、主轮继续跑）。所以 `TspRunner.stop()` 在主轮 working 时先 `TspBtw.yieldToMain()`：回答中先 `action stop` → 等这一问收尾 → `action close`（`sync` 已自动发过就不重发）→ 等弹窗撤掉，然后才发 Esc、再走排队消息取回（`hasQueuedMessages` 在让开弹窗之后读）。实测这个顺序下主轮的助手消息 `stopReason: "aborted"`。让开失败（omp 没响应）只记日志，照常发 Esc。测试：`test/tsp-btw-driver.test.ts`（yieldToMain 事件和录制逐字相同）、`test/task-tsp-btw.test.ts`（stop 后 fake omp 收到 send、send、stop、close、Esc 的顺序）。
+- **停止**：弹窗开着时 Esc 只会落在弹窗上，停不了主轮（实测 omp 18.12.5，录制 `btw-stop.jsonl`；只发 Esc 时弹窗被关掉、主轮继续跑）。所以 `TspRunner.stop()` 在主轮 working 时先 `TspBtw.yieldToMain()`：回答中先 `action stop` → 等这一问收尾 → `action close`（`sync` 已自动发过就不重发）→ 等弹窗撤掉，然后才发 Esc、再走排队消息取回（`hasQueuedMessages` 在让开弹窗之后读）。实测这个顺序下主轮的助手消息 `stopReason: "aborted"`。让开失败（omp 没响应）只记日志，照常发 Esc。测试：`test/tsp-btw-driver.test.ts`（yieldToMain 事件和录制逐字相同）、`test/task-tsp-btw.test.ts`（stop 后 fake omp 收到的事件顺序）。
 - 没有实测 `Interrupted` 状态词（按 omp 文档推断，进程退出时 studio 自己也会标）。
-- **没有"丢弃话题"（2026-10-23 实测，真实 omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，deepseek-v4-flash，探针脚本用完已删）**：`/btw Reply with exactly the word: pong` 答完后弹窗底栏按钮（`omp.btn` 的 `actions.click`）是 `close` / `copy-answer` / `follow-up`（回答中是 `stop`）；点 `follow-up` 后换成 `discard` / `send`；点 `discard` 后又回到 `close` / `copy-answer` / `follow-up`，弹窗和话题都在，`btw-history/` 里的话题文件仍是 1 个。所以 `discard` 只是丢掉追问输入框里还没发的草稿（studio 自己在追问前、让开弹窗前用它关掉残留的输入框，见 `#askFollowUp` / `yieldToMain`），**不删话题**；omp 没有别的删除话题的按钮（`fixtures/tsp/btw.jsonl` 里 `discard` 同样只在追问输入框那一行出现一次）。所以 studio 面板**没有**"丢弃话题"：omp 做不到，也不该直接删 omp 的话题文件（studio 不写 omp 的存档）。需要的话只能做成 studio 自己的"隐藏这个话题"（不动磁盘、重开又回来），没做，等仓库所有者决定。
-- **复制答案（2026-10-23）**：面板头部的按钮（`btw-copy-answer`）把当前话题最新一问的答案文字写进系统剪贴板（渲染进程 `navigator.clipboard`，同 `ProcessDetails`、`AboutDialog` 的做法），出 `common.copied` toast；不驱动 omp 弹窗里的 `copy-answer` 按钮（那是 omp 往它自己的终端剪贴板写，studio 拿不到结果，而答案文字本来就在镜像里）。没有答案（回答中还没有文字）时按钮不出现。
+- **没有"丢弃话题"**：omp 的 `discard` 只丢掉追问输入框里还没发的草稿（studio 在追问前、让开弹窗前用它关掉残留的输入框，见 `#askFollowUp` / `yieldToMain`），**不删话题**，omp 也没有别的删除话题的按钮（实测 omp 18.12.6，2026-10-23：点 `discard` 后弹窗和话题都在，`btw-history/` 里的文件不变；`fixtures/tsp/btw.jsonl` 里 `discard` 同样只在追问输入框那一行出现）。studio 也不该直接删 omp 的话题文件（studio 不写 omp 的存档）。要的话只能做 studio 自己的"隐藏这个话题"（不动磁盘），没做，等仓库所有者决定。
+- **复制答案**：面板头部的按钮（`btw-copy-answer`）把当前话题最新一问的答案文字写进系统剪贴板（渲染进程 `navigator.clipboard`），出 `common.copied` toast；不驱动 omp 弹窗里的 `copy-answer` 按钮（那是 omp 往它自己的终端剪贴板写，studio 拿不到结果，而答案文字本来就在镜像里）。没有答案时按钮不出现。
 
 ## 5. 测试
 

@@ -4,9 +4,19 @@
 
 ## 窗口和页面
 
-- `BrowserWindow` 一律 `contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`，不开 `webviewTag`，不关 `webSecurity`（`browser-window-flags`）。CSP 严格：不允许内联脚本和 `eval`，不从网络加载脚本。
+- `BrowserWindow` 一律 `contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`，不开 `webviewTag`，不关 `webSecurity`（`browser-window-flags`）。CSP 严格：不允许内联脚本和 `eval`，不从网络加载脚本；`frame-src` 只放行 `studio-preview:`（下面「文件预览的网页」）。
 - 页面只从 `app://studio/` 加载；禁止窗口内导航到外部地址和新开窗口（`will-navigate`、`setWindowOpenHandler`）。
 - 例外只有右栏浏览器面板（仓库所有者 2026-10-28 批准）：外部网页放在主进程的独立 `WebContentsView` 里（`sandbox`、`contextIsolation`、独立分区、拒绝所有权限、只放行 http/https），不和应用页面同一个 webContents、拿不到 preload；给 omp 的 CDP 口只听 127.0.0.1、校验 Host、拒带 Origin 的请求、路径带随机 token。见 [browser.md](browser.md)「安全」。
+
+## 文件预览的网页
+
+右侧预览里的 HTML（项目里的 `.html`、回答里的 html 代码块）要能按用户的“运行脚本”开关跑内联脚本，又不能借此拿到应用的任何权限。`srcdoc` 的 iframe 继承应用页面的 CSP（`script-src 'self'`），脚本永远不跑；为它放宽应用 CSP 等于给整个应用开内联脚本。所以做法同 Claude 的 artifact：独立的源 + sandbox + 改不了的响应头 CSP（仓库所有者 2026-11-10 批准）。
+
+- 协议 `studio-preview`（`src/main/window/preview-protocol.ts`，和 `app` 一起在 `app-protocol.ts` 里登记为 standard + secure，不给 fetch / CORS / bypassCSP）。地址 `studio-preview://<token>/`，token 是 `crypto.randomUUID()`；网页只放在主进程内存里，不写盘。渲染进程经 `registerHtmlPreview(html)` 登记（限 `limits.htmlPreviewMaxChars`）、`releaseHtmlPreview(token)` 放手；主窗口重载或关闭时全部清掉。没登记、放过手的 token，子路径和非 GET 一律 404。
+- 响应头 CSP（逐字值在 `preview-protocol.ts`，单测 `test/preview-protocol.test.ts` 逐字守着）：除内联脚本 / `eval` / 内联样式和 `data:`/`blob:` 资源外一律 `'none'`，`connect-src 'none'`、`form-action 'none'`、`base-uri 'none'`，`frame-ancestors` 只许应用自己的源；加 `X-Content-Type-Options: nosniff`。页面自己的 `<meta>` CSP 只能再收紧。不联网是有意的：CDN 上的脚本、图片、字体都加载不了。
+- iframe 的 `sandbox` 只在勾了“运行脚本”时给 `allow-scripts`，不给 `allow-same-origin` / `allow-top-navigation` / `allow-popups` / `allow-forms`：页面的源不透明，`parent.document` 抛跨域错误。
+- 主窗口的 `will-frame-navigate`（`guardPreviewFrames`）只许子框架停在 `studio-preview:`、`about:blank`、`about:srcdoc` 上，预览页面点链接、改 `location` 想换成外部网页时拦下；新开窗口本来就被 sandbox 和 `setWindowOpenHandler` 拒绝。
+- e2e `file-preview.e2e.ts`「网页预览：勾选运行脚本后内联脚本跑……」守着：脚本开时跑、关时不跑，`fetch` 外网失败，碰 `parent.document` 抛错。
 
 ## preload 和 IPC
 
@@ -42,4 +52,4 @@
 
 ## 安装包里只有应用本身
 
-`electron-builder.yml` 的 `files` 只列 `out/`、`package.json` 和运行时依赖。`npm run dist` / `dist:mac` / `dist:linux` 之后，`scripts/check-package.ts` 会检查 `app.asar`，不过就让打包失败，不能跳过。改 `files` / `asarUnpack` / 平台段之后看一次 `app.asar` 里实际有什么，关于 electron-builder 配置怎么合并的说法不看产物不信（平台级 `files` 会整个顶替顶层，0.4.16 因此带上了 `.env` 和全部源码，见 [mac.md](mac.md)「打包」）。
+`electron-builder.yml` 的 `files` 只列 `out/`、`package.json` 和运行时依赖。`npm run dist` / `dist:mac` / `dist:linux` 之后，`scripts/check-package.ts` 会检查 `app.asar`，不过就让打包失败，不能跳过。改 `files` / `asarUnpack` / 平台段之后看一次 `app.asar` 里实际有什么：electron-builder 配置怎么合并的说法不看产物不信（平台级 `files` 会整个顶替顶层，曾因此带上 `.env` 和全部源码，见 [mac.md](mac.md)「打包」）。

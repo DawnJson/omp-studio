@@ -1,13 +1,13 @@
 # 提问、审批和一次性提示
 
-所有任务都是 TSP（交互式 omp 跑在伪终端里，见 [tsp-migration.md](tsp-migration.md)）：omp 的提问（`ask` 工具）和工具审批都由 omp 画成节点，studio 渲染节点、把点击和按键变成 TSP 事件写回去。主进程不再有自己的"门"请求表，也没有应答校验：能不能答、答什么由 omp 判断。
+所有任务都是 TSP（交互式 omp 跑在伪终端里，见 [tsp-migration.md](tsp-migration.md)）：omp 的提问（`ask` 工具）和工具审批都由 omp 画成节点，studio 渲染节点、把点击和按键变成 TSP 事件写回去。主进程没有自己的"门"请求表，也没有应答校验：能不能答、答什么由 omp 判断。
 
 ## 门在哪里
 
 - **节点**：提问是 dock 里的 `col role=omp.editor.ask`；审批是 `col role=omp.editor.ask.approval`（插在输入框卡片前面，不换掉它）。实测依据和逐帧结构见 [tsp-migration.md](tsp-migration.md) §10.1、§10.6（提问）、§10.7（审批），录制 `fixtures/tsp/{ask,ask-multi,approval}.jsonl`（omp 18.12）、`button-ask.jsonl`、`button-approval.jsonl`（omp 18.18.6）。
-- **按钮的两种形状**：studio 在 hello 里声明了 `button`（2026-11-10 起），omp ≥18.14.2 把门里的按钮发成 `button` 节点（role 仍是 `omp.btn`，文字、`keys`、`variant`、`actions.click` 在 props 里，没有子节点；审批 Details 点开后文字变 `Less`），更早的 omp 发 `row omp.btn`（子节点是文字和 `kbd`）。实测 omp 18.18.6：审批卡 `t.actions/expand|deny|approve`、提问底栏 `t.actions/hide|cancel|submit`、`/context` 的 Close 都是 `button`。`gate.ts`、`btw.ts`、`context-report.ts` 只看 role 和 `actions.click`，两种都认（`test/tsp-gate.test.ts`、`test/context-report.test.ts` 用新录制钉住）。
+- **按钮的两种形状**：studio 在 hello 里声明了 `button`，omp ≥18.14.2 把门里的按钮发成 `button` 节点（role 仍是 `omp.btn`，文字、`keys`、`variant`、`actions.click` 在 props 里，没有子节点；审批 Details 点开后文字变 `Less`），更早的 omp 发 `row omp.btn`（子节点是文字和 `kbd`）。实测 omp 18.18.6：审批卡 `t.actions/expand|deny|approve`、提问底栏 `t.actions/hide|cancel|submit`、`/context` 的 Close 都是 `button`。`gate.ts`、`btw.ts`、`context-report.ts` 只看 role 和 `actions.click`，两种都认（`test/tsp-gate.test.ts`、`test/context-report.test.ts` 用新录制钉住）。
 - **渲染**：`features/tsp/interactive/AskGate.tsx`（提问，含多题 / 多选 / Review 页）；按钮由 `interactive/Button.tsx` 画成真 `<button>`（两种形状同一个组件，点 = 节点自己的 `actions.click`，`disabled` / `busy` 不发，不抢焦点）；键盘由对话框根节点接，按键编码后写进伪终端（`keys.ts`）。纯函数在 `src/shared/tsp/ask-gate.ts`、`gate.ts`。
-- **输入框的行为**（`shared/tsp/gate.ts` 的 `findMessageTarget`）：提问在等时输入框不能发送（placeholder 提示先回答）；审批在等时输入框里写的字 = 拒绝并说明理由，omp 把这条消息当插话交给模型（omp 18.12.5 实测，[tsp-real-omp-probes.md](tsp-real-omp-probes.md) §14）；Ctrl+Enter 批准，Ctrl+O 看详情，Esc 拒绝。
+- **输入框的行为**（`shared/tsp/gate.ts` 的 `findMessageTarget`）：提问在等时输入框不能发送（placeholder 提示先回答）；审批在等时输入框里写的字 = 拒绝并说明理由，omp 把这条消息当插话交给模型（omp 18.12.5 实测，[tsp-real-omp-probes.md](tsp-real-omp-probes.md) §14）；Ctrl+Enter 批准，Ctrl+O 看详情；焦点在门里时 Esc 写给 omp（由 omp 决定），焦点在输入框时 Esc 走 spec §5.2（停止）。
 
 ## 任务状态里的"门"
 
@@ -22,9 +22,9 @@
 
 `src/renderer/src/features/dialogs/`：
 
-- **toast**：主区面板上沿正中的气泡，5 秒，同类合并；`pushToast` 是各功能共用的入口。
-- **`TaskNotice`**（主进程 → 渲染进程，不进对话）现在只有一种 `goal_complete`：目标完成（目标条消失且会话文件里最后一条目标记录是 complete）时弹一条 info toast。
-- **别的任务进入"等你确认"**：渲染进程比较任务状态，当前任务之外的任务从别的状态进入 `needs_you` 时弹一条 warning toast（8 秒，带"查看"按钮选中该任务）。
+- **toast**：主区面板上沿正中的气泡，同类合并；`pushToast` 是各功能共用的入口。
+- **`TaskNotice`**（主进程 → 渲染进程，不进对话）只有一种 `goal_complete`：目标完成（目标条消失且会话文件里最后一条目标记录是 complete）时弹一条 info toast。
+- **别的任务进入"等你确认"**：渲染进程比较任务状态，当前任务之外的任务从别的状态进入 `needs_you` 时弹一条 warning toast（带"查看"按钮选中该任务）。
 
 omp 自己的 toast（`omp.toast.status`，如 "Session-only model: …"）不弹层，而是作为对话里的一行暗字留下（[tsp-migration.md](tsp-migration.md) §10.1 "状态行"）。
 

@@ -14,12 +14,12 @@
 `OmpConnection` 的约定：
 
 - `spawn` 返回时还没开始读 stdout，在同一段同步代码里挂 `onFrame` 不会漏掉握手期间的帧。
-- `ready`：收到 `ready` 帧；它声明支持 v2 时再协商 v2，并把重组上限设成 `maxReassembledFrameBytes`。等 `ready` 和协商共用一个截止时间（默认 30 s）；超时、协商失败或 omp 提前退出时 reject，并已结束 omp。
+- `ready`：收到 `ready` 帧；它声明支持 v2 时再协商 v2，并把重组上限设成 `maxReassembledFrameBytes`。等 `ready` 和协商共用一个截止时间；超时、协商失败或 omp 提前退出时 reject，并已结束 omp。
 - `prompt(params)`：应答带 `agentInvoked: false` 时直接返回 `{ agentInvoked: false }`；否则返回同 id 的 `prompt_result`。`prompt_result` 同时也从 `onFrame` 发出，排在这一轮所有事件之后。应答 `success: false` 时以 `RpcCommandError` reject；按 `rpc.md`，这之后同 id 的 `prompt_result` 仍可能到来，只从 `onFrame` 发出。`abort_and_prompt` 也以 `prompt_result` 结束，目前只能用 `request` 发、自己从 `onFrame` 等结果。
 - `onFrame` 会收到不认识 `type` 的帧（`rpc.md`：未知帧当作未知通知），类型标注是 `RpcServerFrame`，但处理时要有默认分支。监听器抛错按致命错误处理：结束 omp，错误放进 `exited.error`。
 - 协议错误（stdout 不是合规的 NDJSON）时按进程树结束 omp，`exited` 里的 `error` 是那个 `RpcProtocolError`。
 - omp 退出后，所有未完成的 `request` 和 `prompt` 都以 `OmpExitedError` reject，之后的调用也一样。
-- `close(timeoutMs = 5000)`：关 stdin，继续读 stdout，等 omp 退出；超时后用 `%SystemRoot%\System32\taskkill.exe /T /F` 结束进程树，`exited.killed` 为 true。omp 本身已经退出、只是孙进程还拿着它的 stdout 时，不再 taskkill（pid 可能已被复用），2 s 后直接销毁管道。测试覆盖了"omp 和它起的子进程都被结束"。
+- `close(timeoutMs)`：关 stdin，继续读 stdout，等 omp 退出；超时后用 `%SystemRoot%\System32\taskkill.exe /T /F` 结束进程树，`exited.killed` 为 true。omp 本身已经退出、只是孙进程还拿着它的 stdout 时，不再 taskkill（pid 可能已被复用），稍等后直接销毁管道。测试覆盖了"omp 和它起的子进程都被结束"。
 - `spawn` 参数非法（比如传入 `.cmd`）时 Node 会同步抛错，这个异常不走 `ready`/`exited`。
 
 实测版本：在 Electron 44.9.0 主进程里跑的是 omp 18.12.0（Tern 管理）；install.ps1 装的 18.8.7 只在纯 Node 脚本里跑过同一流程。日期 2026-10-17。
@@ -69,10 +69,10 @@ sequenceDiagram
 
 ### 后台进程对 `extension_ui_request` 的处理（2026-10-23，omp 18.12.6，按源码和假 omp 回放，未用真实扩展实测）
 
-rpc-ui 现在只用于服务进程（`src/main/service/service-omp.ts`）和项目池（`project-omp.ts`）；任务全走 TSP。这两类进程没有界面能回答扩展的对话框，所以 `OmpConnection`（`src/main/omp/omp-connection.ts`）在路由帧时统一处理（判断在 `src/main/omp/extension-ui.ts`，登录和连接层共用）：
+rpc-ui 只用于服务进程（`src/main/service/service-omp.ts`）和项目池（`project-omp.ts`）；任务全走 TSP。这两类进程没有界面能回答扩展的对话框，所以 `OmpConnection`（`src/main/omp/omp-connection.ts`）在路由帧时统一处理（判断在 `src/main/omp/extension-ui.ts`，登录和连接层共用）：
 
 - `select`、`confirm`、`input`、`editor`、`ask`：回 `{"type":"extension_ui_response","id":<请求 id>,"cancelled":true}`（`CancelUiResponse`，格式见 `rpc-wire.generated.ts`）。`id` 取请求的 `id`；`cancel`、`open_url` 之类不需要应答的不回。
-- `notify`、`setStatus`、`setWidget`：写日志（`log.info`，文本截断到 200 字符，写入时经日志的脱敏）。
+- `notify`、`setStatus`、`setWidget`：写日志（截断，经日志的脱敏）。
 - **登录期间不抢答**：`login.ts` 在登录开始时 `connection.claimExtensionUi()`，结束时释放；认领期间连接层的默认应答不动，由登录自己答（`input` 交给界面，`select`/`confirm`/`editor`/`ask` 用同一个 `cancelledReply` 回 cancelled）。认领按计数，所以别的调用方将来也能用。
 - 订阅者（`onFrame`）照旧收到所有帧，默认应答不拦截。
 - omp 只在扩展自己传了 `timeout` 时才超时；`input` 登录输入框的 `timeout` 固定 600000（`login`，`rpc-mode.ts`）。
@@ -81,8 +81,8 @@ rpc-ui 现在只用于服务进程（`src/main/service/service-omp.ts`）和项�
 
 ## 读帧
 
-- stdout 按 `\n` 切行，每行 `JSON.parse`。协商 v2 之后，超过 1 MiB 的逻辑帧会拆成连续的 `rpc_chunk`，按 `rpc.md` 的规则校验 `chunkId`、`index`、`count`、`byteLength` 再重组。普通对话里最大的帧约 193 KB，不会分块。发一条 1.4 MB 的用户消息时，收到的最大逻辑帧有 1 400 155 字符，超过 `maxFrameBytes`，只能是分块传来再重组的；在 Electron 44.9.0 主进程里实测正常，这一轮 `prompt_result` 为 `completed`（omp 18.12.0）。具体是哪一帧没有记录，推测是这条用户消息的 `message_start`/`message_end`。`read` 工具读 2 MB 的文件不会产生大帧，omp 自己截断了输出（最大帧约 112 KB）。
-- `message_update` 默认每帧都带完整的消息快照。一轮带 bash 工具的短对话就录到 550 KB。阶段 2 做对话流时考虑 `set_event_filter` 的 `messageUpdates: "delta"`。按 `rpc.md`，子代理转发的 `message_update` 不受这个设置影响，见 `subagents.md`。
+- stdout 按 `\n` 切行，每行 `JSON.parse`。协商 v2 之后，超过 `maxFrameBytes` 的逻辑帧会拆成连续的 `rpc_chunk`，按 `rpc.md` 的规则校验 `chunkId`、`index`、`count`、`byteLength` 再重组。普通对话里最大的帧约 193 KB，不会分块。发一条 1.4 MB 的用户消息时收到了超过 `maxFrameBytes` 的逻辑帧，只能是分块传来再重组的；在 Electron 44.9.0 主进程里实测正常（omp 18.12.0；推测是这条用户消息的 `message_start`/`message_end`）。`read` 工具读 2 MB 的文件不会产生大帧，omp 自己截断了输出。
+- `message_update` 默认每帧都带完整的消息快照，一轮带 bash 工具的短对话就录到 550 KB；要省流量用 `set_event_filter` 的 `messageUpdates: "delta"`。按 `rpc.md`，子代理转发的 `message_update` 不受这个设置影响，见 `subagents.md`。
 - `prompt` 的应答只表示消息被接收。应答里带 `data.agentInvoked: false` 时（比如同步完成的内置斜杠命令，或插件命令出错），这条 prompt 已经完成，**后面不会再有 `prompt_result`**；否则一轮跑完要看同 id 的 `prompt_result`。整个会话安静下来看 `session_settled`。
 
 ## 类型从哪来
@@ -113,5 +113,5 @@ omp 是 MIT：拷进来的文件（这个和 `src/shared/tsp/tsp.generated.ts`�
 - 先 `get_available_commands`，命令名（或别名）必须有且 `source === "builtin"`，否则不发（实测 omp 18.12.5：`/unpin` 不是内置命令，被当成普通消息发给了模型，产生了一次花费）。
 - 发 `prompt`，收集应答之前的 `command_output`（去 ANSI，多段用 `\n` 连接）；应答 `agentInvoked:true` 当失败。omp 自己报的失败（如 "Failed to add server…"）是普通 `command_output`、`success:true`，**原样返回**，由界面解析/显示。`success:false` 以 omp 原文 reject。
 - 同一连接上串行（`command_output` 帧没有请求 id，并发会串台）。
-- `scope: null` → 服务进程（cwd = `userData/service`，**用户范围**）；`{ projectId }` → `src/main/service/project-omp.ts` 的 `ProjectOmpPool`：每个项目目录（取自主进程的项目记录，不是渲染进程传的路径）一个 `omp --mode rpc-ui --no-session`，cwd = 项目目录，**空闲 60 秒关闭**，**同时最多 2 个**（`MAX_PROJECT_PROCESSES`，2026-10-26 起：每个约 260 MB 工作集 / 600 MB 私有内存（omp 18.12.6 实测），在几个 worktree 任务间切换、敲 `/` 时会一个目录起一个；超出时关最久没用、手上没有操作的，正在做事的不关），放进应用 Job Object，`command-handlers.ts` 注册的 shutdown hook 在退出时全部关掉，关闭后不再接受操作。进程生命周期（按需启动、空闲计时、Job Object、启动中被关）和服务进程共用 `service/idle-omp.ts`（不依赖 electron，cwd/启动参数/Job 注入，单测用 fake omp）。
+- `scope: null` → 服务进程（cwd = `userData/service`，**用户范围**）；`{ projectId }` → `src/main/service/project-omp.ts` 的 `ProjectOmpPool`：每个项目目录（取自主进程的项目记录，不是渲染进程传的路径）一个 `omp --mode rpc-ui --no-session`，cwd = 项目目录，空闲一段时间关闭（`PROJECT_IDLE_CLOSE_MS`），**同时开的进程数有上限**（`MAX_PROJECT_PROCESSES`：每个约 260 MB 工作集 / 600 MB 私有内存（omp 18.12.6 实测），在几个 worktree 任务间切换、敲 `/` 时会一个目录起一个；超出时关最久没用、手上没有操作的，正在做事的不关），放进应用 Job Object，`command-handlers.ts` 注册的 shutdown hook 在退出时全部关掉，关闭后不再接受操作。进程生命周期（按需启动、空闲计时、Job Object、启动中被关）和服务进程共用 `service/idle-omp.ts`（不依赖 electron，cwd/启动参数/Job 注入，单测用 fake omp）。
 - 单测 `test/builtin-command.test.ts`：回放帧按 `native-ui-plan` §2.2 的实测文本手写（不是整段真实录制）。

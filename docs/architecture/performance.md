@@ -13,14 +13,14 @@
 
 - **在长对话里量**（上千个块、约 2 万个元素），不凭短对话的手感：短对话里样式重算、排版都只有几毫秒，看不出来。
 - **对比要交错跑**：同一份构建、同一台机器，两组快照交错（A、B、B、A…）比较，不拿分开两批跑的数字比；结论写明场景和轮数。同一个提交分两批测，启动时间能差 22–46%；交错跑的同提交两组 150 个指标零误判（2026-10-27）。
-- **每项改动在真实应用里跑一遍再决定留不留**，凭推理加的优化常常不赚：`app://` 开 `codeCache` 后热启动反而慢 6%，主进程压缩对启动没有可测的影响，跨任务合并 TSP 批次让 IPC 消息少了 63% 但 CPU 没变，都撤掉了。
+- **每项改动在真实应用里跑一遍再决定留不留**，凭推理加的优化常常不赚：实测 `app://` 开 `codeCache` 后热启动反而慢 6%，主进程压缩对启动没有可测的影响，跨任务合并 TSP 批次让 IPC 消息少了 63% 但 CPU 没变，所以这三项都不做。
 
 ## 卡顿和空闲 CPU
 
 - 不只看 CPU% 和帧率（多任务卡顿时 CPU 只有 2–4%、帧率 144）。用 CDP trace（`devtools.timeline` + `disabled-by-default-devtools.timeline.invalidationTracking` + `blink.animations`）数 Layout / 样式重算的次数和原因：一次 15 秒的 trace 里排版 2170 次，来源是 SVG 动画，挪到 HTML 盒子后 257 次（2026-10-25）。
 - **查空闲占 CPU**：不在页面里挂 `requestAnimationFrame` 数帧，它本身就让主线程每帧都跑，会把真正逼主线程出帧的东西盖住。用 CDP `Tracing` 不加任何输入录 3 秒，数 `ProxyMain::BeginMainFrame`，再看 invalidationTracking 里每帧是谁失效（2026-10-28：设置页上每秒 400 多个主线程帧，来源是停着的对话里一个转圈的工具卡）。
 - 循环动画的目标必须是 HTML 元素：SVG 里的元素和 `<svg>` 自己的 transform / opacity 动画在 Electron 44 里都交不给合成器（trace 里 `compositeFailed`），只把 transform 从 `<circle>` 挪到 `<svg>` 上没用。放在 `content-visibility: hidden` 里的循环动画同样交不给合成器。这一条没有检查脚本，评审时看。
-- 例外：图标形变（`ui/MorphIcon.tsx`，morphicons）在主线程逐帧改 SVG `<path>` 的 `d`，只在状态切换后的几百毫秒里跑。所有图标共用 morphicons 模块里的一个 `requestAnimationFrame` 循环（同时在变的图标都在这一帧里写），最后一个停下就取消，空闲时不出帧。不要拿它做循环或常驻的动画（2026-11-09）。
+- 例外：图标形变（`ui/MorphIcon.tsx`，morphicons）在主线程逐帧改 SVG `<path>` 的 `d`，只在状态切换后的几百毫秒里跑。所有图标共用 morphicons 模块里的一个 `requestAnimationFrame` 循环（同时在变的图标都在这一帧里写），最后一个停下就取消，空闲时不出帧。不要拿它做循环或常驻的动画。
 - 单个 DOM 改动的代价：Playwright + CDP `Performance.getMetrics` 看样式 / 排版耗时，再对改动强制读一次 `offsetHeight` 计时。
 - 侧栏、面板的开合不要过渡 `width`：主区每帧变宽，整段对话每帧重排（1100 宽的窗口里一次开合排版 60ms+）。
 - 主进程限速、合批或逐帧动画不写 `setTimeout(16)` / `setInterval(16)`：Windows 上按系统时钟格（约 15.6ms）对齐，实际要等约 31ms。合批用 `src/main/platform/batch-timer.ts`，逐帧动画写 10ms。动画"不明显"时先把每一帧的时间和值打出来看。
