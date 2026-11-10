@@ -239,17 +239,18 @@ export function MeterView({ p }: { p: Readonly<Record<string, unknown>> }) {
         {marks.map((mark, index) => {
           const angle = clamp01(asNumber(mark.at) ?? 0) * 2 * Math.PI - Math.PI / 2;
           return (
+            // 提示用 title 属性（自绘的 TooltipLayer 画），不用 SVG 的 <title> 子元素：那个只会出 Windows 原生提示。
+            // React 的 SVG 类型里没有 title 属性（浏览器也不拿它出原生提示），用展开写上。
             <line
               key={`m${index}`}
               className="mark"
               data-tone={asString(mark.tone)}
+              {...{ title: asString(mark.title) }}
               x1={8 + 4.5 * Math.cos(angle)}
               y1={8 + 4.5 * Math.sin(angle)}
               x2={8 + 7.5 * Math.cos(angle)}
               y2={8 + 7.5 * Math.sin(angle)}
-            >
-              {asString(mark.title) !== undefined && <title>{asString(mark.title)}</title>}
-            </line>
+            />
           );
         })}
       </svg>

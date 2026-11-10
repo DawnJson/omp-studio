@@ -1,7 +1,8 @@
 // 悬停提示（spec §4.23 Tooltip）：全应用的 title 属性都用这一个自绘提示显示，不再出 Windows 原生的提示框。
 // 做法：指针移到带 title 的元素上，先把 title 从元素和它所有的祖先上拿掉、暂存起来（原生提示就不会出；只拿元素自己的，浏览器会拿外层的 title 出原生提示），500ms 后在元素下方画提示
 // （下方放不下画在上方）；刚收起一个提示时移到下一个元素立即出。键盘聚焦（input-modality 的 keyboardFocused）时立即出，title 留在元素上
-// （原生提示不跟键盘出，读屏照常读到它）。离开、按下、按键、滚动、窗口失焦时收起，title 放回原处。
+// （原生提示不跟键盘出，读屏照常读到它）。按下、按键、滚动、窗口失焦时只收起提示，title 仍拿着，直到指针移到别的元素或离开窗口才放回：
+// 放回时指针还停在元素上的话，指针一动浏览器就拿 title 出 Windows 原生提示（2026-11-10 仓库所有者："有的时候还会显示 win 原本的样式"）。
 // 悬停期间 React 改了 title（如"上次刷新于…"）：读出新文字、再拿掉。
 // 文字末尾的快捷键（"打开评审 (Ctrl Shift D)"；mac 上是 "(⌘⇧D)"，调用方用 platform-keys 的 withShortcut 生成）拆出来画成 Kbd。
 // 元素或它的祖先带 `data-tip-side` 时改放法：`top` 先画在上方（上方放不下再到下方；浏览器面板头部下面是原生页面，画在下方会被盖住），
@@ -66,14 +67,16 @@ export function TooltipLayer() {
   const [tip, setTip] = useState<Tip | null>(null);
 
   useEffect(() => {
+    /** 指针下的提示来源；指针在它里面移动不重新开始。 */
+    let hovered: HTMLElement | null = null;
+    /** 指针悬停期间拿掉的 title（来源自己的和所有祖先的）：只拿自己的，浏览器会拿离指针最近的祖先的 title 出原生提示
+     * （回答下面那行用量带 title，指到复制 / 分叉图标时出过 Windows 样式的提示，2026-11-09 仓库所有者）。
+     * 指针移到别的元素、离开窗口时才放回；提示收起（按下、按键、滚动、失焦）不放回。 */
+    let stripped: [HTMLElement, string][] = [];
+    /** 正在等或正在显示的提示。 */
     let target: HTMLElement | null = null;
     let text = "";
-    /** 提示文字来自 target 的 title（悬停期间拿掉、收起时放回）；false = 来自被截断的文字本身。 */
-    let titled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    /** 悬停期间从祖先上拿掉的 title：子元素的 title 拿掉后，浏览器会拿离指针最近的祖先的 title 出原生提示
-     * （回答下面那行用量带 title，指到复制 / 分叉图标时出过 Windows 样式的提示，2026-11-09 仓库所有者）。 */
-    let stripped: [HTMLElement, string][] = [];
     let shown = false;
     let warmUntil = 0;
     const observer = new MutationObserver((records) => {
@@ -82,29 +85,37 @@ export function TooltipLayer() {
         const next = el.getAttribute("title");
         if (next === null) continue;
         el.removeAttribute("title");
-        // 拿掉的祖先被 React 写回了 title：记下新文字，收起时放回。
-        const ancestor = stripped.find(([up]) => up === el);
-        if (ancestor !== undefined) {
-          ancestor[1] = next;
-          continue;
-        }
-        // 悬停期间 React 把 title 写回来了（文字变了）：换成新文字。
+        // 悬停期间 React 把 title 写回来了（文字变了）：记下新文字，放回时用；正显示的是它的提示就换成新文字。
+        const entry = stripped.find(([up]) => up === el);
+        if (entry !== undefined) entry[1] = next;
         if (el !== target) continue;
         text = next;
         if (shown) setTip(tipFor(el, text));
       }
     });
 
-    const hide = () => {
+    /** 元素的提示文字：title 被拿掉了的从暂存里取。 */
+    const titleOf = (el: HTMLElement) => stripped.find(([up]) => up === el)?.[1] ?? el.getAttribute("title") ?? "";
+
+    const closeTip = () => {
       clearTimeout(timer);
-      observer.disconnect();
       if (shown) warmUntil = performance.now() + WARM_MS;
       shown = false;
-      if (target && titled && !target.hasAttribute("title")) target.setAttribute("title", text);
-      for (const [el, title] of stripped) if (!el.hasAttribute("title")) el.setAttribute("title", title);
-      stripped = [];
       target = null;
       setTip(null);
+    };
+    const restore = () => {
+      observer.disconnect();
+      for (const [el, title] of stripped) if (!el.hasAttribute("title")) el.setAttribute("title", title);
+      stripped = [];
+      hovered = null;
+    };
+    const strip = (el: HTMLElement | null | undefined) => {
+      for (let up = el; up; up = up.parentElement?.closest<HTMLElement>(TITLED)) {
+        stripped.push([up, up.getAttribute("title") ?? ""]);
+        up.removeAttribute("title");
+        observer.observe(up, { attributes: true, attributeFilter: ["title"] });
+      }
     };
 
     const show = (el: HTMLElement) => {
@@ -112,76 +123,64 @@ export function TooltipLayer() {
       shown = true;
       setTip(tipFor(el, text));
     };
-    const begin = (el: HTMLElement, tipText: string, fromTitle: boolean, viaKeyboard: boolean) => {
-      hide();
-      if (tipText.trim() === "") return;
-      target = el;
-      text = tipText;
-      titled = fromTitle;
-      if (viaKeyboard) {
-        show(el);
-        return;
-      }
-      if (fromTitle) {
-        el.removeAttribute("title");
-        observer.observe(el, { attributes: true, attributeFilter: ["title"] });
-      }
-      for (
-        let up = el.parentElement?.closest<HTMLElement>(TITLED);
-        up;
-        up = up.parentElement?.closest<HTMLElement>(TITLED)
-      ) {
-        stripped.push([up, up.getAttribute("title") ?? ""]);
-        up.removeAttribute("title");
-        observer.observe(up, { attributes: true, attributeFilter: ["title"] });
-      }
-      if (performance.now() < warmUntil) show(el);
-      else timer = setTimeout(() => show(el), SHOW_DELAY_MS);
-    };
 
     const onOver = (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
       const node = event.target instanceof Element ? event.target : null;
       if (node === null) return;
-      if (target?.contains(node)) return;
+      if (hovered?.contains(node)) return;
       // 先放回拿掉的 title：从图标移到带 title 的外层（它的 title 正被拿掉）时要能找到它。
-      if (target !== null) hide();
+      closeTip();
+      restore();
       const source = tipSource(node);
-      if (source !== null) begin(source.el, source.text, source.titled, false);
+      if (source === null) return;
+      hovered = source.el;
+      strip(source.titled ? source.el : source.el.parentElement?.closest<HTMLElement>(TITLED));
+      if (source.text.trim() === "") return;
+      target = source.el;
+      text = source.text;
+      if (performance.now() < warmUntil) show(source.el);
+      else timer = setTimeout(() => show(source.el), SHOW_DELAY_MS);
     };
     const onFocus = (event: FocusEvent) => {
       const el = event.target instanceof HTMLElement ? event.target : null;
-      if (el === null || !keyboardFocused(el) || !el.matches(TITLED)) return;
-      begin(el, el.getAttribute("title") ?? "", true, true);
+      if (el === null || !keyboardFocused(el)) return;
+      const tipText = titleOf(el);
+      if (tipText.trim() === "" || !(el.matches(TITLED) || stripped.some(([up]) => up === el))) return;
+      closeTip();
+      target = el;
+      text = tipText;
+      show(el);
     };
     const onFocusOut = (event: FocusEvent) => {
-      if (event.target === target) hide();
+      if (event.target === target) closeTip();
     };
     const onLeave = () => {
-      if (target !== null) hide();
+      closeTip();
+      restore();
     };
 
     const doc = document.documentElement;
     document.addEventListener("pointerover", onOver, true);
     document.addEventListener("focusin", onFocus, true);
     document.addEventListener("focusout", onFocusOut, true);
-    document.addEventListener("pointerdown", onLeave, true);
-    document.addEventListener("keydown", onLeave, true);
-    document.addEventListener("wheel", onLeave, { capture: true, passive: true });
-    document.addEventListener("scroll", onLeave, true);
+    document.addEventListener("pointerdown", closeTip, true);
+    document.addEventListener("keydown", closeTip, true);
+    document.addEventListener("wheel", closeTip, { capture: true, passive: true });
+    document.addEventListener("scroll", closeTip, true);
     doc.addEventListener("pointerleave", onLeave);
-    window.addEventListener("blur", onLeave);
+    window.addEventListener("blur", closeTip);
     return () => {
       document.removeEventListener("pointerover", onOver, true);
       document.removeEventListener("focusin", onFocus, true);
       document.removeEventListener("focusout", onFocusOut, true);
-      document.removeEventListener("pointerdown", onLeave, true);
-      document.removeEventListener("keydown", onLeave, true);
-      document.removeEventListener("wheel", onLeave, true);
-      document.removeEventListener("scroll", onLeave, true);
+      document.removeEventListener("pointerdown", closeTip, true);
+      document.removeEventListener("keydown", closeTip, true);
+      document.removeEventListener("wheel", closeTip, true);
+      document.removeEventListener("scroll", closeTip, true);
       doc.removeEventListener("pointerleave", onLeave);
-      window.removeEventListener("blur", onLeave);
-      hide();
+      window.removeEventListener("blur", closeTip);
+      onLeave();
     };
   }, []);
 

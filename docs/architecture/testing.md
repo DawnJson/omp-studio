@@ -76,6 +76,9 @@
 - 断言"鼠标操作时不画键盘焦点环"，要放在启动后还没有任何用户输入时程序放焦点的地方（准备页 / 首屏 `autoFocus`）：Chromium 的 `:focus-visible` 对程序焦点看上一次输入，刚鼠标点过时本来就不画，放在鼠标点开的对话框上撤掉修复也照样通过。
 - 新用户路径（服务进程、设置页、首次启动）的改动，用真实 omp 跑时把所有 `*_API_KEY` / `*_TOKEN` 置空再跑一遍（`settings-functional.e2e.ts`「没有任何凭据」）。
 - **原生视图下的点击**：`WebContentsView` 叠在界面上时，它下面的 DOM 控件用户点不到；Playwright 的鼠标事件直接发给应用页面的 webContents，不经过窗口里的命中，e2e 点得到不说明用户点得到。e2e 用位置关系断言（控件和视图不相交）；要确认真实的命中，用 `PostMessageW` 把 `WM_LBUTTONDOWN` / `WM_MOUSEMOVE` 发到主窗口 HWND。模拟滚轮（`WM_MOUSEWHEEL`，屏幕坐标，`MK_CONTROL` 放在 wParam 里 Chromium 就当按着 Ctrl）时，那个点上的顶层窗口必须是被测窗口，否则 Chromium 直接丢掉：e2e 窗口是 cloak 的，要在应用自己的进程里（`app.evaluate` 里 `createRequire` 载 koffi）取消 cloak 再 `SetWindowPos` 置顶不激活，跨进程取消不了。
+- **打字的用例要过一遍输入法的路径**：`keyboard.type` 发的是可取消的 keydown，`preventDefault` 后浏览器不再插字，撤掉"只从一处发"也照样通过。输入法（英文模式也算）交来的字是另一条 `beforeinput`，keydown 拦不住。改了输入框、编辑器、搜索框的按键处理，用 CDP 再打一次：`Input.dispatchKeyEvent`（`rawKeyDown`，不带 `text`）+ `Input.insertText`，断言 omp / 输入框只收到一个字（`tsp.e2e.ts`「提问(omp 18.18.3 录制)」，issue #10：英文每个字母输两遍）。
+- **悬停提示**：只写元素的 `title` 属性；断言"没出原生提示"截不到图，改为断言指针下的元素和祖先都没有 `title`（`tsp.e2e.ts`「悬停提示只出自绘的」）。原生提示在"提示收起、指针还停着"时也会冒出来（滚轮、按键、点按之后），这几种都要过一遍（2026-11-10）。
+- **列表里的记录对着磁盘上的东西**（任务对会话文件、项目对目录）：测"外面删掉之后"的样子，不只测"在应用里删"。issue #10：在 omp 里删掉的会话，任务在侧栏里一直留着、分叉摊成两行同名的。
 
 ## 录制回放（`fixtures/tsp/` + `test/fake-omp/`）
 

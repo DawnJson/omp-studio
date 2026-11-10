@@ -519,6 +519,26 @@ test("悬停提示只出自绘的:指到回答用量行里的复制 / 分叉图�
     await expect(tip).toBeVisible();
     await page.mouse.move(fork.x + fork.width + 40, row.y + row.height / 2);
     await expect(tip).toHaveText(rowTitle!.replace(/\s+/g, " ").trim());
+    // 自绘提示被滚轮、按键、按下收起后，指针还在这行上：title 不能放回去，否则指针一动就出原生提示（2026-11-10 仓库所有者：
+    // "有的时候还会显示 win 原本的样式"）。指针离开这行才放回。
+    const inRow = { x: fork.x + fork.width + 40, y: row.y + row.height / 2 };
+    for (const dismiss of [
+      () => page.mouse.wheel(0, 40),
+      () => page.keyboard.press("Shift"),
+      async () => {
+        await page.mouse.down();
+        await page.mouse.up();
+      },
+    ]) {
+      await page.mouse.move(inRow.x, inRow.y);
+      await expect(tip).toBeVisible();
+      await dismiss();
+      await expect(tip).toHaveCount(0);
+      await page.mouse.move(inRow.x + 3, inRow.y);
+      expect(await titledUnderPointer(inRow.x + 3, inRow.y)).toBeNull();
+      await page.getByTestId("composer-input").hover();
+      await expect(usage).toHaveAttribute("title", rowTitle!);
+    }
   } finally {
     await cleanup();
   }

@@ -19,6 +19,7 @@ How to write it:
 
 - Typing English with an input method in English mode no longer doubles every letter in the ask dialog's custom answer box (and other omp input boxes and picker search boxes).
 - Tasks whose conversation was deleted in omp no longer stay in the sidebar: they're removed at startup and when the window regains focus (deleting one side of a fork no longer leaves two same-named conversations that both open).
+- Hover tips no longer sometimes turn into the native Windows style: scrolling, pressing a key, or clicking while a tip is showing no longer makes a native tip pop up when the pointer moves, and the tick marks on ring charts in the conversation use the app's own tips too.
 
 ## [0.7.0] - 2026-11-10
 

@@ -150,6 +150,21 @@ function scanShellTrue(files: SourceFile[]): Finding[] {
   return grepLines(targets, /\bshell\s*:\s*true\b/, "shell-true", "起子进程不经过 shell，参数用数组", true);
 }
 
+/**
+ * 界面里只出自绘的悬停提示（ui/Tooltip.tsx 读 title 属性）：SVG 的 `<title>` 子元素、`<abbr>`、原生 `<details>` 的提示和样式
+ * 它管不到，出的是 Windows 原生提示（2026-11-10 仓库所有者："有的时候还会显示 win 原本的样式"，对话里环形图的刻度就是 `<title>`）。
+ */
+function scanNativeTooltips(files: SourceFile[]): Finding[] {
+  const targets = files.filter((file) => file.path.startsWith("src/renderer/") && file.path.endsWith(".tsx"));
+  return grepLines(
+    targets,
+    /<(title|abbr|details)[\s>]/,
+    "native-tooltip",
+    "悬停提示用元素的 title 属性（TooltipLayer 自绘），不用 SVG <title>、<abbr>、<details>",
+    true,
+  );
+}
+
 function scanBrowserWindowFlags(files: SourceFile[]): Finding[] {
   const targets = files.filter((file) => file.path.startsWith("src/main/") && CODE.test(file.path));
   return grepLines(
@@ -549,6 +564,7 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...(noMention === null ? [] : scanUnreleasedMentions(files, noMention)),
     ...scanInnerHtml(files),
     ...scanShellTrue(files),
+    ...scanNativeTooltips(files),
     ...scanBrowserWindowFlags(files),
     ...scanInterval1000(files),
     ...scanE2eLocaleTheme(files),
