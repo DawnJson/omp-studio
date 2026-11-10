@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-10
+
 ### Added
 
 - HTML, SVG, Mermaid and Markdown code blocks in answers can be previewed in the right file panel ("Preview in side panel" in the block header).
