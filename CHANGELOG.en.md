@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-10
+
 ### Added
 
 - Conversations can be pinned: choose "Pin to top" in the task menu (sidebar right-click, ⋯, or the top bar ⋯) and the conversation moves to the top of its folder, the folder moves up (after the default folder), and the row shows a pin. Pins are shared with terminal omp's resume list. "Keep running" now uses a bolt icon.
