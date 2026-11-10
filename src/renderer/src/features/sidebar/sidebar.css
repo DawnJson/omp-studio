@@ -423,8 +423,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 置顶的行：标题后面的图钉，和 worktree 标记同色同尺寸 */
-.sb-row-pin {
+/* 置顶 / 保持运行的行：标题后面的图钉 / 闪电，和 worktree 标记同色同尺寸 */
+.sb-row-pin,
+.sb-row-keep {
   display: inline-flex;
   flex: none;
   align-items: center;

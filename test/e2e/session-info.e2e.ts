@@ -233,11 +233,15 @@ test("保持运行：顶栏任务菜单打开 / 取消，记进任务记录；�
     await page.getByTestId("task-menu").click();
     await page.getByRole("menuitem", { name: /^(保持运行|Keep running)$/ }).click();
     await expect.poll(keepAlive).toBe(true);
+    // 侧栏的任务行标题后面一个闪电，取消后消失。
+    const keepMark = page.getByTestId("task-row").first().getByTestId("task-row-keep-alive");
+    await expect(keepMark).toBeVisible();
     // 菜单的退出动画放完（⋯ 的 aria-expanded 回到 false）才算关上；放完前再点 ⋯ 是"关菜单"。
     await expect(page.getByTestId("task-menu")).toHaveAttribute("aria-expanded", "false");
     await page.getByTestId("task-menu").click();
     await page.getByRole("menuitem", { name: /取消保持运行|Stop keeping running/ }).click();
     await expect.poll(keepAlive).toBe(false);
+    await expect(keepMark).toHaveCount(0);
 
     await page.keyboard.press("Control+,");
     await page.getByTestId("settings-nav-general").click();
