@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-09
+
 ### Added
 
 - The command area of bash cards follows omp's readable view: indentation, colours, a × before failed commands, the rest dimmed while running, and folded long chunks that open on click; the right end of the first line switches between Pseudo and Raw (the original command).
