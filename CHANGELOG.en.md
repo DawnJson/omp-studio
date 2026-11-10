@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-10
+
 ### Fixed
 
 - A table in an answer with a long file name or path no longer squeezes the other columns to one word per line and cuts them off on the right: file names now wrap at _, / and `.`.
