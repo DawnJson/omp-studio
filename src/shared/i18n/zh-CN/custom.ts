@@ -62,7 +62,6 @@ export const custom = {
   "form.models.vanished": "已失效",
   "form.models.vanished.tip": "刚拉取的模型列表里没有它",
   "form.models.removeVanished": "移除失效的 {count} 个",
-  "form.models.discovered": "自动发现的模型；关掉自动发现才能逐个挑选",
   "form.models.filter": "筛选",
   "form.models.add.placeholder": "手动添加模型 id",
   "form.models.add": "添加",
@@ -86,7 +85,8 @@ export const custom = {
   "form.title.add": "添加自定义 provider",
   "form.title.edit": "编辑 {id}",
   "form.discovery": "自动发现模型",
-  "form.discovery.tip": "服务列出的模型自动出现、下架的自动消失；开着时不能逐个移除。要自己挑选模型就关掉它。",
+  "form.discovery.tip":
+    "表里就是 omp 从服务发现的模型：跟着服务的列表自动出现、下架的自动消失，开着时不能逐个移除；每个模型仍能设能力参数（写进 modelOverrides）。要自己挑选模型就关掉它。",
   "form.discovery.unsupported": "这个接口类型没有通用的发现方式，请手动添加模型。",
   refresh: "刷新模型",
   refreshFailed: "没能刷新模型：{message}",

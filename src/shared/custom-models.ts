@@ -88,6 +88,8 @@ export const limits = {
   envName: 128,
   /** contextWindow / maxTokens 的上限（token）。omp 没有上限，这里只挡明显输错的数。 */
   tokens: 100_000_000,
+  /** 自动发现的模型一次最多写多少个覆盖项（和一键拉取的上限一样）。 */
+  discoveredOverrides: 2000,
 } as const;
 
 /**
@@ -204,6 +206,13 @@ export interface CustomProviderInput {
    * false = 去掉 `discovery`；缺省 = 不动。
    */
   discovery?: boolean;
+  /**
+   * 自动发现的模型（不在 `models` 里）的能力参数：写进 `modelOverrides.<id>`，不写进 `models[]`（写进去模型就钉住了，上游下架后
+   * omp 照样列它；omp 18.18.6 实测）。只动列出的模型的四项（null = 去掉这一项），没列出的模型的覆盖项、覆盖项里别的键原样；
+   * 覆盖项空了删掉。id 不能和 `models` 里的重复。缺省 = 不动 `modelOverrides`。
+   * 不管给没给：这次新加进 `models` 的模型，`modelOverrides` 里它的四项去掉（omp 的覆盖项压在 `models[]` 上面，留着表里填的值不生效）。
+   */
+  overrides?: ({ id: string } & CustomModelMeta)[];
 }
 
 export type CustomModelsErrorCode =

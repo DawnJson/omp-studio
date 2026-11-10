@@ -506,7 +506,8 @@ test('窗口重新获得焦点时重扫历史会话；从列表移除只藏起�
     await forkToggle.click();
     await expect(fork).toHaveCount(0);
     await expect(forkToggle).toHaveAttribute("aria-expanded", "false");
-    await expect(forkToggle).toHaveAttribute("title", "展开 1 个分叉");
+    // 指针还停在箭头上：title 被自绘提示拿着（不放回，免得出原生提示），看读屏名字。
+    await expect(forkToggle).toHaveAttribute("aria-label", "展开 1 个分叉");
     await forkToggle.click();
     await expect(fork).toHaveCount(1);
     await expect(forkToggle).toHaveAttribute("aria-expanded", "true");

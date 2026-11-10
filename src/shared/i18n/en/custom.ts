@@ -64,7 +64,6 @@ export const custom = {
   "form.models.vanished": "Not listed",
   "form.models.vanished.tip": "The model list just fetched doesn't include it",
   "form.models.removeVanished": "Remove {count} not listed",
-  "form.models.discovered": "Discovered automatically; turn off automatic discovery to pick models one by one",
   "form.models.filter": "Filter",
   "form.models.add.placeholder": "Add a model id manually",
   "form.models.add": "Add",
@@ -88,7 +87,7 @@ export const custom = {
   "form.title.add": "Add a custom provider",
   "form.discovery": "Discover models automatically",
   "form.discovery.tip":
-    "Models the service lists appear and disappear automatically, and while this is on they can't be removed one by one. Turn it off to pick models by hand.",
+    "The table is the list omp discovers from the service: models appear and disappear with it, and while this is on they can't be removed one by one. Each model's capabilities can still be set (saved under modelOverrides). Turn it off to pick models by hand.",
   "form.discovery.unsupported": "This API type has no general way to discover models; add them by hand.",
   refresh: "Refresh models",
   refreshFailed: "Couldn't refresh models: {message}",

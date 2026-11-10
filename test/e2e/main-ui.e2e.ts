@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
 
 const fixture = "slash-status";
 
@@ -571,6 +571,82 @@ test("空状态、对话里的用量", async () => {
     await page.keyboard.press("Escape");
     await expect(overview).toHaveCount(0);
     await expect(cost).toBeFocused();
+    // 账号多、窗口矮时只有中间的账号额度滚（2026-11-10 仓库所有者定）：滚轮在额度区上滚的是额度列表，
+    // 汇总条和热力图不动，Dialog 正文本身不滚；对话框仍在窗口里。
+    const viewportBefore = page.viewportSize();
+    await page.setViewportSize({ width: 1200, height: 600 });
+    await launched.app.evaluate(({ ipcMain }) => {
+      const account = (index: number) => ({
+        provider: "anthropic",
+        account: `user${index}@example.com`,
+        limits: [
+          { id: "5h", label: "5 Hour", windowLabel: "5 Hour", usedFraction: 0.2, resetsAt: null, status: "ok" },
+          { id: "7d", label: "7 Day", windowLabel: "7 Day", usedFraction: 0.5, resetsAt: null, status: "ok" },
+        ],
+        notes: [],
+        fetchedAt: Date.now(),
+        planType: null,
+        planEndsAt: null,
+        autoRenew: null,
+        daybreak: false,
+        resetCredits: null,
+        identityHash: `m${index}`,
+      });
+      ipcMain.removeHandler("studio:getUsageQuota");
+      ipcMain.handle("studio:getUsageQuota", () => ({
+        generatedAt: Date.now(),
+        accounts: Array.from({ length: 6 }, (_, index) => account(index)),
+        unavailable: [],
+      }));
+    });
+    await cost.click();
+    await expect(overview).toBeVisible();
+    await expect(accounts).toHaveCount(6);
+    await expect(head.getByTestId("usage-syncing")).toHaveCount(0, { timeout: 30_000 });
+    const scrollMetrics = (target: typeof overview) =>
+      target.evaluate((element) => {
+        const box = element as unknown as { scrollHeight: number; clientHeight: number; scrollTop: number };
+        return { scrollHeight: box.scrollHeight, clientHeight: box.clientHeight, scrollTop: box.scrollTop };
+      });
+    const quotaScroll = overview.getByTestId("quota-scroll");
+    const dialogBody = overview.locator(".ui-dialog-body");
+    const quotaMetrics = await scrollMetrics(quotaScroll);
+    expect(quotaMetrics.scrollHeight).toBeGreaterThan(quotaMetrics.clientHeight + 1);
+    const bodyMetrics = await scrollMetrics(dialogBody);
+    expect(bodyMetrics.scrollHeight).toBeLessThanOrEqual(bodyMetrics.clientHeight + 1);
+    expect((await overview.boundingBox())?.height ?? 0).toBeLessThan(600 - 96 + 1);
+    const pinned = [overview.getByTestId("usage-summary"), overview.getByTestId("heatmap-section")];
+    const pinnedBefore = await Promise.all(pinned.map((locator) => locator.boundingBox()));
+    await quotaScroll.hover();
+    await page.mouse.wheel(0, 400);
+    await expect.poll(async () => (await scrollMetrics(quotaScroll)).scrollTop).toBeGreaterThan(0);
+    expect(await Promise.all(pinned.map((locator) => locator.boundingBox()))).toEqual(pinnedBefore);
+    expect((await scrollMetrics(dialogBody)).scrollTop).toBe(0);
+    // 窄窗口（900 宽）中英文下内容都不越界。
+    await page.setViewportSize({ width: 900, height: 600 });
+    await expectNoOverflow(overview);
+    await setLocale(page, "en");
+    await expectNoOverflow(overview);
+    await setLocale(page, "zh-CN");
+    await page.setViewportSize({ width: 1200, height: 600 });
+    // 没有额度账号：对话框高度跟内容走，热力图下面不留空。
+    await launched.app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler("studio:getUsageQuota");
+      ipcMain.handle("studio:getUsageQuota", () => ({ generatedAt: Date.now(), accounts: [], unavailable: [] }));
+    });
+    await overview.getByTestId("usage-refresh").click();
+    await expect(overview.getByTestId("usage-quota-empty")).toBeVisible();
+    await expect(head.getByTestId("usage-syncing")).toHaveCount(0, { timeout: 30_000 });
+    const [emptyDialogBox, emptyHeatBox] = await Promise.all([
+      overview.boundingBox(),
+      overview.getByTestId("heatmap-section").boundingBox(),
+    ]);
+    expect(
+      (emptyDialogBox?.y ?? 0) + (emptyDialogBox?.height ?? 0) - (emptyHeatBox?.y ?? 0) - (emptyHeatBox?.height ?? 0),
+    ).toBeLessThanOrEqual(16);
+    await overview.getByRole("button", { name: /^(关闭|Close)$/ }).click();
+    await expect(overview).toHaveCount(0);
+    if (viewportBefore) await page.setViewportSize(viewportBefore);
 
     // 回到空状态：Ctrl N 一律是默认文件夹，不沿用刚才任务的项目；只有标志和输入框，没有最近的任务和历史会话。
     await page.keyboard.press("Control+n");

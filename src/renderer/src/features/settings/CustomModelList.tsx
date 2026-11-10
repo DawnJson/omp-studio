@@ -1,6 +1,8 @@
 // 自定义提供商对话框里的"模型"一栏：工具栏（拉取模型、自动发现开关、移除失效的）、筛选、手动添加；表里的就是保存时写进 models.yml 的，
 // 每行末尾 × 移除（悬停 / 聚焦时显示）。每行选对话 / 生图，对话模型再设思考、图片输入、上下文窗口、最大输出（models.yml 模型条目
 // 或 `modelOverrides` 覆盖项的 reasoning / input / contextWindow / maxTokens）。状态（rows、提示、拉取结果）由对话框持有。
+// 开着自动发现时对话框不传 fetch：表里是 omp 发现的模型（discovered 行，能力参数写进 modelOverrides）加上文件里 models[] 的，
+// 不能逐个移除（这次手动添加的除外），发现的行没有类型列。
 // 覆盖内置 provider 的对话框传 checkable、不传 fetch / discovery / image：每行一个勾选框（勾上 = 写覆盖项），工具栏是全选方框，没有类型列。
 import { useMemo, useState } from "react";
 import {
@@ -30,8 +32,10 @@ export interface ModelRow {
   maxTokens: string;
   /** 生图模型（models.yml 里 `api: openai-images` / `kind: image`）：没有对话的四项参数。undefined = 新加的、类型还没定。 */
   image?: boolean;
-  /** 这次在对话框里手动添加的：不标"已失效"（手动加的多半是服务不列出的隐藏模型）。 */
+  /** 这次在对话框里手动添加的：不标"已失效"（手动加的多半是服务不列出的隐藏模型）；开着自动发现时也能 × 掉。 */
   manual?: boolean;
+  /** omp 自动发现的模型（不在 models[] 里）：能力参数写进 `modelOverrides.<id>`，不能移除，没有类型（生图）列。 */
+  discovered?: boolean;
 }
 
 /** 改成生图时清掉对话的四项：生图模型用不上，留着会照样写进 models.yml。 */
@@ -68,13 +72,11 @@ interface CustomModelListProps {
     onPickClose(): void;
     onAdd(models: FetchedModel[]): void;
   };
-  /** 自动发现模型（models.yml 里写 discovery）；接口类型没有通用发现方式时开关停用。 */
+  /** 自动发现模型（models.yml 里写 discovery）；接口类型没有通用发现方式时开关停用。开着时行不能移除（这次手动添加的除外）。 */
   discovery?: {
     on: boolean;
     supported: boolean;
     onChange(next: boolean): void;
-    /** omp 现在给这个 provider 列出的模型 id（只有编辑已保存的 provider 时有）：开着时列表外的显示成灰色只读行。 */
-    listed: readonly string[];
   };
   /** 类型列（对话 / 生图）；接口类型不能生图时只能改回对话。 */
   image?: { supported: boolean };
@@ -118,11 +120,10 @@ export function CustomModelList({
           ),
     [rows, fetched],
   );
-  // 开着自动发现时 omp 列出、列表里没有的：omp 运行时从中转站发现的，studio 不能逐个去掉。
-  const discovered = discovery?.on === true ? discovery.listed.filter((id) => !ids.has(id)) : [];
   const needle = filter.trim().toLowerCase();
   const visibleRows = needle === "" ? rows : rows.filter((row) => row.id.toLowerCase().includes(needle));
-  const visibleDiscovered = needle === "" ? discovered : discovered.filter((id) => id.toLowerCase().includes(needle));
+  // 开着自动发现时表里跟着 omp 发现的列表走，不能逐个移除；这次手动添加、还没保存的照样能 ×（撤销）。
+  const removable = (row: ModelRow) => !checkable && (discovery?.on !== true || row.manual === true);
 
   const update = (id: string, patch: Partial<ModelRow>) =>
     onRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -289,7 +290,7 @@ export function CustomModelList({
           </Button>
         )}
         {/* 行多到要筛选时才显示计数：少的时候勾了几个一眼看得到。 */}
-        {rows.length + discovered.length > 12 && (
+        {rows.length > 12 && (
           <>
             <TextField
               size="sm"
@@ -313,7 +314,7 @@ export function CustomModelList({
           {notice.text}
         </Notice>
       )}
-      {rows.length + discovered.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="cp-text">{t("custom.form.models.empty")}</p>
       ) : (
         <div
@@ -342,7 +343,10 @@ export function CustomModelList({
                 data-testid={checkable ? undefined : `custom-model-${row.id}`}
               >
                 {nameCell(row)}
-                {hint !== null && image !== undefined && kindCell(row, image.supported)}
+                {/* 发现的行写不了生图（那要写进 models[]）：类型格空着占位。 */}
+                {hint !== null &&
+                  image !== undefined &&
+                  (row.discovered === true ? <span /> : kindCell(row, image.supported))}
                 {hint !== null && row.image !== true && (
                   <>
                     {flagCell(row, "reasoning", hint.reasoning)}
@@ -351,7 +355,7 @@ export function CustomModelList({
                     {countCell(row, "maxTokens", hint.maxTokens)}
                   </>
                 )}
-                {!checkable && (
+                {removable(row) && (
                   <IconButton
                     className="cp-model-remove"
                     label={t("custom.form.models.remove", { model: row.id })}
@@ -365,19 +369,6 @@ export function CustomModelList({
               </div>
             );
           })}
-          {visibleDiscovered.map((id) => (
-            <div
-              key={id}
-              className="cp-model-row"
-              data-discovered=""
-              title={t("custom.form.models.discovered")}
-              data-testid={`custom-discovered-${id}`}
-            >
-              <span className="cp-model-name">
-                <span className="cp-model-id">{id}</span>
-              </span>
-            </div>
-          ))}
         </div>
       )}
       <div className="cp-manual">

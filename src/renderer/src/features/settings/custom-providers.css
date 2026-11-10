@@ -191,11 +191,6 @@
   flex: none;
 }
 
-/* 自动发现的模型：灰色只读行。 */
-.cp-model-row[data-discovered] {
-  color: var(--text-3);
-}
-
 /* 移除 × 和侧栏行的操作一样，悬停 / 聚焦这一行时才显示；生图、只有 id 的行也放在最后一列。 */
 .cp-model-remove {
   grid-column: -2;

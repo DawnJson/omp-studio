@@ -785,8 +785,10 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
   }
 });
 
-test("自定义提供商：自动发现模型——开关写 discovery、不用勾模型；悬停说明不能逐个移除；omp 读到 /models 里的模型、编辑时显示成灰色只读行；刷新模型按钮跑通；关掉后去掉 discovery", async () => {
-  const fake = await startFakeOpenAi({ models: ["disc-a", "disc-b"] });
+test("自定义提供商：自动发现模型——开关写 discovery、不用勾模型；表里就是发现的模型（保存前按同一个列表接口预览），不能逐个移除、能设能力参数（写进 modelOverrides）；上游下架后刷新模型就消失；关掉后回到手动挑选、去掉 discovery", async () => {
+  // 可变的模型列表：后面去掉 disc-b，看它在 omp 刷新后从表里消失。
+  const upstream = ["disc-a", "disc-b"];
+  const fake = await startFakeOpenAi({ models: upstream });
   const { launched, agentDir } = await launchSettings();
   const file = path.join(agentDir, "models.yml");
   try {
@@ -812,9 +814,17 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
     await page.getByTestId("custom-discovery").click();
     await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
     // 开关的悬停说明：上游的模型自动出现和消失，开着时不能逐个移除，要自己挑就关掉。
-    await expect(page.getByTestId("custom-discovery-label")).toHaveAttribute("title", /不能逐个移除.*关掉/);
-    // 还没保存的 provider 没有 omp 列出的模型：没有只读行。
-    await expect(page.getByTestId("custom-model-list")).toHaveCount(0);
+    // 刚点过开关：提示收起、指针离开之前不再出（title 被自绘提示拿着，不放回，免得出原生提示）。移开再悬停，断言画出来的提示。
+    await page.getByTestId("custom-id").hover();
+    await page.getByTestId("custom-discovery-label").hover();
+    await expect(page.getByTestId("tooltip")).toContainText(/不能逐个移除.*关掉/);
+    // 还没保存：omp 没读过这个条目，表里按同一个列表接口预览发现的模型；拉取按钮和 × 都没有，发现的行没有类型列。
+    await expect(page.getByTestId("custom-model-disc-a")).toBeVisible();
+    await expect(page.getByTestId("custom-model-disc-b")).toBeVisible();
+    await expect(page.getByTestId("custom-fetch")).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-remove-disc-a")).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-kind-disc-a")).toHaveCount(0);
+    await page.getByTestId("custom-model-contextWindow-disc-a").fill("272k");
     await expect(page.getByTestId("custom-save")).toBeEnabled();
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-save").click();
@@ -827,9 +837,47 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
     expect(written).toContain("# 本地的");
     expect(written).toContain("keep-me # 别动");
     expect(written).toMatch(/fake-disco:[\s\S]*discovery:\s+type: openai-models-list/);
-    expect(written).not.toContain("- id: disc-a"); // 发现的模型不写进文件
+    expect(written).not.toContain("- id: disc-a"); // 发现的模型不写进 models[]
+    expect(written).toMatch(/fake-disco:[\s\S]*modelOverrides:\s+disc-a:\s+contextWindow: 272000/);
+    expect(written).not.toMatch(/modelOverrides:[\s\S]*disc-b/); // 全是自动的不写覆盖项
 
-    // omp 重新加载后从假服务的 /models 读到模型。
+    // omp 重新加载后从假服务的 /models 读到模型，disc-a 用上覆盖项里的上下文窗口。
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            globalThis.studio
+              .listModels(true)
+              .then((models) =>
+                models
+                  .filter((model) => model.key.provider === "fake-disco")
+                  .map((model) => [model.key.modelId, model.contextWindow]),
+              ),
+          ),
+        { timeout: 30_000 },
+      )
+      .toEqual([
+        ["disc-a", 272000],
+        ["disc-b", 128000],
+      ]);
+
+    // 编辑：开关是开的；表里是 omp 发现的模型，和别的行一样能设参数、没有 ×；"自动"后面是 omp 现在的值。
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("custom-edit-fake-disco").click();
+    await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByTestId("custom-model-contextWindow-disc-a")).toHaveValue("272000", { timeout: 30_000 });
+    await expect(page.getByTestId("custom-model-contextWindow-disc-b")).toHaveAttribute("placeholder", "自动 · 128K");
+    await expect(page.getByTestId("custom-model-remove-disc-b")).toHaveCount(0);
+    await page.getByTestId("custom-cancel").click();
+    await expect(form).toHaveCount(0);
+
+    // 上游下架 disc-b，刷新模型（omp models refresh 跑完，按钮回到可点，成功不弹气泡）后它从 omp 的列表和表里消失。
+    upstream.splice(1, 1);
+    await page.getByTestId("custom-refresh").click();
+    await expect(page.getByTestId("custom-refresh")).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByTestId("custom-refresh")).toBeEnabled({ timeout: 90_000 });
+    await expect(page.getByTestId("custom-load-failed")).toHaveCount(0);
+
     await expect
       .poll(
         () =>
@@ -842,24 +890,16 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
           ),
         { timeout: 30_000 },
       )
-      .toEqual(["disc-a", "disc-b"]);
+      .toEqual(["disc-a"]);
 
-    // 刷新模型：omp models refresh 跑完，按钮回到可点（成功不弹气泡）。
-    await page.getByTestId("custom-refresh").click();
-    await expect(page.getByTestId("custom-refresh")).toHaveAttribute("aria-busy", "true");
-    await expect(page.getByTestId("custom-refresh")).toBeEnabled({ timeout: 90_000 });
-    await expect(page.getByTestId("custom-load-failed")).toHaveCount(0);
-
-    // 编辑：开关是开的；omp 发现的模型显示成灰色只读行（没有 ×）。关掉后只读行消失；手动加一个模型再保存 → discovery 去掉，别的内容不动。
+    // 再编辑：只剩 disc-a。关掉开关回到手动挑选：发现的行消失、拉取按钮回来；手动加一个模型再保存 → discovery 去掉，别的内容不动。
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-edit-fake-disco").click();
-    await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
-    const discovered = page.getByTestId("custom-model-list").locator("[data-discovered]");
-    await expect(discovered).toHaveText(["disc-a", "disc-b"], { timeout: 30_000 });
-    await expect(discovered.first()).toHaveAttribute("title", /关掉自动发现才能逐个挑选/);
-    await expect(discovered.first().locator("button, input")).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-disc-a")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("custom-model-disc-b")).toHaveCount(0);
     await page.getByTestId("custom-discovery").click();
-    await expect(discovered).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-disc-a")).toHaveCount(0);
+    await expect(page.getByTestId("custom-fetch")).toBeVisible();
     await expect(page.getByTestId("custom-save")).toBeDisabled(); // 没有模型、也没开发现
     await page.getByTestId("custom-manual-model").fill("manual-only");
     await page.getByTestId("custom-manual-model").press("Enter");

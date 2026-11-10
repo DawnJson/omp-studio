@@ -14,6 +14,7 @@ export const usage = {
   "summary.busiest": "最忙的一天",
   "summary.requests": "{value} 次请求",
   refresh: "刷新",
+  "quota.accounts": "订阅账号额度",
   "quota.empty": "没有订阅额度",
   "quota.failed": "没能读取额度：{message}",
   "quota.resets": "{time} 重置",

@@ -254,6 +254,64 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
     expect(await listModelIds(omp, "fake-disco-anthropic")).toEqual(["local-one"]);
   }, 120_000);
 
+  it("自动发现的模型：modelOverrides 里的能力参数被 omp 采用；上游下架后 omp models refresh 就不再列出；写进 models[] 的同名模型被钉住", async () => {
+    const omp = await findOmpOnPath();
+    if (!omp) throw new Error("omp is not on PATH");
+    await mkdir(scratch, { recursive: true });
+    const upstream = ["house-a", "house-b", "house-c"];
+    const moving = await startFakeOpenAi({ models: upstream });
+    try {
+      const outcome = await saveCustomProvider(
+        agentDir,
+        {
+          id: "fake-disco-meta",
+          baseUrl: moving.baseUrl,
+          api: "openai-completions",
+          key: { kind: "none" },
+          models: [auto("house-c")],
+          discovery: true,
+          overrides: [
+            { id: "house-a", reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 },
+            auto("house-b"),
+          ],
+        },
+        "add",
+      );
+      expect(outcome).toEqual({ ok: true });
+      const run = ompCli(omp);
+      const rows = async () => {
+        const listed = await run(["models", "fake-disco-meta", "--json"]);
+        requireSuccess("omp models --json", listed);
+        const parsed = JSON.parse(listed.stdout) as {
+          models: { id: string; reasoning: boolean; input: string[]; contextWindow: number; maxTokens: number }[];
+        };
+        return parsed.models.map(({ id, reasoning, input, contextWindow, maxTokens }) => ({
+          id,
+          reasoning,
+          input,
+          contextWindow,
+          maxTokens,
+        }));
+      };
+      requireSuccess("omp models refresh", await run(["models", "refresh"]));
+      expect(await rows()).toEqual(
+        expect.arrayContaining([
+          { id: "house-a", reasoning: true, input: ["text", "image"], contextWindow: 272000, maxTokens: 32000 },
+          expect.objectContaining({ id: "house-b", reasoning: false, contextWindow: 128000 }),
+        ]),
+      );
+      expect((await listModelIds(omp, "fake-disco-meta")).sort()).toEqual(["house-a", "house-b", "house-c"]);
+
+      // 上游下架全部三个：发现的随刷新消失（没刷新前 omp 用缓存的列表），models[] 里的 house-c 留着。
+      upstream.length = 0;
+      expect((await listModelIds(omp, "fake-disco-meta")).sort()).toEqual(["house-a", "house-b", "house-c"]);
+      requireSuccess("omp models refresh", await run(["models", "refresh"]));
+      expect(await listModelIds(omp, "fake-disco-meta")).toEqual(["house-c"]);
+    } finally {
+      await moving.close();
+    }
+  }, 180_000);
+
   it("环境变量形式的 key：变量名大小写混合、值写进 agent 目录的 .env，omp 启动时读到它，带着它去 /models 拉到模型", async () => {
     const omp = await findOmpOnPath();
     if (!omp) throw new Error("omp is not on PATH");

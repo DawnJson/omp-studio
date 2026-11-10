@@ -218,6 +218,15 @@ export const tokenText = (value: number | null) => (value === null ? "" : String
 /** omp 不知道这一项（新模型、还没加载、文件里写了值）时的提示：全 null。 */
 export const noHint: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
 
+/** 文件里这个模型的能力参数：`models[]` 的条目，其次 `modelOverrides` 的覆盖项（自动发现的模型）；都没写的全是 null。 */
+function savedMetaOf(provider: CustomProviderInfo | undefined, modelId: string): CustomModelMeta {
+  return (
+    provider?.models.find((model) => model.id === modelId) ??
+    provider?.overrides.find((model) => model.id === modelId) ??
+    noHint
+  );
+}
+
 /** omp 给认不出的模型补的兜底值（omp 18.12.6 / 18.13.1 实测，custom-models.md「模型的能力参数」）。 */
 const ompFallback = { reasoning: false, images: false, contextWindow: 128_000 };
 
@@ -282,7 +291,8 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const [initialConn] = useState(conn);
   const [lastFetch, setLastFetch] = useState<{ conn: string; failure: FetchFailure | null } | null>(null);
 
-  // "自动"后面显示 omp 现在用的值：只对已保存、文件里没写这一项的模型（写了的话 omp 的值就是文件里的值，换回自动后不再适用）。
+  // "自动"后面显示 omp 现在用的值：只对 omp 已经加载、文件里没写这一项的模型（写了的话 omp 的值就是文件里的值，换回自动后不再适用）；
+  // 自动发现的模型同样（文件里的值在 modelOverrides）。
   const accounts = useAccountLoad();
   const loaded = new Map(
     accounts.kind === "ready" && provider !== undefined
@@ -293,8 +303,8 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   );
   const hintOf = (modelId: string): CustomModelMeta => {
     const live = loaded.get(modelId);
-    const file = provider?.models.find((model) => model.id === modelId);
-    if (live === undefined || file === undefined) return noHint;
+    if (live === undefined) return noHint;
+    const file = savedMetaOf(provider, modelId);
     return {
       reasoning: file.reasoning === null ? live.reasoning : null,
       images: file.images === null ? live.acceptsImages : null,
@@ -306,8 +316,8 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   // 不看最大输出：开了自动发现时 omp 会用中转站 /models 给的 max_completion_tokens，认不出的模型也可能不是 16384。
   const ompKnows = (modelId: string): boolean => {
     const live = loaded.get(modelId);
-    const file = provider?.models.find((model) => model.id === modelId);
-    if (live === undefined || file === undefined) return false;
+    if (live === undefined) return false;
+    const file = savedMetaOf(provider, modelId);
     return (
       (file.reasoning === null && live.reasoning !== ompFallback.reasoning) ||
       (file.images === null && live.acceptsImages !== ompFallback.images) ||
@@ -337,7 +347,9 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
           current.map((row) => {
             const caps = found[row.id];
             if (caps === undefined || row.image === true || ompKnowsRef.current(row.id)) return row;
-            if (row.image === undefined && catalogSaysImage(apiRef.current, caps)) return { ...row, ...imageRowPatch };
+            // 发现的模型写不了生图（那要写进 models[]），只预填能力参数。
+            if (row.image === undefined && row.discovered !== true && catalogSaysImage(apiRef.current, caps))
+              return { ...row, ...imageRowPatch };
             return prefillRow(row, caps);
           }),
         ),
@@ -367,13 +379,15 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   }));
   if (!apiOptions.some((option) => option.value === api)) apiOptions.push({ value: api, label: api });
 
-  const countsValid = rows.every(
-    (row) => parseTokenCount(row.contextWindow) !== undefined && parseTokenCount(row.maxTokens) !== undefined,
-  );
   const keyReady = keyComplete(keyMode, keyText, envValue, envSource);
   // 接口类型改成没有通用发现方式的：开关停用，开着也不写；条目里本来就有 discovery 的照旧能保存（原样保留）。
   const discoverySupported = defaultDiscoveryType(api) !== null || provider?.discovery === true;
   const discoveryOn = discovery && discoverySupported;
+  // 发现的行只在开着自动发现时显示和保存（接口类型改成不支持发现时也藏起来）。
+  const shownRows = discoveryOn ? rows : rows.filter((row) => row.discovered !== true);
+  const countsValid = shownRows.every(
+    (row) => parseTokenCount(row.contextWindow) !== undefined && parseTokenCount(row.maxTokens) !== undefined,
+  );
   // 接口类型改成不能生图的：文件里本来就是生图的模型原样保留，新标成生图的存不了。
   const imageSupported = imageModelField(api) !== null;
   const imageRowsOk =
@@ -385,34 +399,92 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
     keyReady &&
     countsValid &&
     imageRowsOk &&
-    (rows.length > 0 || discoveryOn);
+    (shownRows.length > 0 || discoveryOn);
+
+  // 开着自动发现时表里接上 omp 发现的模型（discovered 行，能力参数写进 modelOverrides）。文件里已经有 discovery：取 omp 现在给这个
+  // provider 列出的（listModels，和 ProviderOverrideDialog 一样）。刚打开开关、还没保存：omp 还没读过这个条目，也没有命令或 RPC
+  // 让它发现一个没写进文件的 provider，所以按新写的 discovery 类型（openai-models-list / proxy）读的同一个列表接口预览
+  // （fetchProviderModels：`<baseUrl>/models`、Anthropic `/v1/models`），保存后表里换成 omp 自己发现的。不为预览先写 models.yml：取消时文件不该变。
+  const ompDiscovers = provider?.discovery === true;
+  const [preview, setPreview] = useState<{ conn: string; ids: string[] } | null>(null);
+  let discoveredIds: string[] | null = null;
+  if (discoveryOn && ompDiscovers) discoveredIds = accounts.kind === "ready" ? [...loaded.keys()] : null;
+  else if (discoveryOn && preview?.conn === conn) discoveredIds = preview.ids;
+  const discoveredKey = discoveredIds?.join("\n") ?? null;
+  useEffect(() => {
+    if (discoveredKey === null) return;
+    const listed = new Set(discoveredKey === "" ? [] : discoveredKey.split("\n"));
+    setRows((current) => {
+      // models[] 里有的（文件里的、这次手动加的）不再另列一行。
+      const own = new Set(current.filter((row) => row.discovered !== true).map((row) => row.id));
+      const kept = current.filter((row) => row.discovered !== true || (listed.has(row.id) && !own.has(row.id)));
+      const have = new Set(kept.map((row) => row.id));
+      const added = [...listed]
+        .filter((modelId) => !have.has(modelId))
+        .map((modelId): ModelRow => {
+          const meta = savedMetaOf(provider, modelId);
+          return {
+            id: modelId,
+            discovered: true,
+            reasoning: meta.reasoning,
+            images: meta.images,
+            contextWindow: tokenText(meta.contextWindow),
+            maxTokens: tokenText(meta.maxTokens),
+          };
+        });
+      return added.length === 0 && kept.length === current.length ? current : [...kept, ...added];
+    });
+  }, [discoveredKey, provider]);
+
+  /** 读这个地址的模型列表；失败时把原因写在工具栏下、返回 null。连接指纹和结果记下来（保存时标到卡片上）。 */
+  const fetchList = async (): Promise<FetchedModel[] | null> => {
+    setNotice(null);
+    const fetchedConn = conn;
+    const outcome = await window.studio.fetchProviderModels({
+      baseUrl,
+      api,
+      key: keyInput(),
+      ...(provider !== undefined && { providerId: provider.id }),
+    });
+    if (!outcome.ok) {
+      setNotice({ tone: "error", text: customErrorText(t, `fetchErr.${outcome.code}`, outcome.status) });
+      // 接口类型不支持拉取、key 是命令：说明不了 key 和地址能不能用，不记。
+      if (outcome.code !== "unsupported" && outcome.code !== "command-key")
+        setLastFetch({
+          conn: fetchedConn,
+          failure: { code: outcome.code, ...(outcome.status !== undefined && { status: outcome.status }) },
+        });
+      return null;
+    }
+    setLastFetch({ conn: fetchedConn, failure: null });
+    return outcome.models;
+  };
 
   const fetchModels = () =>
     runFetch(async () => {
-      setNotice(null);
       setFetched(null);
       setPicking(false);
-      const fetchedConn = conn;
-      const outcome = await window.studio.fetchProviderModels({
-        baseUrl,
-        api,
-        key: keyInput(),
-        ...(provider !== undefined && { providerId: provider.id }),
-      });
-      if (!outcome.ok) {
-        setNotice({ tone: "error", text: customErrorText(t, `fetchErr.${outcome.code}`, outcome.status) });
-        // 接口类型不支持拉取、key 是命令：说明不了 key 和地址能不能用，不记。
-        if (outcome.code !== "unsupported" && outcome.code !== "command-key")
-          setLastFetch({
-            conn: fetchedConn,
-            failure: { code: outcome.code, ...(outcome.status !== undefined && { status: outcome.status }) },
-          });
-        return;
-      }
-      setLastFetch({ conn: fetchedConn, failure: null });
-      setFetched(outcome.models);
+      const models = await fetchList();
+      if (models === null) return;
+      setFetched(models);
       setPicking(true);
     });
+
+  // 预览：打开开关、或开着时改了地址 / 接口类型 / key（停 400ms 再读，打字时不连发）。失败时表里清空、原因写在工具栏下。
+  const previewWanted = discoveryOn && !ompDiscovers && baseUrl.trim() !== "" && isFetchableApi(api) && keyReady;
+  const loadPreview = () =>
+    runFetch(async () => {
+      const fetchedConn = conn;
+      const models = await fetchList();
+      setPreview({ conn: fetchedConn, ids: models?.map((model) => model.id) ?? [] });
+    });
+  const loadPreviewRef = useRef(loadPreview);
+  loadPreviewRef.current = loadPreview;
+  useEffect(() => {
+    if (!previewWanted) return;
+    const timer = setTimeout(() => void loadPreviewRef.current(), 400);
+    return () => clearTimeout(timer);
+  }, [previewWanted, conn]);
 
   // 选择浮层里选中的模型追加到列表。
   const addFetched = (models: FetchedModel[]) => {
@@ -442,16 +514,30 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         baseUrl,
         api,
         key: keyInput(),
-        models: rows.map((row) => ({
-          id: row.id,
-          ...(row.name !== undefined && { name: row.name }),
-          reasoning: row.reasoning,
-          images: row.images,
-          contextWindow: parseTokenCount(row.contextWindow) ?? null,
-          maxTokens: parseTokenCount(row.maxTokens) ?? null,
-          image: row.image === true,
-        })),
+        // 发现的模型不进 models[]（写进去就钉住了，上游下架后 omp 照样列它），能力参数写进 modelOverrides。
+        models: rows
+          .filter((row) => row.discovered !== true)
+          .map((row) => ({
+            id: row.id,
+            ...(row.name !== undefined && { name: row.name }),
+            reasoning: row.reasoning,
+            images: row.images,
+            contextWindow: parseTokenCount(row.contextWindow) ?? null,
+            maxTokens: parseTokenCount(row.maxTokens) ?? null,
+            image: row.image === true,
+          })),
         discovery: discoveryOn,
+        ...(discoveryOn && {
+          overrides: rows
+            .filter((row) => row.discovered === true)
+            .map((row) => ({
+              id: row.id,
+              reasoning: row.reasoning,
+              images: row.images,
+              contextWindow: parseTokenCount(row.contextWindow) ?? null,
+              maxTokens: parseTokenCount(row.maxTokens) ?? null,
+            })),
+        }),
       };
       const outcome = await window.studio.saveCustomProvider(mode, input);
       if (outcome.ok) {
@@ -570,26 +656,35 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         </div>
         <FormField className="cp-models-field" label={t("custom.form.models")}>
           <CustomModelList
-            rows={rows}
+            rows={shownRows}
             onRows={setRows}
             hintOf={hintOf}
             notice={notice}
             onNotice={setNotice}
-            fetch={{
-              busy: fetching,
-              disabled: baseUrl.trim() === "" || !isFetchableApi(api),
-              run: () => void fetchModels(),
-              // 拉取之后改了地址、接口类型或 key：拉到的是旧服务的列表，不再拿它标"已失效"。
-              fetched: lastFetch?.conn === conn ? fetched : null,
-              picking,
-              onPickClose: () => setPicking(false),
-              onAdd: addFetched,
-            }}
+            // 开着自动发现时表里跟着 omp 发现的列表走：不拉取挑选，也就没有"已失效"。
+            {...(!discoveryOn && {
+              fetch: {
+                busy: fetching,
+                disabled: baseUrl.trim() === "" || !isFetchableApi(api),
+                run: () => void fetchModels(),
+                // 拉取之后改了地址、接口类型或 key：拉到的是旧服务的列表，不再拿它标"已失效"。
+                fetched: lastFetch?.conn === conn ? fetched : null,
+                picking,
+                onPickClose: () => setPicking(false),
+                onAdd: addFetched,
+              },
+            })}
             discovery={{
               on: discoveryOn,
               supported: discoverySupported,
-              onChange: setDiscovery,
-              listed: [...loaded.keys()],
+              onChange: (next) => {
+                setDiscovery(next);
+                if (next) return;
+                // 关掉：回到手动挑选，发现的行去掉（再打开时重新列出）。
+                setRows((current) => current.filter((row) => row.discovered !== true));
+                setPreview(null);
+                setNotice(null);
+              },
             }}
             image={{ supported: imageSupported }}
           />

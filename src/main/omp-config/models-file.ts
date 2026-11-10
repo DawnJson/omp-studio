@@ -230,6 +230,21 @@ function isMetaValid(meta: CustomModelMeta): boolean {
   return flag(meta.reasoning) && flag(meta.images) && count(meta.contextWindow) && count(meta.maxTokens);
 }
 
+/** 覆盖项列表 → 模型 id → 能力参数；超过 `max` 个、id 不合法、重复、和 `taken`（`models[]` 里的）撞了、值不合法时 null。 */
+function overrideMap(
+  models: readonly ({ id: string } & CustomModelMeta)[],
+  max: number,
+  taken: ReadonlySet<string>,
+): Map<string, CustomModelMeta> | null {
+  if (models.length > max) return null;
+  const wanted = new Map<string, CustomModelMeta>();
+  for (const model of models) {
+    if (!isValidModelId(model.id) || wanted.has(model.id) || taken.has(model.id) || !isMetaValid(model)) return null;
+    wanted.set(model.id, model);
+  }
+  return wanted;
+}
+
 function eolOf(text: string): "\r\n" | "\n" {
   return text.includes("\r\n") ? "\r\n" : "\n";
 }
@@ -321,10 +336,18 @@ function applyMeta(doc: Document, node: YAMLMap, meta: CustomModelMeta): void {
   if (meta.maxTokens !== current.maxTokens) put("maxTokens", meta.maxTokens);
 }
 
-/** 新增（mode add）或修改（edit）一个 provider。只动 baseUrl / apiKey / auth / api / models / discovery 这几个键。 */
+/**
+ * 新增（mode add）或修改（edit）一个 provider。只动 baseUrl / apiKey / auth / api / models / discovery 这几个键，
+ * 以及 `modelOverrides` 里 `input.overrides` 列出的模型的四项能力参数。
+ */
 export function applyProvider(text: string | null, input: CustomProviderInput, mode: "add" | "edit"): Edit {
   const invalid = validateInput(input, mode);
   if (invalid !== null) return fail(invalid);
+  const overrides =
+    input.overrides === undefined
+      ? new Map<string, CustomModelMeta>()
+      : overrideMap(input.overrides, limits.discoveredOverrides, new Set(input.models.map((model) => model.id)));
+  if (overrides === null) return fail("invalid-models");
   const source = stripBom(text ?? "");
   const doc = parseDocument(source);
   if (doc.errors.length > 0) return fail("unreadable-file");
@@ -364,8 +387,18 @@ export function applyProvider(text: string | null, input: CustomProviderInput, m
     provider.delete("apiKey");
   }
   provider.set("api", input.api);
+  // 新加进 models[] 的模型（多半原来是自动发现的）：能力参数从此由 models[] 管，去掉 modelOverrides 里它的这四项。omp 的覆盖项
+  // 压在 models[] 上面（omp 18.18.6 实测），留着的话表里填的值不生效。原来就在 models[] 里的（手写的组合）不动。
+  const listedBefore = new Set(
+    modelEntries((provider.toJSON() as Record<string, unknown>)["models"]).map((model) => model.id),
+  );
+  const overridesNode = provider.get("modelOverrides", true);
+  for (const model of input.models)
+    if (!listedBefore.has(model.id) && isMap(overridesNode) && isMap(overridesNode.get(model.id, true)))
+      overrides.set(model.id, { reasoning: null, images: null, contextWindow: null, maxTokens: null });
   const modelsFailed = applyModels(doc, provider, input);
   if (modelsFailed !== null) return fail(modelsFailed);
+  if (!applyModelOverrides(doc, provider, overrides, false)) return fail("unreadable-file");
   // 走 anthropic-messages 而没写 `auth` 时 omp 按订阅（OAuth）组装请求，system 开头带每次都变的 `cch`，中转站缓存不命中
   // （omp://models.md「Allowed auth/discovery values」）。`none`、`oauth` 是用户选的，不动；不再走 Anthropic 时
   // `auth: apiKey` 就是 omp 的默认值，去掉。
@@ -402,6 +435,47 @@ export function removeProvider(text: string | null, id: string): Edit {
 }
 
 /**
+ * 写 `modelOverrides` 里各模型的四项能力参数（applyMeta：只改不同的项，null = 去掉），覆盖项里别的键（`name`、`compat`……）和注释原样；
+ * `prune` = 不在 `wanted` 里的模型也去掉这四项。覆盖项空了删覆盖项，`modelOverrides` 空了删它。形状不认识时返回 false、不改。
+ */
+function applyModelOverrides(
+  doc: Document,
+  provider: YAMLMap,
+  wanted: ReadonlyMap<string, CustomModelMeta>,
+  prune: boolean,
+): boolean {
+  if (wanted.size === 0 && !prune) return true;
+  const existing = provider.get("modelOverrides", true);
+  if (existing !== undefined && existing !== null && !isMap(existing)) return false;
+  const overrides = (existing as YAMLMap | undefined) ?? new YAMLMap();
+  for (const modelId of wanted.keys()) {
+    const current = overrides.get(modelId, true);
+    if (current !== undefined && current !== null && !isMap(current)) return false;
+  }
+  if (prune) {
+    const none: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
+    const emptied: unknown[] = [];
+    for (const pair of overrides.items) {
+      const modelId = isScalar(pair.key) ? pair.key.value : pair.key;
+      if (typeof modelId !== "string" || wanted.has(modelId) || !isMap(pair.value)) continue;
+      applyMeta(doc, pair.value as YAMLMap, none);
+      if ((pair.value as YAMLMap).items.length === 0) emptied.push(pair.key);
+    }
+    for (const modelKey of emptied) overrides.delete(modelKey);
+  }
+  for (const [modelId, meta] of wanted) {
+    const current = overrides.get(modelId, true) as YAMLMap | undefined;
+    const node = current ?? new YAMLMap();
+    applyMeta(doc, node, meta);
+    if (node.items.length === 0) overrides.delete(modelId);
+    else if (current === undefined) overrides.set(modelId, node);
+  }
+  if (overrides.items.length === 0) provider.delete("modelOverrides");
+  else if (existing === undefined || existing === null) provider.set("modelOverrides", overrides);
+  return true;
+}
+
+/**
  * 改一个只覆盖 omp 内置 provider 的条目（没有 `models`、`discovery`，比如 `anthropic` 下只有 `modelOverrides`）：
  * 这种条目没法走 applyProvider（它要求 baseUrl 和模型）。只动 `apiKey`（和 `auth: none`）以及 `modelOverrides` 里各模型的
  * 能力参数，别的键（`baseUrl`、覆盖项里的 `name`、`compat`……）原样。覆盖项空了删覆盖项，`modelOverrides` 空了删它，
@@ -412,12 +486,8 @@ export function applyOverride(text: string | null, id: string, input: ProviderOv
   const key = input.key;
   if (key?.kind === "literal" && !isValidLiteralKey(key.value)) return fail("invalid-key");
   if (key?.kind === "env" && !isValidEnvKey(key)) return fail("invalid-key");
-  if (input.models.length > limits.models) return fail("invalid-models");
-  const wanted = new Map<string, CustomModelMeta>();
-  for (const model of input.models) {
-    if (!isValidModelId(model.id) || wanted.has(model.id) || !isMetaValid(model)) return fail("invalid-models");
-    wanted.set(model.id, model);
-  }
+  const wanted = overrideMap(input.models, limits.models, new Set());
+  if (wanted === null) return fail("invalid-models");
   const source = stripBom(text ?? "");
   const doc = parseDocument(source);
   if (doc.errors.length > 0) return fail("unreadable-file");
@@ -434,28 +504,7 @@ export function applyOverride(text: string | null, id: string, input: ProviderOv
     if (provider.get("auth") === "none") provider.delete("auth");
   }
 
-  const existing = provider.get("modelOverrides", true);
-  if (existing !== undefined && existing !== null && !isMap(existing)) return fail("unreadable-file");
-  const overrides = (existing as YAMLMap | undefined) ?? new YAMLMap();
-  const none: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
-  const emptied: unknown[] = [];
-  for (const pair of overrides.items) {
-    const modelId = isScalar(pair.key) ? pair.key.value : pair.key;
-    if (typeof modelId !== "string" || wanted.has(modelId) || !isMap(pair.value)) continue;
-    applyMeta(doc, pair.value as YAMLMap, none);
-    if ((pair.value as YAMLMap).items.length === 0) emptied.push(pair.key);
-  }
-  for (const modelKey of emptied) overrides.delete(modelKey);
-  for (const [modelId, meta] of wanted) {
-    const current = overrides.get(modelId, true);
-    if (current !== undefined && current !== null && !isMap(current)) return fail("unreadable-file");
-    const node = (current as YAMLMap | undefined) ?? new YAMLMap();
-    applyMeta(doc, node, meta);
-    if (node.items.length === 0) overrides.delete(modelId);
-    else if (current === undefined || current === null) overrides.set(modelId, node);
-  }
-  if (overrides.items.length === 0) provider.delete("modelOverrides");
-  else if (existing === undefined || existing === null) provider.set("modelOverrides", overrides);
+  if (!applyModelOverrides(doc, provider, wanted, true)) return fail("unreadable-file");
 
   if (provider.items.length === 0) providers.delete(id);
   return { ok: true, text: render(doc, source) };

@@ -14,6 +14,7 @@ export const usage = {
   "summary.busiest": "Busiest day",
   "summary.requests": { one: "{value} request", other: "{value} requests" },
   refresh: "Refresh",
+  "quota.accounts": "Subscription quota",
   "quota.empty": "No subscription quota",
   "quota.failed": "Couldn't read quota: {message}",
   "quota.resets": "resets {time}",

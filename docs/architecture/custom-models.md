@@ -18,7 +18,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 ## 怎么改
 
-用 `yaml` 的 Document API，只动 `providers.<id>` 里的 `baseUrl`、`apiKey`/`auth`、`api`、`models`、`discovery`（整体增删，见「自动发现模型」），以及每个模型的 `reasoning`、`input`、`contextWindow`、`maxTokens`（见「模型的能力参数」）：
+用 `yaml` 的 Document API，只动 `providers.<id>` 里的 `baseUrl`、`apiKey`/`auth`、`api`、`models`、`discovery`（整体增删，见「自动发现模型」），以及每个模型的 `reasoning`、`input`、`contextWindow`、`maxTokens`（见「模型的能力参数」；`models[]` 里的写在模型条目上，自动发现的模型写在 `modelOverrides.<id>`）：
 
 - 注释、别的 provider、别的根键、条目里不认识的字段（`headers`、`compat`、模型的 `cost`、`thinking`……）原样保留。
 - 模型按 `id` 复用原来的节点（所以模型上的其它字段和行内注释不丢），按界面顺序重排，表里 × 掉的从列表里去掉。新增的模型写 `id`（拉取到 `display_name` 时再写 `name`），再加上界面里不是“自动”的能力参数。
@@ -91,11 +91,20 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 - 拉取成功弹出挑选浮层（`ModelPicker.tsx`）：已在表里的勾着且停用，勾选其余的点 `添加 N 个` 才追加到表里；不勾就什么都不加。列表顶上的 `全部` 只勾 / 取消筛选出来、还不在表里的那些（2026-11-08）。
 - 表里就是保存时写进 `models[]` 的，每行一个 × 移除。
 - 上游下架的模型：拉取成功后，表里有、拉到的列表里没有的（`vanishedModelIds`）标 `已失效`，工具栏 `移除失效的 N 个` 一键去掉。拉取失败、还没拉取时不标；拉取之后又改了 Base URL、接口类型或 key 时不标（拉到的是旧服务的列表）；这次在对话框里手动添加的行不参与（多半是服务不列出的隐藏模型）。
-
+- 以上是关着自动发现时；开着时没有 `拉取模型` 和 `已失效` / `移除失效的 N 个`，见下一节。
 
 ## 自动发现模型（2026-10-23，omp 18.12.6）
 
-表单里的“自动发现模型”开关写 `providers.<id>.discovery: {type: …}`：omp 运行时从这个地址的模型列表接口读模型，新上架的模型不用再手动添加、下架的自动消失。**保留原来“拉取并手动挑选”的路径**，两者可以同时用（表里的模型仍写进 `models[]`，发现的模型不写进文件）。开着时 omp 列出、表里没有的模型在表下面显示成灰色只读行（取自 `listModels`），没有 ×：发现的模型不能逐个移除（omp 没有排除单个发现模型的配置），开关的悬停说明写明，要自己挑选就关掉它。
+表单里的“自动发现模型”开关写 `providers.<id>.discovery: {type: …}`：omp 运行时从这个地址的模型列表接口读模型，新上架的模型不用再手动添加、下架的自动消失。关着时是上一节的“拉取并手动挑选”。
+
+**开着时表里就是 omp 发现的模型**（2026-11-10 仓库所有者定，原来发现的模型接在表尾、是灰色只读行）：
+
+- 行 = omp 发现的列表并上文件里 `models[]` 已有的，不分灰白。发现的行（`ModelRow.discovered`）和别的行一样能设思考、图片输入、上下文窗口、最大输出，保存写进 `providers.<id>.modelOverrides.<模型 id>`（`CustomProviderInput.overrides`），**不写进 `models[]`**：写进去模型就钉住了，上游下架后 omp 照样列它（见下面实测）。发现的行没有类型列（生图要写进 `models[]`），公开模型目录的预填照常（id 带 kimi 的模型思考留自动会让 omp 崩，见「模型的能力参数」）。
+- 不能逐个移除（omp 没有排除单个发现模型的配置），`拉取模型` 和 `已失效` / `移除失效的 N 个` 都不显示；手动添加照常（写进 `models[]`，给服务不列出的隐藏模型），这次手动加的、还没保存的行可以 × 掉。文件里 `models[]` 已有的条目原样保留（能力参数照旧写在 `models[]` 里）。开关的悬停说明写明这些，要自己挑选就关掉它。
+- **列表从哪来**：文件里已经有 `discovery` 时取 omp 现在给这个 provider 列出的（`listModels`，和 `ProviderOverrideDialog` 一样）。刚在表单里打开开关、还没保存时，omp 还没读过这个条目，也没有命令或 RPC 能让它发现一个没写进文件的 provider；为了预览先写 `models.yml` 又会让“取消”也改了文件。所以按新写的 discovery 类型读的同一个列表接口预览（`fetchProviderModels`：`openai-models-list` 读 `<baseUrl>/models`，`proxy` 读 `/v1/models`，和一键拉取同一套），开着时改了地址、接口类型或 key 停 400ms 重读；读失败时表里清空、原因写在工具栏下。保存后 omp 自己发现，再打开就是 omp 的列表。文件里原有的非默认类型（`ollama`、`lm-studio`……）一定已经保存过，走 omp 的列表，不会被这个预览代替。
+- **“自动”后面的值**（`hintOf`）对所有 omp 已加载的行都显示，发现的行看 `modelOverrides` 里写没写这一项。
+- **写**（`applyProvider` → `applyModelOverrides`，和 `applyOverride` 共用）：只动 `overrides` 列出的模型的四项，值没变不碰（写法、注释留着），换回自动去掉这一项；覆盖项里别的键（`name`、`compat`……）原样，覆盖项空了删掉，`modelOverrides` 空了删掉；没列出的模型的覆盖项不动（比如这次没列出来的、手写的）。主进程校验：id 合法、不重复、不和 `models` 里的重复，最多 2000 个（`limits.discoveredOverrides`，和一键拉取的上限一样），值的规则同 `models`；`modelOverrides` 不是映射时 `unreadable-file`。
+- **关掉开关**：发现的行去掉，回到拉取挑选；保存时 `overrides` 不传，`modelOverrides` 里原来写的留着（没有这个模型时 omp 不会凭覆盖项造出模型，见实测；再打开时值还在）。之后某个模型被加进 `models[]`（手动添加或拉取挑选）时，`applyProvider` 去掉 `modelOverrides` 里它的四项：omp 的覆盖项压在 `models[]` 上面（实测），留着表里填的值不生效。原来就在 `models[]` 里、又手写了覆盖项的组合不动。
 
 - **类型按接口类型选**（`defaultDiscoveryType`，`src/shared/custom-models.ts`；取值范围见 `omp://models.md`「Allowed auth/discovery values」和 `config/model-registry.ts`：`ollama`、`llama.cpp`、`lm-studio`、`openai-models-list`、`proxy`、`litellm`、`apple-foundation-models`）：`openai-completions`、`openai-responses` → `openai-models-list`（读 `{baseUrl}/v1/models`，不会再多加一个 `/v1`）；`anthropic-messages` → `proxy`（Anthropic + OpenAI 兼容的转发站：`GET /v1/models`，每个模型的 api 由它的 `supported_endpoint_types` 决定，没有时退回 provider 的 `api`）。别的接口类型（Google、Bedrock…）没有通用的发现方式：新开启时返回 `invalid-api`，表单里开关停用。
 - **只改这一层、只整体增删**：`discovery` 已存在时（用户在终端里写过 `ollama`、`timeoutMs`、`injectV1` 等）开着就原样保留，不覆盖类型；关掉就整个去掉。这个键仍受 [omp-boundaries.md](omp-boundaries.md) 里 models.yml 例外的全部规则约束：`yaml` Document API、注释和别的内容原样、原子写、写前 `.bak`。
@@ -103,6 +112,11 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 - **输入**：`CustomProviderInput.discovery?: boolean`：`true` 确保有，`false` 去掉，缺省不动。
 - **刷新模型按钮**（设置 → Provider 与订阅 → 自定义提供商，标题行）：IPC `refreshModels`（`custom-model-handlers.ts`）在中性目录里跑 `omp models refresh`（`runOmpCommand` + `requireSuccess`，参数数组，超时 120 秒，env 带 omp-studio 存的 API key），完成后 `reloadServiceModels()`（关掉服务进程：它的模型注册表是启动时建的；并作废缓存的模型目录，见 login.md「模型目录和默认模型缓存优先」），渲染进程 `reloadAfterChange()` 重读 models.yml 和模型列表；失败时 toast 显示 omp 的 stderr 末尾。
 - **实测**（真实 omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，本地假 OpenAI 服务 `test/fake-openai/server.ts`）：models.yml 只有 `baseUrl` / `auth: none` / `api` / `discovery: {type: openai-models-list}`、没有 `models` 时，`get_available_models` 列出假服务 `/v1/models` 里的模型，`omp models refresh` 退出码 0，`omp models fake-disco` 输出含该模型；同一个假服务换成 `api: anthropic-messages` + `discovery: {type: proxy}` 也读到同一个模型。`omp models refresh` 对 `models.db` 里的目录做强制重新拉取（omp 的帮助：“Force a fresh catalog fetch”）。
+- **实测**（omp 18.18.6，2026-11-10，临时 `PI_CODING_AGENT_DIR`，假服务的 `/v1/models` 运行中可改；`omp models <provider> --json` 和新进程的 `get_available_models` 结果一致）：
+  1. 上游去掉一个发现的模型：**不刷新时 omp 仍列出它**（用 `models.db` 里缓存的列表，新进程也一样）；`omp models refresh` 之后不再列出。
+  2. `modelOverrides.<id>` 对发现的模型生效：`reasoning: true` / `input: [text, image]` / `contextWindow: 272000` / `maxTokens: 32000` 原样出现在列表里；目录里认识的 `gpt-5.5` 只覆盖 `contextWindow: 200000`，其余仍按目录。写给一个不存在的 id 的覆盖项不会多出模型。
+  3. `models[]` 里只写 `id`、和发现的模型同名：只列一个，上游还列着时值和发现的一样（`maxTokens` 32768，是发现带来的）；上游去掉并刷新后**它还在**（钉住了），值回到自定义模型的兜底（`maxTokens` 16384）。
+  4. 没有 `discovery` 时，`models[]` 里的模型也吃 `modelOverrides`，覆盖项赢（`models[]` 写 `contextWindow: 100000`、覆盖项写 272000 → 272000）。
 
 ## 模型的能力参数（2026-10-24，omp 18.12.6）
 
@@ -112,7 +126,7 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 - **id 带 `kimi` 的模型思考留“自动”会让 omp 崩**（实测 omp 18.13.1、18.13.2，2026-10-28；临时 agent 目录 + 假 OpenAI 服务，`--mode rpc --thinking off`）：自定义 provider 下 `kimi-k3.1-pro` 内置目录里没有（18.13.1 只有 `kimi-k3`），omp 补成不思考；思考档位是 off 时，带强制工具调用的那一轮（`/force:todo` 复现）omp 抛 `ConfigurationError: Model <provider>/<id> has no supported reasoning efforts`，未捕获，进程以 1 退出。普通 prompt 不崩；同一模型写 `reasoning: true` 不崩（omp 补上 low/high/max）。源码：catalog 的 compat 对 id 含 kimi、非 Moonshot 官方地址的模型开 `disableReasoningOnForcedToolChoice`、关思考方式是 `lowest-effort`，`C_` 去取最低档时模型的档位列表为空就抛错。所以中转站的 kimi 新模型要把思考设成支持；表单现在按公开模型目录自动预填（见下）。
 - **上下文窗口只改 omp 自己的预算**（什么时候自动压缩、上下文圆环的分母），不改服务端的上限；典型用法是中转站只收 272K 的 `gpt-5.5`。输入框接受 `272000`、`272k`、`1m`（`parseTokenCount`，`src/shared/custom-models.ts`，k/m 按十进制、四舍五入到整数）；写不成正整数的标红，不能保存。
 - **只改和文件里不同的项**（`applyMeta`，`models-file.ts`）：值没变就不碰节点，`input: [ text, image ]` 这类原来的写法和行内注释不被重排；换回“自动”就删掉这一项。文件里的值是 omp 不认的形状时读成“自动”，保存时也不动它。
-- **“自动”后面显示 omp 现在用的值**（`hintOf`，`CustomProviderForm.tsx`）：来自模型列表（`listModels`，即服务进程的 `get_available_models`），只对“已保存、文件里没写这一项、omp 已经加载过”的模型显示（如“自动 · 128K”“自动 · 支持”）；新拉取、还没保存的模型只显示“自动”，因为 omp 还没算过它。
+- **“自动”后面显示 omp 现在用的值**（`hintOf`，`CustomProviderForm.tsx`）：来自模型列表（`listModels`，即服务进程的 `get_available_models`），只对“文件里没写这一项、omp 已经加载过”的模型显示（如“自动 · 128K”“自动 · 支持”），自动发现的模型看 `modelOverrides` 里写没写（2026-11-10 起，原来只有 `models[]` 里的）；新拉取、还没保存的模型只显示“自动”，因为 omp 还没算过它。
 - **omp 认不出的模型按公开模型目录预填**（2026-10-28，仓库所有者定：数据来源 models.dev，思考、图片输入、上下文都填，新模型和已保存留"自动"的都填）：表单里每个模型 id 查一次 `https://models.dev/api.json`（omp 的联网模型表也来自它；整份约 6 MB，主进程一次运行只下一次，失败记日志、下次再下；`model-catalog.ts`，IPC `lookupModelCapabilities`；测试用 `STUDIO_MODELS_DEV_URL` 指到假服务）。按 id 最后一段、不分大小写匹配；同一个模型有多家条目时用厂商自己的那条（别家 id 的前缀，如 `moonshotai/…`，又是目录里的 provider），没有就按多数。查到"支持"的思考 / 图片输入和上下文窗口填进还是"自动"的格子，目录说不支持的留自动（omp 默认就是不支持），最大输出各家差别太大不填；保存才写进文件。已保存的模型，omp 给"自动"项补出了不是兜底的值（思考、图片、上下文任一项不是不思考 / 只收文字 / 128000）就算 omp 认识它，不覆盖；最大输出不参与判断（开了自动发现时 omp 会用中转站 `/models` 给的值）。编辑时等 omp 的模型列表读完再查。
 - **输入**：`CustomProviderInput.models[]` 每项 `{ id, name?, reasoning, images, contextWindow, maxTokens }`，四项都可以是 null（自动）。
 
@@ -153,11 +167,11 @@ omp 的 `generate_image` 工具用模型角色 `image`（`modelRoles.image`）�
 
 ## 测试
 
-- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、生图模型（按接口类型写 `api: openai-images` / `kind: image`、读回、改回对话只去这两个键、不能生图的接口拒绝新标的、文件里原有的原样、`image` 不是布尔被拒）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、大小写混合的变量名按 `.env` / 系统环境变量识别、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢；`.env` 只改一行（保留 `export`、CRLF、BOM、注释、别的变量，跨行引号值拒绝）、保存 / 换名 / 删除时同步 `.env`（没人用才删、内置变量名不删、系统同名变量提示、`unsafe-env` 时两个文件都不动）。
+- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、自动发现的模型（能力参数写进 `modelOverrides.<id>` 不进 `models[]`、`models[]` 和别的覆盖项 / 注释原样、换回自动删空覆盖项和 `modelOverrides`、不给 `overrides` 时不动、加进 `models[]` 的模型去掉覆盖项里的四项、id 不合法 / 重复 / 和 `models` 撞了 / 值越界被拒、`modelOverrides` 不是映射时 `unreadable-file`）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、生图模型（按接口类型写 `api: openai-images` / `kind: image`、读回、改回对话只去这两个键、不能生图的接口拒绝新标的、文件里原有的原样、`image` 不是布尔被拒）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、大小写混合的变量名按 `.env` / 系统环境变量识别、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢；`.env` 只改一行（保留 `export`、CRLF、BOM、注释、别的变量，跨行引号值拒绝）、保存 / 换名 / 删除时同步 `.env`（没人用才删、内置变量名不删、系统同名变量提示、`unsafe-env` 时两个文件都不动）。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随；列表说没说生图（`image-generation` 端点才算、只列 `openai` 是没说，输出模态只有图片才是、又出文字的不是）。
 - `test/model-catalog.test.ts`：公开模型目录的汇总（厂商条目优先、按多数、形状不对跳过、输出模态和生图专用分开汇总）和查找（id 最后一段不分大小写、下载失败返回空且下次重试、只下一次）；`catalogSaysImage` 按接口类型（OpenAI 兼容只认生图专用，Gemini 输出有图就算，不能生图的接口一律不算）。e2e 里"公开模型目录"一条：已保存留自动的 kimi-k3.1-pro 预填、omp 认识的 kimi-k3 不动、新拉取的预填、目录里没有的留自动；别的用例把 `STUDIO_MODELS_DEV_URL` 指到连不上的本机端口，不连真实服务。
-- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；环境变量形式的 key：大小写混合的变量名、值写进 agent 目录 `.env`，omp 读到并带着它拉到模型；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
-- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"生图"一条（类型列标成生图后四格消失、窄窗口中英文不越界、Anthropic 接口下存不了、文件里写 `api: openai-images`、omp 列为 `kind: image`、模型角色 Image 里选到并写 `modelRoles.image`、工具页打开图片生成写 `generate_image.enabled`、再编辑仍是生图）；"自动标生图"一条（中转站标了 `image-generation` 的、目录说只出图的、只列 `openai` 但目录说只出图的、手动加的都标成生图，又出文字的 Gemini 图片模型和普通模型留对话；改回对话后保存、再编辑不被改回）；"只覆盖内置 provider"一条（卡片元信息、编辑里覆盖项勾着带原值、设 key 和上下文并手动加模型后文件里别的覆盖项和注释原样、`omp token anthropic` 返回这个 key、omp 采用写进去的上下文窗口、再编辑改回不设置并取消一个模型后 apiKey 和它的覆盖项去掉）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
+- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；自动发现的模型：`applyProvider` 写的 `modelOverrides` 被 omp 采用，上游下架后不刷新还列着、`omp models refresh` 后消失，`models[]` 里的同名模型留着；环境变量形式的 key：大小写混合的变量名、值写进 agent 目录 `.env`，omp 读到并带着它拉到模型；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
+- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、保存前按列表接口预览发现的模型、没有拉取按钮 / × / 类型列、给发现的模型设上下文后写进 `modelOverrides` 不进 `models[]`、omp 读到 /models 的模型并采用覆盖项、再编辑时表里是 omp 的列表并显示 omp 的值、上游下架后刷新模型按钮跑完它就消失、关掉后发现的行消失、拉取按钮回来、去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"生图"一条（类型列标成生图后四格消失、窄窗口中英文不越界、Anthropic 接口下存不了、文件里写 `api: openai-images`、omp 列为 `kind: image`、模型角色 Image 里选到并写 `modelRoles.image`、工具页打开图片生成写 `generate_image.enabled`、再编辑仍是生图）；"自动标生图"一条（中转站标了 `image-generation` 的、目录说只出图的、只列 `openai` 但目录说只出图的、手动加的都标成生图，又出文字的 Gemini 图片模型和普通模型留对话；改回对话后保存、再编辑不被改回）；"只覆盖内置 provider"一条（卡片元信息、编辑里覆盖项勾着带原值、设 key 和上下文并手动加模型后文件里别的覆盖项和注释原样、`omp token anthropic` 返回这个 key、omp 采用写进去的上下文窗口、再编辑改回不设置并取消一个模型后 apiKey 和它的覆盖项去掉）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
 - 假服务：`test/fake-openai/server.ts`（`GET /v1/models`，可给指定模型带 `supported_endpoint_types`；`POST /v1/chat/completions` 流式和非流式、`GET /api.json` 假的公开模型目录）。
 
 ## 没做的

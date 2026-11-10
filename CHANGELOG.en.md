@@ -15,6 +15,11 @@ How to write it:
 - The hover tip on each answer's usage line and the per-model session usage in the composer's bottom-right now show the cache hit rate.
 - Conversations can now be deleted for real: "Delete conversation…" in the task menu (sidebar right-click, ⋯, or the top bar ⋯) and in archived conversations' menus deletes the session file through omp after a confirmation; it refuses while another omp has the conversation open.
 
+### Changed
+
+- Usage and quota dialog: when there are many accounts or the window is short, only the subscription-quota section scrolls; the summary strip at the top and the heatmap at the bottom stay fixed.
+- With "Discover models automatically" on, a custom provider's model table is the full list the service offers, with no grey read-only rows: every model's reasoning, image input, context window and max output can be set, and models the service drops disappear after a model refresh. "Fetch models" and the "not listed" controls are hidden while it's on.
+
 ### Fixed
 
 - Typing English with an input method in English mode no longer doubles every letter in the ask dialog's custom answer box (and other omp input boxes and picker search boxes).

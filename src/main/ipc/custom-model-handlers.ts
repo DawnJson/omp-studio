@@ -58,9 +58,17 @@ function parseOverrideKey(value: unknown): ProviderOverrideInput["key"] {
   throw new IpcValidationError(`key.kind must be keep, literal or env`);
 }
 
-function parseModels(value: unknown): Record<string, unknown>[] {
-  if (!Array.isArray(value) || value.length > 1000) throw new IpcValidationError("models 必须是数组");
+function parseModels(value: unknown, max = 1000): Record<string, unknown>[] {
+  if (!Array.isArray(value) || value.length > max) throw new IpcValidationError("models 必须是数组");
   return (value as unknown[]).map((item) => parseRecord(item, "model"));
+}
+
+/** `modelOverrides` 覆盖项（模型 id + 四项能力参数）。 */
+function parseOverrides(value: unknown, max?: number): ({ id: string } & CustomModelMeta)[] {
+  return parseModels(value, max).map((model) => ({
+    id: parseString(model["id"], "model.id", 1000, { allowEmpty: true }),
+    ...parseMeta(model),
+  }));
 }
 
 function parseMeta(model: Record<string, unknown>): CustomModelMeta {
@@ -95,6 +103,9 @@ function parseInput(value: unknown): CustomProviderInput {
       };
     }),
     ...(record["discovery"] !== undefined && { discovery: parseBoolean(record["discovery"], "discovery") }),
+    ...(record["overrides"] !== undefined && {
+      overrides: parseOverrides(record["overrides"], limits.discoveredOverrides),
+    }),
   };
 }
 
@@ -102,10 +113,7 @@ function parseOverrideInput(value: unknown): ProviderOverrideInput {
   const record = parseRecord(value, "input");
   return {
     key: parseOverrideKey(record["key"]),
-    models: parseModels(record["models"]).map((model) => ({
-      id: parseString(model["id"], "model.id", 1000, { allowEmpty: true }),
-      ...parseMeta(model),
-    })),
+    models: parseOverrides(record["models"]),
   };
 }
 

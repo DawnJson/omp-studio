@@ -1,16 +1,18 @@
 // 点发送键左边的费用弹出的用量对话框（ui/Dialog lg，居中，盖一层遮罩；高度跟内容走，没有额度账号时下面不留空）：标题"用量与额度"，标题行右边依次是
-// "同步中…"（额度或热力图在读时）、"N 分钟前更新"（omp 取得额度的时间，omp 有约 5 分钟缓存，可能比打开对话框早）、↻ 和 ×，三者和标题首行竖直居中；下面一页滚动内容，没有页签：
+// "同步中…"（额度或热力图在读时）、"N 分钟前更新"（omp 取得额度的时间，omp 有约 5 分钟缓存，可能比打开对话框早）、↻ 和 ×，三者和标题首行竖直居中；下面一页内容，没有页签：
 // 先是汇总条（最紧的额度、过去一年、最近 30 天、最忙的一天），再是各订阅账号的额度（当前 provider 排最前，每个账号一张卡，没用过的账号也画整张卡，每个窗口一格；
 // 套餐、Daybreak、重置券徽章，这个任务正在用的账号挂"使用中"；取不到用量的账号一行说明），
 // 最后是最近一年的每日用量热力图（不带小标题），格子按花费着色，悬停给金额和请求数。
+// 放不下时只有中间的账号额度自己滚（OverlayScrollbar），汇总条和热力图不动（2026-11-10 仓库所有者定）；读取失败的提示钉在滚动区上面。
 // 数据在 usage-store（omp usage --json / stats.db）：打开时额度读 omp 的缓存，热力图还没有数据时才读；点 ↻ 先让 omp 清掉额度缓存（omp usage invalidate）再重读，热力图也重读。
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { quotaFetchedAt } from "../../../../shared/ui/usage-summary.ts";
 import { Restart } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, IconButton, Notice } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
+import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { explainError } from "../../ui/errors.ts";
 import { useOpenKey, usePresence } from "../../ui/presence.ts";
 import { useNow } from "../conversation/use-now.ts";
@@ -80,11 +82,13 @@ function Quota({
 }) {
   const t = useT();
   const quota = useUsageQuota();
+  const scroller = useRef<HTMLDivElement>(null);
   const accounts = [...(quota.data?.accounts ?? [])].sort(
     (a, b) => Number(b.provider === provider) - Number(a.provider === provider),
   );
+  const unavailable = quota.data?.unavailable ?? [];
   return (
-    <>
+    <section className="qm-panel qm-quota" data-testid="quota-section">
       {quota.error !== null && (
         <Notice
           tone="error"
@@ -104,17 +108,34 @@ function Quota({
           {t("usage.quota.empty")}
         </p>
       )}
-      {accounts.map((account) => (
-        <QuotaBlock
-          key={`${account.provider}/${account.account ?? ""}`}
-          account={account}
-          inUse={account.identityHash !== null && credentialPins[account.provider] === account.identityHash}
-        />
-      ))}
-      {(quota.data?.unavailable ?? []).map((item) => (
-        <UnavailableRow key={`${item.provider}/${item.label}`} item={item} />
-      ))}
-    </>
+      {accounts.length + unavailable.length > 0 && (
+        <div className="qm-quota-host">
+          {/* 可滚动区能用键盘滚：tabIndex 0 + 读屏名 */}
+          <div
+            ref={scroller}
+            className="qm-quota-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label={t("usage.quota.accounts")}
+            data-testid="quota-scroll"
+          >
+            <div className="qm-quota-list">
+              {accounts.map((account) => (
+                <QuotaBlock
+                  key={`${account.provider}/${account.account ?? ""}`}
+                  account={account}
+                  inUse={account.identityHash !== null && credentialPins[account.provider] === account.identityHash}
+                />
+              ))}
+              {unavailable.map((item) => (
+                <UnavailableRow key={`${item.provider}/${item.label}`} item={item} />
+              ))}
+            </div>
+          </div>
+          <OverlayScrollbar target={scroller} />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -173,9 +194,7 @@ function UsageDialogBody({
     >
       <div className="qm">
         <Summary />
-        <section className="qm-panel" data-testid="quota-section">
-          <Quota provider={provider} credentialPins={credentialPins} />
-        </section>
+        <Quota provider={provider} credentialPins={credentialPins} />
         <section className="qm-panel" data-testid="heatmap-section">
           <DailyUsage />
         </section>

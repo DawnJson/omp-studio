@@ -302,6 +302,119 @@ describe("models.yml 编辑（纯文本）", () => {
     ).toEqual({ ok: false, code: "invalid-api" });
   });
 
+  it("自动发现的模型：能力参数写进 modelOverrides.<id>，不进 models[]；models[] 里的模型和别的覆盖项、注释原样", () => {
+    const file = existing.replace(
+      "    models:\n      - id: keep-me",
+      "    modelOverrides:\n      # 手写的\n      hand-made:\n        name: Hand # 别动\n        contextWindow: 64000\n      disc-b:\n        compat: { supportsStore: false }\n        maxTokens: 8000\n    models:\n      - id: keep-me",
+    );
+    const text = applied(
+      file,
+      input({
+        id: "other",
+        key: { kind: "keep" },
+        models: [keepMe, model("drop-me")],
+        discovery: true,
+        overrides: [
+          model("disc-a", { reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 }),
+          model("disc-b"),
+          model("disc-c"),
+        ],
+      }),
+      "edit",
+    );
+    // 刚由 applyProvider 输出的 YAML，形状已知（parseYaml 返回 any）。
+    const doc: { providers: Record<string, Record<string, unknown>> } = parseYaml(text);
+    const entry = doc.providers["other"];
+    expect(entry?.["models"]).toEqual([{ id: "keep-me", contextWindow: 32000, name: "Old Name" }, { id: "drop-me" }]);
+    expect(entry?.["modelOverrides"]).toEqual({
+      "hand-made": { name: "Hand", contextWindow: 64000 },
+      // 全是自动：只去掉四项，别的键留着。
+      "disc-b": { compat: { supportsStore: false } },
+      "disc-a": { reasoning: true, input: ["text", "image"], contextWindow: 272000, maxTokens: 32000 },
+    });
+    expect(text).toContain("# 手写的");
+    expect(text).toContain("name: Hand # 别动");
+    expect(text).toContain("contextWindow: 32000 # custom window");
+    const parsed = parseProviders(text, noEnv);
+    expect(parsed.ok && parsed.providers.find((p) => p.id === "other")?.overrides).toEqual([
+      { id: "hand-made", ...auto, contextWindow: 64000 },
+      { id: "disc-a", reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 },
+    ]);
+  });
+
+  it("自动发现的模型：换回自动后覆盖项删空、modelOverrides 删掉；没给 overrides 时 modelOverrides 不动", () => {
+    const once = applied(
+      existing,
+      input({
+        id: "other",
+        key: { kind: "keep" },
+        models: [keepMe],
+        overrides: [model("disc-a", { maxTokens: 9000 })],
+      }),
+      "edit",
+    );
+    expect(once).toContain("modelOverrides:");
+    const untouched = applied(once, input({ id: "other", key: { kind: "keep" }, models: [keepMe] }), "edit");
+    expect(untouched).toContain("maxTokens: 9000");
+    const cleared = applied(
+      once,
+      input({ id: "other", key: { kind: "keep" }, models: [keepMe], overrides: [model("disc-a")] }),
+      "edit",
+    );
+    expect(cleared).not.toContain("modelOverrides");
+    expect(cleared).not.toContain("disc-a");
+    // 全是自动的新覆盖项：不写空的 modelOverrides。
+    expect(applied(existing, input({ id: "new", overrides: [model("x")] }))).not.toContain("modelOverrides");
+  });
+
+  it("原来是发现的模型、这次加进 models[]：modelOverrides 里它的四项去掉（omp 的覆盖项压在 models[] 上），别的键留着；原来就在 models[] 里的不动", () => {
+    const file = existing.replace(
+      "    models:\n      - id: keep-me",
+      "    modelOverrides:\n      keep-me:\n        maxTokens: 7000\n      disc-a:\n        name: Disc A\n        contextWindow: 272000\n    models:\n      - id: keep-me",
+    );
+    const text = applied(
+      file,
+      input({
+        id: "other",
+        key: { kind: "keep" },
+        models: [keepMe, model("disc-a", { contextWindow: 100000 })],
+        discovery: false,
+      }),
+      "edit",
+    );
+    // 刚由 applyProvider 输出的 YAML，形状已知（parseYaml 返回 any）。
+    const doc: { providers: Record<string, Record<string, unknown>> } = parseYaml(text);
+    expect(doc.providers["other"]?.["modelOverrides"]).toEqual({
+      "keep-me": { maxTokens: 7000 },
+      "disc-a": { name: "Disc A" },
+    });
+    expect(doc.providers["other"]?.["models"]).toContainEqual({ id: "disc-a", contextWindow: 100000 });
+  });
+
+  it("自动发现的模型：id 不合法、重复、和 models[] 撞了、参数越界被拒（invalid-models）；modelOverrides 不是映射时 unreadable-file", () => {
+    const bad = (overrides: NonNullable<CustomProviderInput["overrides"]>) =>
+      applyProvider(existing, input({ id: "other", key: { kind: "keep" }, models: [keepMe], overrides }), "edit");
+    for (const overrides of [
+      [model(" padded")],
+      [model("d"), model("d")],
+      [model("keep-me", { maxTokens: 1 })],
+      [model("d", { contextWindow: 0 })],
+      [model("d", { reasoning: "yes" as unknown as boolean })],
+    ])
+      expect(bad(overrides)).toEqual({ ok: false, code: "invalid-models" });
+    const listOverrides = existing.replace(
+      "    models:\n      - id: keep-me",
+      "    modelOverrides: [1]\n    models:\n      - id: keep-me",
+    );
+    expect(
+      applyProvider(
+        listOverrides,
+        input({ id: "other", key: { kind: "keep" }, models: [keepMe], overrides: [model("d", { maxTokens: 5 })] }),
+        "edit",
+      ),
+    ).toEqual({ ok: false, code: "unreadable-file" });
+  });
+
   it("能力参数：写 reasoning / input / contextWindow / maxTokens，读回来一样；omp 认的 input 写成行内列表", () => {
     const text = applied(
       null,

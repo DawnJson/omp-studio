@@ -331,7 +331,8 @@
 }
 
 /* ───────── 费用点开的用量对话框（UsageDialog：ui/Dialog lg 再加宽到 --dialog-w-xl，className usage-dialog）─────────
-   高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。账号之间只用一条分隔线（不画卡片：
+   高度跟内容走，没有额度账号时不留空。放不下时只有中间的账号额度滚（2026-11-10 仓库所有者定）：汇总条和热力图钉在上下，
+   额度区最少留一个账号块高；窗口矮到连这些都放不下时才退回 Dialog 正文整体滚。账号之间只用一条分隔线（不画卡片：
    汇总条已经是一块底色，再套卡片就是三种容器）；卡内窗口按两列排，每个窗口 = 名称 + 重置时间 + 剩余 / 整宽进度条。 */
 .ui-dialog.usage-dialog[data-size] {
   --dialog-w: var(--dialog-w-xl);
@@ -350,7 +351,14 @@
   color: var(--text-3);
   white-space: nowrap;
 }
+/* 正文从网格换成纵向 flex，额度区才能吃掉剩下的高度并自己滚；overflow:auto 仍是 controls.css 的（兜底） */
+.usage-dialog .ui-dialog-body {
+  display: flex;
+  flex-direction: column;
+}
 .usage-dialog .qm {
+  flex: 1 1 auto;
+  min-height: 0;
   gap: var(--space-5);
 }
 .qm-panel {
@@ -359,6 +367,40 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+}
+/* 额度区：读取失败的提示、"没有订阅额度"在上面不滚，账号列表在 .qm-quota-scroll 里滚（OverlayScrollbar 自绘滚动条） */
+.usage-dialog .qm-quota {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.qm-quota-host {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+/* 有账号块时最少留约一块的高度（一个窗口的块实测 65px），不被汇总条和热力图挤没；不超过一块，只有一个账号时不留空 */
+.qm-quota-host:has(.uq-block) {
+  min-height: 4rem;
+}
+.qm-quota-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.qm-quota-scroll::-webkit-scrollbar {
+  display: none;
+}
+.qm-quota-scroll:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.qm-quota-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 /* 账号块：头一行 状态点 + provider + 账号（+ 备注），下面是窗口；块和块之间一条分隔线 */
 .usage-dialog .uq-block {
