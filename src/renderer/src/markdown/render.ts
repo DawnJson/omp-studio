@@ -68,23 +68,48 @@ function alignStyle(token: Token): CSSProperties | undefined {
   return match ? { textAlign: match[1] as CSSProperties["textAlign"] } : undefined;
 }
 
-function renderInlineChildren(nodes: TreeNode[], ctx: RenderContext): ReactNode[] {
-  return nodes.map((node, index) => renderInline(node, index, ctx));
+/**
+ * 表格单元格里的标识符（文件名、路径、snake_case）在分隔符后加 <wbr>：表格整词不拆（overflow-wrap: break-word），
+ * 一个不带空格的长文件名的最小宽度就是整串，会把整张表撑出可视区，别的列被挤成一个词一行（2026-11-10 所有者截图）。
+ * <wbr> 不进复制的文字；`.` 后面跟数字时不加（"3.14"、"v1.2" 不在小数点处断开）。
+ */
+const idSeparator = /([_/\\]|\.(?=\D))/;
+
+function breakIdentifiers(node: ReactNode): ReactNode {
+  if (typeof node === "string") {
+    const parts = node.split(idSeparator);
+    if (parts.length === 1) return node;
+    const out: ReactNode[] = [];
+    // split 带捕获组：偶数位是文字，奇数位是分隔符；分隔符后面放 <wbr>。
+    parts.forEach((part, index) => {
+      if (part === "") return;
+      out.push(part);
+      if (index % 2 === 1) out.push(h("wbr", { key: index }));
+    });
+    return out;
+  }
+  return Array.isArray(node) ? node.map(breakIdentifiers) : node;
 }
 
-function renderInline(node: TreeNode, key: number, ctx: RenderContext): ReactNode {
+function renderInlineChildren(nodes: TreeNode[], ctx: RenderContext, inCell: boolean): ReactNode[] {
+  return nodes.map((node, index) => renderInline(node, index, ctx, inCell));
+}
+
+function renderInline(node: TreeNode, key: number, ctx: RenderContext, inCell: boolean): ReactNode {
   const { token } = node;
-  const children = renderInlineChildren(node.children, ctx);
+  const children = renderInlineChildren(node.children, ctx, inCell);
+  const text = (content: ReactNode): ReactNode => (inCell ? breakIdentifiers(content) : content);
   switch (token.type) {
     case "text":
     case "html_inline":
-      return ctx.renderText ? h(Fragment, { key }, ctx.renderText(token.content)) : token.content;
+      if (!inCell) return ctx.renderText ? h(Fragment, { key }, ctx.renderText(token.content)) : token.content;
+      return h(Fragment, { key }, breakIdentifiers(ctx.renderText ? ctx.renderText(token.content) : token.content));
     case "softbreak":
       return "\n";
     case "hardbreak":
       return h("br", { key });
     case "code_inline":
-      return h("code", { key, className: "md-code-inline" }, token.content);
+      return h("code", { key, className: "md-code-inline" }, text(token.content));
     case "math_inline":
       return renderMath(token, key, false, ctx);
     case "em_open":
@@ -126,8 +151,8 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext): ReactNod
   }
 }
 
-function renderInlineToken(token: Token, ctx: RenderContext): ReactNode[] {
-  return renderInlineChildren(buildTree(token.children ?? []), ctx);
+function renderInlineToken(token: Token, ctx: RenderContext, inCell = false): ReactNode[] {
+  return renderInlineChildren(buildTree(token.children ?? []), ctx, inCell);
 }
 
 /** 与 math.ts 的分隔符对应；公式出错时按原文显示要把分隔符带上。 */
@@ -237,9 +262,14 @@ function renderBlockNode(
     case "tr_open":
       return h("tr", { key }, kids());
     case "th_open":
-      return h("th", { key, style: alignStyle(token) }, kids());
-    case "td_open":
-      return h("td", { key, style: alignStyle(token) }, kids());
+    case "td_open": {
+      const cell = node.children.map((child) =>
+        child.token.type === "inline"
+          ? renderInlineToken(child.token, ctx, true)
+          : renderBlockNode(child, 0, ctx, closedFence),
+      );
+      return h(token.type === "th_open" ? "th" : "td", { key, style: alignStyle(token) }, cell);
+    }
     case "html_block":
       return h("p", { key }, token.content);
     default:

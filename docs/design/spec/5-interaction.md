@@ -16,7 +16,7 @@ Windows / Linux 用 `Ctrl`，macOS 用 `⌘`（下文表里的 `Ctrl` 都指“�
 | 聚焦输入框 | `Ctrl L` | 并滚到底 |
 | 终端 | `Ctrl \`` | 收起 → 打开并聚焦；开着但焦点不在终端 → 聚焦终端；焦点在终端 → 收起并回到输入框。命令面板的 `切换终端` 和任务条按钮是纯显隐切换 |
 | 跳到等你确认的任务 | `Ctrl J` | 已在该任务时聚焦门；无待确认时无动作 |
-| 第 N 个任务 | `Ctrl 1…9` | 侧栏眼前画出来的任务顺序（合并列表里展开着的文件夹里的任务行；按时间排列时是时间顺序；折叠的文件夹、被“显示更多”藏起来的行不算；`features/sidebar/visible-order-store.ts`） |
+| 第 N 个任务 | `Ctrl 1…9` | 侧栏眼前画出来的任务顺序（合并列表里展开着的文件夹里的任务行；“对话”“归档”里是列表顺序；折叠的文件夹、被“显示更多”藏起来的行不算；`features/sidebar/visible-order-store.ts`） |
 | 上/下一个任务 | `Ctrl Shift [` / `Ctrl Shift ]` | 循环；不用 `Ctrl Alt ↑ / ↓`：那是 Intel/AMD 显卡驱动的屏幕旋转热键；按物理键位认，Codex 桌面版同款 |
 | 对话里上一轮 / 下一轮 | `Ctrl Shift ↑` / `Ctrl Shift ↓` | 以正在读的那条用户消息为起点跳到上 / 下一条（同点对话线的刻度），到头不动；空的输入框里也生效；输入框有字时让给输入框（Chromium 里这组键是选到段首 / 段尾，mac 的 `Cmd Shift ↑ ↓` 是选到开头 / 结尾），e2e 实测选区；不转发给 omp（`STUDIO_RESERVED`）。设置页盖着对话时不翻 |
 | 发送 / 运行中插话 | `Enter` | IME 组合中无效 |
@@ -121,7 +121,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 5. **横向滚动条一律不画**（`::-webkit-scrollbar:horizontal { display: none }`）。能折行的先折行，不能折行的容器仍可用 Shift+滚轮 / 触控板横滑，但看不到条。逐处决定：
    - 折行（本来就折）：对话里的代码块与工具卡输出、门里的预览、设置里的 JSON 与原文输出、omp 安装详情、TSP 的 diff 行和工具卡里的 `code`（`.tsp-tool-body .tsp-code` 一律 `pre-wrap`）。
    - 评审 diff：有自己的 `折行` 开关，默认开；关掉时每个 hunk 自己横向滚动（行不折，hunk 头和评论框贴左），无条。
-   - 不折、无条、可横滑：Markdown 表格（整词不拆，`.md-table`）、KaTeX 块级公式、TSP 的 ANSI 行（`.tsp-rows`，列对齐，折了会错位）和 TSP `code` 节点没有 `wrap` 时、用量热力图（`usage-scroll`）、评审的标签条。
+   - 不折、无条、可横滑：Markdown 表格（整词不拆，单元格里不带空格的文件名、路径在 `_` `/` `\` `.` 后可折行，免得一个长文件名把别的列挤成一词一行，`.md-table`）、KaTeX 块级公式、TSP 的 ANSI 行（`.tsp-rows`，列对齐，折了会错位）和 TSP `code` 节点没有 `wrap` 时、用量热力图（`usage-scroll`）、评审的标签条。
    - 其余 `overflow: auto` 的容器内容本身折行，实际只有纵向滚动。
 6. 验收（800×600 窗口）：走新任务页、TSP 对话（edit / eval 卡）、设置全部分节、命令面板、终端，断言页面自身 `scrollWidth <= clientWidth`，且没有任何元素下沿被横向滚动条占高（`offsetHeight − clientHeight − 边框 = 0`）；滚动时 `data-scrolling` 出现、停后消失，且元素 `clientWidth` 不变。
 

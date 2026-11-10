@@ -168,6 +168,18 @@ describe("流式渲染", () => {
     expect(text("- 点")).toBe("点");
     expect(text("1. [x] 做完")).toBe("做完");
   });
+
+  // 不带空格的长文件名把整张表撑出可视区、别的列被挤成一词一行（2026-11-10 所有者截图）：单元格里的标识符在分隔符后可以折行。
+  it("表格单元格里的文件名、路径在 _ / \\ . 后可折行；小数点不断，表格外不加", () => {
+    const out = html(
+      "| 文件 | 版本 |\n| --- | --- |\n| FB_2019_run.pdf | v1.2 |\n| `src/a_b.ts` | C:\\x\\y |\n\nFB_2019_run.pdf",
+    );
+    expect(out).toContain("<td>FB_<wbr/>2019_<wbr/>run.<wbr/>pdf</td>");
+    expect(out).toContain("<td>v1.2</td>");
+    expect(out).toContain("src/<wbr/>a_<wbr/>b.<wbr/>ts</code>");
+    expect(out).toContain("C:\\<wbr/>x\\<wbr/>y");
+    expect(out).toContain("<p>FB_2019_run.pdf</p>");
+  });
 });
 
 describe("增量解析（parseStreaming）与整篇解析一致", () => {

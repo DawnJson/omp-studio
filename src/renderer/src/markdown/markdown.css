@@ -163,7 +163,7 @@
   text-align: left;
   vertical-align: top;
   /* `.md` 是 overflow-wrap: anywhere，会让自动表格布局的最小内容宽度变成 1 个字（/tools 的名字列被挤成竖排）；
-     break-word 不影响最小内容宽度，整词保持完整，实在放不下才折。 */
+     break-word 不影响最小内容宽度，整词保持完整，实在放不下才折。不带空格的文件名、路径靠 render.ts 在 _ / \ . 后插的 <wbr> 折行。 */
   overflow-wrap: break-word;
 }
 .md-table th {
