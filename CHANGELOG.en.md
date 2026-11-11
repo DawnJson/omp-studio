@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-11-10
+
 ### Added
 
 - Files in the file panel, the preview title and composer attachments now show a colored icon for their type (ts, py, pdf, images and so on are easy to tell apart), and common folders such as src, docs and test have their own icons.
