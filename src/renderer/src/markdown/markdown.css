@@ -147,6 +147,26 @@
   max-width: 100%;
   border-radius: var(--radius-md);
 }
+/* 回答里的本地图片：整张图可点（在右侧预览打开），不画链接的下划线；最高半屏，长图在预览里看全 */
+.md-image-frame {
+  display: inline-block;
+  max-width: 100%;
+  cursor: zoom-in;
+}
+.md-image-frame > .md-image {
+  display: block;
+  max-height: 50vh;
+  object-fit: contain;
+}
+/* 读不到的本地图片：图片图标 + 说明文字的链接，悬停看完整路径 */
+.md-image-link {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+.md-image-link > svg {
+  flex: none;
+}
 
 .md-table {
   max-width: 100%;

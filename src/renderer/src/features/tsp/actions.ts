@@ -78,6 +78,15 @@ export function openHref(href: string, ctx: Pick<TspContext, "taskId">): void {
   openFilePreview(ctx.taskId, hrefToPath(href));
 }
 
+/**
+ * 回答里的本地图片（`![alt](路径)`）：经主进程读（和右侧预览同一条路，只读任务目录里的文件、有大小上限），是图片就返回 data URL，
+ * 不是图片、不存在、太大返回 null；在任务目录外时主进程拒绝（Promise 失败）。不在这里拼路径去加载，绕不过主进程的校验。
+ */
+export async function loadImageHref(href: string, ctx: Pick<TspContext, "taskId">): Promise<string | null> {
+  const file = await window.studio.readPreviewFile({ kind: "task", taskId: ctx.taskId }, hrefToPath(href));
+  return file.kind === "image" ? (file.dataUrl ?? null) : null;
+}
+
 export function copyText(text: string): void {
   const t = createT(currentLocale());
   navigator.clipboard.writeText(text).then(

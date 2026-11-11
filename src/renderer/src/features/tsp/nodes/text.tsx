@@ -16,7 +16,7 @@ import type { TextMark } from "../../../markdown/marks.ts";
 import { useHighlighted } from "../../../markdown/highlight.ts";
 import { tokenProps, type HighlightToken } from "../../../markdown/highlight-tokens.ts";
 import { codeLanguage, Tokens } from "../use-highlighted.tsx";
-import { openHref } from "../actions.ts";
+import { loadImageHref, openHref } from "../actions.ts";
 import { parseAnsi, parseAnsiStream, type AnsiParse, type AnsiRun } from "../ansi.ts";
 import { Clamp } from "../Clamp.tsx";
 import {
@@ -122,10 +122,12 @@ export function Md(props: NodeProps) {
   const marks = useMemo(() => textMarks(p.marks), [p.marks]);
   const { taskId } = props.ctx;
   // 文件链接（`file://`、相对路径）和工具卡上的路径一样在右侧预览打开；终端版 omp 也只把这两种画成可点的链接。
+  // 本地图片（`![alt](路径)`）任务目录里的经主进程读出来直接显示（终端版 omp 只印说明文字），读不到的显示成文件链接。
   const openFile = useCallback((href: string) => openHref(href, { taskId }), [taskId]);
+  const loadImage = useCallback((href: string) => loadImageHref(href, { taskId }), [taskId]);
   return (
     <div {...nodeDomProps(props, "tsp-md")}>
-      <Markdown source={text} streaming={p.stream === true} marks={marks} openFile={openFile} />
+      <Markdown source={text} streaming={p.stream === true} marks={marks} openFile={openFile} loadImage={loadImage} />
     </div>
   );
 }

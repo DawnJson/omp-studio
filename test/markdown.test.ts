@@ -76,6 +76,36 @@ describe("危险链接协议被拒", () => {
     expect(inline).toContain('<img src="data:image/png;base64,iVBORw0KGgo="');
   });
 
+  // 回答里的本地图片以前只剩说明文字（"浅色"），看不出那里是一张图，也点不开（2026-11-10 所有者截图）。
+  it("本地图片交给调用方的 renderImage；网络路径不交出去、不生成链接；没有 renderImage 时是文件链接", () => {
+    const seen: string[] = [];
+    const withImage = (source: string) =>
+      renderToStaticMarkup(
+        renderMarkdown(source, {
+          openLink: () => {},
+          openFile: () => {},
+          renderImage: ({ href, alt }) => {
+            seen.push(href);
+            return `[本地图 ${alt}]`;
+          },
+          katex,
+        }),
+      );
+    expect(withImage("![浅色](tmp/a.png) ![盘符](C:/x/b.png)")).toContain("[本地图 浅色]");
+    expect(seen).toEqual(["tmp/a.png", "C:/x/b.png"]);
+    seen.length = 0;
+    // Markdown 里 `\\` 转义成一个 `\`：写四个才得到 UNC 的 `\\server`。
+    const network = withImage("![共享](//server/share/a.png) ![反斜杠](<\\\\\\\\server\\share\\a.png>)");
+    expect(seen).toEqual([]);
+    expect(network).not.toMatch(/href=|<img/i);
+    expect(network).toContain("共享");
+    const linkOnly = renderToStaticMarkup(
+      renderMarkdown("![浅色](tmp/a.png)", { openLink: () => {}, openFile: () => {}, katex }),
+    );
+    expect(linkOnly).toContain('href="tmp/a.png"');
+    expect(linkOnly).toContain("浅色");
+  });
+
   it("文字里写全的 http(s) 网址可点，不吞句末的中文句号；不带协议的域名、邮箱、行内代码里的网址不变成链接", () => {
     const out = html(
       "或者直接打开 https://doi.org/10.1007/978-3-031-94223-5_25 。见https://a.com/x。\n\nexample.com a@b.com `https://in.code`",

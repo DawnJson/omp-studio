@@ -1,5 +1,5 @@
 // markdown-it 的 token → React 元素。用户文本不进 dangerouslySetInnerHTML：所有文本都经 React 转义（唯一例外是 KaTeX 的输出，见 renderMath），
-// 链接只放行 http/https（调用方给了 openFile 时再加本地文件链接），图片只放行 markdown-it 已校验的 data:image。无 JSX，方便在 Node 里测试。
+// 链接只放行 http/https（调用方给了 openFile 时再加本地文件链接），图片只放行 markdown-it 已校验的 data:image 和交给调用方读的本地路径。无 JSX，方便在 Node 里测试。
 import type Katex from "katex";
 import { createElement as h, Fragment, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { blockTokens, type MarkdownBlock, type Token } from "./parse.ts";
@@ -9,6 +9,8 @@ export interface RenderContext {
   openLink(href: string): void;
   /** 本地文件链接（`file:` 或不带协议的路径）交给它；没给时这类链接按纯文字显示。 */
   openFile?: ((href: string) => void) | undefined;
+  /** 本地图片（`file:` 或不带协议的路径，网络路径除外）怎么显示由调用方决定（经主进程读、只读任务目录里的）；没给时按文件链接显示。 */
+  renderImage?: ((props: { href: string; alt: string }) => ReactNode) | undefined;
   /** 代码块的渲染由调用方决定（高亮、复制按钮）；缺省是纯文本 <pre>。 */
   renderCode?(props: { code: string; lang: string; closed: boolean }): ReactNode;
   /** 文字片段的渲染（TSP md.marks 在这里把字面标记包成 span）；缺省是原文。 */
@@ -60,6 +62,20 @@ const otherScheme = /^[a-z][a-z0-9+.-]+:/i;
 function isFileHref(href: string): boolean {
   if (/^file:/i.test(href)) return true;
   return href !== "" && !/^(?:#|\?|\/\/)/.test(href) && !otherScheme.test(href);
+}
+
+/**
+ * 网络路径（`\\server\…`、`//server/…`、`file://server/…`）：不读也不加载，只显示文字。Windows 访问这种路径会把登录凭据（NTLM）发给对方，
+ * 地址是模型写的，不能让它决定应用去连哪台机器。markdown-it 会把 `\` 编成 `%5C`，解码后再判断。
+ */
+function isNetworkPath(href: string): boolean {
+  let decoded = href;
+  try {
+    decoded = decodeURIComponent(href);
+  } catch {
+    // 不是合法的 %XX 编码：按原文判断。
+  }
+  return /^(?:[\\/]{2})/.test(decoded) || /^file:\/\/(?!\/|[a-z]:)/i.test(decoded);
 }
 
 function alignStyle(token: Token): CSSProperties | undefined {
@@ -144,7 +160,18 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext, inCell: b
           alt || src,
         );
       }
-      return alt;
+      if (isFileHref(src) && !isNetworkPath(src)) {
+        if (ctx.renderImage) return h(Fragment, { key }, ctx.renderImage({ href: src, alt }));
+        const open = ctx.openFile;
+        if (open) {
+          const onClick = (event: MouseEvent) => {
+            event.preventDefault();
+            open(src);
+          };
+          return h("a", { key, href: src, title: src, className: "md-link", onClick }, alt || src);
+        }
+      }
+      return h("span", { key, title: src }, alt || src);
     }
     default:
       return token.content === "" ? children : token.content;

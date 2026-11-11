@@ -127,6 +127,14 @@ export const FileIcon = (props: IconProps) => (
     <path d="M8.5 2.500v3h3" />
   </Icon>
 );
+/** 图片：方框 + 小圆 + 山形 */
+export const ImageIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+    <circle cx="6" cy="6.5" r="1" />
+    <path d="m13.5 10.5-3-3-6 5.5" />
+  </Icon>
+);
 /** 大段粘贴的文字：几行长短不一的字 */
 export const TextLines = (props: IconProps) => (
   <Icon {...props}>

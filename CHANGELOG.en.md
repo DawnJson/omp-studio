@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Local images referenced in an answer no longer show up as a single word: images inside the task folder are shown inline and open in the side panel when clicked; images elsewhere appear as a link with an image icon, with the path on hover.
+
 ## [0.7.4] - 2026-11-10
 
 ### Fixed

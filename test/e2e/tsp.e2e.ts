@@ -737,6 +737,44 @@ test("omp 发来的 SVG 图片按当前主题换好颜色再显示：<img> 里�
   }
 });
 
+// 回答里写 `![alt](本地路径)`：omp 只发原文（md 节点），终端版只印说明文字；studio 以前也只剩"浅色"两个字（2026-11-10 所有者截图）。
+// 任务目录里的图经主进程读出来直接显示，点了在右侧预览；任务目录外的显示成图片链接，悬停看路径。
+test("回答里的本地图片：任务目录里的直接显示、点开在右侧预览；目录外的是图片链接", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp local image "));
+  const outside = path.join(work, "outside.png").replaceAll("\\", "/");
+  await writeFile(outside, solidPng(20, 10));
+  const answer = `看图：\n\n![本地图](shot.png)\n\n![外面的图](<${outside}>)`;
+  const fixture = path.join(work, "local-image.jsonl");
+  const source = await readFile(path.join(root, "fixtures", "tsp", "compact.jsonl"), "utf8");
+  await writeFile(fixture, source.replace('"text":"second answer"', `"text":${JSON.stringify(answer)}`));
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    const projectPath = await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+      return project!.path;
+    });
+    await writeFile(path.join(projectPath, "shot.png"), solidPng(40, 30));
+    await openTaskRow(page);
+    const image = page.getByTestId("md-local-image").locator("img");
+    await expect(image).toHaveCount(1, { timeout: 30_000 });
+    await expect
+      .poll(() => image.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
+      .toBe(40);
+    expect((await image.getAttribute("src"))?.startsWith("data:image/png;base64,")).toBe(true);
+    const link = page.getByTestId("md-image-link");
+    await expect(link).toHaveText("外面的图");
+    await expect(link).toHaveAttribute("title", outside);
+    await page.getByTestId("md-local-image").click();
+    await expect(page.getByTestId("file-preview-image")).toBeVisible();
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("排队的带图片插话点 Edit：文字和图片一起回到 studio 的输入框（#1 芯片 + 附件卡片），omp 的输入框被清空", async () => {
   test.setTimeout(90_000);
   // omp 18.12.6 实录：运行中发带图片的插话 → 排队区那条点 Edit → omp 把文字放回它的输入框、图片重新挂成 chip。

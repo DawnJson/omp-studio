@@ -6,6 +6,7 @@ import type { TFunction } from "../../../shared/i18n/index.ts";
 import { useT } from "../i18n/use-t.ts";
 import { reportError } from "../ui/errors.ts";
 import { CodeBlock } from "./CodeBlock.tsx";
+import { LocalImage } from "./LocalImage.tsx";
 import { splitMarks, type TextMark } from "./marks.ts";
 import { parseBlocks, parseStreaming, stabilizeStreaming, type BlockParse, type MarkdownBlock } from "./parse.ts";
 import { renderBlock, type RenderContext } from "./render.ts";
@@ -56,6 +57,7 @@ function createContext(
   marks: readonly TextMark[] | undefined,
   katex: KatexApi | null,
   openFile: ((href: string) => void) | undefined,
+  loadImage: ((href: string) => Promise<string | null>) | undefined,
 ): RenderContext {
   return {
     openLink: (href) => {
@@ -77,6 +79,10 @@ function createContext(
             ),
     katex,
     openFile,
+    renderImage:
+      loadImage === undefined || openFile === undefined
+        ? undefined
+        : ({ href, alt }) => <LocalImage href={href} alt={alt} load={loadImage} open={openFile} />,
   };
 }
 
@@ -87,14 +93,19 @@ const Block = memo(
     marks,
     katex,
     openFile,
+    loadImage,
   }: {
     block: MarkdownBlock;
     t: TFunction;
     marks: readonly TextMark[] | undefined;
     katex: KatexApi | null;
     openFile: ((href: string) => void) | undefined;
+    loadImage: ((href: string) => Promise<string | null>) | undefined;
   }) {
-    const context = useMemo(() => createContext(t, marks, katex, openFile), [t, marks, katex, openFile]);
+    const context = useMemo(
+      () => createContext(t, marks, katex, openFile, loadImage),
+      [t, marks, katex, openFile, loadImage],
+    );
     return (
       <div className="md-block" data-anchor>
         {renderBlock(block, context)}
@@ -106,6 +117,7 @@ const Block = memo(
     prev.t === next.t &&
     prev.marks === next.marks &&
     prev.openFile === next.openFile &&
+    prev.loadImage === next.loadImage &&
     prev.block.src === next.block.src &&
     prev.block.closed === next.block.closed &&
     (prev.katex === next.katex || !next.block.math),
@@ -114,17 +126,20 @@ const Block = memo(
 /**
  * `marks`：文字里的字面标记（要传稳定引用，变了所有块重画）。
  * `openFile`：本地文件链接（`file:` 或相对路径）点了交给它（同样要稳定引用）；不给时这类链接按纯文字显示。
+ * `loadImage`：本地图片（`![alt](路径)`）读成 data URL（读不到给 null 或失败）；和 openFile 都给了才显示本地图片（LocalImage），否则按文件链接显示。
  */
 export function Markdown({
   source,
   streaming = false,
   marks,
   openFile,
+  loadImage,
 }: {
   source: string;
   streaming?: boolean;
   marks?: readonly TextMark[] | undefined;
   openFile?: ((href: string) => void) | undefined;
+  loadImage?: ((href: string) => Promise<string | null>) | undefined;
 }) {
   const t = useT();
   // 上一次流式解析的结果，给下一次增量解析复用；不在流式时清掉。
@@ -149,7 +164,7 @@ export function Markdown({
   return (
     <div className="md" data-streaming={streaming || undefined}>
       {blocks.map((block, index) => (
-        <Block key={index} block={block} t={t} marks={marks} katex={katex} openFile={openFile} />
+        <Block key={index} block={block} t={t} marks={marks} katex={katex} openFile={openFile} loadImage={loadImage} />
       ))}
     </div>
   );
