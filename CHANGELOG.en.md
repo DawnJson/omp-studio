@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-11
+
 ### Added
 
 - Desktop pet: a small pixel pet lives on your desktop. It stays wherever you drag it, always on top and out of the taskbar. Its face follows your tasks: it sweats while one runs, raises a hand when one waits for you, gets dizzy on errors and cheers when a turn finishes. Click to pet it, double-click to open omp-studio (jumping to the task that needs you), right-click for its stats card, talk toggle, hatching a new one, or hiding it.
