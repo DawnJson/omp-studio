@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-11-11
+
 ### Fixed
 
 - The Files, Subagents and Browser panels on the right now slide back out when you close them instead of vanishing at once. Hover tips, the jobs card above the input box, sidebar status dots and the green dots on the tabs fade out too, matching how they appear.
