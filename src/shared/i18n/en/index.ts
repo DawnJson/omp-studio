@@ -52,6 +52,7 @@ import { agents } from "./agents.ts";
 import { browser } from "./browser.ts";
 import { board } from "./board.ts";
 import { modes } from "./modes.ts";
+import { pet } from "./pet.ts";
 
 export const en = {
   shell,
@@ -108,4 +109,5 @@ export const en = {
   browser,
   board,
   modes,
+  pet,
 };

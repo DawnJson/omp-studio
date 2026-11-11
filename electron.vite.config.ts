@@ -57,8 +57,15 @@ export default defineConfig({
   preload: {
     build: {
       outDir: path.join(root, "out", "preload"),
-      // 沙箱里的 preload 不支持 ESM，必须是 CJS。
-      lib: { entry: path.join(root, "src", "preload", "index.ts"), formats: ["cjs"], fileName: () => "index.cjs" },
+      // 沙箱里的 preload 不支持 ESM，必须是 CJS。主窗口 index.cjs，宠物窗口 pet.cjs（只暴露 PetApi）。
+      lib: {
+        entry: {
+          index: path.join(root, "src", "preload", "index.ts"),
+          pet: path.join(root, "src", "preload", "pet.ts"),
+        },
+        formats: ["cjs"],
+        fileName: (_format, entryName) => `${entryName}.cjs`,
+      },
     },
   },
   renderer: {
@@ -74,6 +81,13 @@ export default defineConfig({
       // CSS 不压缩：lightningcss 把 animation-timeline 并进 animation 简写，Electron 44 的 Chromium 不认，
       // 滚动边缘渐隐（.ui-scroll-fade 的 scroll(self) 时间线）整个失效（2026-10-27 e2e 发现）。
       cssMinify: false,
+      // 两个页面：主窗口 index.html，桌面宠物 pet.html（docs/architecture/pet.md）。都套同一份 CSP。
+      rolldownOptions: {
+        input: {
+          index: path.join(root, "src", "renderer", "index.html"),
+          pet: path.join(root, "src", "renderer", "pet.html"),
+        },
+      },
     },
   },
 });

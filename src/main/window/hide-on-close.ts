@@ -6,6 +6,7 @@ import { app, Notification } from "electron";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { t } from "../../shared/i18n/index.ts";
 import { retainNotification } from "../tasks/gate-notifier.ts";
+import { getPetWindow } from "../pet/pet-window.ts";
 import { concealWindow } from "./main-window.ts";
 import { showMainWindow } from "./show-window.ts";
 import { finishShutdown, isQuitting } from "./shutdown.ts";
@@ -32,7 +33,8 @@ function announceTray(): void {
 export function installHideOnClose(): void {
   app.on("browser-window-created", (_event, window) => {
     window.on("close", (event) => {
-      if (isQuitting()) return;
+      // 宠物窗口没有 ×；系统让它关（Alt+F4 等）时照常关掉，不当成"关主窗口"。
+      if (isQuitting() || window === getPetWindow()) return;
       event.preventDefault();
       void concealWindow(window);
       announceTray();

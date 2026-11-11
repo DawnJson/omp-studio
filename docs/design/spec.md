@@ -41,6 +41,7 @@
 | §4.28 | [`spec/4.28-agents-panel.md`](spec/4.28-agents-panel.md) | 子代理面板 |
 | §4.29 | [`spec/4.29-browser-panel.md`](spec/4.29-browser-panel.md) | 浏览器面板 |
 | §4.31 | [`spec/4.31-session-info.md`](spec/4.31-session-info.md) | 会话信息、请求记录与分享 |
+| §4.32 | [`spec/4.32-pet.md`](spec/4.32-pet.md) | 桌面宠物 |
 | §5 | [`spec/5-interaction.md`](spec/5-interaction.md) | 交互 |
 | §6 | [`spec/6-not-in-v1.md`](spec/6-not-in-v1.md) | 第一版不做 |
 | §7 | [`spec/7-acceptance.md`](spec/7-acceptance.md) | “手感”验收清单 |

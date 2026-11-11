@@ -1,0 +1,416 @@
+/* 桌面宠物窗口（docs/design/spec/4.32-pet.md）。窗口透明：页面不画底色，只有宠物、气泡、卡片、提示是实的。
+ * 宠物尺寸和主进程 pet/pet-window.ts 的 SPRITE 一致（窗口底部正中那一块决定拖到屏幕边时夹在哪）。
+ * 动画都是 3 帧的 steps：像素画就该一跳一跳的，也省得合成器按屏幕刷新率每帧都画（tokens.css 动效说明）。 */
+:root.pet-page {
+  --pet-w: 110px;
+  --pet-h: 115px;
+  background: transparent;
+  color-scheme: light dark;
+}
+
+.pet-page body {
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text);
+  user-select: none;
+}
+
+.pet-root {
+  position: fixed;
+  inset: 0;
+}
+
+.pet-stage {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: var(--pet-w);
+  height: var(--pet-h);
+  transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+.pet-stage:active {
+  cursor: grabbing;
+}
+
+.pet-sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── 表情动画：data-mood 选节奏 ── */
+.pet-body {
+  animation: pet-bob 1.8s steps(1) infinite;
+}
+.pet-sprite[data-mood="running"] .pet-body {
+  animation-duration: 0.6s;
+}
+.pet-sprite[data-mood="waiting"] .pet-body {
+  animation: pet-hop 0.9s steps(1) infinite;
+}
+.pet-sprite[data-mood="done"] .pet-body {
+  animation: pet-hop 0.5s steps(1) infinite;
+}
+.pet-sprite[data-mood="error"] .pet-body {
+  animation: pet-shake 0.45s steps(1) infinite;
+}
+.pet-sprite[data-stage="egg"] .pet-body {
+  animation: pet-wobble 1.6s steps(1) infinite;
+}
+.pet-mark {
+  animation: pet-mark 1.2s steps(1) infinite;
+}
+
+/* 眨眼：大部分时间睁眼，每 4 秒闭一下。只有 idle / running 眨（别的表情眼睛本身就在表达）。 */
+.pet-eyes-blink {
+  visibility: hidden;
+}
+.pet-sprite:is([data-mood="idle"], [data-mood="running"]) .pet-eyes-open {
+  animation: pet-blink-open 4s steps(1) infinite;
+}
+.pet-sprite:is([data-mood="idle"], [data-mood="running"]) .pet-eyes-blink {
+  animation: pet-blink-closed 4s steps(1) infinite;
+}
+
+/* 闪光：彩虹色相循环（约每秒 30 帧）。 */
+.pet-sprite[data-shiny] .pet-pixels {
+  animation: pet-shiny 3s steps(90) infinite;
+}
+
+@keyframes pet-bob {
+  0%,
+  66% {
+    transform: translateY(0);
+  }
+  33% {
+    transform: translateY(-1px);
+  }
+}
+@keyframes pet-hop {
+  0%,
+  66% {
+    transform: translateY(0);
+  }
+  33% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes pet-shake {
+  0% {
+    transform: translateX(0);
+  }
+  33% {
+    transform: translateX(-1px);
+  }
+  66% {
+    transform: translateX(1px);
+  }
+}
+@keyframes pet-wobble {
+  0%,
+  66% {
+    transform: translateX(0);
+  }
+  33% {
+    transform: translateX(1px);
+  }
+}
+@keyframes pet-mark {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.5px);
+  }
+}
+@keyframes pet-blink-open {
+  0%,
+  95% {
+    visibility: visible;
+  }
+  96% {
+    visibility: hidden;
+  }
+}
+@keyframes pet-blink-closed {
+  0%,
+  95% {
+    visibility: hidden;
+  }
+  96% {
+    visibility: visible;
+  }
+}
+@keyframes pet-shiny {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+/* ── 气泡、升级提示、爱心、属性卡 ── */
+.pet-bubble,
+.pet-card {
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  bottom: calc(var(--pet-h) + var(--space-1));
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+}
+
+.pet-bubble {
+  left: 50%;
+  right: auto;
+  width: max-content;
+  max-width: calc(100% - var(--space-4));
+  transform: translateX(-50%);
+  padding: var(--space-1-5) var(--space-2-5);
+  cursor: default;
+  animation: pet-pop var(--dur-base) var(--ease-out);
+}
+/* 尾巴：指向宠物头顶。 */
+.pet-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-overlay);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.pet-badge {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--pet-h) - var(--space-2));
+  transform: translateX(-50%);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--text-on-primary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: var(--lh-xs);
+  white-space: nowrap;
+  animation: pet-rise 3s var(--ease-out) forwards;
+}
+
+.pet-hearts {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--pet-h) - var(--space-4));
+  display: flex;
+  gap: var(--space-2);
+  transform: translateX(-50%);
+  color: #ff5c8a;
+  font-size: var(--fs-lg);
+  pointer-events: none;
+}
+.pet-hearts span {
+  animation: pet-rise 2.5s var(--ease-out) forwards;
+}
+.pet-hearts span:nth-child(2) {
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+.pet-hearts span:nth-child(3) {
+  animation-delay: 0.4s;
+  opacity: 0;
+}
+
+@keyframes pet-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(var(--travel-sm, 4px));
+  }
+}
+@keyframes pet-rise {
+  0% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 -28px;
+  }
+}
+
+.pet-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  cursor: default;
+  animation: pet-fade var(--dur-fade) linear;
+}
+@keyframes pet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.pet-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+/* 名字、稀有度、物种同一行：名字按内容宽、太长时先缩它（省略号），× 靠右。 */
+.pet-card-name,
+.pet-card-name-input {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pet-card-name:hover {
+  border-color: var(--border);
+}
+.pet-card-name-input {
+  flex: 1;
+  border-color: var(--input-border);
+  background: var(--bg-raised);
+  outline: none;
+  user-select: text;
+}
+.pet-card-name-input[aria-invalid="true"] {
+  border-color: var(--st-error);
+}
+.pet-card-close {
+  flex: none;
+  margin-left: auto;
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-base);
+}
+.pet-card-close:hover {
+  background: var(--bg-sunken);
+  color: var(--text);
+}
+
+.pet-card-meta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  white-space: nowrap;
+}
+.pet-card-level {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+.pet-card-meta [data-rarity="rare"] {
+  color: #3b82f6;
+}
+.pet-card-meta [data-rarity="epic"] {
+  color: #a855f7;
+}
+.pet-card-meta [data-rarity="legendary"] {
+  color: #e8a400;
+}
+.pet-card-shiny {
+  color: var(--accent);
+}
+.pet-card-level .pet-bar {
+  flex: 1;
+  min-width: 60px;
+}
+
+.pet-bar {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-sunken);
+}
+.pet-bar-fill {
+  background: var(--text-2);
+}
+.pet-card-level .pet-bar-fill {
+  background: var(--accent);
+}
+/* 成长出来的那一截用强调色接在出生值后面。 */
+.pet-bar-grown {
+  background: var(--accent);
+}
+
+.pet-card-stats {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+.pet-stat {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+.pet-stat dt {
+  color: var(--text-2);
+}
+.pet-stat dd {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.5ch;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+.pet-stat-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pet-card-personality {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+
+/* 减少动效：停在第一帧，只留透明度渐变。 */
+@media (prefers-reduced-motion: reduce) {
+  .pet-page *,
+  .pet-page *::after {
+    animation: none !important;
+  }
+}
+:root.pet-page[data-motion="reduced"] *,
+:root.pet-page[data-motion="reduced"] *::after {
+  animation: none !important;
+}

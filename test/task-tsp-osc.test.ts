@@ -41,6 +41,8 @@ const settings = (): StudioSettings => ({
   terminalShell: null,
   fontSize: 15,
   yoloConfirmed: false,
+  petEnabled: false,
+  petTalk: false,
   backdrop: "theme",
   backdropStrength: "medium",
   customBackdrop: null,

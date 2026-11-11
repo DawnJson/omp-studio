@@ -63,6 +63,7 @@ import type { OmpKeybinding } from "./tsp/omp-keybindings.ts";
 import type { ProviderKeyEnv } from "./provider-keys.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
 import type { PromptEnhanceResult, PromptEnhanceTarget } from "./prompt-enhance.ts";
+import type { PetSpend } from "./pet/model.ts";
 
 // ───────── 标识 ─────────
 
@@ -241,6 +242,10 @@ export interface StudioSettings {
   fontSize: number;
   /** 用户确认过"全自动"。 */
   yoloConfirmed: boolean;
+  /** 桌面宠物（docs/architecture/pet.md）：显示在桌面上。默认开（仓库所有者 2026-11-11 定）。 */
+  petEnabled: boolean;
+  /** 宠物说话（气泡，每句是一次 omp tiny 角色——没配就 smol——的调用）。默认开（仓库所有者 2026-11-11 定）。 */
+  petTalk: boolean;
 }
 
 /** 空闲任务关闭进程前等多久（StudioSettings.idleClose）。 */
@@ -1526,6 +1531,14 @@ export interface StudioInvokeApi {
   setCopyOnSelect(on: boolean): Promise<void>;
   setToolHeadsOnly(on: boolean): Promise<void>;
   setGroupToolCalls(on: boolean): Promise<void>;
+  setPetEnabled(on: boolean): Promise<void>;
+  setPetTalk(on: boolean): Promise<void>;
+  /** 摸一下 / 打开属性卡（宠物没显示时先显示）。 */
+  petAction(action: "pet" | "card"): Promise<void>;
+  /** 改名（1–24 个字符，首尾空白去掉）；不合法时 reject。 */
+  renamePet(name: string): Promise<void>;
+  /** 宠物调模型（起名、说话）的花费，今天和累计（docs/architecture/pet.md「花费」）；宠物没启动过（e2e 默认）时 null。 */
+  getPetSpend(): Promise<PetSpend | null>;
   /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值（缓存优先，同 listModels(false)）；读不到（没登录、没有可用模型）时为 null。 */
@@ -1894,6 +1907,11 @@ export const invokeNames = {
   setCopyOnSelect: true,
   setToolHeadsOnly: true,
   setGroupToolCalls: true,
+  setPetEnabled: true,
+  setPetTalk: true,
+  petAction: true,
+  renamePet: true,
+  getPetSpend: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
   getStartupSnapshot: true,

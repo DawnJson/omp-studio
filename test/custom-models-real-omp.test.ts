@@ -147,6 +147,8 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
         terminalShell: null,
         fontSize: 15,
         yoloConfirmed: false,
+        petEnabled: false,
+        petTalk: false,
         backdrop: "theme",
         backdropStrength: "medium",
         customBackdrop: null,

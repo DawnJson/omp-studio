@@ -26,7 +26,7 @@ omp -p --no-session --no-tools --no-skills --no-rules --no-context-files --no-ti
 - **不落会话**（`--no-session`，实测 agent 目录里没有 `sessions/`）。花费在 provider 账单上；[推测] 不进 `omp stats` 和 studio 的会话费用，没核实。
 - **不带 `--no-extensions`**：studio-accounts 扩展（`client-accounts.md`）注册了一批 provider，关掉扩展这些模型就解析不到。
 - **cwd**：任务的 cwd（项目 `.omp/config.yml` 的角色照常生效）；草稿页是项目目录，没有项目时是服务进程的中性目录（`serviceCwd()`）。
-- 超时见 `ENHANCE_TIMEOUT_MS`；取消 = `runCommand` 的 `signal`，结束整个进程树。可执行文件同任务进程；未打包时 `STUDIO_TEST_ENHANCE_OMP`（同 `STUDIO_TEST_COMMIT_OMP`）顶替。
+- 超时见 `ENHANCE_TIMEOUT_MS`；取消 = `runCommand` 的 `signal`，结束整个进程树。可执行文件同任务进程（`prompt-enhance/one-shot-omp.ts`，桌面宠物起名和说话也用它，见 `pet.md`）；未打包时 `STUDIO_TEST_ENHANCE_OMP`（同 `STUDIO_TEST_COMMIT_OMP`）顶替。
 
 ### 模型
 

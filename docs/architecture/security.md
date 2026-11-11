@@ -7,6 +7,7 @@
 - `BrowserWindow` 一律 `contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`，不开 `webviewTag`，不关 `webSecurity`（`browser-window-flags`）。CSP 严格：不允许内联脚本和 `eval`，不从网络加载脚本；`frame-src` 只放行 `studio-preview:`（下面「文件预览的网页」）。
 - 页面只从 `app://studio/` 加载；禁止窗口内导航到外部地址和新开窗口（`will-navigate`、`setWindowOpenHandler`）。
 - 例外只有右栏浏览器面板（仓库所有者 2026-10-28 批准）：外部网页放在主进程的独立 `WebContentsView` 里（`sandbox`、`contextIsolation`、独立分区、拒绝所有权限、只放行 http/https），不和应用页面同一个 webContents、拿不到 preload；给 omp 的 CDP 口只听 127.0.0.1、校验 Host、拒带 Origin 的请求、路径带随机 token。见 [browser.md](browser.md)「安全」。
+- 第二个应用窗口只有桌面宠物（仓库所有者 2026-11-11 批准，[pet.md](pet.md)「安全」）：同样的沙箱 / 隔离 / CSP，只加载 `app://studio/pet.html`；preload 是单独的 `pet.cjs`，只暴露 `PetApi`，拿不到 `StudioApi`；主进程的 `pet:*` 通道只认这个窗口的顶层页面。
 
 ## 文件预览的网页
 
@@ -23,6 +24,7 @@
 - preload 只暴露一个函数做一件事（如 `sendPrompt(taskId, text)`），不暴露 `ipcRenderer`，不暴露"执行任意命令""读写任意路径"。
 - 例外只有内置终端（`writeTerminal`）：只作用于已存在的任务、cwd 由主进程定、输入限长。输入框里的 `!命令` 原样作为消息 `send` 给 omp，由 omp 自己处理；不新增"起一个指定命令的进程"的接口。内置终端用哪个 shell（设置 -> 通用 -> 终端，2026-11-09）只接受主进程检测到的 shell 或主进程文件对话框选的文件（`terminal-handlers.ts`），渲染进程不能传任意路径。
 - 渲染进程传来的一切都不可信：每条 IPC 校验参数，任务 id 必须存在，路径必须在任务目录或该任务经 omp `/add-dir` 加入的工作区目录之内（根目录由主进程按下标给出，渲染进程不传绝对根路径；2026-10-21 仓库所有者批准）。任务状态以主进程为准，渲染进程只显示。
+- 宠物窗口的通道同理：发送方必须是宠物窗口的顶层页面（`pet-window.ts` 的 `trusted`），参数在主进程校验；它不能调任何 `studio:*` 通道（`assertTrustedSender` 只认主窗口）。
 
 ## 不可信内容
 

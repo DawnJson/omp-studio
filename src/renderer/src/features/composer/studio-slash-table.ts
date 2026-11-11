@@ -15,6 +15,7 @@ import { pluginsSlashCommands } from "../settings/plugins-slash.ts";
 import { integrationsSlashCommands } from "../settings/integrations-slash.ts";
 import { jobsSlash } from "./jobs-slash.ts";
 import { agentsSlash } from "../agents/agents-slash.ts";
+import { petSlash } from "../pet/pet-slash.ts";
 import { sessionInfoSlashCommands } from "../session-info/session-slash.ts";
 import { toggleSlashCommands } from "../session-toggles/toggles-slash.ts";
 import { emitStudioCommand } from "../palette/studio-command.ts";
@@ -150,4 +151,6 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
   ...sessionInfoSlashCommands,
   // 子代理面板（/hub）：右栏的子代理面板是它的界面，不弹 omp 的 Agent Hub（S1Agents）。
   agentsSlash,
+  // 桌面宠物（/pet）：宠物窗口和设置 → 通用 → 桌面宠物是它的界面（docs/architecture/pet.md）。
+  petSlash,
 ];

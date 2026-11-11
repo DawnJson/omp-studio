@@ -9,6 +9,8 @@ import { log } from "./log/log.ts";
 import { fixLoginPath } from "./platform/darwin/login-path.ts";
 import { holdSpawnsUntil } from "./platform/spawn-gate.ts";
 import { loadSettings } from "./settings/settings-store.ts";
+import { startPet } from "./pet/pet-service.ts";
+import { getTaskPool } from "./tasks/runtime.ts";
 import { startUpdates } from "./update/instance.ts";
 import { installAppProtocol, registerAppScheme } from "./window/app-protocol.ts";
 import { installPreviewProtocol } from "./window/preview-protocol.ts";
@@ -74,7 +76,13 @@ if (!app.requestSingleInstanceLock()) {
     startUpdates().catch((error: unknown) => log.error("update service failed to start", error));
     void applyOmpStartupDefaults();
     // 输入框工具行要的默认模型、模型目录：窗口淡入后再拉起服务进程去读，不和首帧抢 CPU（之前先用启动缓存里的值）。
-    afterFirstReveal(prewarmToolbarData);
+    // 桌面宠物也等这时再起（多一个窗口和渲染进程）。
+    afterFirstReveal(() => {
+      prewarmToolbarData();
+      void getTaskPool()
+        .then((pool) => startPet(pool.listTasks()))
+        .catch((error: unknown) => log.error("pet failed to start", error));
+    });
     app.on("activate", () => {
       showMainWindow();
     });

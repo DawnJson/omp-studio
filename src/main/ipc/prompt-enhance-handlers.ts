@@ -1,13 +1,10 @@
 // 提示词优化的 IPC（docs/architecture/prompt-enhance.md）：校验参数，定 cwd 和模型，委托 prompt-enhance/enhance.ts。
 // 每个输入框（任务 / 草稿页的项目）同时只有一次：同一个输入框再发起时先取消上一次。退出时全部取消（runCommand 结束进程树）。
-import { app } from "electron";
 import type { HandlerGroup, ModelKey, ProjectId } from "../../shared/ipc.ts";
 import { PROMPT_ENHANCE_MAX_CHARS, type PromptEnhanceTarget } from "../../shared/prompt-enhance.ts";
-import type { OmpCommand } from "../git/commit-message.ts";
 import { log } from "../log/log.ts";
 import { readModelRoles } from "../omp-config/model-defaults.ts";
-import { getOmpExecutable } from "../omp-manager/index.ts";
-import { parseTestOmpOverride, prependToPath } from "../omp/launch-args.ts";
+import { oneShotOmp } from "../prompt-enhance/one-shot-omp.ts";
 import { chooseModel, enhancePrompt } from "../prompt-enhance/enhance.ts";
 import { serviceCwd } from "../service/service-omp.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
@@ -55,17 +52,6 @@ async function targetCwd(target: PromptEnhanceTarget): Promise<string> {
   return (await getTaskPool()).projectPath(target.projectId);
 }
 
-/** 和任务进程同一个 omp；未打包时 `STUDIO_TEST_ENHANCE_OMP`（JSON `{command, args}`，同 STUDIO_TEST_COMMIT_OMP）指向假 omp。 */
-async function enhanceOmp(): Promise<OmpCommand> {
-  const override = app.isPackaged ? undefined : process.env["STUDIO_TEST_ENHANCE_OMP"];
-  if (override) {
-    const parsed = parseTestOmpOverride(override);
-    return { command: parsed.command, args: parsed.args, env: { ...process.env } };
-  }
-  const executable = await getOmpExecutable();
-  return { command: executable.path, args: [], env: prependToPath({ ...process.env }, executable.managedBin) };
-}
-
 export const promptEnhanceHandlers: HandlerGroup<"enhancePrompt" | "cancelEnhancePrompt"> = {
   enhancePrompt: async (rawTarget, rawText, rawFallback) => {
     const target = parseTarget(rawTarget);
@@ -82,7 +68,7 @@ export const promptEnhanceHandlers: HandlerGroup<"enhancePrompt" | "cancelEnhanc
         log.warn("prompt enhance: model roles unreadable", error instanceof Error ? error.message : error);
         return null;
       });
-      const [resolvedRoles, omp] = await Promise.all([roles, enhanceOmp()]);
+      const [resolvedRoles, omp] = await Promise.all([roles, oneShotOmp("STUDIO_TEST_ENHANCE_OMP")]);
       const model = chooseModel(resolvedRoles, fallback);
       if (controller.signal.aborted) return { kind: "cancelled" };
       const result = await enhancePrompt(text, { cwd, omp, model, signal: controller.signal });

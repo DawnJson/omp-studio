@@ -181,6 +181,8 @@ const inheritedPrefixes = ["lc_", "xdg_"];
 export function appEnv(extraEnv: Record<string, string>): Record<string, string> {
   const env: Record<string, string> = {
     STUDIO_E2E_BACKGROUND: process.env["STUDIO_E2E_BACKGROUND"] ?? "1",
+    // 默认不起桌面宠物：多一个窗口会干扰按"第一个窗口""所有窗口"取窗口的用例。测宠物的用例传 "0"（pet.e2e.ts）。
+    STUDIO_E2E_NO_PET: "1",
     PI_BUILD_URL: "http://127.0.0.1:9/",
   };
   for (const [name, value] of Object.entries(process.env)) {

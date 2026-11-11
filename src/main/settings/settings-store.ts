@@ -39,6 +39,8 @@ const defaults: StudioSettings = {
   groupToolCalls: true,
   terminalShell: null,
   fontSize: defaultFontSize,
+  petEnabled: true,
+  petTalk: true,
   yoloConfirmed: false,
 };
 
@@ -120,6 +122,8 @@ function sanitize(raw: unknown): StudioSettings {
       record["yoloConfirmed"],
       defaults.yoloConfirmed,
     ),
+    petEnabled: field((value) => parseBoolean(value, "petEnabled"), record["petEnabled"], defaults.petEnabled),
+    petTalk: field((value) => parseBoolean(value, "petTalk"), record["petTalk"], defaults.petTalk),
   };
 }
 

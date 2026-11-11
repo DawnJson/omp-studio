@@ -1,4 +1,4 @@
-// 设置 → 通用：外观（主题画廊；格子里背景图、浓度、毛玻璃、语言、字号、减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
+// 设置 -> 通用：外观（主题画廊；背景图、浓度、毛玻璃、语言、字号、减少动效、选中即复制）；桌面宠物（显示、说话、花费）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
 // 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；空闲任务多久关进程；终端 shell；快捷键（只读；studio 的键，加转发给 omp 的键）。
 // 各组共用一套列（Cells.tsx 的 Groups），只占一行的小组并排；格子排法见 settings.css 的 .st-cells。
 import { Fragment, useEffect, useState } from "react";
@@ -12,6 +12,7 @@ import {
   type TerminalShellOption,
 } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
+import type { PetSpend, VoiceSpend } from "../../../../shared/pet/model.ts";
 import { chordKeys } from "../../../../shared/tsp/omp-keybindings.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { shortcutKeys } from "../../app/platform-keys.ts";
@@ -19,12 +20,44 @@ import { useAppInfo, useSettings } from "../../store/index.ts";
 import { Badge, Button, Row, SectionHead, Segmented, Switch } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { Select } from "../../ui/Select.tsx";
+import { formatCount, formatMoney } from "../composer/usage-format.ts";
 import { Cells, Group, Groups } from "./Cells.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { systemReducesMotion } from "./motion-preference.ts";
 import { refreshOmpKeybindings, useOmpKeybindings } from "./omp-keybindings-store.ts";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
 import { ThemeGallery } from "./ThemeGallery.tsx";
+
+/** 宠物调模型的花费：打开设置页时读一次（docs/architecture/pet.md「花费」）；宠物没启动过时 null，不显示。 */
+function usePetSpend(): PetSpend | null {
+  const [spend, setSpend] = useState<PetSpend | null>(null);
+  useEffect(() => {
+    let live = true;
+    window.studio.getPetSpend().then(
+      (next) => live && setSpend(next),
+      (error: unknown) => console.error("getPetSpend failed", error),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  return spend;
+}
+
+function SpendRow({ label, spend, testId }: { label: string; spend: VoiceSpend; testId: string }) {
+  const t = useT();
+  return (
+    <Row label={label} testId={testId}>
+      {() =>
+        t("settings.pet.spend", {
+          calls: spend.calls,
+          tokens: formatCount(spend.tokens),
+          cost: formatMoney(spend.cost),
+        })
+      }
+    </Row>
+  );
+}
 
 /** 通知和回顾：omp 自己的设置（和终端共用），放在"通知与回顾"一节，不混进"任务运行中"。 */
 const notifyKeys: ReadonlySet<string> = new Set([
@@ -78,6 +111,7 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
 export function GeneralSection() {
   const t = useT();
   const settings = useSettings();
+  const petSpend = usePetSpend();
   const glassSupported = useAppInfo()?.glassSupported ?? false;
   const systemMotion = systemReducesMotion();
   const guard = (promise: Promise<unknown>) => void promise.catch((error: unknown) => reportError(t, error));
@@ -263,6 +297,46 @@ export function GeneralSection() {
               />
             )}
           </Row>
+        </Cells>
+      </Group>
+      <Group>
+        <SectionHead title={t("settings.pet")} />
+        <Cells>
+          <Row label={t("settings.pet.enabled")}>
+            {(labelId) => (
+              <Switch
+                checked={settings?.petEnabled ?? true}
+                labelledBy={labelId}
+                onChange={(next) => guard(window.studio.setPetEnabled(next))}
+                testId="setting-pet-enabled"
+              />
+            )}
+          </Row>
+          <Row label={t("settings.pet.talk")}>
+            {(labelId) => (
+              <Switch
+                checked={settings?.petTalk ?? true}
+                labelledBy={labelId}
+                onChange={(next) => guard(window.studio.setPetTalk(next))}
+                testId="setting-pet-talk"
+              />
+            )}
+          </Row>
+          {/* 数组不用 Fragment：Cells 按直接子元素排格子（Children.toArray 会展开数组）。 */}
+          {petSpend !== null && [
+            <SpendRow
+              key="spent-today"
+              label={t("settings.pet.spentToday")}
+              spend={petSpend.today}
+              testId="setting-pet-spent-today"
+            />,
+            <SpendRow
+              key="spent-total"
+              label={t("settings.pet.spentTotal")}
+              spend={petSpend.total}
+              testId="setting-pet-spent-total"
+            />,
+          ]}
         </Cells>
       </Group>
       <Group>

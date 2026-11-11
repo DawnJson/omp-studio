@@ -40,6 +40,7 @@
 - 启动应用的测试和脚本都设 `STUDIO_USER_DATA`：这样启动它的进程没了应用会自己退出（`window/orphan-guard.ts`）。查孤儿保护时 Windows 上要 `spawn(..., { detached: true })`（Node 子进程默认随父进程被杀），并看 userData 的 `logs` 里有没有 "the launching process exited"。
 - 主进程里用到 `app.getPath("userData")` 的单例（`startupCache()` 之类）只能在第一次用到时建，不能在模块顶层建：`index.ts` 先 import 整条依赖链、后 `app.setPath("userData", STUDIO_USER_DATA)`，顶层建的单例拿到的是用户正在用的 `%APPDATA%\omp-studio`（斜杠命令缓存踩过：e2e 读到了开发者真实缓存里的默认模型）。
 - `launchApp` 只把白名单里的环境变量传给被测应用（`test/e2e/launch.ts` 的 `appEnv`）：agent 自己可能跑在 omp-studio 的任务里，shell 带着那个任务的 `STUDIO_*` / `PI_*` 和各家 key（omp 会把 agent 目录 `.env` 读进进程环境）。要用就经 `extraEnv` 显式传；单测里用 provider key 变量时用测试专用的变量名。所以 e2e 里没有任何 provider 凭据，真 omp 命令每次多花约 3 秒，连着调几次 omp 的用例要放宽超时（如 `settings-functional` 的 MCP 用例）；每个要等一次 omp 命令（经服务进程或命令行，包括保存后经 omp 重读列表）才会变的断言写明超时（`{ timeout: 30_000 }`，MCP 用例里叫 `ompWait`），默认的 5 秒不够。
+- e2e 默认不起桌面宠物（`appEnv` 设 `STUDIO_E2E_NO_PET=1`）：多一个窗口时 `firstWindow()` 可能拿到宠物页，"所有窗口都隐藏 / 关掉"的断言也会被它挡住。测宠物的用例显式传 `"0"`（`pet.e2e.ts`）。
 - `appEnv` 默认把 `PI_BUILD_URL` 指向连不上的地址：PATH 上第一个 omp 是 omp-studio 管理的时（所有者的机器就是这样），发现流程直接用它、`ready` 后马上查更新，构建服务有新版就往临时 userData 里下载约 220 MB。要测检查更新的用例自己传假服务；要测"别人管理的 omp"时不要依赖 PATH 上的 omp 是谁管的，用 `STUDIO_TEST_OMP`（`testOmp(...)`，被当成别人管理）。
 - 跑会起 Electron 的命令，输出不要接 `| head` 这类读够就退出的命令（管道一关测试进程就死，来不及清理），要截取就用 `grep` 或先写进文件；不要 `taskkill /F` 正在跑的测试。
 - 删 `mkdtemp` 建的目录要删它返回的那一层，`rm` 加 `maxRetries`。启动助手里 `launchApp` 之后的任何步骤都放进 try，失败时先 `close()` 再抛（Playwright 的 globalTeardown 查残留）。

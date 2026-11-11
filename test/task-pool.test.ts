@@ -39,6 +39,8 @@ const settings = (maxLiveProcesses = 6, idleClose: IdleClose = "1h"): StudioSett
   terminalShell: null,
   fontSize: 15,
   yoloConfirmed: false,
+  petEnabled: false,
+  petTalk: false,
   backdrop: "theme",
   backdropStrength: "medium",
   customBackdrop: null,

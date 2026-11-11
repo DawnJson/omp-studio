@@ -10,6 +10,13 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Desktop pet: a small pixel pet lives on your desktop. It stays wherever you drag it, always on top and out of the taskbar. Its face follows your tasks: it sweats while one runs, raises a hand when one waits for you, gets dizzy on errors and cheers when a turn finishes. Click to pet it, double-click to open omp-studio (jumping to the task that needs you), right-click for its stats card, talk toggle, hatching a new one, or hiding it.
+- Each machine gets its own pet: species (7, including π), rarity, hat and stats are drawn from a local seed, and a small model (omp's tiny role, or smol when tiny isn't set) names it and writes its personality the first time it appears. You can rename it from the stats card.
+- The pet grows: finished turns, answered approvals, tasks fixed after an error and a daily check-in give experience. It hatches at Lv 5, grows up at Lv 15 and reaches its final form at Lv 30, looking different at each stage, and its stats slowly rise with how you work.
+- The pet talks: a speech bubble when a task finishes, fails or waits for you, when you pet it, and when it levels up. Each line is one small-model call on your own account that only gets the task status and title, never the conversation. Turn it off in Settings -> General -> Desktop pet or from the right-click menu; the same place shows how many calls, tokens and dollars it has spent today and in total. The `/pet` command can also pet it, open the stats card, toggle talking or showing, and rename it.
+
 ## [0.7.9] - 2026-11-11
 
 ### Fixed

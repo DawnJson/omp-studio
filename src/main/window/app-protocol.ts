@@ -21,6 +21,19 @@ export function rendererEntryUrl(): string {
   return dev ?? `${appOrigin}/index.html`;
 }
 
+/** 宠物窗口的页面（electron.vite.config.ts 的第二个 HTML 入口），和主页面同源。 */
+export function petPageUrl(): string {
+  const dev = app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"];
+  return dev === undefined ? `${appOrigin}/pet.html` : new URL("pet.html", dev).href;
+}
+
+/** url 是不是宠物页面：协议、主机、路径都要对上。 */
+export function isPetUrl(url: string): boolean {
+  const page = new URL(petPageUrl());
+  const target = new URL(url);
+  return target.protocol === page.protocol && target.host === page.host && target.pathname === page.pathname;
+}
+
 /** 必须在 app ready 之前调用。 */
 export function registerAppScheme(): void {
   protocol.registerSchemesAsPrivileged([
