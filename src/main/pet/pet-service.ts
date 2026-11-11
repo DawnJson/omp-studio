@@ -1,7 +1,7 @@
 // 桌面宠物的主进程逻辑（docs/architecture/pet.md）：开关窗口、汇总任务状态成表情、记成长、孵化和说话。
 // 任务状态从 tasks/runtime.ts 的 state / taskRemoved 事件进来；设置（petEnabled、petTalk、主题、语言、减少动效）变了重推一次画面。
 import path from "node:path";
-import { app, dialog, type MenuItemConstructorOptions } from "electron";
+import { app, type MenuItemConstructorOptions } from "electron";
 import type { TaskId, TaskState } from "../../shared/ipc.ts";
 import { t } from "../../shared/i18n/index.ts";
 import { rollBones } from "../../shared/pet/bones.ts";
@@ -225,18 +225,9 @@ export async function renamePet(raw: unknown): Promise<void> {
   push();
 }
 
-async function confirmRehatch(): Promise<void> {
-  const locale = resolveLocale();
-  const { response } = await dialog.showMessageBox({
-    type: "warning",
-    title: t(locale, "pet.rehatch.title"),
-    message: t(locale, "pet.rehatch.title"),
-    detail: t(locale, "pet.rehatch.body"),
-    buttons: [t(locale, "pet.rehatch.confirm"), t(locale, "pet.rehatch.cancel")],
-    defaultId: 1,
-    cancelId: 1,
-  });
-  if (response !== 0 || store === null) return;
+/** 换新种子，清空魂和成长（位置、花费留着），重新孵化。确认在宠物窗口里做（PetApp 的确认框）。 */
+function rehatch(): void {
+  if (store === null) return;
   cancelVoices();
   const next = store.update(rehatched(store.get()));
   bones = rollBones(next.seed);
@@ -257,7 +248,7 @@ function menu(): MenuItemConstructorOptions[] {
       checked: getSettings().petTalk,
       click: () => updateSettings({ petTalk: !getSettings().petTalk }),
     },
-    { label: t(locale, "pet.menu.rehatch"), click: () => void confirmRehatch() },
+    { label: t(locale, "pet.menu.rehatch"), click: () => sendPetReaction({ kind: "confirmRehatch" }) },
     { type: "separator" },
     { label: t(locale, "pet.menu.open"), click: openStudio },
     { label: t(locale, "pet.menu.hide"), click: () => updateSettings({ petEnabled: false }) },
@@ -272,6 +263,7 @@ function showWindow(): void {
     openStudio,
     menu,
     rename: renamePet,
+    rehatch,
     // 单击也会走一次 dragEnd：位置没变就不写盘。
     moved: (position) => {
       const old = store?.get().position;

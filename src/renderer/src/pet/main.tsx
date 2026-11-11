@@ -1,8 +1,10 @@
-// 宠物窗口的入口（pet.html）：只用主题 token 和自己的样式，不载入主界面的 store；数据全由主进程推（window.pet）。
+// 宠物窗口的入口（pet.html）：只用主题 token、studio 的控件样式（确认框、按钮）和自己的样式，不载入主界面的 store；
+// 数据全由主进程推（window.pet）。
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "../../styles/tokens.css";
 import "../../styles/themes.css";
+import "../ui/controls.css";
 import "./pet.css";
 import type { PetReaction } from "../../../shared/pet/model.ts";
 import { PetApp } from "./PetApp.tsx";

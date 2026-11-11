@@ -92,7 +92,9 @@ export type PetReaction =
   | { kind: "hearts" }
   | { kind: "levelUp"; level: number }
   | { kind: "evolve"; stage: Stage }
-  | { kind: "card" };
+  | { kind: "card" }
+  /** 右键"重新孵化…"：在宠物窗口里弹确认框（studio 样式，不用系统对话框）。 */
+  | { kind: "confirmRehatch" };
 
 export const PET_NAME_MAX_CHARS = 24;
 

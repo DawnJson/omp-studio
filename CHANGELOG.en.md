@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- The pet's "Hatch a new pet" confirmation now looks like the rest of omp-studio's confirmations and opens right above the pet instead of as a system dialog.
+
 ## [0.8.0] - 2026-11-11
 
 ### Added

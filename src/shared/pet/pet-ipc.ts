@@ -20,6 +20,8 @@ export interface PetApi {
   /** 属性卡里改名：开始编辑时让窗口能拿到键盘焦点，结束时还回去。 */
   setEditing(on: boolean): void;
   rename(name: string): Promise<void>;
+  /** 确认框里点了"重新孵化"。 */
+  rehatch(): void;
 }
 
 /** 通道名：invoke 用 `pet:<名字>`，主进程推送用 `pet:event:<名字>`。 */

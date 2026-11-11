@@ -167,6 +167,26 @@
   box-shadow: var(--shadow-modal);
 }
 
+/* 重新孵化的确认框：studio 的 .ui-dialog（controls.css）原样用，只改成贴着宠物、占满窗口宽度；窗口窄，左右内边距收一档。 */
+.pet-confirm {
+  /* .ui-dialog 的 pop-in 定义在主界面的 app.css，这里不载入：和属性卡一样淡入。 */
+  animation: pet-fade var(--dur-fade) linear;
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  bottom: calc(var(--pet-h) + var(--space-1));
+  width: auto;
+  max-width: none;
+  cursor: default;
+}
+.pet-confirm .ui-dialog-head,
+.pet-confirm .ui-dialog-head:not(:has(> .ui-icon-btn)) {
+  padding: var(--space-5) var(--space-5) 0;
+}
+.pet-confirm .ui-dialog-foot {
+  padding: var(--space-3) var(--space-5);
+}
+
 .pet-bubble {
   left: 50%;
   right: auto;

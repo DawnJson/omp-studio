@@ -36,6 +36,8 @@ export interface PetWindowHandlers {
   openStudio(): void;
   menu(): MenuItemConstructorOptions[];
   rename(name: unknown): Promise<void>;
+  /** 宠物窗口的确认框里确认了重新孵化。 */
+  rehatch(): void;
   /** 拖完了：存新位置。 */
   moved(position: PetPosition): void;
 }
@@ -152,12 +154,13 @@ function installIpc(): void {
   });
   on("pet", () => handlers?.pet());
   on("openStudio", () => handlers?.openStudio());
+  on("rehatch", () => handlers?.rehatch());
   on("menu", (target) => {
     if (handlers === null) return;
     Menu.buildFromTemplate(handlers.menu()).popup({ window: target });
   });
   on("setEditing", (target, editing) => {
-    // 平时不可聚焦（点宠物不抢走用户正在打字的窗口）；改名时临时可聚焦并拿到焦点，改完还回去。
+    // 平时不可聚焦（点宠物不抢走用户正在打字的窗口）；改名、确认框打开时临时可聚焦并拿到焦点，结束还回去。
     target.setFocusable(editing === true);
     if (editing === true) target.focus();
   });

@@ -10,6 +10,7 @@ import {
   type PetReaction,
   type PetView,
 } from "../../../shared/pet/model.ts";
+import { Button } from "../ui/controls.tsx";
 import { PetSprite } from "./PetSprite.tsx";
 
 /** 按下后挪动超过这么多像素就算拖动，不算单击。 */
@@ -152,6 +153,62 @@ function Card({ view, onClose }: { view: PetView; onClose: () => void }) {
   );
 }
 
+/**
+ * 重新孵化的确认框：和 studio 的 ConfirmDialog 同一套样式（ui-dialog 的标题、说明、页脚，取消在前、danger-solid 在后），
+ * 放在宠物窗口里属性卡的位置，不用系统对话框。打开时窗口临时可聚焦，焦点落在确认框本身（右键是鼠标操作，
+ * 不在按钮上画焦点环；同 Dialog 没有 data-autofocus 时），Tab 进到按钮，Esc 取消。
+ */
+function RehatchConfirm({ view, onClose }: { view: PetView; onClose: () => void }) {
+  const t = createT(view.locale);
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    window.pet.setEditing(true);
+    ref.current?.focus();
+    return () => window.pet.setEditing(false);
+  }, []);
+  return (
+    <section
+      ref={ref}
+      tabIndex={-1}
+      className="ui-dialog pet-confirm"
+      role="alertdialog"
+      aria-labelledby="pet-confirm-title"
+      aria-describedby="pet-confirm-desc"
+      data-pet-hit
+      data-testid="pet-rehatch-confirm"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onClose();
+      }}
+    >
+      <header className="ui-dialog-head">
+        <div>
+          <h2 id="pet-confirm-title" className="ui-dialog-title">
+            {t("pet.rehatch.title")}
+          </h2>
+          <p id="pet-confirm-desc" className="ui-dialog-desc">
+            {t("pet.rehatch.body")}
+          </p>
+        </div>
+      </header>
+      <footer className="ui-dialog-foot">
+        <Button onClick={onClose} testId="pet-rehatch-cancel">
+          {t("pet.rehatch.cancel")}
+        </Button>
+        <Button
+          variant="danger-solid"
+          onClick={() => {
+            onClose();
+            window.pet.rehatch();
+          }}
+          testId="pet-rehatch-confirm-button"
+        >
+          {t("pet.rehatch.confirm")}
+        </Button>
+      </footer>
+    </section>
+  );
+}
+
 interface PetAppProps {
   initial: PetView;
   /** 订阅主进程推来的动作（main.tsx 先攒着页面加载期间到的那些，订阅时补发）。 */
@@ -164,6 +221,7 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
   const [badge, setBadge] = useState<{ text: string; key: number } | null>(null);
   const [hearts, setHearts] = useState(0);
   const [cardOpen, setCardOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const dragRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const clickTimer = useRef<number | undefined>(undefined);
   const localeRef = useRef(initial.locale);
@@ -208,7 +266,12 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
           break;
         }
         case "card":
+          setConfirmOpen(false);
           setCardOpen(true);
+          break;
+        case "confirmRehatch":
+          setCardOpen(false);
+          setConfirmOpen(true);
           break;
       }
     });
@@ -244,8 +307,10 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
   };
 
   return (
-    <div className="pet-root" data-card={cardOpen || undefined}>
-      {cardOpen ? (
+    <div className="pet-root" data-card={cardOpen || confirmOpen || undefined}>
+      {confirmOpen ? (
+        <RehatchConfirm view={view} onClose={() => setConfirmOpen(false)} />
+      ) : cardOpen ? (
         <Card view={view} onClose={() => setCardOpen(false)} />
       ) : (
         bubble !== null &&

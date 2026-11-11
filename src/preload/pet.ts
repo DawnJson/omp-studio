@@ -22,6 +22,7 @@ const api: PetApi = {
   menu: () => ipcRenderer.send(petChannel("menu")),
   setEditing: (on) => ipcRenderer.send(petChannel("setEditing"), on),
   rename: (name) => ipcRenderer.invoke(petChannel("rename"), name) as Promise<void>,
+  rehatch: () => ipcRenderer.send(petChannel("rehatch")),
 };
 
 contextBridge.exposeInMainWorld("pet", api);

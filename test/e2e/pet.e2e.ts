@@ -146,3 +146,48 @@ test("pet.json 里的位置在屏幕外：夹回屏幕里；种子不变（还�
     await rm(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
+
+test("右键重新孵化：宠物窗口里的 studio 样式确认框；Esc 和取消都不动，确认后换新种子、重新起名", async () => {
+  const userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-pet-"));
+  const seed = "00000000-0000-4000-8000-000000000043";
+  await writeFile(
+    path.join(userData, "pet.json"),
+    JSON.stringify({ seed, soul: { name: "Old", personality: "", hatchedAt: 1 } }),
+  );
+  const launched = await launchApp({ ...petEnv, STUDIO_USER_DATA: userData });
+  // 右键菜单是系统菜单，Playwright 点不到：直接推菜单项发的那个动作。
+  const openConfirm = () =>
+    launched.app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows().find((item) => item.webContents.getURL().endsWith("/pet.html"))!;
+      window.webContents.send("pet:event:reaction", { kind: "confirmRehatch" });
+    });
+  try {
+    const pet = await petPage(launched);
+    const confirm = pet.getByTestId("pet-rehatch-confirm");
+    await expect.poll(async () => (await petWindowInfo(launched)).visible).toBe(true);
+
+    await openConfirm();
+    await expect(confirm).toBeVisible();
+    // 打开时窗口临时可聚焦（Esc 要用），焦点在确认框本身（鼠标打开的，不在按钮上画焦点环）。
+    await expect.poll(async () => (await petWindowInfo(launched)).focusable).toBe(true);
+    await expect(confirm).toBeFocused();
+    await pet.keyboard.press("Escape");
+    await expect(confirm).toHaveCount(0);
+    await expect.poll(async () => (await petWindowInfo(launched)).focusable).toBe(false);
+
+    await openConfirm();
+    await pet.getByTestId("pet-rehatch-cancel").click();
+    await expect(confirm).toHaveCount(0);
+    expect((await readPet(userData)).seed).toBe(seed);
+
+    await openConfirm();
+    await pet.getByTestId("pet-rehatch-confirm-button").click();
+    await expect(confirm).toHaveCount(0);
+    await expect.poll(async () => (await readPet(userData)).seed).not.toBe(seed);
+    // 新的一只由假 omp 起名 Pixel。
+    await expect.poll(async () => (await readPet(userData)).soul?.name).toBe("Pixel");
+  } finally {
+    await launched.close();
+    await rm(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
