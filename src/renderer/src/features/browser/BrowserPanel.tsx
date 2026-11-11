@@ -16,6 +16,7 @@ import { MorphIcon } from "../../ui/MorphIcon.tsx";
 import { CLOSE_GLYPH, RESTART_GLYPH } from "../../ui/morph-glyphs.ts";
 import { IconButton, TextField } from "../../ui/controls.tsx";
 import { reportErrorNow } from "../../ui/errors.ts";
+import type { ExitProps } from "../../ui/presence.ts";
 import { scrimsOpen, subscribeScrims } from "../../ui/title-bar-dim.ts";
 import { setPreviewWidth, usePreviewWidth } from "../file-preview/preview-store.ts";
 import { browserPanelTakesFocus, closeBrowserPanel, setBrowserState, useBrowserState } from "./browser-store.ts";
@@ -47,11 +48,14 @@ function samePlacement(a: Placement, b: Placement): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }
 
-/** 把占位区的位置同步给主进程；被挡住时藏起页面，卸载（面板关了、换了任务）时告诉主进程面板关了。 */
-function usePlaceBrowser(taskId: TaskId, slot: RefObject<HTMLDivElement | null>): void {
+/**
+ * 把占位区的位置同步给主进程；被挡住时藏起页面，卸载（面板关了、换了任务）时告诉主进程面板关了。
+ * 关闭的退出动画一开始（`closing`）就当面板关了：原生页面不跟着 CSS 滑走，留着会悬在原处。
+ */
+function usePlaceBrowser(taskId: TaskId, slot: RefObject<HTMLDivElement | null>, closing: boolean): void {
   useEffect(() => {
     const element = slot.current;
-    if (element === null) return;
+    if (element === null || closing) return;
     let frame = 0;
     let last: Placement | undefined;
     const place = () => {
@@ -92,10 +96,11 @@ function usePlaceBrowser(taskId: TaskId, slot: RefObject<HTMLDivElement | null>)
       window.removeEventListener("animationend", schedule, true);
       window.studio.placeBrowser(taskId, null).catch(reportErrorNow);
     };
-  }, [taskId, slot]);
+  }, [taskId, slot, closing]);
 }
 
-export function BrowserPanel({ taskId }: { taskId: TaskId }) {
+/** `exitProps`：App 的右栏 usePresence 给的，关闭时原路滑回（motion.css 的 panel-out）。 */
+export function BrowserPanel({ taskId, exitProps }: { taskId: TaskId; exitProps: ExitProps }) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   const slot = useRef<HTMLDivElement>(null);
@@ -105,7 +110,7 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
   const state = useBrowserState(taskId);
   // 地址栏：没在改时跟着页面走；改了没回车就保持用户的字。
   const [draft, setDraft] = useState<string | null>(null);
-  usePlaceBrowser(taskId, slot);
+  usePlaceBrowser(taskId, slot, exitProps["data-closing"] !== undefined);
 
   // 打开时把焦点放进面板：Esc 才关得掉它；关闭后由 store 还焦点。还没有页面时直接放进地址栏。AI 连上时自动打开的不抢焦点。
   useLayoutEffect(() => {
@@ -157,6 +162,7 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
       tabIndex={-1}
       style={width === null ? undefined : { flexBasis: width }}
       onKeyDown={onKeyDown}
+      {...exitProps}
     >
       <div
         className="file-preview-resizer"

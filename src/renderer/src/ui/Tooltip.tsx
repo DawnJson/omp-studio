@@ -12,6 +12,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { keyboardFocused } from "./input-modality.ts";
+import { usePresence, type ExitProps } from "./presence.ts";
 
 const SHOW_DELAY_MS = 500;
 /** 一个提示收起后这段时间内指到下一个元素，直接显示（spec："已有一个显示时 0ms"）。 */
@@ -184,10 +185,18 @@ export function TooltipLayer() {
     };
   }, []);
 
-  return tip === null ? null : createPortal(<TooltipBubble tip={tip} />, document.body);
+  // 收起时淡出（出现时淡入；2026-11-11 仓库所有者：开有动画关没有的情况要杜绝）。淡出期间沿用最后一个提示；
+  // 淡出没放完就指到下一个元素时直接换成新的提示。
+  const presence = usePresence(tip !== null, "fade");
+  const shown = useRef(tip);
+  if (tip !== null) shown.current = tip;
+  const last = tip ?? shown.current;
+  return presence.mounted && last !== null
+    ? createPortal(<TooltipBubble tip={last} exitProps={presence.exitProps} />, document.body)
+    : null;
 }
 
-function TooltipBubble({ tip }: { tip: Tip }) {
+function TooltipBubble({ tip, exitProps }: { tip: Tip; exitProps: ExitProps }) {
   const ref = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
   const { body, key } = splitShortcut(tip.text);
@@ -216,7 +225,7 @@ function TooltipBubble({ tip }: { tip: Tip }) {
   }, [tip]);
 
   return (
-    <div ref={ref} className="ui-tooltip" role="tooltip" data-testid="tooltip" style={style}>
+    <div ref={ref} className="ui-tooltip" role="tooltip" data-testid="tooltip" style={style} {...exitProps}>
       <span className="ui-tooltip-text">{body}</span>
       {key !== null && <kbd className="ui-kbd">{key}</kbd>}
     </div>

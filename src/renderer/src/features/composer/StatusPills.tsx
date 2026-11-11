@@ -13,6 +13,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Bolt, Users } from "../../icons.tsx";
 import { reportOmpError } from "../../ui/errors.ts";
 import { keyboardFocused } from "../../ui/input-modality.ts";
+import { usePresence, type ExitProps } from "../../ui/presence.ts";
 import { toggleAgentsPanel, useAgentsPanel } from "../agents/index.ts";
 import { MeterView } from "../tsp/nodes/motion.tsx";
 import { useTspDerived } from "../tsp/tsp-store.ts";
@@ -73,6 +74,8 @@ function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly Jo
   const cardId = useId();
   const tiles = useTspDerived(taskId, deriveJobTiles, sameJobTiles, JOB_HUD_NODES) ?? [];
   const [open, setOpen] = useState(false);
+  // 收起时和别的浮层一样淡出下沉（ui-popover 的 pop-in 的反向）。
+  const presence = usePresence(open);
   const button = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -118,7 +121,16 @@ function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly Jo
         <Bolt size={13} />
         <span className="status-pill-count">{running.length}</span>
       </button>
-      {open && <JobsCard id={cardId} label={label} jobs={running} tiles={tiles} anchor={button} />}
+      {presence.mounted && (
+        <JobsCard
+          id={cardId}
+          label={label}
+          jobs={running}
+          tiles={tiles}
+          anchor={button}
+          exitProps={presence.exitProps}
+        />
+      )}
     </>
   );
 }
@@ -133,12 +145,14 @@ function JobsCard({
   jobs,
   tiles,
   anchor,
+  exitProps,
 }: {
   id: string;
   label: string;
   jobs: readonly Job[];
   tiles: readonly JobTile[];
   anchor: RefObject<HTMLElement | null>;
+  exitProps: ExitProps;
 }) {
   const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden" });
   // 底边贴着药丸往上长：最高到窗口顶（留 8）和 60% 窗口高里较小的那个；作业多、窗口矮时多出的截掉（卡片不接指针），不出窗口顶。
@@ -152,7 +166,7 @@ function JobsCard({
     });
   }, [anchor]);
   return createPortal(
-    <div id={id} role="tooltip" className="ui-popover jobs-card" data-testid="jobs-card" style={place}>
+    <div id={id} role="tooltip" className="ui-popover jobs-card" data-testid="jobs-card" style={place} {...exitProps}>
       <p className="ui-pop-title">{label}</p>
       {jobs.map((job) => {
         const tile = tiles.find((candidate) => candidate.id === job.id);

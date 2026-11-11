@@ -7,6 +7,7 @@ import { AGENT_NODES, focusedAgentName, listAgents, type HubAgent } from "../../
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { IconButton, Tabs, tabPanelProps } from "../../ui/controls.tsx";
+import type { ExitProps } from "../../ui/presence.ts";
 import { setPreviewWidth, usePreviewWidth } from "../file-preview/preview-store.ts";
 import { useTspDerived, useTspDrive } from "../tsp/tsp-store.ts";
 import { AgentDetail } from "./AgentDetail.tsx";
@@ -30,7 +31,16 @@ const DRIVING_KEY = {
   revive: "agents.reviving",
 } as const;
 
-export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: string | null }) {
+/** `exitProps`：App 的右栏 usePresence 给的，关闭时原路滑回（motion.css 的 panel-out）。 */
+export function AgentsPanel({
+  taskId,
+  selected,
+  exitProps,
+}: {
+  taskId: TaskId;
+  selected: string | null;
+  exitProps: ExitProps;
+}) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -86,6 +96,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
       tabIndex={-1}
       style={width === null ? undefined : { flexBasis: width }}
       onKeyDown={onKeyDown}
+      {...exitProps}
     >
       <div
         className="file-preview-resizer"

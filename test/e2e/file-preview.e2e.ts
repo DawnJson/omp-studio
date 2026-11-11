@@ -142,6 +142,8 @@ test("工具卡片上的文件链接在右侧打开预览，Esc 关闭、焦点�
     await expect(page.getByTestId("file-preview-name")).toHaveText("test_all.py");
     await expect(page.getByTestId("file-preview-body")).toContainText("链接内容");
     await page.keyboard.press("Escape");
+    // 关闭也有动画：原路滑回（motion.css 的 panel-out）放完再卸载，不是一下消失（2026-11-11 仓库所有者）。
+    await expect(preview).toHaveAttribute("data-closing", "panel");
     await expect(preview).toHaveCount(0);
     await expect(link).toBeFocused();
   } finally {

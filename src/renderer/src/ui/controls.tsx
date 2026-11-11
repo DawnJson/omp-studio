@@ -14,6 +14,7 @@ import {
 } from "react";
 import { ChevronRight, Reset } from "../icons.tsx";
 import { InfoTip } from "./InfoTip.tsx";
+import { usePresence } from "./presence.ts";
 
 export type ControlSize = "md" | "sm";
 
@@ -252,11 +253,20 @@ export function Segmented<T extends string>({
           data-testid={testId === undefined ? undefined : `${testId}-${option.value}`}
         >
           {option.label}
-          {option.dot !== undefined && <span className="ui-seg-dot" role="img" aria-label={option.dot} />}
+          <SegDot label={option.dot} />
         </button>
       ))}
     </div>
   );
+}
+
+/** 分段右上角的小圆点：出现时淡入，没了时淡出（不是一下消失），淡出期间沿用最后的读屏名。 */
+function SegDot({ label }: { label: string | undefined }) {
+  const presence = usePresence(label !== undefined, "fade");
+  const last = useRef(label);
+  if (label !== undefined) last.current = label;
+  if (!presence.mounted) return null;
+  return <span className="ui-seg-dot" role="img" aria-label={label ?? last.current} {...presence.exitProps} />;
 }
 
 export interface Tab<T extends string> {

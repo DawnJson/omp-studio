@@ -9,6 +9,7 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { backdropFilePattern, type TaskId } from "../../../shared/ipc.ts";
 import { resolveTheme, themes } from "../../../shared/themes.ts";
@@ -65,7 +66,8 @@ import { setDrawerOpen, setSidebarCollapsed, useShellValue } from "./shell-store
 import { SidebarResizer } from "./SidebarResizer.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useNavigation } from "./use-navigation.ts";
-import { useDialogSlot, usePresence } from "../ui/presence.ts";
+import { useDialogSlot, usePresence, type ExitProps } from "../ui/presence.ts";
+import { useHeld } from "../features/composer/use-held.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
 import { useCopyOnSelect } from "./use-copy-on-select.ts";
 import { restartSession } from "./restart-session.ts";
@@ -148,6 +150,30 @@ export function App() {
   useEffect(() => {
     if (agentsPanel !== null) closeBrowserPanel(false);
   }, [agentsPanel]);
+  // 右栏现在该画哪个面板（文件优先：打开文件面板的那一帧另外两个还没收起，只画文件面板）。关了之后沿用最后一个，放完 panel-out
+  // 再卸载：打开有滑入、关闭有滑出（2026-11-11 仓库所有者：开有动画关没有的情况要杜绝）；换成另一个面板时新的直接滑入。
+  const rightPanel: ((exit: ExitProps) => ReactNode) | null =
+    view !== "conversation"
+      ? null
+      : panel?.key === terminalKey
+        ? (exit) => (
+            <FilePreviewPane
+              key={`files:${panel.key}`}
+              panelKey={panel.key}
+              page={panel.page}
+              path={panel.path}
+              exitProps={exit}
+            />
+          )
+        : taskId !== null && agentsPanel?.taskId === taskId
+          ? (exit) => (
+              <AgentsPanel key={`agents:${taskId}`} taskId={taskId} selected={agentsPanel.selected} exitProps={exit} />
+            )
+          : taskId !== null && browserPanel === taskId
+            ? (exit) => <BrowserPanel key={`browser:${taskId}`} taskId={taskId} exitProps={exit} />
+            : null;
+  const rightPresence = usePresence(rightPanel !== null, "panel");
+  const shownRightPanel = useHeld(rightPanel);
   // omp 连上了当前任务的浏览器（AI 开始用它）：打开面板，不抢焦点。
   useEffect(
     () =>
@@ -488,16 +514,7 @@ export function App() {
             </>
           )}
         </main>
-        {/* 右栏三个面板是兄弟，key 都要带前缀：同一个任务 id 当 key 时，从子代理面板换到文件面板的那一帧两者都在，React 会把文件面板画成两份。 */}
-        {view === "conversation" && panel?.key === terminalKey && (
-          <FilePreviewPane key={`files:${panel.key}`} panelKey={panel.key} page={panel.page} path={panel.path} />
-        )}
-        {view === "conversation" && taskId !== null && agentsPanel?.taskId === taskId && (
-          <AgentsPanel key={`agents:${taskId}`} taskId={taskId} selected={agentsPanel.selected} />
-        )}
-        {view === "conversation" && taskId !== null && browserPanel === taskId && (
-          <BrowserPanel key={`browser:${taskId}`} taskId={taskId} />
-        )}
+        {rightPresence.mounted && shownRightPanel?.(rightPresence.exitProps)}
       </div>
       {aboutKey !== null && <AboutDialog key={aboutKey} onExited={() => about.closed(aboutKey)} />}
       <DropOverlay />

@@ -4,6 +4,8 @@
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { SessionSummary, TaskState } from "../../../../shared/ipc.ts";
 import { dotKind, sessionDotKind, type DotKind } from "../../../../shared/ui/sidebar-model.ts";
+import { useRef } from "react";
+import { usePresence } from "../../ui/presence.ts";
 
 type Kind = Exclude<DotKind, "none">;
 
@@ -43,18 +45,32 @@ function Glyph({ kind }: { kind: Kind }) {
   }
 }
 
-/** 按形状画一个状态图标；none 只留槽位。任务和历史会话共用。`title` = 悬停说明（图标本身只有形状和颜色）。 */
+/**
+ * 按形状画一个状态图标；none 只留槽位。任务和历史会话共用。`title` = 悬停说明（图标本身只有形状和颜色）。
+ * 换种类时按种类换 key，新图标淡入；变成 none（看过了、跑完了）时最后那个图标淡出再只留槽位。
+ */
 function StatusMark({ kind, label, title }: { kind: DotKind; label: string; title?: string }) {
-  if (kind === "none") return <span key="none" className="sb-dot" aria-hidden="true" />;
+  const presence = usePresence(kind !== "none", "fade");
+  const last = useRef<{ kind: Kind; label: string; title: string | undefined } | null>(null);
+  if (kind !== "none") last.current = { kind, label, title };
+  const shown = kind !== "none" ? { kind, label, title } : presence.mounted ? last.current : null;
+  if (shown === null) return <span key="none" className="sb-dot" aria-hidden="true" />;
   const mark = (
     <svg className="sb-dot-mark" viewBox="0 0 16 16" aria-hidden="true">
-      <Glyph kind={kind} />
+      <Glyph kind={shown.kind} />
     </svg>
   );
   return (
-    <span key={kind} className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label} title={title}>
+    <span
+      key={shown.kind}
+      className={`sb-dot sb-dot-${shown.kind}`}
+      role="img"
+      aria-label={shown.label}
+      title={shown.title}
+      {...presence.exitProps}
+    >
       {/* 运行中的弧转动：转外面这层 HTML 盒子（sidebar.css 的 .sb-dot-turn），SVG 的 transform 动画不能交给合成器 */}
-      {kind === "running" ? <span className="sb-dot-turn">{mark}</span> : mark}
+      {shown.kind === "running" ? <span className="sb-dot-turn">{mark}</span> : mark}
     </span>
   );
 }

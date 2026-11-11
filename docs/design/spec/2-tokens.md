@@ -78,6 +78,8 @@
 
 ## 2.6 动效
 
+**有进入动画的就有退出动画**（仓库所有者定，2026-11-11）：会被关掉的东西（面板、浮层、提示、小圆点）打开怎么来、关闭就原路怎么走，放完才卸载（`ui/presence.ts` 的 `usePresence`）。`npm run check` 的 `css-entry-without-exit` 扫所有一次性的 `*-in` 进入动画，每条都登记在 `scripts/check.ts` 的 `ENTRY_ANIMATIONS`，写明退出在哪；换页、换内容这种没有"关"的写明原因。
+
 | 事件 | 动画 | 时长/曲线 |
 |---|---|---|
 | 菜单、popover、tooltip 出现 | opacity 0→1 + `translateY(var(--travel-sm))→0` + `scale(var(--scale-pop))→1` | `--dur-base` `--ease-out`；消失 `--dur-fast-exit` `--ease-in` |
@@ -88,13 +90,13 @@
 | 图标形变（`ui/MorphIcon.tsx`，依赖 `morphicons`，2026-11-09 仓库所有者批准）：发送 ↑ ↔ 停止 ■（§4.14，同一个按钮、同一个图标元素）、复制 → 对勾（所有复制图标按钮共用 `ui/CopyGlyph.tsx`：代码块、工具卡和工具行的复制、旁路提问的复制答案、待办板复制为 Markdown、补的用量行的复制回答、登录对话框的复制链接；对勾停 1.2s 变回，读屏播报 `common.copied`，不另弹 toast）、提示词优化 ✦ ↔ ×、浏览器刷新 ↻ ↔ ×、切换侧栏（§3.1）、审批胶囊换档（§5.8）、key 输入框显示 ↔ 隐藏（眼睛 ↔ 划掉的眼睛，§4.20）、运行中的弧 → ✓ / × / ⊘（工具卡、工具组标题行、bash 卡片脚，`ui/RunGlyph.tsx`：外层盒子转圈，跑完摘掉旋转、弧回到顶上再变形；只有这次挂载里跑过的槽挂形变，一挂上就跑完的画静态图标，一批卡片同时跑完也只有它们在变） | 同一个 `<svg><path>` 的 `d` 从旧图标按弹簧变成新图标；按钮底色照旧用 CSS 过渡。图标几何和静态图标同一份（`src/icons.tsx` 的 `*_NODE`，模块加载时换算到 morphicons 的 24 栅格一次，`ui/morph-glyphs.ts`），描边按 `--icon-stroke` 换算，静止时和静态图标一样粗 | morphicons 的 `snappy` 弹簧；减少动效时直接换成目标图标 |
 | 用户消息出现 | `translateY(var(--travel-md))→0` + opacity | `--dur-base` `--ease-out` |
 | 侧栏折叠/抽屉（`app.css` `.sidebar-column`） | `translateX`；主区宽度**立即变一次**，不逐帧（收起和抽屉时侧栏 `position: absolute` 盖在主区上滑出）。不过渡列宽：长对话每帧重排，一次开合排版 60ms 以上 | `--dur-slow` `--ease-out` |
-| 右栏打开（文件面板、子代理面板，`file-preview.css` 的 `panel-in`） | 整块从窗口右边 `translateX` 滑进；主区宽度立即变一次。关闭不放动画 | `--dur-slow` `--ease-out` |
-| 状态点切换 | 旧点缩小淡出 + 新点放大淡入 | `--dur-fast` |
+| 右栏开 / 关（文件面板、子代理面板、浏览器，`file-preview.css` 的 `panel-in`、`motion.css` 的 `panel-out`，`App.tsx` 的 `rightPresence`） | 打开从窗口右边 `translateX` 滑进，关闭原路滑出；主区宽度在打开时、滑出放完时各变一次，不逐帧。换成另一个面板时新的直接滑进。浏览器的原生页面滑出一开始就藏起来（它不跟 CSS 动） | 进 `--dur-slow` `--ease-out`；出 `--dur-slow-exit` `--ease-in` |
+| 状态点切换 | 新点淡入；变成没有点（看过了、跑完了）时旧点淡出（`StatusDot.tsx`）；分段上的小圆点同样淡入淡出（`controls.tsx` 的 `SegDot`） | 进 `--dur-base`；出 `--dur-fast-exit` |
 | 进行中转圈（状态点） | 一段弧旋转，循环 | `--dur-spin` 按 `--tick-spin` 跳帧，`animation-play-state: var(--play-state)`；减少动效时静止 |
 | 加载环 | 旋转 | `--dur-spin` 按 `--tick-spin` 跳帧 |
 | 流式光标 | opacity 脉冲 | `--dur-caret` |
 | Toast | 从上方滑入：`translateY(calc(var(--travel-md) * -1))→0` + opacity；挪到窗口底部时（有遮罩的弹窗开着）从下方滑入 | `max(--dur-base, --dur-fade)`（减少动效时位移为 0，只淡入）；退出反向（原路滑回 + 淡出，`max(--dur-base-exit, --dur-fade)`）；停留时间见 §4.23 Toast |
-| 浮层、菜单、对话框、toast **消失** | 反向：opacity→0 + 下沉 `--travel-sm` + 缩到 `--scale-pop`；遮罩只淡出 | `--dur-fast-exit` `--ease-in`；放完才卸载（`ui/presence.ts` 的 `usePresence`，`data-closing="pop"/"fade"`，规则在 `ui/motion.css`） |
+| 浮层、菜单、对话框、toast、悬停提示、作业卡片 **消失** | 反向：opacity→0 + 下沉 `--travel-sm` + 缩到 `--scale-pop`；遮罩、悬停提示只淡出 | `--dur-fast-exit` `--ease-in`；放完才卸载（`ui/presence.ts` 的 `usePresence`，`data-closing="pop"/"fade"/"panel"`，规则在 `ui/motion.css`） |
 | 折叠区域展开/收起（凡是可折叠的都用它：侧栏文件夹、设置分组、目标条、旁路提问面板、提供商组、请求记录详情、子代理对话记录等） | `grid-template-rows: 0fr↔1fr` + opacity；首次渲染就展开的不放 | 展开 `--dur-base` `--ease-out`，收起 `--dur-base-exit` `--ease-in`（`ui/Reveal.tsx`） |
 | 主区换页（新任务页 / 对话 / 设置，含从设置返回任务时的过程区）、切任务、设置换节、侧栏在会话列表和设置导航之间切换 | `view-in`：opacity + `translateY(var(--travel-sm))→0`；例外：草稿发出第一句话变成任务时，输入框不播（`.composer-stack[data-from-draft]`，它在原位接着用，播了就是“闪一下”） | `--dur-base` `--ease-out` |
 | 可交互元素的 hover / 选中 / 聚焦 | 背景、边框、文字颜色、阴影、透明度渐变 | `--dur-fast` `--ease-out`（`motion.css` 里 `:where(button, …)` 零优先级的默认值，组件自己写的优先） |

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState, type AnimationEvent } from "r
 const exitFallbackMs = 400;
 
 export interface ExitProps {
-  "data-closing"?: "pop" | "fade" | undefined;
+  "data-closing"?: ExitKind | undefined;
   /** 退出动画期间已经算"关了"：读屏不再读到、不能聚焦也不能点。 */
   "aria-hidden"?: true | undefined;
   inert?: boolean | undefined;
@@ -24,8 +24,10 @@ export interface Presence {
   exitProps: ExitProps;
 }
 
-/** kind：pop = 淡出 + 轻微下沉缩小（浮层、菜单、对话框）；fade = 只淡出（遮罩、整屏层）。 */
-export function usePresence(open: boolean, kind: "pop" | "fade" = "pop"): Presence {
+/** pop = 淡出 + 轻微下沉缩小（浮层、菜单、对话框）；fade = 只淡出（遮罩、整屏层、小圆点）；panel = 原路滑回窗口右边（右栏面板）。 */
+export type ExitKind = "pop" | "fade" | "panel";
+
+export function usePresence(open: boolean, kind: ExitKind = "pop"): Presence {
   const [mounted, setMounted] = useState(open);
   const closing = mounted && !open;
   const closingRef = useRef(closing);

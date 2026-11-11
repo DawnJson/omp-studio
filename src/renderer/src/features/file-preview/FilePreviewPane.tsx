@@ -6,6 +6,8 @@ import { useT } from "../../i18n/use-t.ts";
 import { Close, Restart } from "../../icons.tsx";
 import { IconButton, Tabs } from "../../ui/controls.tsx";
 import { useTask } from "../../store/index.ts";
+import type { ExitProps } from "../../ui/presence.ts";
+import { useHeld } from "../composer/use-held.ts";
 import { FileTree } from "./FileTree.tsx";
 import { PreviewPage } from "./PreviewPage.tsx";
 import { WorkspaceRoots } from "./WorkspaceRoots.tsx";
@@ -33,11 +35,13 @@ function withRoot(target: ProjectFilesTarget, root: number): ProjectFilesTarget 
   return target.kind === "task" && root > 0 ? { ...target, root } : target;
 }
 
+/** `exitProps`：App 的右栏 usePresence 给的，关闭时原路滑回（motion.css 的 panel-out）。 */
 export function FilePreviewPane({
   panelKey,
   page,
   path,
-}: { panelKey: TerminalKey } & Omit<PanelState, "key" | "root" | "snippet">) {
+  exitProps,
+}: { panelKey: TerminalKey; exitProps: ExitProps } & Omit<PanelState, "key" | "root" | "snippet">) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -48,7 +52,8 @@ export function FilePreviewPane({
   // 树当前看的根；列表缩短（目录被移除、任务重启）后落回任务目录。预览页看的是打开文件时的那个根（PanelState.root）。
   const selected = useSelectedRoot(panelKey);
   const treeRoot = selected <= dirs.length ? selected : 0;
-  const panel = usePreviewPanel();
+  // 关闭后放退出动画的那一下 store 里已经是 null：沿用关闭前的，预览页不在滑走时换成别的内容。
+  const panel = useHeld(usePreviewPanel());
   const previewRoot = panel?.root ?? 0;
   // 回答里代码块的"在侧栏预览"：预览页显示这段代码，不读文件（preview-store.ts 的 openSnippetPreview）。
   const snippet = panel?.snippet ?? null;
@@ -110,6 +115,7 @@ export function FilePreviewPane({
       tabIndex={-1}
       style={width === null ? undefined : { flexBasis: width }}
       onKeyDown={onKeyDown}
+      {...exitProps}
     >
       <div
         className="file-preview-resizer"

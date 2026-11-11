@@ -45,6 +45,11 @@
 :root [data-closing="fade"] {
   animation-name: fade-out;
 }
+/* 右栏面板关闭：原路滑回窗口右边（panel-in 的反向），用 slow 档的退出时长 */
+:root [data-closing="panel"] {
+  animation-name: panel-out;
+  animation-duration: var(--dur-slow-exit);
+}
 
 @keyframes pop-out {
   to {
@@ -98,9 +103,15 @@
   }
 }
 
-/* 右栏（文件面板、子代理面板）打开：整块从窗口右边滑进来；主区宽度立即变一次，不逐帧重排（同侧栏，spec §2.6） */
+/* 右栏（文件面板、子代理面板、浏览器）打开：整块从窗口右边滑进来；关闭时原路滑回（上面的 panel-out）。
+   主区宽度在打开时立即变一次、关闭的动画放完再变一次，都不逐帧重排（同侧栏，spec §2.6） */
 @keyframes panel-in {
   from {
+    transform: translateX(calc(100% + var(--space-2)));
+  }
+}
+@keyframes panel-out {
+  to {
     transform: translateX(calc(100% + var(--space-2)));
   }
 }

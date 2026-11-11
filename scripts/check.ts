@@ -436,6 +436,64 @@ function scanDuplicateClasses(rules: CssRule[]): Finding[] {
   return findings;
 }
 
+/**
+ * 一次性的进入动画（`animation: xx-in …`，不含 infinite）都要登记：打开有动画、关闭一下消失的情况要杜绝（2026-11-11 仓库所有者）。
+ * 会被关掉的东西（浮层、面板、提示、小圆点）关闭时也要有动画：组件用 ui/presence.ts 的 usePresence 把 exitProps 展开到这个元素上
+ * （或 Reveal / 自己的退出类），登记时写明退出在哪；换页、换内容这类没有"关"的写明原因。键是"文件|选择器"。
+ */
+const ENTRY_ANIMATIONS: Record<string, string> = {
+  "src/renderer/src/app/app.css|.drawer-scrim": "App.tsx 的 drawerScrim（usePresence fade）",
+  "src/renderer/src/app/app.css|.scrim": "ui/Dialog.tsx（usePresence，遮罩 data-closing=fade）",
+  "src/renderer/src/features/composer/composer.css|.slash": "SlashMenu / FileMenu / HistorySearch（usePresence pop）",
+  "src/renderer/src/features/dialogs/dialogs.css|.toast": "Toasts.tsx（usePresence，toast-out）",
+  "src/renderer/src/features/empty/empty.css|.drop-overlay": "DropOverlay.tsx（usePresence fade）",
+  "src/renderer/src/features/file-preview/file-preview.css|.file-preview":
+    "App.tsx 的右栏 rightPresence（usePresence panel，panel-out）；子代理、浏览器面板同一个类",
+  "src/renderer/src/features/omp-setup/omp-setup.css|.setup-card": "OmpSetupView.tsx（usePresence pop）",
+  "src/renderer/src/features/review/review.css|.review": "ReviewHost.tsx（usePresence fade）",
+  "src/renderer/src/features/sidebar/sidebar.css|.sb-dot-running, .sb-dot-waiting, .sb-dot-error, .sb-dot-interrupted, .sb-dot-unread":
+    "StatusDot.tsx 的 StatusMark：变成 none 时 usePresence fade；换种类是换内容（新图标淡入）",
+  "src/renderer/src/features/sidebar/sidebar.css|.sb-update":
+    "下载好更新后才出现，要到重启安装才消失，应用里没有关掉它的时候",
+  "src/renderer/src/features/terminal/terminal.css|.terminal-panel": "TerminalPanel.tsx（usePresence pop）",
+  "src/renderer/src/ui/controls.css|.ui-seg-dot": "controls.tsx 的 SegDot（usePresence fade）",
+  "src/renderer/src/ui/controls.css|.ui-menu[data-floating]": "Menu.tsx / Select.tsx（usePresence pop）",
+  "src/renderer/src/ui/controls.css|.ui-popover": "Popover.tsx、StatusPills.tsx 的作业卡片（usePresence pop）",
+  "src/renderer/src/ui/controls.css|.ui-dialog": "ui/Dialog.tsx（usePresence pop）",
+  "src/renderer/src/ui/controls.css|.ui-info-pop": "InfoTip.tsx（usePresence fade）",
+  "src/renderer/src/ui/controls.css|.ui-tooltip": "Tooltip.tsx 的 TooltipLayer（usePresence fade）",
+  "src/renderer/src/ui/controls.css|.ui-data-in": "骨架换成真实列表时淡入，是换内容，没有关",
+  "src/renderer/src/ui/flip-text.css|.flip-char[data-flipping] .flip-new": "同一条规则里旧字 flip-out",
+  'src/renderer/src/ui/motion.css|.reveal[data-phase="enter"]':
+    'Reveal.tsx，收起是 .reveal[data-phase="exit"] 的 reveal-out',
+  "src/renderer/src/ui/motion.css|.panel > :is(.empty, .settings, .tsp-view, .composer-stack, .composer)":
+    "主区换页：新页面淡入换掉旧页面，没有关",
+  "src/renderer/src/ui/motion.css|.sidebar-column > :is(.sb, .snav)": "侧栏位置在会话列表和设置导航之间换，没有关",
+  "src/renderer/src/ui/motion.css|.settings-section": "设置换节：新节淡入换掉旧节，没有关",
+};
+
+function scanEntryWithoutExit(files: SourceFile[], rules: CssRule[]): Finding[] {
+  const findings: Finding[] = [];
+  for (const file of cssFiles(files)) {
+    const inFile = rules.filter((rule) => rule.file === file.path);
+    file.lines.forEach((text, index) => {
+      const name = /^\s*animation(?:-name)?\s*:\s*([\w-]+-in)\b/.exec(text)?.[1];
+      if (name === undefined || /\binfinite\b/.test(text)) return;
+      const line = index + 1;
+      const rule = inFile.findLast((candidate) => candidate.line <= line);
+      const key = `${file.path}|${rule?.selector.replace(/\s+/g, " ") ?? ""}`;
+      if (key in ENTRY_ANIMATIONS) return;
+      findings.push({
+        file: file.path,
+        line,
+        id: "css-entry-without-exit",
+        message: `进入动画 ${name} 没登记（${key}）：关闭时也要有动画（usePresence 的 exitProps），登记到 scripts/check.ts 的 ENTRY_ANIMATIONS 写明退出在哪；不会被关掉的写明原因`,
+      });
+    });
+  }
+  return findings;
+}
+
 function scanShikiVars(files: SourceFile[]): Finding[] {
   const targets = cssFiles(files).filter((file) => file.path !== "src/renderer/styles/tokens.css");
   return grepLines(
@@ -660,6 +718,7 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...scanCssHas(files),
     ...scanAppChildWildcard(rules),
     ...scanDuplicateClasses(rules),
+    ...scanEntryWithoutExit(files, rules),
     ...scanShikiVars(files),
     ...scanUndeclaredVars(files),
     ...scanIgnoredRules(),
