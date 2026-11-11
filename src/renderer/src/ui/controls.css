@@ -538,6 +538,7 @@
   --seg-h: var(--control-h-sm);
 }
 .ui-seg > button {
+  position: relative;
   padding: 0 var(--space-2-5);
   font: inherit;
   font-size: var(--fs-sm);
@@ -574,6 +575,18 @@
   box-shadow:
     0 0 0 1px var(--border-subtle),
     0 1px 3px rgba(0, 0, 0, 0.1);
+}
+/* 分段右上角的小圆点：同侧栏"跑完没看过"的绿点（sidebar.css 的 .sb-dot-unread），压在内边距里，不改分段宽度 */
+.ui-seg-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--st-done);
+  pointer-events: none;
+  animation: fade-in var(--dur-base) var(--ease-out);
 }
 
 .ui-tabs {

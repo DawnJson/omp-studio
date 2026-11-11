@@ -279,29 +279,38 @@ for (const [locale, colorScheme] of [
         return textBox.left + textBox.width / 2 - (box.left + box.width / 2);
       });
       expect(Math.abs(timeTextOffset)).toBeLessThan(1);
-      // 标题行在滚动时完全不动：没滚、刚滚一点、滚到底，上沿都贴着滚动区上沿（不先跟着走几像素再钉住，上面也不留透出行的缝）。
+      // 标题行在滚动区外面：列表没滚、刚滚一点、滚到底，标题行的位置都不变；毛玻璃（<html data-glass>）下也一样。
       // 夹具行数撑不满默认窗口，临时把列表压矮让它能滚。
       const list = sidebar.locator(".sb-list");
-      const headOffsets = await list.evaluate((el) => {
-        const element = el as unknown as PageScrollBox;
+      const headTops = await list.evaluate((el) => {
+        const element = el as unknown as PageScrollBox & {
+          ownerDocument: {
+            querySelector(selector: string): unknown;
+            documentElement: { toggleAttribute(name: string, on: boolean): void };
+          };
+        };
+        const head = element.ownerDocument.querySelector(".sb-history-head") as {
+          getBoundingClientRect(): PageRect;
+        } | null;
+        if (head === null) throw new Error("没有任务标题行");
         element.style.maxHeight = "160px";
-        const head = element.querySelector(".sb-history-head");
-        if (head === null) throw new Error("没有会话标题行");
-        const offset = () => head.getBoundingClientRect().top - element.getBoundingClientRect().top;
-        const offsets = [offset()];
-        element.scrollTop = 2;
-        offsets.push(offset());
-        element.scrollTop = element.scrollHeight;
-        if (element.scrollTop <= 2) throw new Error("侧栏列表没有滚动");
-        offsets.push(offset());
-        return offsets;
-      });
-      expect(headOffsets).toEqual([0, 0, 0]);
-      await list.evaluate((el) => {
-        const element = el as unknown as PageScrollBox;
+        const runs = [false, true].map((glass) => {
+          element.ownerDocument.documentElement.toggleAttribute("data-glass", glass);
+          element.scrollTop = 0;
+          const tops = [head.getBoundingClientRect().top];
+          element.scrollTop = 2;
+          tops.push(head.getBoundingClientRect().top);
+          element.scrollTop = element.scrollHeight;
+          if (element.scrollTop <= 2) throw new Error("侧栏列表没有滚动");
+          tops.push(head.getBoundingClientRect().top);
+          return tops;
+        });
+        element.ownerDocument.documentElement.toggleAttribute("data-glass", false);
         element.scrollTop = 0;
         element.style.maxHeight = "";
+        return runs;
       });
+      for (const tops of headTops) expect(new Set(tops).size).toBe(1);
 
       // 状态点：形状不同，各有 aria-label；看过的正常结束不画（等你 2 + 在跑 1 + 出错 1 + 后台跑完没看过的绿点 1）。
       await expect(sidebar.locator(".sb-dot-waiting")).toHaveCount(2);
@@ -311,6 +320,9 @@ for (const [locale, colorScheme] of [
         sidebar.getByTestId("task-row").filter({ hasText: "整理日志格式" }).locator(".sb-dot-unread"),
       ).toHaveCount(1);
       await expect(sidebar.locator(".sb-dot-mark")).toHaveCount(5);
+      // 分段上的绿点：后台跑完没看过的任务在"项目"里，只有这一段有；读屏读得到。
+      await expect(sidebar.getByTestId("sidebar-history-by-folder").getByRole("img")).toHaveCount(1);
+      await expect(sidebar.getByTestId("sidebar-history-by-chats").locator(".ui-seg-dot")).toHaveCount(0);
       // 键盘：Tab 进入列表后方向键移动，F2 重命名，Enter 提交。
       const firstRow = sidebar.getByTestId("task-row").first().locator(".sb-row-main");
       await firstRow.focus();

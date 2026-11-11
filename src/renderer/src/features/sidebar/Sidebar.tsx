@@ -23,7 +23,7 @@ import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { useInstallUpdate } from "../settings/use-install-update.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
 import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon } from "./icons.tsx";
-import { HistorySection } from "./HistorySection.tsx";
+import { HistoryHead, HistorySection } from "./HistorySection.tsx";
 import {
   defaultOpen,
   folderNavId,
@@ -46,6 +46,7 @@ import {
   nextWaitingTask,
   projectLabels,
   visibleItems,
+  unreadSegments,
   waitingTasks,
   type SidebarFolder,
 } from "../../../../shared/ui/sidebar-model.ts";
@@ -178,6 +179,12 @@ export function Sidebar() {
     () => waitingTasks(tasksState.list, projectsState.list, hidden),
     [projectsState.list, tasksState.list, hidden],
   );
+  const unread = useMemo(
+    () => unreadSegments(tasksState.list, projectsState.list, hidden, chatsDir),
+    [projectsState.list, tasksState.list, hidden, chatsDir],
+  );
+  // 项目、对话、归档都没有东西（也不在搜索）：标题行和列表都不画；否则留着标题行，免得切不回别的分段。
+  const listed = searching || folders.length > 0 || chats.length > 0 || hasArchived;
   const labelOf = (projectId: ProjectId) => {
     const project = projectsState.list.find((candidate) => candidate.id === projectId);
     if (project === undefined) return "";
@@ -395,6 +402,18 @@ export function Sidebar() {
         </button>
       )}
 
+      {listed && (
+        <HistoryHead
+          mode={mode}
+          hasArchived={hasArchived}
+          unread={unread}
+          t={t}
+          onModeChange={(next) => {
+            setShowArchived(next === "archived");
+            if (next !== "archived") setHistoryOrder(next);
+          }}
+        />
+      )}
       <div className="sb-list-host">
         <div className="sb-list" ref={listRef} onKeyDown={onListKeyDown}>
           {tasksState.error !== null && (
@@ -408,35 +427,31 @@ export function Sidebar() {
               </Button>
             </div>
           )}
-          <HistorySection
-            mode={mode}
-            onModeChange={(next) => {
-              setShowArchived(next === "archived");
-              if (next !== "archived") setHistoryOrder(next);
-            }}
-            folders={folders}
-            flat={flat}
-            hasArchived={hasArchived}
-            empty={folders.length === 0 && chats.length === 0 && !hasArchived}
-            searching={searching}
-            isOpen={isOpen}
-            limits={limits}
-            collapsedForks={foldedForks}
-            selectedTaskId={selectedTaskId}
-            tabStopId={tabStopId}
-            renamingId={renamingId}
-            rows={rows}
-            onToggle={(folder, open) => setOpenOverride((current) => ({ ...current, [folder.key]: open }))}
-            onShowMore={(key) =>
-              setLimits((current) => ({
-                ...current,
-                [key]: (current[key] ?? (key === flatLimitKey ? initialFlat : initialPerFolder)) + showMoreStep,
-              }))
-            }
-            onNewTask={(folder) => void startDraftInFolder(folder, t)}
-            onOpenProjectMenu={openProjectMenu}
-            onMoveFolder={onMoveFolder}
-          />
+          {listed && (
+            <HistorySection
+              mode={mode}
+              folders={folders}
+              flat={flat}
+              searching={searching}
+              isOpen={isOpen}
+              limits={limits}
+              collapsedForks={foldedForks}
+              selectedTaskId={selectedTaskId}
+              tabStopId={tabStopId}
+              renamingId={renamingId}
+              rows={rows}
+              onToggle={(folder, open) => setOpenOverride((current) => ({ ...current, [folder.key]: open }))}
+              onShowMore={(key) =>
+                setLimits((current) => ({
+                  ...current,
+                  [key]: (current[key] ?? (key === flatLimitKey ? initialFlat : initialPerFolder)) + showMoreStep,
+                }))
+              }
+              onNewTask={(folder) => void startDraftInFolder(folder, t)}
+              onOpenProjectMenu={openProjectMenu}
+              onMoveFolder={onMoveFolder}
+            />
+          )}
           {searching && (mode === "folder" ? folders.length === 0 : flat.length === 0) && (
             <p className="sb-note" role="status">
               {t("sidebar.searchNone")}

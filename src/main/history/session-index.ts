@@ -246,20 +246,75 @@ interface CacheEntry {
   session: IndexedSession | null;
 }
 
+/**
+ * 索引存盘（studio 自己的 userData，不写 ~/.omp）：重启后没变的文件不再读前缀和末尾，冷启动只剩列目录和 stat
+ * （实测 402 个会话、磁盘缓存冷时首次扫描约 2.2 s，见 docs/architecture/session-history.md）。
+ * `stamp` 是写入方的版本（studio 版本）：换了版本解析口径可能变，整份作废重读。
+ */
+export interface SessionIndexStore {
+  readonly stamp: string;
+  load(): Promise<string | null>;
+  save(text: string): Promise<void>;
+}
+
+/** 存盘格式；改了 IndexedSession 的字段或解析口径就加一。 */
+const STORE_VERSION = 1;
+
+interface StoredIndex {
+  version: number;
+  stamp: string;
+  sessionsDir: string;
+  entries: [string, CacheEntry][];
+}
+
 export class SessionIndex {
   readonly sessionsDir: string;
   private readonly cache = new Map<string, CacheEntry>();
+  readonly #store: SessionIndexStore | null;
+  #restored: Promise<void> | null = null;
+  /** 这次扫描里缓存有没有变（新读、作废、删掉）：变了才存盘。 */
+  #dirty = false;
+  #saving: Promise<void> = Promise.resolve();
+  /** 正在跑的扫描和排在它后面的那一次：并发的请求合并，不同时读同一批文件（启动时侧栏会接连要两次）。 */
+  #running: Promise<SessionScan> | null = null;
+  #queued: Promise<SessionScan> | null = null;
 
-  constructor(sessionsDir: string = path.join(resolveAgentDir(), "sessions")) {
+  constructor(sessionsDir: string = path.join(resolveAgentDir(), "sessions"), store: SessionIndexStore | null = null) {
     this.sessionsDir = sessionsDir;
+    this.#store = store;
   }
 
-  /** 扫描所有桶目录的顶层 *.jsonl。按 (路径, mtime, 大小) 缓存，没变的文件不重读。目录不存在时返回空列表。 */
-  async scan(): Promise<SessionScan> {
+  /**
+   * 扫描所有桶目录的顶层 *.jsonl。按 (路径, mtime, 大小) 缓存，没变的文件不重读。目录不存在时返回空列表。
+   * 已经在扫时，后来的请求排成一次、在它之后再扫（这期间的变化要看得到）；排着的那次被所有后来者共用。
+   */
+  scan(): Promise<SessionScan> {
+    if (this.#running === null) return this.#start();
+    this.#queued ??= this.#running.then(
+      () => this.#start(),
+      () => this.#start(),
+    );
+    return this.#queued;
+  }
+
+  #start(): Promise<SessionScan> {
+    this.#queued = null;
+    const run = this.#scanOnce().finally(() => {
+      if (this.#running === run) this.#running = null;
+    });
+    this.#running = run;
+    return run;
+  }
+
+  async #scanOnce(): Promise<SessionScan> {
+    await (this.#restored ??= this.#restore());
     const files = await this.listFiles();
     const seen = new Set(files.map((item) => item.file));
     for (const cached of this.cache.keys()) {
-      if (!seen.has(cached)) this.cache.delete(cached);
+      if (!seen.has(cached)) {
+        this.cache.delete(cached);
+        this.#dirty = true;
+      }
     }
 
     const entries = await mapWithConcurrency(files, SCAN_CONCURRENCY, (item) => this.load(item.file));
@@ -270,7 +325,65 @@ export class SessionIndex {
       else sessions.push(entry.session);
     }
     sessions.sort((a, b) => b.modifiedAt - a.modifiedAt);
+    if (this.#dirty) this.#persist();
     return { sessions, skipped };
+  }
+
+  /** 读回存盘的索引；读不了、格式或版本不对就当没有（之后照常从文件读）。 */
+  async #restore(): Promise<void> {
+    if (this.#store === null) return;
+    let text: string | null;
+    try {
+      text = await this.#store.load();
+    } catch {
+      return;
+    }
+    if (text === null) return;
+    let stored: unknown;
+    try {
+      stored = JSON.parse(text);
+    } catch {
+      return;
+    }
+    if (
+      !isRecord(stored) ||
+      stored["version"] !== STORE_VERSION ||
+      stored["stamp"] !== this.#store.stamp ||
+      stored["sessionsDir"] !== this.sessionsDir ||
+      !Array.isArray(stored["entries"])
+    )
+      return;
+    for (const item of stored["entries"] as unknown[]) {
+      if (!Array.isArray(item)) continue;
+      const [file, entry] = item as unknown[];
+      if (
+        typeof file === "string" &&
+        isRecord(entry) &&
+        typeof entry["mtimeMs"] === "number" &&
+        typeof entry["size"] === "number" &&
+        (entry["session"] === null || isRecord(entry["session"]))
+      )
+        this.cache.set(file, entry as unknown as CacheEntry);
+    }
+  }
+
+  /** 存盘串行、不等：写不了（store.save 自己记日志）不影响扫描结果，下次扫描再写。 */
+  #persist(): void {
+    const store = this.#store;
+    this.#dirty = false;
+    if (store === null) return;
+    const stored: StoredIndex = {
+      version: STORE_VERSION,
+      stamp: store.stamp,
+      sessionsDir: this.sessionsDir,
+      entries: [...this.cache],
+    };
+    const text = JSON.stringify(stored);
+    this.#saving = this.#saving
+      .then(() => store.save(text))
+      .catch(() => {
+        this.#dirty = true;
+      });
   }
 
   /** 会话头 id 对应的会话；同一个 id 有多个文件时取最新的。 */
@@ -348,6 +461,7 @@ export class SessionIndex {
             },
     };
     this.cache.set(file, entry);
+    this.#dirty = true;
     return entry;
   }
 }

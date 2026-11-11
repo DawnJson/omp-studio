@@ -18,6 +18,7 @@ import {
   sessionDotKind,
   sessionTitle,
   taskTitle,
+  unreadSegments,
   waitingTasks,
   visibleItems,
   type SidebarInput,
@@ -102,6 +103,27 @@ describe("dotKind", () => {
     expect(dotKind(task("t", "p", { lastTurn: { status: "aborted", endedAt: 1 } }))).toBe("none");
     expect(dotKind(task("t", "p"))).toBe("none");
     expect(dotKind(task("t", "p", { status: "stopped" }))).toBe("none");
+  });
+});
+
+describe("unreadSegments（分段上的绿点）", () => {
+  const done = { unread: true, lastTurn: { status: "completed" as const, endedAt: 1 } };
+  const projects = [
+    project("chats", "C:\\Users\\me\\omp-studio\\chats\\", "chats"),
+    project("app", "E:\\工作 区\\app", "app"),
+    project("gone", "E:\\old", "old", true),
+  ];
+  const chatsDir = "c:/users/me/omp-studio/chats";
+
+  it('默认文件夹里的算"对话"，其余算"项目"（路径不分大小写、斜杠和尾斜杠）；没看过的才算', () => {
+    expect([...unreadSegments([task("a", "chats", done)], projects, new Set(), chatsDir)]).toEqual(["chats"]);
+    expect([...unreadSegments([task("a", "app", done)], projects, new Set(), chatsDir)]).toEqual(["folder"]);
+    expect(unreadSegments([task("a", "app", { ...done, unread: false })], projects, new Set(), chatsDir).size).toBe(0);
+  });
+
+  it("移出列表的文件夹、撤销期里藏起来的任务不算", () => {
+    expect(unreadSegments([task("a", "gone", done)], projects, new Set(), chatsDir).size).toBe(0);
+    expect(unreadSegments([task("a", "app", done)], projects, new Set(["a" as TaskId]), chatsDir).size).toBe(0);
   });
 });
 

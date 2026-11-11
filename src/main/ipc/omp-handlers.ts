@@ -123,6 +123,7 @@ function configService(): OmpConfigService {
       }
     },
     version: async () => readyOmp().version,
+    list: () => listOmpConfig(null),
     cacheFile: path.join(app.getPath("userData"), "omp-config-schema.json"),
   });
   return config;

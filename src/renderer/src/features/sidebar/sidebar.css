@@ -148,7 +148,6 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* 上边不留内边距："会话"标题行一开始就在滚动区顶部，sticky 钉住时不再位移 */
   padding: 0 var(--space-2) var(--space-1);
   scrollbar-width: none;
 }
@@ -175,28 +174,19 @@
 }
 
 /* ───── 项目分组 ───── */
-/* 历史会话：标题右边是"文件夹 | 时间"两段切换（排列方式，记在外壳状态里） */
+/* 区块标题行："任务" + 分段（项目 | 对话 | 归档）。在滚动区（.sb-list）外面，列表滚动时它不动；
+   不放进滚动区再 sticky：毛玻璃下侧栏是透明的，钉住的标题行挡不住下面滚过的行（实底是一条色带，半透明底叠成更深的带子，
+   2026-10-30 真窗截屏），只能跟着滚走。左右内边距和列表里的行对齐（列表的左右内边距 + 原来的右缩进）。 */
 .sb-history-head {
-  /* 钉在滚动区顶部，滚动时完全不动（.sb-list 上边没有内边距，起始位置就是钉住的位置）；
-     底色和侧栏一致，下面滚过的行不透出；z-index 压住行里的绝对定位元素 */
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding-right: var(--space-1);
-  background: var(--bg-sidebar);
+  padding: 0 calc(var(--space-2) + var(--space-1)) 0 var(--space-2);
 }
-/* 毛玻璃（app.css「Windows 11 毛玻璃」）：侧栏透明，露出 #app 那层半透明侧栏色。钉住的标题行没法再挡住下面滚过的行：
-   实底是一条色带；半透明底、backdrop-filter 都会把 #app 那层半透明色再叠一遍，成了一条更深的带子（2026-10-30 真窗截屏）。
-   所以毛玻璃下标题行不钉住，跟着列表一起滚走。 */
+/* 毛玻璃（app.css「Windows 11 毛玻璃」）：侧栏透明，露出 #app 那层半透明侧栏色。 */
 :root[data-glass] .sb {
-  background: transparent;
-}
-:root[data-glass] .sb-history-head {
-  position: static;
   background: transparent;
 }
 /* 文件夹：头部（箭头 + 名称，折叠时行数）+ 任务和会话混排的行 */

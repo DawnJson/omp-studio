@@ -34,6 +34,7 @@ import { Skeleton } from "../../ui/Skeleton.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
+import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ModelDetails } from "./ModelDetails.tsx";
 import { RoleIcon } from "./RoleIcon.tsx";
 import { keepRoleLevel } from "../../../../shared/ui/role-value.ts";
@@ -62,6 +63,11 @@ const recentKey = "omp-studio.recentModels";
 /** 数据缺失（没有价格、没测过速度……）的单元格。 */
 const missing = "–";
 const loading = "…";
+/**
+ * 上次读到的模型目录（这次运行里选择器读到的，没有就用启动缓存里的）：打开时先画它，现读的结果到了再换上。
+ * 现读要问服务进程，它空闲关掉后再起约 1.5 秒（tsp-runner.ts），不让每次打开都先看一屏骨架。
+ */
+let lastModels: ModelOption[] | null = null;
 
 function readRecent(): ModelKey[] {
   try {
@@ -129,7 +135,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   }, []);
 
   const searchRef = useRef<HTMLInputElement>(null);
-  const [models, setModels] = useState<ModelOption[] | null>(null);
+  const [models, setModels] = useState<ModelOption[] | null>(() => lastModels ?? startupSnapshot().models ?? null);
   const [insights, setInsights] = useState<ModelInsights | null>(null);
   const [query, setQuery] = useState(props.request?.query ?? "");
   const [scope, setScope] = useState<Scope>(props.request?.scope === "roles" ? { kind: "roles" } : { kind: "all" });
@@ -154,6 +160,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     props.loadModels().then(
       (list) => {
         if (!current) return;
+        lastModels = list;
         setModels(list);
         window.studio
           .getModelInsights(
@@ -169,7 +176,8 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
           );
       },
       (error: unknown) => {
-        if (current) setModels([]);
+        // 现读失败：留着先画出来的目录，没有才是空表。
+        if (current) setModels((shown) => shown ?? []);
         report(error);
       },
     );

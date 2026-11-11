@@ -187,6 +187,8 @@ export function Checkbox({
 export interface Option<T extends string> {
   value: T;
   label: string;
+  /** 分段右上角的小圆点（侧栏分段：里面有跑完没看过的任务）；值是给读屏的说明。 */
+  dot?: string | undefined;
 }
 
 /** 方向键的步长：右 / 下 +1，左 / 上 -1，其余 0。 */
@@ -250,6 +252,7 @@ export function Segmented<T extends string>({
           data-testid={testId === undefined ? undefined : `${testId}-${option.value}`}
         >
           {option.label}
+          {option.dot !== undefined && <span className="ui-seg-dot" role="img" aria-label={option.dot} />}
         </button>
       ))}
     </div>

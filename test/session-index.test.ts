@@ -3,7 +3,7 @@
 import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Project, ProjectId, TaskId } from "../src/shared/ipc.ts";
 import {
   parseSessionPrefix,
@@ -11,6 +11,7 @@ import {
   resolveAgentDir,
   SessionIndex,
   type IndexedSession,
+  type SessionIndexStore,
 } from "../src/main/history/session-index.ts";
 import { buildSessionSummaries } from "../src/main/history/session-summaries.ts";
 
@@ -249,6 +250,61 @@ describe("SessionIndex.scan", () => {
     await writeSession("a.jsonl", header("the-id", projectCwd) + userMessage("x"));
     expect((await index.findById("the-id"))?.cwd).toBe(projectCwd);
     expect(await index.findById("nope")).toBeNull();
+  });
+
+  it("并发的扫描合并：在扫时后来的请求共用排在后面的同一次", async () => {
+    await writeSession("a.jsonl", header("a", projectCwd) + userMessage("x"));
+    const first = index.scan();
+    const second = index.scan();
+    const third = index.scan();
+    expect(second).toBe(third);
+    expect(second).not.toBe(first);
+    expect((await third).sessions.map((s) => s.id)).toEqual(["a"]);
+  });
+});
+
+describe("SessionIndex 存盘", () => {
+  const memoryStore = (stamp: string, shared: { text: string | null }): SessionIndexStore => ({
+    stamp,
+    load: () => Promise.resolve(shared.text),
+    save: (text) => {
+      shared.text = text;
+      return Promise.resolve();
+    },
+  });
+
+  // 改写成同样长度的内容、把 mtime 拨回去：(路径, mtime, 大小) 都没变，读回存盘的索引就不重读，标题还是旧的。
+  async function rewriteKeepingStamp(file: string, content: string, mtime: Date): Promise<void> {
+    await writeFile(file, content, "utf8");
+    await utimes(file, mtime, mtime);
+  }
+
+  it("重启后没变的文件用存盘的索引、不重读；换了版本整份作废重读", async () => {
+    const sessionsDir = path.join(root, "agent dir", "sessions");
+    const mtime = new Date("2026-10-17T00:00:00Z");
+    const file = await writeSession("a.jsonl", header("a", projectCwd) + userMessage("旧问"), mtime);
+    const shared = { text: null as string | null };
+    const before = new SessionIndex(sessionsDir, memoryStore("1.0.0", shared));
+    await before.scan();
+    await vi.waitFor(() => expect(shared.text).not.toBeNull());
+
+    await rewriteKeepingStamp(file, header("a", projectCwd) + userMessage("新问"), mtime);
+    const restarted = new SessionIndex(sessionsDir, memoryStore("1.0.0", shared));
+    expect((await restarted.scan()).sessions[0]?.firstPrompt).toBe("旧问");
+    const upgraded = new SessionIndex(sessionsDir, memoryStore("1.0.1", shared));
+    expect((await upgraded.scan()).sessions[0]?.firstPrompt).toBe("新问");
+  });
+
+  it("存盘的内容坏了、或者是另一个会话目录的：当没有，照常从文件读", async () => {
+    const sessionsDir = path.join(root, "agent dir", "sessions");
+    await writeSession("a.jsonl", header("a", projectCwd) + userMessage("问"));
+    for (const text of [
+      "{不是 json",
+      JSON.stringify({ version: 1, stamp: "s", sessionsDir: "E:\\别处", entries: [] }),
+    ]) {
+      const fresh = new SessionIndex(sessionsDir, memoryStore("s", { text }));
+      expect((await fresh.scan()).sessions.map((s) => s.firstPrompt)).toEqual(["问"]);
+    }
   });
 });
 

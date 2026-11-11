@@ -101,17 +101,19 @@ describe("buildSchema / applyValues", () => {
 /** 记录每次调用的假 omp：`handler` 决定输出。 */
 function fakeService(handler: (args: string[]) => RunResult) {
   const calls: { args: string[]; isolated: { agentDir: string } | undefined }[] = [];
+  const run = (args: string[], isolated?: { agentDir: string }) => {
+    calls.push({ args, isolated });
+    if (args[0] === "list")
+      return Promise.resolve({
+        code: 0,
+        stdout: args.includes("--json") ? JSON.stringify(listJson) : listText,
+        stderr: "",
+      });
+    return Promise.resolve(handler(args));
+  };
   const service = new OmpConfigService({
-    run: (args, isolated) => {
-      calls.push({ args, isolated });
-      if (args[0] === "list")
-        return Promise.resolve({
-          code: 0,
-          stdout: args.includes("--json") ? JSON.stringify(listJson) : listText,
-          stderr: "",
-        });
-      return Promise.resolve(handler(args));
-    },
+    run,
+    list: async () => JSON.parse((await run(["list", "--json"])).stdout) as unknown,
     version: () => Promise.resolve("18.12.1"),
   });
   return { service, calls };

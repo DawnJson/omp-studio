@@ -10,6 +10,20 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- The Projects and Chats tabs in the sidebar also get the small green dot: a tab lights up when it holds a task that finished in the background and you haven't opened yet.
+
+### Fixed
+
+- With the frosted-glass effect on, the sidebar's Tasks header (with the Projects / Chats / Archive tabs) scrolled away with the list; it now stays put while you scroll.
+
+### Changed
+
+- Past sessions and the Archive tab show up sooner after launch: the session index is kept on disk, so unchanged sessions aren't read again after a restart (from about 2 seconds to a few milliseconds with a few hundred sessions).
+- Opening Settings is faster: omp settings aren't read again when they haven't changed.
+- The model picker shows the model list it last read right away and swaps in the fresh list when it arrives, instead of placeholder rows first.
+
 ## [0.7.6] - 2026-11-10
 
 ### Added

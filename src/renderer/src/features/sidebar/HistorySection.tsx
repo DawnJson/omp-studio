@@ -7,6 +7,7 @@
 // 分叉出来的会话缩进在原会话下面，原会话那一行可以收起它下面的分叉（collapsedForks）。搜索时只列匹配的行，项目里有匹配的文件夹全部展开。
 // 点会话行 = 恢复成任务。
 import type { HistoryOrder, Project, TaskId } from "../../../../shared/ipc.ts";
+import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { visibleItems, type SidebarFolder, type SidebarItem } from "../../../../shared/ui/sidebar-model.ts";
 import { useState } from "react";
 import { Segmented } from "../../ui/controls.tsx";
@@ -17,17 +18,57 @@ import type { RowHandlers } from "./TaskRow.tsx";
 
 export type HistoryMode = HistoryOrder | "archived";
 
+/**
+ * 区块标题行（"任务" + 分段）。放在滚动区外面（Sidebar.tsx），滚动时不动；毛玻璃下也一样（钉在滚动区里的标题行
+ * 挡不住下面滚过的行，只能跟着滚走，见 sidebar.css）。`unread`：哪几段里有跑完没看过的任务，分段右上角画绿点。
+ */
+export function HistoryHead({
+  mode,
+  hasArchived,
+  unread,
+  t,
+  onModeChange,
+}: {
+  mode: HistoryMode;
+  /** 有归档的任务（不看搜索）：才显示"归档"这一段。 */
+  hasArchived: boolean;
+  unread: ReadonlySet<HistoryOrder>;
+  t: TFunction;
+  onModeChange(mode: HistoryMode): void;
+}) {
+  return (
+    <div className="sb-history-head">
+      <p className="sb-group-title">{t("sidebar.searchHistory")}</p>
+      <Segmented
+        size="sm"
+        label={t("sidebar.historyOrder")}
+        testId="sidebar-history-by"
+        value={mode}
+        options={[
+          {
+            value: "folder",
+            label: t("sidebar.historyProjects"),
+            dot: unread.has("folder") ? t("status.unread") : undefined,
+          },
+          {
+            value: "chats",
+            label: t("sidebar.historyChats"),
+            dot: unread.has("chats") ? t("status.unread") : undefined,
+          },
+          ...(hasArchived ? [{ value: "archived" as const, label: t("sidebar.historyArchived") }] : []),
+        ]}
+        onChange={onModeChange}
+      />
+    </div>
+  );
+}
+
 interface HistorySectionProps {
   mode: HistoryMode;
-  onModeChange(mode: HistoryMode): void;
   /** "项目"分段的文件夹（不含默认文件夹）。 */
   folders: readonly SidebarFolder[];
   /** 平铺的列表："对话"里的任务和会话，或归档的会话。 */
   flat: readonly SidebarItem[];
-  /** 有归档的会话（不看搜索）：才显示"归档"这一段。 */
-  hasArchived: boolean;
-  /** 项目、对话、归档都没有东西：整块不画。 */
-  empty: boolean;
   searching: boolean;
   isOpen(folder: SidebarFolder): boolean;
   /** 已展开的行数上限，键是文件夹 key 或 flatLimitKey。 */
@@ -62,30 +103,12 @@ export function HistorySection(props: HistorySectionProps) {
     setDragging(null);
     setDrop(null);
   };
-  // 三段都没有东西（也不在搜索）才整块不画；否则留着标题行，免得切不回别的分段。
-  if (props.empty && !searching) return null;
-
   const flatLimit = searching ? Infinity : (props.limits[flatLimitKey] ?? initialFlat);
   const flat = visibleItems(props.flat, flatLimit, props.selectedTaskId, props.collapsedForks);
   const flatMoreId = moreNavId(flatLimitKey);
 
   return (
     <section className="sb-group sb-history" aria-label={t("sidebar.searchHistory")} data-testid="sidebar-history">
-      <div className="sb-history-head">
-        <p className="sb-group-title">{t("sidebar.searchHistory")}</p>
-        <Segmented
-          size="sm"
-          label={t("sidebar.historyOrder")}
-          testId="sidebar-history-by"
-          value={mode}
-          options={[
-            { value: "folder", label: t("sidebar.historyProjects") },
-            { value: "chats", label: t("sidebar.historyChats") },
-            ...(props.hasArchived ? [{ value: "archived" as const, label: t("sidebar.historyArchived") }] : []),
-          ]}
-          onChange={props.onModeChange}
-        />
-      </div>
       {mode !== "folder" ? (
         <>
           {flat.shown.map((item) => (

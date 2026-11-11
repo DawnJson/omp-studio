@@ -28,6 +28,11 @@ export interface ConfigServiceDeps {
    * （环境变量会覆盖设置，读出来的就不是 omp 自己的默认值了）。
    */
   run(args: string[], isolated?: { agentDir: string }): Promise<RunResult>;
+  /**
+   * 中性目录里当前的 `omp config list --json`。由调用方给：omp-handlers 走按目录、按设置文件指纹的缓存（config-list-cache.ts），
+   * 设置文件没变时进设置页不再起一次 omp。
+   */
+  list(): Promise<unknown>;
   /** 当前使用的 omp 的版本（schema 缓存的键）。 */
   version(): Promise<string>;
   /** schema 缓存文件；不给就只缓存在内存里。 */
@@ -170,7 +175,7 @@ export class OmpConfigService {
 
   async snapshot(): Promise<OmpConfigSnapshot> {
     const schema = await this.#loadSchema();
-    return applyValues(schema, await listJson(this.#deps.run));
+    return applyValues(schema, await this.#deps.list());
   }
 
   async #entry(key: string): Promise<SchemaEntry> {

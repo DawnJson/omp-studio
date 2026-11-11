@@ -1,16 +1,33 @@
 // 会话历史：只读 omp 的会话目录建索引（src/main/history），恢复会话交给任务池。参数一律是 unknown，先校验再用。
-import { stat } from "node:fs/promises";
-import { shell } from "electron";
+import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
+import { app, shell } from "electron";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { readSessionHead, resolveAgentDir, SessionIndex } from "../history/session-index.ts";
 import { buildSessionSummaries } from "../history/session-summaries.ts";
 import { readSessionUsage } from "../tsp/session-files.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
+import { writeFileAtomic } from "../tasks/atomic-write.ts";
 import { log } from "../log/log.ts";
 import { parseProjectId, parseString, parseTaskId } from "./validate.ts";
 
-const index = new SessionIndex();
+// 索引存在 userData（studio 自己的目录），重启后没变的会话文件不再重读（session-history.md「索引」）。
+const indexFile = () => path.join(app.getPath("userData"), "session-index.json");
+const index = new SessionIndex(undefined, {
+  stamp: app.getVersion(),
+  load: () =>
+    readFile(indexFile(), "utf8").catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+        log.warn("reading session-index.json failed", String(error));
+      return null;
+    }),
+  save: (text) =>
+    writeFileAtomic(indexFile(), text, String(process.pid)).catch((error: unknown) => {
+      log.warn("saving session-index.json failed", String(error));
+      throw error;
+    }),
+});
 
 async function findLiveSession(sessionId: unknown) {
   const id = parseString(sessionId, "sessionId", 200);

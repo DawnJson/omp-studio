@@ -1,5 +1,13 @@
 // 侧栏的纯数据整理：项目标签、任务和历史会话合并成文件夹/时间两种列表、等待中的任务。不依赖 React 和 window，可直接单测。
-import { limits, type Project, type ProjectId, type SessionSummary, type TaskId, type TaskState } from "../ipc.ts";
+import {
+  limits,
+  type HistoryOrder,
+  type Project,
+  type ProjectId,
+  type SessionSummary,
+  type TaskId,
+  type TaskState,
+} from "../ipc.ts";
 import { stripIconGlyphs } from "./clean-title.ts";
 import { lastActivityAt } from "./task-time.ts";
 
@@ -405,6 +413,27 @@ export function waitingTasks(
   return tasks
     .filter((task) => task.status === "needs_you" && shown.has(task.projectId) && !hidden.has(task.id))
     .sort((a, b) => a.updatedAt - b.updatedAt);
+}
+
+/**
+ * 分段上的小圆点：哪几段里有跑完没看过的任务（dotKind 为 unread），不看搜索。分段的口径同 buildFolders / buildChats：
+ * 默认文件夹里的在"对话"，其余在"项目"；移出列表的文件夹、正在撤销期的归档不算。归档的任务没有进程，不会是这种状态。
+ */
+export function unreadSegments(
+  tasks: readonly TaskState[],
+  projects: readonly Pick<Project, "id" | "path" | "hidden">[],
+  hidden: ReadonlySet<TaskId>,
+  defaultCwd: string | null,
+): ReadonlySet<HistoryOrder> {
+  const fixed = defaultCwd === null ? null : folderKey(defaultCwd);
+  const byId = new Map(projects.filter((project) => !project.hidden).map((project) => [project.id, project.path]));
+  const segments = new Set<HistoryOrder>();
+  for (const task of tasks) {
+    const path = byId.get(task.projectId);
+    if (path === undefined || hidden.has(task.id) || dotKind(task) !== "unread") continue;
+    segments.add(folderKey(path) === fixed ? "chats" : "folder");
+  }
+  return segments;
 }
 
 /** 点"等你确认"条依次跳转：当前选中的就是等待任务时跳到它的下一个（循环），否则跳到最早的。 */
