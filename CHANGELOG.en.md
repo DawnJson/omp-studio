@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-11
+
 ### Added
 
 - The pet now has achievements: finishing a phase of the todo list, completing a goal or opening a pull request makes it throw confetti, say something and earn a big chunk of experience.
