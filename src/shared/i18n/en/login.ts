@@ -5,7 +5,6 @@ export const login = {
   signIn: "Sign in",
   signOut: "Sign out",
   addAccount: "Add account",
-  more: "More actions",
   unavailable: "Unavailable right now",
   opening: "Opening your browser…",
   fallback: "Sign-in link",

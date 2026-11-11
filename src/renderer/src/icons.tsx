@@ -180,6 +180,32 @@ export const Users = (props: IconProps) => (
     <path d="M11 9.600c1.900 0 3 1.300 3 3.400" />
   </Icon>
 );
+/** 添加账号：一个人 + 加号 */
+export const UserPlus = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="6" cy="5.500" r="2" />
+    <path d="M2.500 13c0-2 1.500-3.500 3.500-3.500s3.500 1.500 3.500 3.500M12 5v4M10 7h4" />
+  </Icon>
+);
+/** API key：钥匙 */
+export const KeyIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="5.500" cy="10.500" r="2.500" />
+    <path d="M7.300 8.700 13 3M11 5l1.500 1.500M9.300 6.700l1.200 1.200" />
+  </Icon>
+);
+/** 登录：箭头进门 */
+export const SignIn = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M9.500 2.500h3v11h-3M2.500 8H9M6.500 5.500 9 8l-2.500 2.500" />
+  </Icon>
+);
+/** 退出登录 / 清除 key：箭头出门 */
+export const SignOut = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M6.500 2.500h-3v11h3M7 8h6.500M11 5.500 13.500 8 11 10.500" />
+  </Icon>
+);
 /** 评审：一页纸上的 ± */
 export const Diff = (props: IconProps) => (
   <Icon {...props}>

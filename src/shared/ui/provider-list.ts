@@ -27,3 +27,19 @@ export function splitProviders<T extends ListedProvider>(
     others: matched.filter((provider) => !provider.authenticated),
   };
 }
+
+/**
+ * 卡片第二行写的账号名：omp 给的账号名有的是内部编号（UUID、长串十六进制、`OAuth credential #9`、`API key #6`），
+ * 用户看了没信息，不写（只留徽标；仓库所有者定，2026-11-11）。邮箱、用户名照写。多个账号时取第一个能读的，后面 `+N` 是其余的个数。
+ */
+export function accountSummary(labels: readonly string[]): string {
+  const first = labels.find(
+    (label) =>
+      label.trim() !== "" &&
+      !/^(oauth credential|api key) #\d+$/i.test(label.trim()) &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(label) &&
+      !/^[0-9a-f-]{20,}$/i.test(label),
+  );
+  if (first === undefined) return "";
+  return labels.length > 1 ? `${first} +${labels.length - 1}` : first;
+}

@@ -20,7 +20,7 @@ async function rect(locator: Locator): Promise<{ x: number; y: number; width: nu
 }
 
 /** 紧凑卡片（2026-10-29 仓库所有者定，2026-10-30 加大）：两行约 74 高；动作和名称同在第一行，徽标在第二行（元信息行）开头、
- *  元信息跟在它后面；图标块在左侧，和这两行一起居中。 */
+ *  元信息（有的话）跟在它后面；图标块在左侧，和这两行一起居中。 */
 async function expectCompactCard(card: Locator, action: Locator): Promise<void> {
   const box = await rect(card);
   expect(box.height).toBeLessThan(80);
@@ -32,9 +32,11 @@ async function expectCompactCard(card: Locator, action: Locator): Promise<void> 
   const badge = await rect(card.locator(".ui-badge").first());
   expect(badge.y).toBeGreaterThanOrEqual(name.y + name.height - 1);
   expect(Math.abs(badge.x - name.x)).toBeLessThanOrEqual(1);
-  const meta = await rect(card.locator(".ui-list-meta"));
-  expect(meta.x).toBeGreaterThanOrEqual(badge.x + badge.width);
-  expect(Math.abs(meta.y + meta.height / 2 - (badge.y + badge.height / 2))).toBeLessThanOrEqual(badge.height / 2);
+  if ((await card.locator(".ui-list-meta").count()) > 0) {
+    const meta = await rect(card.locator(".ui-list-meta"));
+    expect(meta.x).toBeGreaterThanOrEqual(badge.x + badge.width);
+    expect(Math.abs(meta.y + meta.height / 2 - (badge.y + badge.height / 2))).toBeLessThanOrEqual(badge.height / 2);
+  }
   const icon = await rect(card.locator(".ui-list-icon"));
   expect(icon.x + icon.width).toBeLessThanOrEqual(name.x);
   expect(Math.abs(icon.y + icon.height / 2 - (button.y + badge.y + badge.height) / 2)).toBeLessThanOrEqual(2);
@@ -142,16 +144,15 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     await page.getByTestId("provider-key-save").click();
     await expect(flow).toHaveCount(0);
 
-    // 回到"已连接"：徽标按凭据来源写，元信息是 omp 给这条凭据起的名字；卡片上一个"清除 key"，"更换 key"收在 ⋯ 里。
+    // 回到"已连接"：徽标按凭据来源写；omp 给这条凭据起的名字（API key #n）是内部编号，不写。
+    // 卡片上是图标按钮：钥匙 = 更换 key，登出图标 = 清除 key（读屏名和悬停就是这两句）。
     const card = page.getByTestId("providers").getByTestId("provider-kagi");
     await expect(card).toContainText("已设置 key", { timeout: 30_000 });
     await expect(card).not.toContainText("已登录");
-    await expect(card).toContainText("API key #");
-    await expect(card.getByTestId("provider-signout-kagi")).toHaveText("清除 key");
+    await expect(card).not.toContainText("API key #");
+    await expect(card.getByTestId("provider-signout-kagi")).toHaveAccessibleName("清除 key");
     await expectCompactCard(card, card.getByTestId("provider-signout-kagi"));
-    await expect(card.getByTestId("provider-key-kagi")).toHaveCount(0);
-    await card.getByTestId("provider-more-kagi").click();
-    await expect(page.getByTestId("provider-key-kagi")).toHaveText("更换 key");
+    await expect(card.getByTestId("provider-key-kagi")).toHaveAccessibleName("更换 key");
     // 已经存过 key：更换时输入框写明留空保持不变。
     await page.getByTestId("provider-key-kagi").click();
     await expect(page.getByTestId("provider-flow-kagi").getByRole("textbox")).toHaveAttribute(
@@ -169,6 +170,17 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     await expect(envCard.getByTestId("provider-signout-tavily")).toHaveCount(0);
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
     await expectCompactCard(envCard, envCard.getByTestId("provider-key-tavily"));
+    // 按钮有哪个画哪个、一起靠右，不留空位：只能设 key 的卡片，钥匙就贴在最右，和别的卡片最右的按钮离右边一样远。
+    const rightInset = async (row: Locator, action: Locator) => {
+      const [outer, inner] = [await rect(row), await rect(action)];
+      return outer.x + outer.width - (inner.x + inner.width);
+    };
+    expect(
+      Math.abs(
+        (await rightInset(envCard, envCard.getByTestId("provider-key-tavily"))) -
+          (await rightInset(card, card.getByTestId("provider-signout-kagi"))),
+      ),
+    ).toBeLessThanOrEqual(1);
     // 900 宽、中英文：卡片里的名称、徽标、元信息和按钮都不越界。
     await page.setViewportSize({ width: 900, height: 800 });
     for (const locale of ["en", "zh-CN"] as const) {
@@ -1290,7 +1302,7 @@ test("OAuth 登录对话框：进度按顺序保留并按级别着色，omp 撤�
   }
 });
 
-test("已登录的 OAuth 提供商：⋯ 里「添加账号」走同一个登录对话框，登录完卡片上多一个账号（omp 和登录换成替身）", async () => {
+test("已登录的 OAuth 提供商：卡片上的「添加账号」走同一个登录对话框，登录完卡片上多一个账号（omp 和登录换成替身）", async () => {
   const { launched, agentDir } = await launchSettings();
   try {
     const { page, app } = launched;
@@ -1331,8 +1343,7 @@ test("已登录的 OAuth 提供商：⋯ 里「添加账号」走同一个登录
     await page.getByTestId("settings-nav-providers").click();
     const card = page.getByTestId("provider-anthropic");
     await expect(card).toContainText("first@example.com", { timeout: 30_000 });
-    await card.getByTestId("provider-more-anthropic").click();
-    await page.getByTestId("provider-add-account-anthropic").click();
+    await card.getByTestId("provider-add-account-anthropic").click();
     await expect(page.getByTestId("provider-flow-anthropic")).toBeVisible();
     await expect
       .poll(() => app.evaluate(() => (globalThis as unknown as { loginCalls: string[] }).loginCalls))

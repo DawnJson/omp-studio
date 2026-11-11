@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { acceptsApiKey } from "../src/shared/provider-keys.ts";
 import { loginKind } from "../src/shared/provider-login.ts";
-import { matchesProvider, splitProviders } from "../src/shared/ui/provider-list.ts";
+import { accountSummary, matchesProvider, splitProviders } from "../src/shared/ui/provider-list.ts";
 
 const providers = [
   { id: "anthropic", name: "Anthropic (Claude Pro/Max)", authenticated: false },
@@ -76,5 +76,22 @@ describe("能填 API key 的 provider", () => {
     for (const id of ["anthropic", "openai", "deepseek", "tavily", "exa"]) expect(acceptsApiKey(id), id).toBe(true);
     for (const id of ["xai-oauth", "github-copilot", "constructor", "__proto__"])
       expect(acceptsApiKey(id), id).toBe(false);
+  });
+});
+
+describe("卡片上的账号名", () => {
+  it("内部编号（UUID、长十六进制、omp 起的 credential / API key 序号）不写；邮箱、用户名照写", () => {
+    expect(accountSummary(["01a17524-0c51-7591-a331-6707fcc0a1b2"])).toBe("");
+    expect(accountSummary(["OAuth credential #9"])).toBe("");
+    expect(accountSummary(["API key #6"])).toBe("");
+    expect(accountSummary(["9f86d081884c7d659a2feaa0c55ad015"])).toBe("");
+    expect(accountSummary(["me@example.com (me)"])).toBe("me@example.com (me)");
+    expect(accountSummary(["用户6184715810"])).toBe("用户6184715810");
+    expect(accountSummary([])).toBe("");
+  });
+
+  it("多个账号：取第一个能读的，+N 数的是其余全部账号", () => {
+    expect(accountSummary(["OAuth credential #1", "b@example.com", "c@example.com"])).toBe("b@example.com +2");
+    expect(accountSummary(["a@example.com", "API key #2"])).toBe("a@example.com +1");
   });
 });
