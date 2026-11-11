@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-11-11
+
 ### Added
 
 - The Projects and Chats tabs in the sidebar also get the small green dot: a tab lights up when it holds a task that finished in the background and you haven't opened yet.
