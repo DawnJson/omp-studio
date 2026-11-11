@@ -1,9 +1,10 @@
 // 文件夹分组（spec §4.3）：头部 [名称][箭头] + 任务和历史会话混排的行。头部右侧常驻 +（在这个文件夹新建任务，纯历史文件夹会先把它加成项目）；
-// + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
+// + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形；没有等待、但有跑完还没看的任务时加一个 accent 小圆点），
+// 展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
 // 文件夹的顺序由用户定（spec §4.5）：拖头部换位置（插入线画在落点那个文件夹的上边或下边），焦点在头部时 Alt+↑ / Alt+↓ 上下移一格。
 import { useRef } from "react";
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
-import { visibleItems, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
+import { dotKind, visibleItems, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
 import { Dots, Plus } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
@@ -56,6 +57,7 @@ export function FolderGroup(props: FolderGroupProps) {
   const { project } = folder;
   const navId = folderNavId(folder);
   const hasWaiting = folder.items.some((item) => item.kind === "task" && item.task.status === "needs_you");
+  const hasUnread = !hasWaiting && folder.items.some((item) => item.kind === "task" && dotKind(item.task) === "unread");
   const { shown, remaining, forks } = visibleItems(
     folder.items,
     props.limit,
@@ -138,6 +140,14 @@ export function FolderGroup(props: FolderGroupProps) {
           </span>
           <span className="sb-group-count" data-shown={!open || undefined}>
             {hasWaiting && <span className="sb-waiting-diamond" role="img" aria-label={t("sidebar.waitingHere")} />}
+            {hasUnread && (
+              <span
+                className="sb-unread-dot"
+                role="img"
+                aria-label={t("sidebar.unreadHere")}
+                data-testid="sidebar-folder-unread"
+              />
+            )}
             {folder.items.length}
           </span>
         </button>

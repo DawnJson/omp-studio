@@ -100,8 +100,11 @@ test("自定义提供商：添加（拉取后在浮层里挑选、手动添加�
     await expect(page.getByTestId("custom-fetch-notice")).toHaveAttribute("role", "alert");
 
     await page.getByTestId("custom-key").fill(SECRET);
+    // 显示 / 隐藏是图标按钮（眼睛 ↔ 划掉的眼睛），读屏名写这一下要做的事。
+    await expect(page.getByTestId("custom-key-toggle")).toHaveAttribute("aria-label", "显示");
     await page.getByTestId("custom-key-toggle").click();
     await expect(page.getByTestId("custom-key")).toHaveAttribute("type", "text");
+    await expect(page.getByTestId("custom-key-toggle")).toHaveAttribute("aria-label", "隐藏");
     // 拉取成功：弹出选择浮层（不弹气泡），拉到的模型都在、都没选，焦点在搜索框；列表里还是空的，不能保存。
     await page.getByTestId("custom-fetch").click();
     const picker = page.getByTestId("custom-picker");
@@ -153,8 +156,10 @@ test("自定义提供商：添加（拉取后在浮层里挑选、手动添加�
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
     const row = page.getByTestId("custom-provider-fake-proxy");
-    await expect(row).toContainText("3 个模型");
-    await expect(row).toContainText("已设置 key");
+    // 卡片：模型一行一个模型一个标签（不写 key 来源）。
+    const chips = (id: string) => page.getByTestId(`custom-models-${id}`).locator(".cp-chip:not(.cp-chip-more)");
+    await expect(chips("fake-proxy")).toHaveCount(3);
+    await expect(row.getByTestId("custom-models-fake-proxy")).toContainText("manual-x");
     // 界面上任何地方都看不到 key。
     expect(await page.locator("body").innerText()).not.toContain(SECRET);
 
@@ -208,7 +213,7 @@ test("自定义提供商：添加（拉取后在浮层里挑选、手动添加�
     await expect(manualRow).toHaveCount(0);
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
-    await expect(row).toContainText("2 个模型");
+    await expect(chips("fake-proxy")).toHaveCount(2);
     const edited = await readFile(file, "utf8");
     expect(edited).not.toContain("manual-x");
     expect(edited).toContain(`apiKey: ${SECRET}`);
@@ -223,14 +228,11 @@ test("自定义提供商：添加（拉取后在浮层里挑选、手动添加�
     await expect(form).toHaveCount(0);
     await expect(page.getByTestId("settings")).toBeVisible(); // Esc 只关了表单
 
-    // 删除：卡片上只有"编辑"一个文字按钮，删除收在 ⋯ 里。先取消，再确认；取消后马上再点（上一个确认框还在放退出动画）也要能打开新的。
-    await expect(row.getByTestId("custom-delete-fake-proxy")).toHaveCount(0);
-    await row.getByTestId("custom-more-fake-proxy").click();
-    await page.getByTestId("custom-delete-fake-proxy").click();
+    // 删除：卡片上铅笔和垃圾桶两个图标按钮，垃圾桶先弹确认。先取消，再确认；取消后马上再点（上一个确认框还在放退出动画）也要能打开新的。
+    await row.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "取消" }).click();
     await expect(row).toBeVisible();
-    await row.getByTestId("custom-more-fake-proxy").click();
-    await page.getByTestId("custom-delete-fake-proxy").click();
+    await row.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
     await expect(row).toHaveCount(0);
     const after = await readFile(file, "utf8");
@@ -373,7 +375,9 @@ test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）
     await setLocaleTheme(page, "zh-CN", "light");
 
     const row = page.getByTestId("custom-provider-anthropic");
-    await expect(row).toContainText("覆盖内置 provider · 1 个模型 · 未设置 key");
+    // 覆盖内置 provider 没有自己的端点：模型行列它覆盖了的模型。
+    const overridden = row.getByTestId("custom-models-anthropic").locator(".cp-chip:not(.cp-chip-more)");
+    await expect(overridden).toHaveText(["claude-opus-5"]);
 
     // 编辑：文件里写了上下文的模型勾着、带着原值；key 是"不设置"。
     await row.getByTestId("custom-edit-anthropic").click();
@@ -394,7 +398,7 @@ test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）
     await expectNoOverflow(dialog);
     await page.getByTestId("custom-override-save").click();
     await expect(dialog).toHaveCount(0);
-    await expect(row).toContainText("覆盖内置 provider · 2 个模型 · 已设置 key");
+    await expect(overridden).toHaveText(["claude-opus-5", "claude-sonnet-5"]);
     const saved = await readFile(file, "utf8");
     expect(saved).toContain("apiKey: sk-ant-e2e-key");
     expect(saved).toContain("# 上下文窗口");
@@ -433,7 +437,7 @@ test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）
     await dialog.getByTestId("custom-model-claude-sonnet-5").uncheck();
     await page.getByTestId("custom-override-save").click();
     await expect(dialog).toHaveCount(0);
-    await expect(row).toContainText("覆盖内置 provider · 1 个模型 · 未设置 key");
+    await expect(overridden).toHaveText(["claude-opus-5"]);
     const cleared = await readFile(file, "utf8");
     expect(cleared).not.toContain("apiKey");
     expect(cleared).not.toContain("claude-sonnet-5");
@@ -951,7 +955,7 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     await expect(form).toHaveCount(0);
 
     const row = page.getByTestId("custom-provider-env-proxy");
-    await expect(row).toContainText("环境变量 Pro_E2E_KEY（.env）");
+    await expect(row).toBeVisible();
     expect(await page.locator("body").innerText()).not.toContain(SECRET);
     const yml = await readFile(file, "utf8");
     expect(yml).toContain("apiKey: Pro_E2E_KEY");
@@ -966,8 +970,7 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     await expect(form).toHaveCount(0);
     expect(await readFile(envFile, "utf8")).toContain(`Pro_E2E_KEY=${SECRET}`);
 
-    await row.getByTestId("custom-more-env-proxy").click();
-    await page.getByTestId("custom-delete-env-proxy").click();
+    await row.getByTestId("custom-delete-env-proxy").click();
     await expect(page.getByRole("alertdialog")).toContainText(".env");
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
     // 删除后主进程先关掉服务进程的 omp、等它退出（reloadServiceModels）再返回，行才消失：等的是 omp。
@@ -1127,6 +1130,64 @@ test("自定义提供商：anthropic-messages 没写 auth → 卡片标出缓存
     expect(saved.providers[id]).toMatchObject({ apiKey: SECRET, api: "anthropic-messages", auth: "apiKey" });
     // 补写的 auth 紧跟在 apiKey 后面，不落在 models 下面。
     expect(Object.keys(saved.providers[id] ?? {})).toEqual(["baseUrl", "apiKey", "auth", "api", "models"]);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+test("自定义提供商卡片：端点去掉协议；模型一行放不下收成 +N（悬停列全部）；图标按第一个模型的品牌；窄了 +N 跟着变", async () => {
+  const many = [
+    "gpt-5.6-sol",
+    "gpt-6-astra",
+    "gpt-6.1-terra",
+    "gpt-6.1-luna",
+    "gpt-6.2-nova",
+    "gpt-6.2-vega",
+    "gpt-6.3-orion",
+  ];
+  const { launched, agentDir } = await launchSettings({
+    prepare: (dir) =>
+      writeFile(
+        path.join(dir, "models.yml"),
+        "providers:\n" +
+          "  relay-gpt:\n    baseUrl: https://relay.example.com/v1/\n    auth: none\n    api: openai-responses\n    models:\n" +
+          many.map((id) => `      - id: ${id}\n`).join("") +
+          "  relay-misc:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: house-model\n",
+        "utf8",
+      ),
+  });
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    const row = page.getByTestId("custom-provider-relay-gpt");
+    await expect(row.locator(".cp-endpoint")).toHaveText("relay.example.com/v1");
+    await expect(row.locator(".cp-endpoint")).toHaveAttribute("title", "https://relay.example.com/v1/");
+    await expect(row.locator("[data-logo]")).toHaveAttribute("data-logo", "openai");
+    await expect(page.getByTestId("custom-provider-relay-misc").locator("[data-logo]")).toHaveCount(0);
+
+    const chips = row.getByTestId("custom-models-relay-gpt");
+    await expect(chips).toHaveAttribute("title", many.join("\n"));
+    const shown = chips.locator(".cp-chip:not(.cp-chip-more):not([data-cut])");
+    const more = chips.locator(".cp-chip-more");
+    /** 露出的标签数 + N 恰好是全部；+N 在最后一个露出的标签后面、不出框。 */
+    const check = async (): Promise<number> => {
+      const count = await shown.count();
+      expect(count).toBeGreaterThan(0);
+      await expect(more).toBeVisible();
+      await expect(more).toHaveText(`+${many.length - count}`);
+      const box = (await chips.boundingBox())!;
+      const last = (await shown.nth(count - 1).boundingBox())!;
+      const plus = (await more.boundingBox())!;
+      expect(last.x + last.width).toBeLessThanOrEqual(plus.x);
+      expect(plus.x + plus.width).toBeLessThanOrEqual(box.x + box.width + 0.5);
+      return count;
+    };
+    await expect.poll(() => shown.count()).toBeLessThan(many.length);
+    const wide = await check();
+    await page.setViewportSize({ width: 900, height: 900 });
+    await expect.poll(() => shown.count()).toBeLessThan(wide);
+    await check();
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

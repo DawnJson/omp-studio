@@ -8,25 +8,38 @@
 }
 
 /*
- * 对话框 xl 宽、高度固定（2026-10-24 仓库所有者：编辑哪个 provider 打开的对话框都一样大，不随模型多少、提示出没变）：
- * 连接信息在上，模型一栏占满剩下的高度，模型表在里面滚动；窗口矮到放不下时整个正文滚动。
+ * 对话框 xl 宽，高度跟内容走、最高 760（2026-11-11 仓库所有者定：还没有模型时不留半屏空白）：
+ * 连接信息在上，模型表按行数长，到顶后在表里滚动；窗口矮到连表的最小高度都放不下时整个正文滚动。
  */
 .cp-dialog {
   --dialog-w: var(--dialog-w-xl);
+  max-height: min(760px, calc(100vh - 96px));
+}
+/* 拉取后的挑选浮层挂在"拉取模型"按钮下面、在正文的滚动区里：开着时对话框撑到最高，浮层不被正文裁掉 */
+.cp-dialog:has(.cp-picker) {
   height: min(760px, calc(100vh - 96px));
+}
+/* 高度会变（拉取、开自动发现后表出现）：顶边钉住、只往下长，不居中，免得指针下的控件跟着跳；长满时和居中的位置一样 */
+.scrim:has(> .cp-dialog) {
+  align-items: flex-start;
+  padding-top: 48px;
+}
+.cp-dialog:has(.cp-picker) .ui-dialog-body {
+  flex-grow: 1;
 }
 .cp-dialog .ui-dialog-body {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
 }
 
 .cp-form {
   display: flex;
-  flex: 1 0 auto;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: var(--space-4);
+  min-height: 0;
 }
 
 /* 连接信息两栏：左栏 ID、接口类型、Base URL 上下排，右栏是 key（分段 + 预留最高那种方式的字段）占满三行，两栏底边差不多齐
@@ -57,17 +70,19 @@
 
 .cp-models-field {
   display: flex;
-  flex: 1 0 auto;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: var(--space-1-5);
+  min-height: 0;
 }
 
 .cp-models {
   display: flex;
-  flex: 1 0 auto;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  min-height: 0;
 }
 
 /* 工具栏：拉取模型 · 自动发现开关 · 移除失效的（有失效的才有）· 筛选（行多时）；覆盖内置 provider 是全选方框 · 筛选 · 已选计数（靠右）。 */
@@ -119,8 +134,8 @@
   grid-template-columns: minmax(0, 1fr) repeat(2, 128px) repeat(2, 120px);
   column-gap: var(--space-2);
   align-content: start;
-  /* 占满模型一栏剩下的高度（不按行数长），最少放得下表头和三四行。 */
-  flex: 1 1 0;
+  /* 按行数长，对话框到顶后收缩、在表里滚动；最少放得下表头和三四行。 */
+  flex: 0 1 auto;
   min-height: 160px;
   overflow-y: auto;
   border: 1px solid var(--border);
@@ -222,4 +237,47 @@
 .cp-manual > .ui-field {
   flex: 1;
   min-width: 0;
+}
+
+/* 卡片：第二行端点（等宽，放不下省略），第三行模型标签（只排一行，放不下的收成 +N，见 ModelChips） */
+.cp-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.cp-endpoint {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cp-chips {
+  position: relative;
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow: hidden;
+}
+.cp-chip {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+  line-height: 18px;
+  white-space: nowrap;
+}
+.cp-chip[data-cut] {
+  visibility: hidden;
+}
+.cp-chip-more {
+  position: absolute;
+  top: 0;
+}
+/* 删除：平时和铅笔一样安静，悬停 / 键盘聚焦时变红；点了先弹确认 */
+.ui-icon-btn.cp-delete:is(:hover, :focus-visible):not(:disabled) {
+  color: var(--st-error);
+  background: var(--st-error-soft);
 }

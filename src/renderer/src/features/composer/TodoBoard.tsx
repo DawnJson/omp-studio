@@ -5,19 +5,21 @@
 // - 每条下面是备注（omp 给的最后一条备注；受阻的是阻塞原因）；
 // - 每条右边的 ⋯ 菜单：开始 / 完成 / 放弃 / 删除，经 TaskCommand `todo` 变成 `/todo start|done|drop|rm <内容>` 发给任务的 omp，omp 的反馈原文回读；
 // - 阶段全部完成 / 放弃时默认收起（同 omp 的 HUD），点阶段头展开，底部"展开全部"一次全展开；
-// - 底部："添加条目"（`/todo append`，阶段可选，没写就追加到最后一个阶段）、"复制为 Markdown"（本地拼，格式同 omp `/todo copy`）。
+// - 底部："添加条目"（`/todo append`，阶段可选，没写就追加到最后一个阶段）、"复制为 Markdown"（本地拼，格式同 omp `/todo copy`，
+//   不让 omp 复制到它那台机器的剪贴板；复制后图标形变成对勾）。
 import { useCallback, useEffect, useId, useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import type { TodoPhase } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
-import { todoItemOps, type TodoItemOp } from "../../../../shared/tsp/todos.ts";
+import { todoItemOps, todoMarkdown, type TodoItemOp } from "../../../../shared/tsp/todos.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { CopyIcon, Dots, Plus } from "../../icons.tsx";
+import { Dots, Plus } from "../../icons.tsx";
+import { CopyGlyph, useCopy } from "../../ui/CopyGlyph.tsx";
 import { Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { MenuList, type MenuEntry } from "../../ui/Menu.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { summarizePhase, toRoman, type TodoSummary } from "../conversation/todo-model.ts";
 import { onStudioCommand } from "../palette/studio-command.ts";
-import { copyTodoMarkdown, runTodo } from "./todo-actions.ts";
+import { runTodo } from "./todo-actions.ts";
 import { TodoMark } from "./TodoMark.tsx";
 
 const OP_LABEL = {
@@ -39,6 +41,7 @@ export function TodoBoard({
   running: boolean;
 }) {
   const t = useT();
+  const markdownCopy = useCopy();
   const [open, setOpen] = useState(false);
   // 斜杠命令 /todo：打开待办板。
   useEffect(() => onStudioCommand((command) => command === "todo" && setOpen(true)), []);
@@ -294,9 +297,9 @@ export function TodoBoard({
             <IconButton
               label={t("board.todoCopyMarkdown")}
               testId="todo-copy"
-              onClick={() => copyTodoMarkdown(t, phases)}
+              onClick={() => markdownCopy.copy(todoMarkdown(phases))}
             >
-              <CopyIcon size={14} />
+              <CopyGlyph copied={markdownCopy.copied} size={14} />
             </IconButton>
             {(anyCollapsed || expandAll) && (
               <Button

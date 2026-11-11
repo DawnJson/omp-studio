@@ -236,8 +236,8 @@ export function Dialog({
 }
 
 /**
- * 确认框：sm 宽的同一外壳。挂上就是打开；点按钮 / Esc / × 后先放退出动画，放完才调 onConfirm / onCancel（调用方据此卸载）。
- * 打开时焦点在"取消"；danger 时确认键用 danger-solid（破坏性操作）。
+ * 确认框：sm 宽的同一外壳。挂上就是打开；点按钮 / Esc 后先放退出动画，放完才调 onConfirm / onCancel（调用方据此卸载）。
+ * 打开时焦点在"取消"；danger 时确认键用 danger-solid（破坏性操作）。不画右上 ×：页脚已有"取消"，同一件事不给两个入口（仓库所有者定，2026-11-11）。
  */
 export function ConfirmDialog({
   title,
@@ -271,6 +271,7 @@ export function ConfirmDialog({
       title={title}
       desc={body}
       size="sm"
+      hideClose
       role={danger ? "alertdialog" : "dialog"}
       testId={testId}
       footer={

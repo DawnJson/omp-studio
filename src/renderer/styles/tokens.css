@@ -98,9 +98,12 @@
   /* 方向 A：整体比 v1 收小一档（卡片 8、输入框 10、按钮 6） */
   --radius-xs: 3px; /* 键帽、行内代码、勾选框 */
   --radius-sm: 4px; /* 过程行 hover、小按钮、输入控件 */
-  --radius-md: 6px; /* 任务行、按钮、菜单项、代码块 */
-  --radius-lg: 8px; /* 卡片、popover、门、对话框（2026-10-29 起，原来 10） */
-  --radius-xl: 10px; /* 命令面板、主区面板 */
+  --radius-md: 6px; /* 任务行、菜单项、代码块、徽标、悬停提示 */
+  --radius-lg: 8px; /* 卡片、门 */
+  --radius-xl: 10px; /* 命令面板、主区面板、菜单、下拉列表、popover */
+  /* 控件和对话框（2026-11-11 仓库所有者定：按 shadcn/ui 的样子，按钮 / 输入框 / 下拉 8，对话框 14） */
+  --radius-control: 8px;
+  --radius-dialog: 14px;
   --radius-bubble: 14px; /* 你的消息气泡（右下角用 --radius-sm 当"尾巴"，3.0） */
   --radius-composer: 22px; /* 输入框外框（3.0） */
   --radius-pill: 999px;
@@ -313,7 +316,6 @@
   --accent: #6b46d9;
   --accent-soft: rgba(107, 70, 217, 0.1);
   --selection-bg: rgba(107, 70, 217, 0.2);
-  --focus-ring: #6b46d9;
   --link: #6b46d9;
 
   /* 主按钮：近黑底（深色主题近白底），不用强调色 */
@@ -404,7 +406,6 @@
     --accent: #a48bff;
     --accent-soft: rgba(164, 139, 255, 0.14);
     --selection-bg: rgba(164, 139, 255, 0.3);
-    --focus-ring: #a48bff;
     --link: #bcaaff;
 
     --primary: #e9e9e6;
@@ -483,7 +484,6 @@
   --accent: #a48bff;
   --accent-soft: rgba(164, 139, 255, 0.14);
   --selection-bg: rgba(164, 139, 255, 0.3);
-  --focus-ring: #a48bff;
   --link: #bcaaff;
 
   --primary: #e9e9e6;
@@ -531,9 +531,18 @@
   --theme-art: none;
 }
 
-/* ───────────────────────── 键盘焦点环 ───────────────────────── */
-/* 最近一次输入是鼠标时（ui/input-modality.ts 写 <html data-input>）键盘焦点环不画：--focus-ring 只给 :focus-visible 的 outline 用，
- * 选中态等别的强调一律用 --accent。放在主题块之后，同优先级时靠后的赢（2026-10-29 仓库所有者定）。 */
+/* ───────────────────────── 焦点环、输入框光环 ───────────────────────── */
+/* 中性灰，跟着每个主题的正文色走，不用强调色（2026-11-11 仓库所有者定：照 shadcn/ui）。
+ * --ring / --ring-soft：输入框、下拉聚焦时的描边和 3px 光环（鼠标点进去也画）；
+ * --focus-ring：按钮等 :focus-visible 的 3px 外环，最近一次输入是鼠标时（ui/input-modality.ts 写 <html data-input>）不画。
+ * 不进各主题块：从 --text 推出来，主题只管 --text。 */
+:root {
+  --ring: color-mix(in srgb, var(--text) 42%, transparent);
+  --ring-soft: color-mix(in srgb, var(--text) 16%, transparent);
+  --focus-ring: color-mix(in srgb, var(--text) 30%, transparent);
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --input-border: color-mix(in srgb, var(--text) 15%, transparent);
+}
 :root[data-input="pointer"] {
   --focus-ring: transparent;
 }

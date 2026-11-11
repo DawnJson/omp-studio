@@ -79,11 +79,18 @@
   cursor: pointer;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xs);
+  transition: background-color var(--dur-instant) var(--ease-out);
 }
 
 .pv-account:hover:not(:disabled) {
   background: var(--bg-hover);
+}
+
+.pv-account:disabled {
+  color: var(--text-disabled);
+  cursor: default;
 }
 
 .pv-pick-list {

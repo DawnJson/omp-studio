@@ -88,26 +88,20 @@ export const ArrowUp = (props: IconProps) => (
     <Shapes node={ARROW_UP_NODE} />
   </Icon>
 );
-export const Shield = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="M8 2 3.5 3.8v3.6c0 3 2 5 4.5 6.1 2.5-1.1 4.5-3.1 4.5-6.1V3.8L8 2Z" />
-  </Icon>
-);
+// 审批模式（ApprovalChip 的四档）只经形变画（ui/morph-glyphs.ts），没有静态组件。
+const SHIELD_D = "M8 2 3.5 3.8v3.6c0 3 2 5 4.5 6.1 2.5-1.1 4.5-3.1 4.5-6.1V3.8L8 2Z";
+export const SHIELD_NODE: IconNode = [["path", { d: SHIELD_D }]];
 /** 询问并记住：盾牌里一个勾 */
-export const ShieldCheck = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="M8 2 3.5 3.8v3.6c0 3 2 5 4.5 6.1 2.5-1.1 4.5-3.1 4.5-6.1V3.8L8 2Z" />
-    <path d="m5.8 8 1.6 1.6L10.300 6.500" />
-  </Icon>
-);
+export const SHIELD_CHECK_NODE: IconNode = [
+  ["path", { d: SHIELD_D }],
+  ["path", { d: "m5.8 8 1.6 1.6L10.300 6.500" }],
+];
 /** 全自动：划掉的盾牌（不再询问）；斜线穿过的两处轮廓断开，14px 下不糊成一团 */
-export const ShieldOff = (props: IconProps) => (
-  <Icon {...props}>
-    <path d="M3.5 6v1.4c0 3 2 5 4.5 6.1.55-.24 1.1-.53 1.6-.87" />
-    <path d="M6 2.8 8 2l4.5 1.8v3.6c0 .6-.07 1.15-.2 1.65" />
-    <path d="m2.5 2.5 11 11" />
-  </Icon>
-);
+export const SHIELD_OFF_NODE: IconNode = [
+  ["path", { d: "M3.5 6v1.4c0 3 2 5 4.5 6.1.55-.24 1.1-.53 1.6-.87" }],
+  ["path", { d: "M6 2.8 8 2l4.5 1.8v3.6c0 .6-.07 1.15-.2 1.65" }],
+  ["path", { d: "m2.5 2.5 11 11" }],
+];
 /** 后台任务：闪电 */
 export const Bolt = (props: IconProps) => (
   <Icon {...props}>
@@ -161,9 +155,12 @@ export const Search = (props: IconProps) => (
     <path d="m10 10 3.5 3.5" />
   </Icon>
 );
+export const PENCIL_NODE: IconNode = [
+  ["path", { d: "m3 13 .8-3L10.5 3.3a1.2 1.2 0 0 1 1.7 0l.5.5a1.2 1.2 0 0 1 0 1.7L6 12.2 3 13Z" }],
+];
 export const Pencil = (props: IconProps) => (
   <Icon {...props}>
-    <path d="m3 13 .8-3L10.5 3.3a1.2 1.2 0 0 1 1.7 0l.5.5a1.2 1.2 0 0 1 0 1.7L6 12.2 3 13Z" />
+    <Shapes node={PENCIL_NODE} />
   </Icon>
 );
 export const Branch = (props: IconProps) => (
@@ -309,13 +306,18 @@ export const Tag = (props: IconProps) => (
     <circle cx="5.5" cy="5.5" r=".75" />
   </Icon>
 );
-/** 模型角色 vision（看图）：眼睛 */
+/** 眼睛：模型角色 vision（看图）；key 输入框的"显示"（ui/morph-glyphs.ts 的 EYE_GLYPH ↔ EYE_OFF_GLYPH） */
+export const EYE_NODE: IconNode = [
+  ["path", { d: "M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" }],
+  ["circle", { cx: 8, cy: 8, r: 2 }],
+];
 export const Eye = (props: IconProps) => (
   <Icon {...props}>
-    <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />
-    <circle cx="8" cy="8" r="2" />
+    <Shapes node={EYE_NODE} />
   </Icon>
 );
+/** 划掉的眼睛：key 输入框的"隐藏"（只经形变画） */
+export const EYE_OFF_NODE: IconNode = [...EYE_NODE, ["path", { d: "m2.5 2.5 11 11" }]];
 /** 代码块"在侧栏预览"：窗口右边开一栏 */
 export const PanelRight = (props: IconProps) => (
   <Icon {...props}>

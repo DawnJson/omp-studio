@@ -5,4 +5,5 @@ export const status = {
   waiting: "等你确认",
   error: "出错",
   interrupted: "已中断",
+  unread: "有新结果",
 } satisfies Record<string, MessageEntry>;

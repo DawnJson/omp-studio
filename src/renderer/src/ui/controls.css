@@ -5,9 +5,10 @@
  * - 控件只有两档高度：md 32（表单、对话框、设置页）、sm 28（工具条、面板标题、列表行、浮层）。
  * - 一个视图最多一个主要按钮；链接只出现在句子里，不当独立按钮。
  * - 互斥取值用 Segmented（≤4 个短选项）或 Select（更多）；切换视图用 Tabs。由选项个数决定，不由语言或宽度决定。
- * - 输入框聚焦不画外描边，边框隐去、换成双环阴影（1px 强调色环 + 3px 淡色光环）；同时留一条透明 outline，Windows
- *   高对比度模式会把它画成系统色（forced-colors 下 box-shadow 被清掉，border / outline 颜色被强制成系统色）。
- *   按钮等键盘焦点仍是 :focus-visible 的外描边。
+ * - 样子照 shadcn/ui（2026-11-11 仓库所有者定）：按钮 / 输入框 / 下拉圆角 --radius-control，次要按钮和输入框白底 + --shadow-xs，
+ *   开关、勾选框选中用 --primary。输入框聚焦是中性灰描边 + 3px 淡灰光环（--ring / --ring-soft），不用强调色；同时留一条透明
+ *   outline，Windows 高对比度模式会把它画成系统色（forced-colors 下 box-shadow 被清掉，border / outline 颜色被强制成系统色）。
+ *   按钮等键盘焦点是 :focus-visible 的 3px 外环（--focus-ring）。
  * - 夹在文字里的图标 vertical-align: -0.125em；放在 flex 容器里的图标靠 align-items: center，不加偏移。
  * - 多行的说明文字 text-wrap: pretty，短标题 text-wrap: balance。
  */
@@ -24,18 +25,25 @@
   padding: 0 var(--space-3);
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   line-height: 1;
   color: var(--text);
   white-space: nowrap;
   cursor: pointer;
   background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   transition:
     background-color var(--dur-instant) var(--ease-out),
     border-color var(--dur-instant) var(--ease-out),
     color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out),
     transform var(--dur-instant) var(--ease-out);
+}
+/* 次要按钮（默认）：白底 + 极浅阴影（shadcn 的 outline 按钮，2026-11-11 仓库所有者定） */
+.ui-btn:not([data-variant]) {
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-xs);
 }
 .ui-btn svg {
   flex: none;
@@ -50,12 +58,16 @@
 .ui-btn:hover {
   background: var(--bg-hover);
 }
-.ui-btn:active {
+.ui-btn:not([data-variant]):hover {
+  background: color-mix(in srgb, var(--bg-raised), var(--text) 5%);
+}
+.ui-btn:active,
+.ui-btn:not([data-variant]):active {
   background: var(--bg-active);
 }
 .ui-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 
 .ui-btn[data-variant="primary"] {
@@ -69,11 +81,11 @@
 }
 
 .ui-btn[data-variant="quiet"] {
-  color: var(--text-2);
+  color: var(--text);
   border-color: transparent;
 }
 .ui-btn[data-variant="quiet"]:hover {
-  color: var(--text);
+  background: var(--bg-hover);
 }
 
 .ui-btn[data-variant="danger"] {
@@ -99,12 +111,14 @@
   color: var(--text-disabled);
   cursor: default;
   background: transparent;
+  box-shadow: none;
   border-color: var(--border);
 }
 .ui-btn[data-variant="primary"]:disabled,
 .ui-btn[data-variant="danger-solid"]:disabled {
   background: var(--bg-active);
   border-color: transparent;
+  box-shadow: none;
 }
 .ui-btn[data-variant="quiet"]:disabled {
   border-color: transparent;
@@ -138,6 +152,26 @@
   }
 }
 
+/* 运行状态槽（ui/RunGlyph.tsx）：弧和淡环叠在同一格；运行中整格转（HTML 盒子转，不转 SVG）、用 accent，跑完摘掉旋转、颜色交给外面 */
+.run-glyph {
+  display: inline-grid;
+  flex: none;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.run-glyph > * {
+  grid-area: 1 / 1;
+}
+.run-glyph[data-running] {
+  color: var(--accent);
+  animation: ui-spin var(--dur-spin) var(--tick-spin) infinite;
+  animation-play-state: var(--play-state);
+}
+.run-glyph-track {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 25%, transparent);
+  stroke-width: var(--icon-stroke);
+}
+
 /* 按钮里的快捷键提示：不画键帽框，只是尾随的淡色小字（门的 Hide / Skip / Submit 等） */
 .ui-btn .ui-hint {
   font-family: var(--font-mono);
@@ -161,7 +195,7 @@
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   transition:
     background-color var(--dur-instant) var(--ease-out),
     color var(--dur-instant) var(--ease-out),
@@ -200,8 +234,9 @@
   font-size: var(--fs-sm);
   color: var(--text);
   background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xs);
   transition:
     border-color var(--dur-instant) var(--ease-out),
     box-shadow var(--dur-instant) var(--ease-out);
@@ -210,27 +245,24 @@
   height: var(--control-h-sm);
   font-size: var(--fs-sm);
 }
+/* 聚焦：中性灰描边 + 3px 淡灰光环（shadcn，2026-11-11 仓库所有者定；原来是紫色）。留一条透明 outline 给 Windows 高对比度模式 */
 .ui-field:focus-within {
-  border-color: transparent;
+  border-color: var(--ring);
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 0 4px var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--ring-soft);
 }
 .ui-field[data-invalid] {
   border-color: var(--st-error);
 }
 .ui-field[data-invalid]:focus-within {
-  border-color: transparent;
-  box-shadow:
-    0 0 0 1px var(--st-error),
-    0 0 0 4px var(--st-error-soft);
+  border-color: var(--st-error);
+  box-shadow: 0 0 0 3px var(--st-error-soft);
 }
 .ui-field[aria-disabled="true"] {
   color: var(--text-disabled);
   background: var(--bg-sunken);
-  border-color: var(--border);
+  box-shadow: none;
 }
 .ui-field input {
   flex: 1;
@@ -270,6 +302,12 @@
 .ui-field.ui-mono {
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
+}
+/* 占位文字是说明，不是取值：用正文字体，不和中文混排成等宽 */
+.ui-field.ui-mono input::placeholder,
+.ui-textarea.ui-mono::placeholder {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
 }
 
 /* 下拉触发器：就是一个 Field，右侧 chevron。给了 width 就按它（默认 200）；没给（data-fit）按最长的选项定宽：
@@ -316,16 +354,15 @@
   color: var(--text);
   resize: vertical;
   background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xs);
 }
 .ui-textarea:focus {
-  border-color: transparent;
+  border-color: var(--ring);
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 0 4px var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--ring-soft);
 }
 .ui-textarea.ui-mono {
   font-family: var(--font-mono);
@@ -334,12 +371,10 @@
 .ui-textarea[data-invalid] {
   border-color: var(--st-error);
 }
-/* 和 .ui-field 一样：写错时聚焦只画红色的一圈，不叠紫色焦点环 */
+/* 和 .ui-field 一样：写错时聚焦只画红色的一圈，不叠灰色光环 */
 .ui-textarea[data-invalid]:focus {
-  border-color: transparent;
-  box-shadow:
-    0 0 0 1px var(--st-error),
-    0 0 0 4px var(--st-error-soft);
+  border-color: var(--st-error);
+  box-shadow: 0 0 0 3px var(--st-error-soft);
 }
 .ui-textarea:disabled {
   color: var(--text-disabled);
@@ -392,37 +427,38 @@
 }
 
 /* ───────── Switch / Checkbox / Radio ───────── */
+/* 开关、勾选框、单选：选中用主按钮色（浅色近黑、深色近白），不用强调色（2026-11-11 仓库所有者定，照 shadcn/ui） */
 .ui-switch {
   position: relative;
   flex: none;
-  width: 36px;
-  height: 20px;
+  width: 32px;
+  height: 18px;
   padding: 0;
   cursor: pointer;
-  background: var(--border-strong);
+  background: var(--input-border);
   border: 0;
   border-radius: var(--radius-pill);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
+/* 滑块：浅色主题关着是白的；深色主题关着用浅灰（深底上的深滑块看不见），开着用主按钮的字色 */
 .ui-switch::after {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   content: "";
-  background: #ffffff;
+  background: light-dark(var(--bg-raised), var(--text-2));
   border-radius: 50%;
   box-shadow: var(--shadow-1);
   transition: transform var(--dur-fast) var(--ease-out);
 }
-/* 强调色小面积处叠一层主题的静态发光（--accent-glow，只有炫酷类主题有值，其余 none） */
 .ui-switch[aria-checked="true"] {
-  background: var(--accent);
-  box-shadow: var(--accent-glow);
+  background: var(--primary);
 }
 .ui-switch[aria-checked="true"]::after {
-  transform: translateX(16px);
+  background: var(--text-on-primary);
+  transform: translateX(14px);
 }
 .ui-switch:disabled {
   cursor: default;
@@ -439,7 +475,8 @@
   margin: 0;
   cursor: pointer;
   background: var(--bg-raised);
-  border: 1.5px solid var(--border-strong);
+  border: 1px solid var(--input-border);
+  box-shadow: var(--shadow-xs);
   appearance: none;
 }
 .ui-check {
@@ -450,26 +487,26 @@
 }
 .ui-check:checked,
 .ui-check:indeterminate {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--primary);
+  border-color: var(--primary);
 }
 .ui-check:checked::after {
   width: 9px;
   height: 5px;
   content: "";
-  border-bottom: 2px solid var(--text-on-accent);
-  border-left: 2px solid var(--text-on-accent);
+  border-bottom: 2px solid var(--text-on-primary);
+  border-left: 2px solid var(--text-on-primary);
   transform: translateY(-1px) rotate(-45deg);
 }
 .ui-check:indeterminate::after {
   width: 8px;
   height: 2px;
   content: "";
-  background: var(--text-on-accent);
+  background: var(--text-on-primary);
 }
 .ui-radio:checked {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--primary);
+  border-color: var(--primary);
   box-shadow: inset 0 0 0 3px var(--bg-raised);
 }
 .ui-check:disabled,
@@ -493,9 +530,9 @@
   flex: none;
   gap: var(--space-0-5);
   height: var(--seg-h);
-  padding: var(--space-0-5);
+  padding: 3px;
   background: var(--bg-active);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius-control) + 2px);
 }
 .ui-seg[data-size="sm"] {
   --seg-h: var(--control-h-sm);
@@ -504,12 +541,13 @@
   padding: 0 var(--space-2-5);
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   white-space: nowrap;
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--radius-control) - 1px);
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
@@ -529,10 +567,13 @@
 .ui-seg > button:hover {
   color: var(--text);
 }
+/* 选中块：一圈细边 + 小阴影，深色主题里也看得出选中了哪个 */
 .ui-seg > button[aria-checked="true"] {
   color: var(--text);
   background: var(--control-on);
-  box-shadow: var(--shadow-1);
+  box-shadow:
+    0 0 0 1px var(--border-subtle),
+    0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .ui-tabs {
@@ -549,6 +590,7 @@
   padding: 0;
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   cursor: pointer;
   background: transparent;
@@ -576,34 +618,36 @@
 }
 
 /* ───────── Badge（状态、范围、计数） ───────── */
+/* 徽标：20 高、12px 中等字重；带色的字和正文色混一点，浅色主题的小字也够 4.5:1（2026-11-11） */
 .ui-badge {
   display: inline-flex;
   flex: none;
   gap: var(--space-1);
   align-items: center;
-  height: 18px;
-  padding: 0 var(--space-1-5);
-  font-size: var(--fs-2xs);
+  height: 20px;
+  padding: 0 var(--space-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   line-height: 1;
   color: var(--text-2);
   white-space: nowrap;
   background: var(--bg-active);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .ui-badge[data-tone="accent"] {
-  color: var(--accent);
+  color: color-mix(in srgb, var(--accent) 65%, var(--text));
   background: var(--accent-soft);
 }
 .ui-badge[data-tone="success"] {
-  color: var(--st-done);
+  color: color-mix(in srgb, var(--st-done) 65%, var(--text));
   background: color-mix(in srgb, var(--st-done) 13%, transparent);
 }
 .ui-badge[data-tone="warning"] {
-  color: var(--st-waiting-text);
+  color: color-mix(in srgb, var(--st-waiting-text) 65%, var(--text));
   background: var(--st-waiting-soft);
 }
 .ui-badge[data-tone="error"] {
-  color: var(--st-error);
+  color: color-mix(in srgb, var(--st-error) 65%, var(--text));
   background: var(--st-error-soft);
 }
 .ui-badge .ui-dot {
@@ -624,7 +668,8 @@
   max-width: 320px;
   padding: var(--space-1);
   background: var(--bg-overlay);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-2);
 }
 /* 浮动的菜单 / 下拉列表（Menu.tsx、Select.tsx）：fixed 定位，挂在 body 上。
@@ -705,6 +750,7 @@
   max-width: none;
   padding: 0;
   background: transparent;
+  border: 0;
   box-shadow: none;
 }
 /* 第一列 16px：动作菜单放图标，选择菜单放 ✓（当前项）；同一个菜单里不混用 */
@@ -723,7 +769,7 @@
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .ui-menu-item > svg {
   width: var(--icon-md);
@@ -794,7 +840,8 @@
   padding: var(--space-1-5);
   overflow: hidden auto;
   background: var(--bg-overlay);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
@@ -837,7 +884,7 @@
   max-width: calc(100vw - var(--space-8));
   max-height: calc(100vh - 96px);
   background: var(--bg-overlay);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-dialog);
   box-shadow: var(--shadow-modal);
   animation: pop-in var(--dur-slow) var(--ease-spring);
 }
@@ -855,12 +902,16 @@
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
-  padding: var(--space-4) var(--space-3) 0 var(--space-5);
+  padding: var(--space-6) var(--space-4) 0 var(--space-6);
 }
 .ui-dialog-head > div {
   flex: 1;
   min-width: 0;
   padding-top: var(--space-1);
+}
+/* 没有 ×（确认框、纯告知框）：右边和左边一样宽，正文不在右侧留出 × 的空位 */
+.ui-dialog-head:not(:has(> .ui-icon-btn)) {
+  padding-right: var(--space-6);
 }
 /* × 和标题首行的中线对齐（标题行从 padding-top 往下一个 --lh-lg） */
 .ui-dialog-head > .ui-icon-btn {
@@ -886,15 +937,24 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-5) var(--space-1);
+  padding: var(--space-4) var(--space-6) var(--space-5);
   overflow: auto;
 }
+/* 页脚：一条浅底带（shadcn，2026-11-11 仓库所有者定），圆角跟着对话框 */
 .ui-dialog-foot {
   display: flex;
+  flex: none;
   gap: var(--space-2);
   align-items: center;
   justify-content: flex-end;
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  padding: var(--space-4) var(--space-6);
+  background: color-mix(in srgb, var(--bg-sunken) 70%, var(--bg-overlay));
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0 0 var(--radius-dialog) var(--radius-dialog);
+}
+/* 没有正文（确认框）：标题和说明下面留出正文的那段空 */
+.ui-dialog-head + .ui-dialog-foot {
+  margin-top: var(--space-5);
 }
 /* 页脚左侧放一个附带选项（如"暂存全部改动"）；按钮永远在右边，取消在前、确认在后 */
 .ui-dialog-foot > .ui-foot-start {
@@ -1202,15 +1262,15 @@
   max-width: 280px;
   max-height: calc(100vh - 16px);
   overflow: hidden;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1-5) var(--space-2-5);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
-  color: var(--text);
+  /* 反色：深底浅字，不和菜单、卡片混（shadcn，2026-11-11 仓库所有者定） */
+  color: var(--bg-app);
   pointer-events: none;
-  background: var(--bg-overlay);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-2);
+  background: var(--text);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
   animation: fade-in var(--dur-fast) var(--ease-out);
 }
 .ui-tooltip-text {
@@ -1224,6 +1284,9 @@
 }
 .ui-tooltip .ui-kbd {
   flex: none;
+  color: inherit;
+  background: color-mix(in srgb, var(--bg-app) 16%, transparent);
+  border-color: transparent;
 }
 
 /* 输入框工具条的胶囊：一种样式，全部无底色，hover / 打开时才有底。左右内边距可由外层的 --chip-pad 收紧（输入框工具行用 4px）。 */
@@ -1407,4 +1470,9 @@
 /* 数据到了：真实内容淡入（容器在数据到达时才挂载） */
 .ui-data-in {
   animation: fade-in var(--dur-fast) var(--ease-out);
+}
+/* 文件类型图标（ui/FileTypeIcon.tsx）：彩色 <img>，在 flex 行里不被挤小 */
+.file-type-icon {
+  flex: none;
+  display: block;
 }

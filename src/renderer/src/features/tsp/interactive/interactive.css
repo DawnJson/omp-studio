@@ -166,13 +166,19 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
-/* 单行输入框：淡底，聚焦时清底、出强调色环。 */
+/* 单行输入框：同 .ui-field 的框（--bg-raised、1px --border、--radius-control、--shadow-xs），聚焦时 --ring 描边 + 3px --ring-soft 光环。
+   焦点在里面的 textarea 上（.tspi-ed-field 自己不画 outline），框由 Editor 的 .focused 画；透明 outline 留给 Windows 高对比度模式。 */
 .tspi-input {
   align-items: center;
   padding: 0 var(--space-2);
   min-height: calc(var(--lh-base) + var(--space-2));
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
 }
 .tspi-input .tspi-ed-back,
 .tspi-input .tspi-ed-field,
@@ -184,8 +190,10 @@
   overflow-x: auto;
 }
 .tspi-input.focused {
-  background: transparent;
-  box-shadow: 0 0 0 1.5px var(--accent);
+  border-color: var(--ring);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--ring-soft);
 }
 
 /* ───────────────────────── list / item ───────────────────────── */
@@ -1330,10 +1338,8 @@
   white-space: pre;
 }
 .tspi-pf-in.editing {
-  border-color: transparent;
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 0 4px var(--accent-soft);
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--ring-soft);
 }
 .tspi-pf-in .ph {
   color: var(--text-3);

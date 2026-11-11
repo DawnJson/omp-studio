@@ -3,7 +3,8 @@
 // `#N` 是所有附件共用的显示编号（displayNumber：图片、文件、粘贴依次），和文字里的芯片对应；删掉卡片 = 删掉文字里的占位符。
 import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
-import { Close, FileIcon, TextLines } from "../../icons.tsx";
+import { Close, TextLines } from "../../icons.tsx";
+import { FileTypeIcon } from "../../ui/FileTypeIcon.tsx";
 import { Button } from "../../ui/controls.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import {
@@ -71,7 +72,7 @@ export function Attachments({ images, files, pastes, onRemove, onExpand }: Attac
         return (
           <li key={`file:${n}`} className="attachment" data-testid="attachment" data-kind="file" data-n={n}>
             <span className="attachment-thumb attachment-file-icon" aria-hidden="true">
-              <FileIcon size={16} />
+              <FileTypeIcon name={file.name} />
             </span>
             <span className="attachment-text">
               <span className="attachment-n">

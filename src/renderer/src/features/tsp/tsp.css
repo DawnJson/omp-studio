@@ -127,8 +127,8 @@
   display: none;
 }
 .tsp-scroller:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 
 /* inline 对话区的滚动区按内容的高度排、放不下才缩（2026-10-29 仓库所有者：门跟着对话走）：对话短时 dock 紧跟在对话最后一项下面，
@@ -212,6 +212,8 @@
   pointer-events: none;
 }
 
+/* 跳到最新：浮在对话区底部正中的次要按钮（shadcn outline 的样子：浮层底 + 1px 边框 + 阴影）。悬停叠一层 --bg-hover，
+   底色不换成半透明的 --bg-hover（换了会透出下面的对话）。键盘焦点走全局 :focus-visible。 */
 .tsp-jump {
   position: absolute;
   left: 50%;
@@ -220,20 +222,18 @@
   z-index: var(--z-sticky);
   height: var(--control-h-md);
   padding: 0 var(--space-4);
-  border: 0;
-  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   background: var(--bg-overlay);
   color: var(--text);
   font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   box-shadow: var(--shadow-2);
   cursor: pointer;
 }
 .tsp-jump:hover {
-  background: var(--bg-hover);
-}
-.tsp-jump:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  background-image: linear-gradient(var(--bg-hover), var(--bg-hover));
 }
 
 /* 对话线：贴对话区右缘（覆盖式滚动条左边），每条用户消息一个横刻度，从上往下排，整列在对话区上下各留 --space-6 的高度里竖直居中；
@@ -291,8 +291,8 @@
   background: var(--text);
 }
 .tsp-convline-tick:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
   border-radius: var(--radius-xs);
 }
 
@@ -342,8 +342,8 @@
   font-weight: 600;
 }
 .tsp-outline-row:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .tsp-outline-n {
   flex: none;
@@ -600,8 +600,8 @@
   background: var(--bg-hover);
 }
 .tsp-card-head:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .tsp-card-ic {
   display: inline-flex;
@@ -689,24 +689,10 @@
   justify-content: flex-end;
   mask-image: linear-gradient(to top, #000 calc(100% - 2 * var(--tsp-lh)), transparent);
 }
+/* "N more lines" / "Show less"：Clamp.tsx 用 <Button variant="quiet" size="sm">，这里只管位置和箭头方向 */
 .tsp-more {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
   align-self: flex-start;
   margin: var(--space-1) 0;
-  padding: 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text-3);
-  font: inherit;
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-.tsp-more:hover {
-  color: var(--text);
-  background: var(--bg-hover);
 }
 .tsp-more[data-tail] svg {
   transform: rotate(180deg);
@@ -1109,8 +1095,8 @@ button.tsp-sh-fold:hover {
   text-decoration: underline;
 }
 button.tsp-sh-fold:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 .tsp-sh-meta {
   margin-left: 2ch;
@@ -1581,6 +1567,7 @@ button.tsp-sh-fold:focus-visible {
   animation-duration: var(--dur-base);
   animation-timing-function: var(--ease-out);
 }
+/* 看大图的关闭键：图标按钮的样子（--text-2，悬停 --text + 叠一层 --bg-hover）；压在图上，底色保持不透明的浮层色 */
 .tsp-zoom-close {
   position: absolute;
   top: var(--space-4);
@@ -1589,11 +1576,18 @@ button.tsp-sh-fold:focus-visible {
   place-items: center;
   width: var(--control-h-md);
   height: var(--control-h-md);
+  padding: 0;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--bg-overlay);
-  color: var(--text);
+  color: var(--text-2);
+  box-shadow: var(--shadow-2);
   cursor: pointer;
+  transition: color var(--dur-instant) var(--ease-out);
+}
+.tsp-zoom-close:hover {
+  color: var(--text);
+  background-image: linear-gradient(var(--bg-hover), var(--bg-hover));
 }
 
 /* ───────────────────────── 动效：spinner、shimmer、elapsed、rate、progress ───────────────────────── */
@@ -1652,7 +1646,8 @@ button.tsp-sh-fold:focus-visible {
     opacity: 1;
   }
 }
-/* ✓ 描边画出：跑完的那一次（Tool / Agent 的 useJustFinished）才带 .tsp-draw-check；16 ≥ check 路径长度（≈13.5） */
+/* ✓ 描边画出：子代理行跑完的那一次（Agent 的 useJustFinished）才带 .tsp-draw-check；16 ≥ check 路径长度（≈13.5）。
+   工具卡、工具组标题行的状态槽是转圈的弧形变成 ✓（ui/RunGlyph.tsx） */
 @keyframes tsp-draw {
   from {
     stroke-dashoffset: 16;
@@ -1670,7 +1665,6 @@ button.tsp-sh-fold:focus-visible {
   animation: tsp-draw var(--dur-base) var(--ease-out) backwards;
 }
 /* 工具卡的 ✓ 常驻（2026-11-09 起，issue #9；之前画出后停 1.2s 淡出）。完成的卡不抢眼：和标题行的次要文字同色 */
-.tsp-tool-st > .tsp-draw-check,
 .tsp-tool-st > .tsp-check {
   color: var(--text-3);
 }
@@ -2230,8 +2224,8 @@ button.tsp-sh-fold:focus-visible {
   background: var(--bg-hover);
 }
 .tsp-tool-head:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 /* 连续工具调用的组头（ToolRun.tsx，2026-11-09 起，issue #9）：长得像一张收起的工具卡——浅底、一行；
    左边每种工具一个小图标 + 调用次数（2026-11-10 起），` · ` 整组用时，有失败时红字，右边状态和箭头。展开时下面照常是每张卡。 */
@@ -2251,8 +2245,8 @@ button.tsp-sh-fold:focus-visible {
   background: var(--bg-hover);
 }
 .tsp-run-head:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .tsp-run-kinds {
   display: inline-flex;
@@ -2390,15 +2384,6 @@ button.tsp-sh-fold:focus-visible {
 .tsp-tool-st:empty {
   display: none;
 }
-.tsp-tool-spin {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-  border-radius: var(--radius-pill);
-  border: var(--tsp-stroke) solid color-mix(in srgb, var(--accent) 25%, transparent);
-  border-top-color: var(--accent);
-  animation: tsp-turn var(--dur-spin) var(--tick-spin) infinite;
-  animation-play-state: var(--play-state);
-}
 .tsp-tool-acts {
   display: none;
   align-items: center;
@@ -2409,23 +2394,38 @@ button.tsp-sh-fold:focus-visible {
 .tsp-tool-head:focus-within .tsp-tool-acts {
   display: inline-flex;
 }
+/* 工具卡头部悬停出来的动作（复制命令 = 方形图标键；omp 给的文字动作 = 安静的小按钮）：同图标按钮，--text-2，悬停 --bg-hover。
+   高 --control-h-xs；行内工具头只有一行字高（--lh-sm），动作压到同高，悬停出现时不把这一行撑高。 */
 .tsp-tool-act {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
-  height: var(--space-5);
+  min-width: var(--control-h-xs);
+  height: var(--control-h-xs);
   padding: 0 var(--space-1-5);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background: none;
-  color: var(--text-3);
+  color: var(--text-2);
   font: inherit;
   font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   cursor: pointer;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
+}
+.tsp-tool.inline > .tsp-tool-head .tsp-tool-act {
+  min-width: var(--lh-sm);
+  height: var(--lh-sm);
 }
 .tsp-tool-act:hover {
-  background: var(--bg-active);
+  background: var(--bg-hover);
   color: var(--text);
+}
+.tsp-tool-act:active {
+  background: var(--bg-active);
 }
 
 .tsp-tool-body {
@@ -2499,9 +2499,9 @@ button.tsp-sh-fold:focus-visible {
   padding-top: var(--space-2);
   box-shadow: inset 0 1px 0 var(--border-subtle);
 }
-/* "还有 N 行"和代码左缘对齐 */
+/* "还有 N 行"的文字和代码左缘对齐：按钮的左内边距（sm 按钮 --space-2-5）挪进左边的留白，悬停底色伸到留白里 */
 .tsp-tool-body .tsp-more {
-  padding-left: 0;
+  margin-left: calc(-1 * var(--space-2-5));
 }
 .tsp-row[data-role="omp.run.foot"] {
   color: var(--text-3);
@@ -2628,8 +2628,8 @@ button.tsp-sh-fold:focus-visible {
   background: var(--bg-hover);
 }
 .tsp-row[data-role="omp.tool.source"] .tsp-link:focus-visible::after {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 .tsp-row[data-role="omp.tool.source"] > .tsp-badge {
   grid-area: badge;
@@ -2687,8 +2687,8 @@ button.tsp-sh-fold:focus-visible {
   background: var(--bg-hover);
 }
 .tsp-agent-row:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .tsp-agent-g {
   display: inline-flex;
@@ -2977,6 +2977,8 @@ button.tsp-sh-fold:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 清单浮层：同 .ui-popover 的面（--bg-overlay、1px --border、--radius-xl、--shadow-2）。在对话区里就地弹出（不挂 body），
+   层级同 .ui-popover 用 --z-popover；--z-menu 是挂在 body 上、要盖过对话框遮罩的菜单 / 下拉用的。 */
 .tsp-ck-pop {
   position: absolute;
   right: 0;
@@ -2985,7 +2987,8 @@ button.tsp-sh-fold:focus-visible {
   width: max-content;
   max-width: calc(60 * var(--tsp-cw));
   padding: var(--space-2-5) var(--space-3);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   background: var(--bg-overlay);
   box-shadow: var(--shadow-2);
 }
@@ -3086,7 +3089,7 @@ button.tsp-sh-fold:focus-visible {
   cursor: default;
 }
 .tsp-icon[role="button"]:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 3px solid var(--focus-ring);
 }
 /* 表情反应（omp 的 tui.reactions）只是装饰，终端里也点不了：不画成胶囊按钮 */
 .tsp-badge[data-role="omp.reaction"] {

@@ -4,6 +4,9 @@ import { useT } from "../../i18n/use-t.ts";
 import { Check, ChevronRight, Close } from "../../icons.tsx";
 import { formatElapsed } from "../tsp/fmt.ts";
 import { Clamp } from "../tsp/Clamp.tsx";
+import { CHECK_GLYPH, CLOSE_GLYPH } from "../../ui/morph-glyphs.ts";
+import { RunGlyph, useRanHere } from "../../ui/RunGlyph.tsx";
+import { Button } from "../../ui/controls.tsx";
 
 /** 折叠时输出只显示最后这么多行（omp 的 bash 卡片也是最后 10 行，`fixtures/tsp/approval.jsonl`）。 */
 const BASH_TAIL_LINES = 10;
@@ -24,6 +27,8 @@ export function BashCard({
 }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
+  // 这次挂载里在跑过：转圈的弧跑完形变成 ✓ / ×；一挂上就跑完的画静态图标（ui/RunGlyph.tsx）。
+  const ran = useRanHere(state.kind === "running");
   const earlier = Math.max(0, lines.length - BASH_TAIL_LINES);
   const shown = expanded || earlier === 0 ? lines : lines.slice(-BASH_TAIL_LINES);
   const elapsed = state.kind !== "running" && state.elapsedMs !== null ? formatElapsed(state.elapsedMs) : null;
@@ -39,15 +44,16 @@ export function BashCard({
       {(lines.length > 0 || state.kind !== "running") && (
         <div className="bash-out">
           {earlier > 0 && (
-            <button
-              type="button"
+            <Button
+              variant="quiet"
+              size="sm"
               className="bash-earlier"
               aria-expanded={expanded}
               onClick={() => setExpanded(!expanded)}
             >
               {t("tool.bash.earlier", { count: earlier })}
               <ChevronRight size={12} className="bash-earlier-chevron" data-open={expanded || undefined} />
-            </button>
+            </Button>
           )}
           {lines.length > 0 ? (
             <pre
@@ -63,8 +69,12 @@ export function BashCard({
         </div>
       )}
       <div className="bash-foot" data-status={state.kind}>
-        {state.kind === "running" ? (
-          <span className="step-spin" aria-hidden="true" />
+        {ran ? (
+          <RunGlyph
+            running={state.kind === "running"}
+            result={state.kind === "failed" ? CLOSE_GLYPH : CHECK_GLYPH}
+            size={12}
+          />
         ) : state.kind === "done" ? (
           <Check size={12} />
         ) : (

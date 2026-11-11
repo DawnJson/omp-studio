@@ -7,8 +7,8 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Check, ChevronRight, Dots, FileIcon, Pencil, Search, Terminal, Users } from "../../icons.tsx";
-import { MorphIcon } from "../../ui/MorphIcon.tsx";
-import { CHECK_GLYPH, COPY_GLYPH } from "../../ui/morph-glyphs.ts";
+import { CopyGlyph, useCopy } from "../../ui/CopyGlyph.tsx";
+import { Badge, IconButton } from "../../ui/controls.tsx";
 import { FileLink } from "../file-preview/index.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { Markdown } from "../../markdown/index.ts";
@@ -104,7 +104,7 @@ function InfoSegment({ info }: { info: ToolInfo }) {
       return (
         <>
           {info.agents !== null && <span className="step-info">{t("tool.info.agents", { count: info.agents })}</span>}
-          {info.background && <span className="step-pill">{t("tool.info.background")}</span>}
+          {info.background && <Badge>{t("tool.info.background")}</Badge>}
         </>
       );
   }
@@ -224,22 +224,15 @@ function bodyText(body: ToolBody): string {
 
 function CopyButton({ text }: { text: string }) {
   const t = useT();
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   return (
-    <button
-      type="button"
-      className="step-action"
-      title={copied ? t("common.copied") : t("common.copy")}
-      aria-label={t("common.copy")}
-      onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        });
-      }}
+    <IconButton
+      label={t("common.copy")}
+      tip={copied ? t("common.copied") : t("common.copy")}
+      onClick={() => copy(text)}
     >
-      <MorphIcon glyph={copied ? CHECK_GLYPH : COPY_GLYPH} size={12} />
-    </button>
+      <CopyGlyph copied={copied} size={12} />
+    </IconButton>
   );
 }
 

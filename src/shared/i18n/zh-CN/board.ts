@@ -29,7 +29,6 @@ export const board = {
   todoAddPhase: "阶段",
   todoAddSubmit: "添加",
   todoCopyMarkdown: "复制为 Markdown",
-  todoCopied: "已复制待办（Markdown）",
   todoExpandAll: "展开全部",
   todoCollapseAll: "收起已完成的阶段",
 } satisfies Record<string, MessageEntry>;

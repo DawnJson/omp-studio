@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { htmlPreviewUrl, type PreviewFile } from "../../../../shared/ipc.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
+import { Button } from "../../ui/controls.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/index.ts";
 import { CodeBlock } from "../../markdown/CodeBlock.tsx";
@@ -159,9 +160,9 @@ export function PreviewContent({
         <div className="file-preview-note">
           <p>{file.kind === "binary" ? t("preview.binary") : t("preview.tooLarge", { size: formatSize(file.size) })}</p>
           {onExternal !== null && (
-            <button type="button" className="file-preview-external" onClick={onExternal}>
+            <Button size="sm" onClick={onExternal}>
               {file.canOpen ? t("preview.open") : t("preview.reveal")}
-            </button>
+            </Button>
           )}
         </div>
       );

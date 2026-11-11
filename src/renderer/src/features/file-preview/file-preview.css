@@ -171,11 +171,15 @@
   background: var(--accent-soft);
 }
 .file-tree:focus-visible .file-tree-row[data-cursor] {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .file-tree-row[data-ignored] {
   color: var(--text-3);
+}
+/* 被 .gitignore 忽略的行整行变淡，彩色的类型图标跟着淡下去 */
+.file-tree-row[data-ignored] .file-type-icon {
+  opacity: 0.55;
 }
 .file-tree-row svg {
   flex: none;
@@ -228,24 +232,6 @@
   font-size: var(--fs-sm);
   color: var(--text-2);
   text-align: center;
-}
-
-.file-preview-external {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  font: inherit;
-  color: var(--text);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-.file-preview-external:hover {
-  background: var(--bg-hover);
-}
-.file-preview-external:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }
 
 .file-preview-md {
@@ -327,8 +313,8 @@
   text-decoration: underline;
 }
 .file-link:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 
 /* 文件页顶部的工作区目录行（/add-dir）：任务目录 + 额外目录 + 添加按钮；窄时折行 */
@@ -347,6 +333,8 @@
   align-items: center;
   max-width: 100%;
 }
+/* 根目录胶囊：aria-pressed 单选，但每枚后面紧跟自己的 ×，不是一排连着的选项，所以不用 Segmented（spec §4.27「工作区目录」）。
+   样子同 Badge 一档（圆角、字号），未选描边，选中填 --bg-active */
 .file-preview-root {
   display: inline-flex;
   align-items: center;
@@ -356,11 +344,15 @@
   height: var(--control-h-xs);
   padding: 0 var(--space-2);
   font: inherit;
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   cursor: pointer;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .file-preview-root > span {
   overflow: hidden;
@@ -368,19 +360,21 @@
   white-space: nowrap;
 }
 .file-preview-root:hover:not(:disabled) {
+  color: var(--text);
   background: var(--bg-hover);
 }
 .file-preview-root[aria-pressed="true"] {
   color: var(--text);
-  background: var(--bg-raised);
+  background: var(--bg-active);
+  border-color: transparent;
 }
 .file-preview-root:disabled {
   color: var(--text-disabled);
   cursor: default;
 }
 .file-preview-root:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 /* 一行里的胶囊、移除、添加同高（--control-h-xs），添加按钮的字和胶囊同号。
    选择器带上 .file-preview-roots：单个类和 controls.css 的 .ui-icon-btn 同级，后加载的那个会把 --btn-h 改回 28 */

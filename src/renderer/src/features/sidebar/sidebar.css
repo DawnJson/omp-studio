@@ -26,8 +26,8 @@
 }
 
 .sb button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 
 .sb .icon {
@@ -47,7 +47,7 @@
   gap: var(--space-2);
   width: 100%;
   min-width: 0;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-2);
   color: var(--text-2);
   text-align: left;
@@ -99,7 +99,7 @@
 }
 /* 搜索框里的清除按钮比框矮一圈，贴在框内 */
 .ui-field .sb-search-clear {
-  --btn-h: 20px;
+  --btn-h: var(--control-h-xs);
 }
 
 /* ───── 等你确认条 ───── */
@@ -126,6 +126,14 @@
   height: 7px;
   background: var(--st-waiting);
   transform: rotate(45deg);
+}
+/* 文件夹头：组里有跑完还没看的任务（和行上的小圆点同色同形） */
+.sb-unread-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--st-done);
 }
 
 /* ───── 列表 ───── */
@@ -331,15 +339,21 @@
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
+/* "显示更多"是列表里的一行（跟着方向键走），字号、字重、颜色同 quiet sm 按钮，圆角同任务行 */
 .sb-show-more {
   width: 100%;
   height: var(--control-h-sm);
   padding: 0 var(--space-2) 0 var(--space-8);
-  border-radius: var(--radius-sm);
-  color: var(--text-3);
-  font-size: var(--fs-xs);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .sb-show-more:hover {
+  color: var(--text);
   background: var(--bg-hover);
 }
 
@@ -436,7 +450,8 @@
   color: var(--text-2);
 }
 .sb-row[data-selected="true"] .sb-row-main,
-.sb-row[data-status="needs_you"] .sb-row-main {
+.sb-row[data-status="needs_you"] .sb-row-main,
+.sb-row[data-unread] .sb-row-main {
   color: var(--text);
 }
 .sb-row-title {
@@ -487,7 +502,8 @@
     opacity var(--dur-fast) var(--ease-out),
     visibility 0s linear var(--dur-fast);
 }
-/* 改名框的文字和原来的标题对齐：框往左伸出 内边距 + 描边，字不跳（2026-10-29：原来右移 7px） */
+/* 改名框的文字和原来的标题对齐：框往左伸出 内边距 + 描边，字不跳（2026-10-29：原来右移 7px）。
+   框同 .ui-field（边框、底色、阴影、聚焦灰环），只是高度是行内的 sm */
 .sb-rename {
   flex: 1;
   min-width: 0;
@@ -497,10 +513,17 @@
   font: inherit;
   color: var(--text);
   background: var(--bg-raised);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-  outline: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-xs);
+  outline: 2px solid transparent;
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
+}
+.sb-rename:focus {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--ring-soft);
 }
 
 /* ───── 状态图标：14px 放在 16×16 槽位里；形状 + 颜色双信号（进行中转动的弧 / 需要介入琥珀底 ! / 失败红底 × / 历史会话中断虚线圈暂停号；正常结束不画） ───── */
@@ -531,6 +554,10 @@
 }
 .sb-dot-interrupted {
   color: var(--text-3);
+}
+/* 后台跑完还没看过：绿色小圆点（2026-11-11 仓库所有者定，绿色） */
+.sb-dot-unread {
+  color: var(--st-done);
 }
 .sb-dot-fill {
   fill: currentColor;
@@ -602,7 +629,8 @@
 .sb-dot-running,
 .sb-dot-waiting,
 .sb-dot-error,
-.sb-dot-interrupted {
+.sb-dot-interrupted,
+.sb-dot-unread {
   /* StatusDot 按状态种类换 key：换了状态就是新节点，淡入而不是瞬间换形状。 */
   animation: fade-in var(--dur-base) var(--ease-out);
 }

@@ -394,8 +394,8 @@
   display: none;
 }
 .qm-quota-scroll:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .qm-quota-list {
   display: flex;

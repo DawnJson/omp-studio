@@ -87,12 +87,18 @@ describe("等你确认", () => {
 });
 
 describe("dotKind", () => {
-  it("等你 > 出错 > 进行中；正常结束、被停止和从没跑过的不画", () => {
+  it("等你 > 出错 > 进行中 > 跑完没看；看过的正常结束、被停止和从没跑过的不画", () => {
     expect(dotKind(task("t", "p", { status: "needs_you", unread: true }))).toBe("waiting");
     expect(dotKind(task("t", "p", { status: "error" }))).toBe("error");
     expect(dotKind(task("t", "p", { lastTurn: { status: "error", endedAt: 1 } }))).toBe("error");
     expect(dotKind(task("t", "p", { status: "running" }))).toBe("running");
-    expect(dotKind(task("t", "p", { unread: true, lastTurn: { status: "completed", endedAt: 1 } }))).toBe("none");
+    // 后台正常结束、还没点开看：绿点；又开始跑了就是进行中；看过（unread 清掉）不画。
+    expect(dotKind(task("t", "p", { unread: true, lastTurn: { status: "completed", endedAt: 1 } }))).toBe("unread");
+    expect(
+      dotKind(task("t", "p", { status: "running", unread: true, lastTurn: { status: "completed", endedAt: 1 } })),
+    ).toBe("running");
+    expect(dotKind(task("t", "p", { lastTurn: { status: "completed", endedAt: 1 } }))).toBe("none");
+    expect(dotKind(task("t", "p", { unread: true, lastTurn: { status: "aborted", endedAt: 1 } }))).toBe("none");
     expect(dotKind(task("t", "p", { lastTurn: { status: "aborted", endedAt: 1 } }))).toBe("none");
     expect(dotKind(task("t", "p"))).toBe("none");
     expect(dotKind(task("t", "p", { status: "stopped" }))).toBe("none");

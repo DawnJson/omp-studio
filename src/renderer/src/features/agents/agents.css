@@ -131,8 +131,8 @@
   margin-top: calc((var(--lh-sm) - 8px) / 2);
 }
 .agents-row:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .agents-row-main {
   display: flex;
@@ -156,18 +156,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 同 Badge 的高、字号、字重、圆角、底色；不用 <Badge>：标签在窄面板里要能收缩省略，Badge 是 flex: none */
 .agents-chip {
   flex: 0 1 auto;
   min-width: 0;
+  height: 20px;
   overflow: hidden;
   padding: 0 var(--space-1-5);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 20px;
   color: var(--text-2);
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--bg-sunken);
-  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
 }
 /* 右端状态 / 进度环占一样宽、靠右：状态文字和"66%"互换时左边的用时不跟着横跳（2026-11-09 仓库所有者：行一直闪） */
 .agents-row-status {
@@ -464,8 +467,8 @@
   background: var(--bg-hover);
 }
 .agents-act-row:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .agents-act-time {
   color: var(--text-3);

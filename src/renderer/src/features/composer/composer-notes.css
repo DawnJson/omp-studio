@@ -86,6 +86,7 @@
 .run-ext + .run-pills {
   margin-left: 0;
 }
+/* 同 Badge 的样子（--fs-xs 中粗、--radius-md、实底无框）；高度不是 Badge 的 20，是和同一行的药丸、取消 / 重试按钮同一档 --control-h-xs（spec 4.14） */
 .run-ext-tag {
   /* 块级盒才有省略号（flex 容器里的文字不省略）：高度靠行高撑成 24 */
   display: inline-block;
@@ -94,11 +95,13 @@
   line-height: var(--control-h-xs);
   padding: 0 var(--space-2);
   overflow: hidden;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--bg-hover);
-  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
 }
 
 /* 聚焦子代理：状态行上方一行横幅。 */

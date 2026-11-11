@@ -1,5 +1,6 @@
 // 状态图标（spec §4.1）：16×16 槽位里放 14px 的图标，形状 + 颜色双信号——进行中是转动的弧，需要介入是琥珀圆底 !，
-// 失败是红圆底 ×，历史会话中断（停在工具调用 / 长度上限）是虚线圈里一个暂停号。正常结束、从没跑过和被停止的不画，但槽位保留让标题对齐。
+// 失败是红圆底 ×，历史会话中断（停在工具调用 / 长度上限）是虚线圈里一个暂停号，后台跑完还没看过是 accent 小圆点。
+// 看过的正常结束、从没跑过和被停止的不画，但槽位保留让标题对齐。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { SessionSummary, TaskState } from "../../../../shared/ipc.ts";
 import { dotKind, sessionDotKind, type DotKind } from "../../../../shared/ui/sidebar-model.ts";
@@ -37,6 +38,8 @@ function Glyph({ kind }: { kind: Kind }) {
           <path className="sb-dot-stroke" d="M6.4 5.6v4.8M9.6 5.6v4.8" />
         </>
       );
+    case "unread":
+      return <circle className="sb-dot-fill" cx="8" cy="8" r="3.5" />;
   }
 }
 
@@ -58,7 +61,14 @@ function StatusMark({ kind, label, title }: { kind: DotKind; label: string; titl
 
 export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
   const kind = dotKind(task);
-  const label = kind === "running" ? t("status.running") : kind === "waiting" ? t("status.waiting") : t("status.error");
+  const label =
+    kind === "running"
+      ? t("status.running")
+      : kind === "waiting"
+        ? t("status.waiting")
+        : kind === "unread"
+          ? t("status.unread")
+          : t("status.error");
   return <StatusMark kind={kind} label={label} />;
 }
 

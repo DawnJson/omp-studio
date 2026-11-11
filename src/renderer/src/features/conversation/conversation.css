@@ -42,8 +42,8 @@
   background: var(--bg-hover);
 }
 .step-row:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .step-icon {
   display: grid;
@@ -87,16 +87,7 @@
   color: var(--diff-del-fg);
   font-variant-numeric: tabular-nums;
 }
-.step-pill {
-  flex: none;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--text-2);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-}
-/* 运行中的工具调用（子代理记录里结果还没写进来的那次）：工具行右侧和 bash 卡片脚里的小转圈。 */
+/* 运行中的工具调用（子代理记录里结果还没写进来的那次）：工具行右侧的小转圈（bash 卡片脚是 ui/RunGlyph.tsx）。 */
 .step-spin {
   flex: none;
   width: var(--space-2-5);
@@ -187,26 +178,7 @@
 .step-head:focus-within .step-actions {
   opacity: 1;
 }
-.step-action {
-  display: grid;
-  place-items: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-}
-.step-action:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-.step-action:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
+/* 复制键是 ui IconButton（.ui-icon-btn，sm 方形、悬停 --bg-hover），这里不另画 */
 .step-chevron {
   transition: transform var(--dur-base) var(--ease-out);
 }
@@ -306,7 +278,8 @@ html[data-motion="reduced"] .step-actions {
   padding: 0 var(--space-2);
 }
 
-/* 文件胶囊（Read / Glob / Grep 文件头）：图标 + 淡色目录 + 正常色文件名，等宽。行高 = --row-tool。 */
+/* 文件胶囊（Read / Glob / Grep 文件头）：图标 + 淡色目录 + 正常色文件名，等宽。行高 = --row-tool。
+   点开文件预览的按钮，样子同带描边的徽标（--radius-md，1px --border-subtle），不是输入框工具条的胶囊；键盘焦点走全局 :focus-visible。 */
 .file-chips {
   display: flex;
   flex-wrap: wrap;
@@ -318,9 +291,9 @@ html[data-motion="reduced"] .step-actions {
   gap: var(--space-1-5);
   max-width: 100%;
   height: calc(var(--row-tool) - var(--space-1));
-  padding: 0 var(--space-2-5);
+  padding: 0 var(--space-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--text-2);
   font-family: var(--font-mono);
@@ -329,14 +302,6 @@ html[data-motion="reduced"] .step-actions {
 }
 .file-chip:hover {
   background: var(--bg-hover);
-}
-.file-chip:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.file-chip svg {
-  flex: none;
-  color: var(--text-3);
 }
 .file-chip-path {
   min-width: 0;
@@ -353,7 +318,7 @@ html[data-motion="reduced"] .step-actions {
 .file-chip-count {
   flex: none;
   padding: 0 var(--space-1-5);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--bg-active);
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
@@ -382,25 +347,10 @@ html[data-motion="reduced"] .step-actions {
   padding: var(--space-2) var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
-.bash-earlier {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-bottom: var(--space-1);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-3);
+/* "N 行更早的输出"：<Button variant="quiet" size="sm">；文字和输出左缘对齐（按钮左内边距挪进卡片留白），字体用正文字体（输出是等宽） */
+.bash-out > .bash-earlier {
+  margin: 0 0 var(--space-1) calc(-1 * var(--space-2-5));
   font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-.bash-earlier:hover {
-  color: var(--text);
-}
-.bash-earlier:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }
 .bash-earlier-chevron {
   transform: rotate(-90deg);

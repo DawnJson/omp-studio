@@ -12,6 +12,7 @@ import {
   expandSidebarFolders,
   expectNoOverflow,
   launchApp,
+  lockClipboard,
   openTaskRow,
   setLocaleTheme,
   type LaunchedApp,
@@ -193,6 +194,18 @@ test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、�
     // 任务的会话在置顶文件里：侧栏这一行带图钉，任务菜单给"取消置顶"。
     await expect(page.getByTestId("task-row").first().getByTestId("sidebar-row-pinned")).toBeVisible();
     await expect(page.getByTestId("sidebar-session").getByTestId("sidebar-row-pinned")).toHaveCount(0);
+    // 任务菜单的"复制会话 ID"：菜单一关就看不到按钮了，复制成功要有 toast，剪贴板里是会话 ID。
+    const unlock = await lockClipboard();
+    try {
+      await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
+      await page.getByTestId("task-menu").click();
+      await page.getByRole("menuitem", { name: /复制会话 ID|Copy session ID/ }).click();
+      await expect(page.getByTestId("toasts")).toContainText(/已复制|Copied/);
+      await expect.poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(SESSION_ID);
+    } finally {
+      await unlock();
+    }
+    await expect(page.getByTestId("task-menu")).toHaveAttribute("aria-expanded", "false");
     await page.getByTestId("task-menu").click();
     await expect(page.getByTestId("task-menu-pin")).toHaveText(/取消置顶|Unpin/);
     await page.getByRole("menuitem", { name: /会话信息|Session info/ }).click();

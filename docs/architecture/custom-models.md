@@ -182,4 +182,4 @@ omp 的 `generate_image` 工具用 `modelRoles.image` 的模型，工具本身�
 
 ## 界面（3.2）
 
-自定义提供商是列表行（`编辑` + ⋯（删除，先 `ConfirmDialog`）；覆盖内置 provider 的条目编辑打开 `ProviderOverrideDialog`）；添加 / 编辑是固定高度的大对话框（`CustomProviderForm`）：连接信息（ID、接口类型、Base URL、key），模型一栏顶上是工具栏（拉取模型、自动发现开关、移除失效的、筛选），下面是模型表网格（`.cp-model-table`，表头吸顶、在表里滚动）：id（可带 `已失效`）、类型、思考、图片输入、上下文窗口、最大输出、×。尺寸和布局细节见 spec §4.20。
+自定义提供商是卡片（铅笔编辑、垃圾桶删除，删除先 `ConfirmDialog`；覆盖内置 provider 的条目编辑打开 `ProviderOverrideDialog`）；添加 / 编辑是大对话框（高度跟内容走，有上限）（`CustomProviderForm`）：连接信息（ID、接口类型、Base URL、key），模型一栏顶上是工具栏（拉取模型、自动发现开关、移除失效的、筛选），下面是模型表网格（`.cp-model-table`，表头吸顶、在表里滚动）：id（可带 `已失效`）、类型、思考、图片输入、上下文窗口、最大输出、×。尺寸和布局细节见 spec §4.20。

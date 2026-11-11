@@ -64,23 +64,28 @@
   color: var(--text-3);
   white-space: nowrap;
 }
+/* 卡片右上角的 ✕：压在卡片边上的小图标键（20 高 = Badge 一档，--radius-control，1px --border + --shadow-xs 浮起）；
+   悬停 --text + 叠一层 --bg-hover（底色保持不透明，不透出下面的卡片）。键盘焦点走全局 :focus-visible。 */
 .attachment-remove {
   position: absolute;
   top: calc(var(--space-1) * -1);
   right: calc(var(--space-1) * -1);
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: calc(var(--control-h-xs) - var(--space-1));
+  height: calc(var(--control-h-xs) - var(--space-1));
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--bg-overlay);
+  box-shadow: var(--shadow-xs);
   color: var(--text-2);
   font: inherit;
   cursor: pointer;
   opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .attachment:hover .attachment-remove,
 .attachment-remove:focus-visible {
@@ -88,10 +93,7 @@
 }
 .attachment-remove:hover {
   color: var(--text);
-}
-.attachment-remove:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  background-image: linear-gradient(var(--bg-hover), var(--bg-hover));
 }
 /* 大段粘贴的卡片（Attachments.tsx）：整张卡片（除了 ✕）是一个按钮，点开预览浮层；第二行是第一行非空文字，单行省略。 */
 .attachment-open {
@@ -108,8 +110,8 @@
   cursor: pointer;
 }
 .attachment-open:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
   border-radius: var(--radius-sm);
 }
 .attachment-line {
@@ -133,8 +135,8 @@
   white-space: pre;
 }
 .paste-preview:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 .paste-preview-foot {
   display: flex;

@@ -4,6 +4,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { ChevronDown } from "../../icons.tsx";
+import { Button } from "../../ui/controls.tsx";
 import { labels } from "./labels.ts";
 
 interface ClampProps {
@@ -54,8 +55,9 @@ export function Clamp({ lines, tail = false, onExpand, className, lineCount, chi
   const clamped = active && hidden > 0;
   const style: CSSProperties | undefined = clamped ? { maxHeight: `calc(${lines} * var(--tsp-lh))` } : undefined;
   const label = (
-    <button
-      type="button"
+    <Button
+      variant="quiet"
+      size="sm"
       className="tsp-more"
       data-tail={tail || undefined}
       onClick={(event) => {
@@ -66,7 +68,7 @@ export function Clamp({ lines, tail = false, onExpand, className, lineCount, chi
     >
       {tail ? labels.earlierLines(hidden) : labels.moreLines(hidden)}
       <ChevronDown size={12} />
-    </button>
+    </Button>
   );
   return (
     <div className={className} data-clamped={clamped || undefined}>
@@ -76,9 +78,9 @@ export function Clamp({ lines, tail = false, onExpand, className, lineCount, chi
       </div>
       {clamped && !tail && label}
       {!active && expanded && onExpand === undefined && lines !== null && hidden > 0 && (
-        <button type="button" className="tsp-more" onClick={() => setExpanded(false)}>
+        <Button variant="quiet" size="sm" className="tsp-more" onClick={() => setExpanded(false)}>
           {labels.showLess}
-        </button>
+        </Button>
       )}
     </div>
   );

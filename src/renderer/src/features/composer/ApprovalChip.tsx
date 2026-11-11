@@ -7,7 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ApprovalMode, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Pencil, Shield, ShieldCheck, ShieldOff } from "../../icons.tsx";
+import { MorphIcon, type MorphGlyph } from "../../ui/MorphIcon.tsx";
+import { PENCIL_GLYPH, SHIELD_CHECK_GLYPH, SHIELD_GLYPH, SHIELD_OFF_GLYPH } from "../../ui/morph-glyphs.ts";
 import { useSettings } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded } from "../settings/config-store.ts";
@@ -16,16 +17,17 @@ import { MenuList, type MenuEntry } from "../../ui/Menu.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { useApprovalMode } from "./use-approval-mode.ts";
 
-const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey; icon: typeof Shield }[] = [
-  { mode: "always-ask", label: "approval.alwaysAsk", desc: "approval.desc.alwaysAsk", icon: Shield },
+// 换档时胶囊上的图标从上一档形变过去（spec §2.6"图标形变"）。
+const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey; glyph: MorphGlyph }[] = [
+  { mode: "always-ask", label: "approval.alwaysAsk", desc: "approval.desc.alwaysAsk", glyph: SHIELD_GLYPH },
   {
     mode: "always-ask-cached",
     label: "approval.alwaysAskCached",
     desc: "approval.desc.alwaysAskCached",
-    icon: ShieldCheck,
+    glyph: SHIELD_CHECK_GLYPH,
   },
-  { mode: "write", label: "approval.write", desc: "approval.desc.write", icon: Pencil },
-  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo", icon: ShieldOff },
+  { mode: "write", label: "approval.write", desc: "approval.desc.write", glyph: PENCIL_GLYPH },
+  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo", glyph: SHIELD_OFF_GLYPH },
 ];
 
 /**
@@ -48,7 +50,6 @@ export function ApprovalChip({
   const value = approval.info === null ? startupSnapshot().approvalMode : approval.info.mode;
   const currentEntry = modes.find((entry) => entry.mode === value);
   const current = currentEntry?.mode;
-  const ModeIcon = currentEntry?.icon ?? Shield;
   const source =
     approval.info === null
       ? ""
@@ -130,7 +131,7 @@ export function ApprovalChip({
         title={chipName}
         onClick={() => setOpen((value) => !value)}
       >
-        <ModeIcon size={14} />
+        <MorphIcon glyph={currentEntry?.glyph ?? SHIELD_GLYPH} size={14} />
         {currentEntry ? (
           <span className="chip-mode">{t(currentEntry.label)}</span>
         ) : (

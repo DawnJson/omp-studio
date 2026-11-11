@@ -642,9 +642,10 @@ test("空状态、对话里的用量", async () => {
       overview.boundingBox(),
       overview.getByTestId("heatmap-section").boundingBox(),
     ]);
+    // 允许的空 = 正文下内边距（--space-5）+ 12 的余量。
     expect(
       (emptyDialogBox?.y ?? 0) + (emptyDialogBox?.height ?? 0) - (emptyHeatBox?.y ?? 0) - (emptyHeatBox?.height ?? 0),
-    ).toBeLessThanOrEqual(16);
+    ).toBeLessThanOrEqual(32);
     await overview.getByRole("button", { name: /^(关闭|Close)$/ }).click();
     await expect(overview).toHaveCount(0);
     if (viewportBefore) await page.setViewportSize(viewportBefore);

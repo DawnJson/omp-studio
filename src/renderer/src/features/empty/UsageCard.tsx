@@ -3,6 +3,7 @@
 // 读不到（出错且没有缓存）就不显示这张卡片；omp 还没建过统计库时只写一句说明，不编数字。
 import { useEffect, useMemo } from "react";
 import { useT } from "../../i18n/use-t.ts";
+import { Badge } from "../../ui/controls.tsx";
 import { loadHeatmap, useUsageHeatmap } from "../composer/usage-store.ts";
 import { formatCost } from "../tsp/fmt.ts";
 import { formatTokens } from "../tsp/turn-footer.ts";
@@ -95,7 +96,7 @@ export function UsageCard() {
             )}
           </div>
         </div>
-        {data !== null && <span className="eu-chip">{t("empty.usageToday", { value: today })}</span>}
+        {data !== null && <Badge>{t("empty.usageToday", { value: today })}</Badge>}
       </div>
       <DotChart
         overview={overview}

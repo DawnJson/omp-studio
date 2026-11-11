@@ -49,7 +49,7 @@
 
 ## 2.4 间距、尺寸、层级
 
-见 `tokens.css`。规则：**组件里不出现表外的数**（除了 1px 描边、2px 焦点环/竖条、组件私有的固定像素如 8px 状态点，这些在 §4 里逐个写明）。窄窗断点（媒体查询不能用变量）：`<1000px` 侧栏抽屉并缩小 `--gutter`。命令面板不用断点，宽 `min(var(--palette-w), calc(100vw - var(--space-8)))`。
+见 `tokens.css`。规则：**组件里不出现表外的数**（除了 1px 描边、3px 焦点环、2px 竖条、组件私有的固定像素如 8px 状态点，这些在 §4 里逐个写明）。窄窗断点（媒体查询不能用变量）：`<1000px` 侧栏抽屉并缩小 `--gutter`。命令面板不用断点，宽 `min(var(--palette-w), calc(100vw - var(--space-8)))`。
 
 层叠上下文：`.composer-stack` 是 `--z-sticky + 1` 的层叠上下文，里面的 `--z-popover` 出不去。输入框上方要能和 omp 弹窗（过程区的 layer，`--z-popover`）同时出现的浮层挂到 body 上（`createPortal`，如 `StatusPills.tsx` 的 `JobsCard`），不在输入框里调 z-index。
 
@@ -59,10 +59,11 @@
 |---|---|---|
 | 表面 | `--bg-sidebar` < `--bg-app` < `--bg-raised` < `--bg-overlay`；`--bg-sunken` 是凹进去的代码/展开区；`--bg-tool` 是过程卡片、中性卡片的底 | 用层级而不是颜色分区 |
 | 交互态 | `--bg-hover`、`--bg-active`、`--bg-scrim` | `:active` 无位移、无缩放 |
-| 线 | `--border-subtle`（分隔）/ `--border`（外框）/ `--border-strong`（hover、输入框默认描边） | — |
+| 线 | `--border-subtle`（分隔）/ `--border`（外框）/ `--border-strong`（hover）/ `--input-border`（输入框、勾选框、关着的开关） | — |
 | 文本 | `--text` / `--text-2` / `--text-3` / `--text-disabled` / `--text-on-accent` | `--text-3` 只用于次要元信息，不用于可操作文字；在较亮的底上对比度较低，见下方例外 |
-| 强调 | `--accent` / `--accent-soft` / `--focus-ring` / `--link` / `--selection-bg` | 鸢尾紫（3.0）；只给进行中、主输入焦点、链接、上下文圆环、开关、选中 |
-| 主按钮 | `--primary` / `--primary-hover` / `--text-on-primary` | 浅色近黑底白字，深色近白底深字；每个视图最多一个 |
+| 强调 | `--accent` / `--accent-soft` / `--link` / `--selection-bg` | 鸢尾紫（3.0）；只给进行中、链接、上下文圆环这类状态；控件的选中和焦点不用它（§4.23） |
+| 焦点 | `--focus-ring`（按钮等键盘焦点的 3px 外环）/ `--ring` + `--ring-soft`（输入框聚焦的描边和光环） | 中性灰，跟着每个主题的正文色走，主题里不单独写（仓库所有者定，2026-11-11，照 shadcn/ui） |
+| 主按钮 | `--primary` / `--primary-hover` / `--text-on-primary` | 浅色近黑底白字，深色近白底深字；每个视图最多一个；开关、勾选框、单选的选中也用它 |
 | 状态 | `--st-running`（=强调色）、`--st-waiting`（点）+ `--st-waiting-text`（字）+ `--st-waiting-soft`、`--st-done`、`--st-error` + `--st-error-soft` | 四个语义色之外界面是灰的 |
 | 代码 | `--syn-*`（7 色）；`--diff-add-fg` / `--diff-del-fg`（改动卡片的 +N/−N 文字和行数条） | 评审里的行背景 `--diff-add-bg` / `--diff-del-bg` |
 | 气泡 | `--bg-bubble` | 只给"你的消息"气泡（§4.8） |
@@ -84,7 +85,7 @@
 | 命令面板出现 / 消失（`palette.css`、`CommandPalette.tsx`；键盘高频，不弹簧） | 遮罩连面板只淡入 / 淡出，不位移不缩放 | `--dur-fast` `--ease-out` / `--dur-fast-exit` `--ease-in` |
 | 过程行展开/折叠 | `grid-template-rows: 0fr↔1fr` + 内容 opacity | `--dur-base` `--ease-out` |
 | 输入框首次发送 | 不做 FLIP：草稿发出第一句话后输入框留在原位，换成任务的输入框时不放换页入场（`motion.css`） | - |
-| 图标形变（`ui/MorphIcon.tsx`，依赖 `morphicons`，2026-11-09 仓库所有者批准）：发送 ↑ ↔ 停止 ■（§4.14，同一个按钮、同一个图标元素）、复制 → 对勾、提示词优化 ✦ ↔ ×、浏览器刷新 ↻ ↔ ×、切换侧栏（§3.1） | 同一个 `<svg><path>` 的 `d` 从旧图标按弹簧变成新图标；按钮底色照旧用 CSS 过渡。图标几何和静态图标同一份（`src/icons.tsx` 的 `*_NODE`，模块加载时换算到 morphicons 的 24 栅格一次，`ui/morph-glyphs.ts`），描边按 `--icon-stroke` 换算，静止时和静态图标一样粗 | morphicons 的 `snappy` 弹簧；减少动效时直接换成目标图标 |
+| 图标形变（`ui/MorphIcon.tsx`，依赖 `morphicons`，2026-11-09 仓库所有者批准）：发送 ↑ ↔ 停止 ■（§4.14，同一个按钮、同一个图标元素）、复制 → 对勾（所有复制图标按钮共用 `ui/CopyGlyph.tsx`：代码块、工具卡和工具行的复制、旁路提问的复制答案、待办板复制为 Markdown、补的用量行的复制回答、登录对话框的复制链接；对勾停 1.2s 变回，读屏播报 `common.copied`，不另弹 toast）、提示词优化 ✦ ↔ ×、浏览器刷新 ↻ ↔ ×、切换侧栏（§3.1）、审批胶囊换档（§5.8）、key 输入框显示 ↔ 隐藏（眼睛 ↔ 划掉的眼睛，§4.20）、运行中的弧 → ✓ / × / ⊘（工具卡、工具组标题行、bash 卡片脚，`ui/RunGlyph.tsx`：外层盒子转圈，跑完摘掉旋转、弧回到顶上再变形；只有这次挂载里跑过的槽挂形变，一挂上就跑完的画静态图标，一批卡片同时跑完也只有它们在变） | 同一个 `<svg><path>` 的 `d` 从旧图标按弹簧变成新图标；按钮底色照旧用 CSS 过渡。图标几何和静态图标同一份（`src/icons.tsx` 的 `*_NODE`，模块加载时换算到 morphicons 的 24 栅格一次，`ui/morph-glyphs.ts`），描边按 `--icon-stroke` 换算，静止时和静态图标一样粗 | morphicons 的 `snappy` 弹簧；减少动效时直接换成目标图标 |
 | 用户消息出现 | `translateY(var(--travel-md))→0` + opacity | `--dur-base` `--ease-out` |
 | 侧栏折叠/抽屉（`app.css` `.sidebar-column`） | `translateX`；主区宽度**立即变一次**，不逐帧（收起和抽屉时侧栏 `position: absolute` 盖在主区上滑出）。不过渡列宽：长对话每帧重排，一次开合排版 60ms 以上 | `--dur-slow` `--ease-out` |
 | 右栏打开（文件面板、子代理面板，`file-preview.css` 的 `panel-in`） | 整块从窗口右边 `translateX` 滑进；主区宽度立即变一次。关闭不放动画 | `--dur-slow` `--ease-out` |
@@ -101,7 +102,7 @@
 | 侧栏任务行重排、新增删除补位（`ui/flip.ts` `useFlip`，`FolderGroup.tsx`） | FLIP：留下的行从旧位置 `translateY` 回 0；只在同一分组的 key 顺序变化时放，首次渲染、展开折叠、拖宽、跨分组不放；减少动效不放 | `--dur-base` `--ease-out` |
 | toast 消失后其余补位（`Toasts.tsx`，同 `useFlip`） | 同上；消失那条的退场不变 | `--dur-base` `--ease-out` |
 | 对话线跳转落点（`ConversationLine.tsx` `flashLanding`） | 目标消息 `--accent-soft` 底 + 2px `--accent` 环淡掉；只动颜色，减少动效时也放 | 900ms `--ease-out` |
-| 工具卡 / 子代理行从运行中变完成（`tsp/nodes/work.tsx` `useJustFinished`，`tsp.css` `.tsp-draw-check`） | ✓ 用 `stroke-dashoffset` 描边画出，运行中的淡紫底过渡褪掉；✓ 常驻（issue #9）；描边动画只在已挂载的卡片状态变化时放，历史、切任务、重挂载不放 | 画出 `--dur-base` `--ease-out`；淡出 `max(--dur-base, --dur-fade)`；减少动效时直接显示 |
+| 工具卡 / 子代理行从运行中变完成（工具卡见上“图标形变”；子代理行 `tsp/nodes/work.tsx` `useJustFinished`，`tsp.css` `.tsp-draw-check`） | 工具卡的弧形变成 ✓，子代理行的 ✓ 用 `stroke-dashoffset` 描边画出；运行中的淡紫底过渡褪掉；✓ 常驻（issue #9）；动画只在已挂载的卡片状态变化时放，历史、切任务、重挂载不放 | 画出 `--dur-base` `--ease-out`；淡出 `max(--dur-base, --dur-fade)`；减少动效时直接显示 |
 | 一批子代理行 / 作业磁贴同时出现（`tsp/entrance.ts`，`tsp.css` `.tsp-enter`） | opacity + `translateY(--travel-sm)`，同一批每格错开一点（错开上限见 `entrance.ts`），后来单个出现的不延迟；按节点 id 只算出生一次，切任务、重开不放 | `max(--dur-base, --dur-fade)` `--ease-out`；减少动效时纯淡入、不错开 |
 | 对话图片点开放大 / 关闭（`tsp/zoom-store.ts`，`tsp.css`） | View Transition：缩略图与大图共用 `view-transition-name: tsp-zoom`，从缩略图位置放大、关时缩回；遮罩随 root 淡入淡出；←/→ 切图只换图；缩略图已卸载或出视口时只淡出；规则带 `:root[data-tsp-zoom-vt]` 前缀，不影响切主题的整窗过渡；减少动效时只淡入淡出 | `--dur-base` `--ease-out`（减少动效 `--dur-fade`） |
 | 窗口出现 / 消失（`main-window.ts` 的 `revealWindow` / `concealWindow`，整窗 `BrowserWindow.setOpacity` 逐帧渐变） | 启动、从托盘 / 第二个实例 / 通知 / Dock 带回时整窗淡入；点 × 隐藏、退出（托盘“退出”、⌘Q、安装更新、注销）时整窗淡出再隐藏。最小化 / 还原仍是系统动画；系统自己的开关窗动画落在透明窗口上看不见，不叠两层。见下方「整窗淡入淡出」 | 自己的时长和曲线，不套 tokens.css（`main-window.ts` 的 `windowEnterMs` 等）；减少动效时只剩 `--dur-fade` |

@@ -21,17 +21,17 @@
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  cursor: default;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
   transition:
     background-color var(--dur-instant) var(--ease-out),
     border-color var(--dur-instant) var(--ease-out);
 }
 .topbar-branch:hover,
 .topbar-branch[aria-expanded="true"] {
+  color: var(--text);
   background: var(--bg-hover);
-  border-color: var(--border);
 }
 .topbar-branch:active {
   background: var(--bg-active);
@@ -73,13 +73,14 @@
   font-size: var(--fs-code-sm);
   font-variant-numeric: tabular-nums;
   background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  cursor: default;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background-color var(--dur-instant) var(--ease-out);
 }
 .topbar-pr:hover {
+  color: var(--text);
   background: var(--bg-hover);
-  border-color: var(--border);
 }
 .topbar-pr:active {
   background: var(--bg-active);

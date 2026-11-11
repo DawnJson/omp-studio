@@ -16,8 +16,12 @@ import { isRecord } from "../../../../../shared/type-guards.ts";
 import { nodeRole } from "../../../../../shared/tsp/document.ts";
 import { ASK_TOOL_NODES, ASK_TOOL_ROLE, openAskTool, sameOpenAskTool } from "../../../../../shared/tsp/ask-gate.ts";
 import { labels } from "../labels.ts";
-import { Check, ChevronDown, CopyIcon } from "../../../icons.tsx";
-import { copyText, openHref, runAction } from "../actions.ts";
+import { Check, ChevronDown } from "../../../icons.tsx";
+import { openHref, runAction } from "../actions.ts";
+import { CopyGlyph, useCopy } from "../../../ui/CopyGlyph.tsx";
+import type { MorphGlyph } from "../../../ui/MorphIcon.tsx";
+import { CHECK_GLYPH, TSP_SLASH_CIRCLE_GLYPH, TSP_X_CIRCLE_GLYPH } from "../../../ui/morph-glyphs.ts";
+import { RunGlyph, useRanHere } from "../../../ui/RunGlyph.tsx";
 import { Clamp } from "../Clamp.tsx";
 import { FoldCtx, NO_FOLD, OPEN_FOLD, type FoldState } from "../fold-context.ts";
 import { clamp01, formatCost, formatCount, formatElapsed } from "../fmt.ts";
@@ -150,8 +154,8 @@ function AskTarget({ p, id, ctx }: { p: Readonly<Record<string, unknown>>; id: s
 }
 
 /**
- * 这次渲染里从运行中变成完成（卡片重挂载清零）：这一次的 ✓ 用描边画出来。
- * 工具卡和子代理行的 ✓ 都常驻（工具卡 2026-11-09 起，issue #9 照 ompweb：收起的卡一眼看出成没成；之前画完就淡出）。
+ * 子代理行这次渲染里从运行中变成完成（行重挂载清零）：这一次的 ✓ 用描边画出来，之后常驻。
+ * 工具卡的状态槽不走这里，弧形变成结果（ToolStatusGlyph）。
  */
 function useJustFinished(running: boolean): boolean {
   const [finished, setFinished] = useState(false);
@@ -164,13 +168,37 @@ function useJustFinished(running: boolean): boolean {
   return finished;
 }
 
-function ToolStatusGlyph({ status, fresh }: { status: ToolStatus; fresh: boolean }) {
-  if (status === "running") return <i className="tsp-tool-spin" />;
-  if (status === "error") return <TspIcon name="x-circle" />;
-  if (status === "cancelled") return <TspIcon name="slash-circle" />;
-  if (status !== "done") return null;
+/** 跑完的结果：图标的形变目标（RunGlyph）和对应的静态 TSP 图标名；没有结果图标的状态（pending 等）为 null。 */
+function toolResult(status: ToolStatus): { glyph: MorphGlyph; icon: string } | null {
+  if (status === "done") return { glyph: CHECK_GLYPH, icon: "check" };
+  if (status === "error") return { glyph: TSP_X_CIRCLE_GLYPH, icon: "x-circle" };
+  if (status === "cancelled") return { glyph: TSP_SLASH_CIRCLE_GLYPH, icon: "slash-circle" };
+  return null;
+}
+
+/**
+ * 工具卡标题行右边的状态：这次挂载里在跑过的，弧跑完形变成结果（RunGlyph）；一挂上就跑完的画静态图标。
+ * 完成的 ✓ 常驻（2026-11-09 起，issue #9 照 ompweb：收起的卡一眼看出成没成）。
+ */
+function ToolStatusGlyph({ status }: { status: ToolStatus }) {
+  const running = status === "running";
+  const ran = useRanHere(running);
+  const result = toolResult(status);
+  const done = status === "done";
+  if (ran && (running || result !== null))
+    return (
+      <RunGlyph
+        running={running}
+        result={result?.glyph ?? CHECK_GLYPH}
+        size={14}
+        className={done ? "tsp-check" : undefined}
+        testId={done ? "tsp-tool-check" : undefined}
+      />
+    );
+  if (result === null) return null;
+  if (!done) return <TspIcon name={result.icon} />;
   return (
-    <span className={fresh ? "tsp-draw-check" : "tsp-check"} data-testid="tsp-tool-check">
+    <span className="tsp-check" data-testid="tsp-tool-check">
       <TspIcon name="check" />
     </span>
   );
@@ -202,6 +230,22 @@ function ToolTime({ status, age, took }: { status: ToolStatus; age: number | und
   );
 }
 
+/** 工具卡悬停时的"复制命令"：复制后图标形变成对勾（CopyGlyph）。 */
+function CopyCommand({ command }: { command: string }) {
+  const { copied, copy } = useCopy();
+  return (
+    <button
+      type="button"
+      className="tsp-tool-act"
+      title={labels.copyCommand}
+      aria-label={labels.copyCommand}
+      onClick={() => copy(command)}
+    >
+      <CopyGlyph copied={copied} size={12} />
+    </button>
+  );
+}
+
 export function Tool(props: NodeProps) {
   const { node, ctx } = props;
   const p = node.p;
@@ -209,7 +253,6 @@ export function Tool(props: NodeProps) {
   // 进程不在了：还在跑的卡片画成已取消（和 `/jobs kill` 之后 omp 自己画的一样），计时停在进程结束那一刻（ToolTime 仍按运行中算）。
   const ended = useTspEnded();
   const status = ended && (reported === "running" || reported === "pending") ? "cancelled" : reported;
-  const justFinished = useJustFinished(status === "running");
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
   const preview = toolPreview(p.preview);
@@ -346,7 +389,7 @@ export function Tool(props: NodeProps) {
         </span>
         <ToolTime status={reported} age={asNumber(p.age)} took={asNumber(p.took)} />
         <span className="tsp-tool-st">
-          <ToolStatusGlyph status={status} fresh={justFinished} />
+          <ToolStatusGlyph status={status} />
         </span>
         {collapsible && (
           <span className="tsp-chev" data-collapsed={collapsed || undefined}>
@@ -354,17 +397,7 @@ export function Tool(props: NodeProps) {
           </span>
         )}
         <span className="tsp-tool-acts" onClick={(event) => event.stopPropagation()}>
-          {command !== undefined && (
-            <button
-              type="button"
-              className="tsp-tool-act"
-              title={labels.copyCommand}
-              aria-label={labels.copyCommand}
-              onClick={() => copyText(command)}
-            >
-              <CopyIcon size={12} />
-            </button>
-          )}
+          {command !== undefined && <CopyCommand command={command} />}
           {tools.map((tool) => (
             <button
               key={tool.id}

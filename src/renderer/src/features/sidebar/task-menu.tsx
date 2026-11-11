@@ -23,11 +23,16 @@ export async function attempt(t: TFunction, action: () => Promise<void>): Promis
   }
 }
 
+/** 复制会话 ID / 会话文件路径：菜单关了看不到按钮，成功给 toast（同过程区的复制）。 */
 async function copySession(t: TFunction, taskId: TaskId, pick: "sessionId" | "sessionFile"): Promise<void> {
   await attempt(t, async () => {
     const ref = await window.studio.getTaskSessionRef(taskId);
-    if (ref === null) pushToast({ level: "info", message: t("task.noSession") });
-    else await navigator.clipboard.writeText(ref[pick]);
+    if (ref === null) {
+      pushToast({ level: "info", message: t("task.noSession") });
+      return;
+    }
+    await navigator.clipboard.writeText(ref[pick]);
+    pushToast({ message: t("common.copied") });
   });
 }
 

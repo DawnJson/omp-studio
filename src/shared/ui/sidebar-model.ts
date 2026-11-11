@@ -414,13 +414,17 @@ export function nextWaitingTask(waiting: readonly TaskState[], current: TaskId |
   return waiting[at === -1 ? 0 : (at + 1) % waiting.length] ?? null;
 }
 
-export type DotKind = "running" | "waiting" | "error" | "interrupted" | "none";
+export type DotKind = "running" | "waiting" | "error" | "interrupted" | "unread" | "none";
 
-/** 状态点的形状：形状是第二信号（色盲友好）。只画要留意的状态；正常结束、从没跑过、被停止的都不画（槽位留着让标题对齐）。 */
+/**
+ * 状态点的形状：形状是第二信号（色盲友好）。只画要留意的状态；从没跑过、被停止的、看过的正常结束都不画（槽位留着让标题对齐）。
+ * 不在前台时正常结束、还没点开看过（主进程的 `unread`）画一个 accent 小圆点（2026-11-11 仓库所有者定；看过的照旧不画）。
+ */
 export function dotKind(task: TaskState): DotKind {
   if (task.status === "needs_you") return "waiting";
   if (task.status === "error" || (task.status === "idle" && task.lastTurn?.status === "error")) return "error";
   if (task.status === "running" || task.status === "starting") return "running";
+  if (task.unread && task.lastTurn?.status === "completed") return "unread";
   return "none";
 }
 

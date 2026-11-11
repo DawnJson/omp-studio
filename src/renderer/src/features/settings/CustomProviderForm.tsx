@@ -24,7 +24,9 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { describeError, reportErrorNow } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
+import { Button, FormField, IconButton, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
+import { MorphIcon } from "../../ui/MorphIcon.tsx";
+import { EYE_GLYPH, EYE_OFF_GLYPH } from "../../ui/morph-glyphs.ts";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { Select, type SelectOption } from "../../ui/Select.tsx";
 import { Reserve } from "../../ui/Reserve.tsx";
@@ -136,15 +138,15 @@ export function KeyFields({
   const t = useT();
   const [show, setShow] = useState(false);
   const noop = () => undefined;
+  // 显示 / 隐藏：眼睛 ↔ 划掉的眼睛形变；按钮名照旧写这一下要做的事。
   const toggle = (live: boolean) => (
-    <Button
-      size="sm"
-      variant="quiet"
+    <IconButton
+      label={show ? t("custom.form.key.hide") : t("custom.form.key.show")}
       onClick={() => setShow((shown) => !shown)}
       testId={live ? `${testId}-toggle` : undefined}
     >
-      {show ? t("custom.form.key.hide") : t("custom.form.key.show")}
-    </Button>
+      <MorphIcon glyph={show ? EYE_OFF_GLYPH : EYE_GLYPH} size={14} />
+    </IconButton>
   );
   // live = false 时是只占位的那份：没有 testId、不接输入。
   const panel = (which: KeyMode, live: boolean, systemHint: boolean) => {

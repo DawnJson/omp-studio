@@ -87,7 +87,7 @@ export async function loadImageHref(href: string, ctx: Pick<TspContext, "taskId"
   return file.kind === "image" ? (file.dataUrl ?? null) : null;
 }
 
-export function copyText(text: string): void {
+function copyText(text: string): void {
   const t = createT(currentLocale());
   navigator.clipboard.writeText(text).then(
     () => pushToast({ message: t("common.copied"), durationMs: 1500 }),

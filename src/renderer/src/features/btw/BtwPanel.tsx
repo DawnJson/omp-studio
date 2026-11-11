@@ -5,13 +5,14 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { btwTurns, isBtwRunning, latestTurn, type BtwHistoryTurn } from "../../../../shared/btw.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close, CopyIcon, Plus } from "../../icons.tsx";
+import { Close, Plus } from "../../icons.tsx";
 import { Markdown } from "../../markdown/index.ts";
 import { useBtwRecords } from "../../store/index.ts";
 import { Badge, Button, IconButton, Tabs, TextField } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
-import { askBtwQuestion, cancelBtwQuestion, copyBtwAnswer } from "./btw-actions.ts";
+import { CopyGlyph, useCopy } from "../../ui/CopyGlyph.tsx";
+import { askBtwQuestion, cancelBtwQuestion } from "./btw-actions.ts";
 import { closeBtw, selectBtwTopic, useBtwUi } from "./btw-ui-store.ts";
 import { activeTopic, canAsk, NEW_TOPIC, topicLabel } from "./btw-view.ts";
 import "./btw.css";
@@ -44,6 +45,7 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const stuck = useRef(true);
+  const answerCopy = useCopy();
 
   const topic = activeTopic(records, ui.selection);
   const running = isBtwRunning(records);
@@ -111,9 +113,9 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
           <IconButton
             label={t("btw.copyAnswer")}
             testId="btw-copy-answer"
-            onClick={() => copyBtwAnswer(latest.answer, t)}
+            onClick={() => answerCopy.copy(latest.answer)}
           >
-            <CopyIcon size={14} />
+            <CopyGlyph copied={answerCopy.copied} size={14} />
           </IconButton>
         )}
         {topic !== null && (

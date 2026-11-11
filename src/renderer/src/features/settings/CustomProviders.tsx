@@ -1,4 +1,5 @@
-// 设置 → 提供商与账号 → 自定义提供商：models.yml 里 providers.* 的列表，添加 / 编辑在对话框里，删除在 ⋯ 里（先确认）。
+// 设置 → 提供商与账号 → 自定义提供商：models.yml 里 providers.* 的列表，添加 / 编辑在对话框里，删除点卡片上的垃圾桶（先确认）。
+// 卡片三行：名字、端点、模型（2026-11-11 仓库所有者定：key 来源和接口类型不上卡片）；图标按第一个模型的品牌（名字是自己起的，看不出是哪家）。
 // 编辑的是 omp 自己的配置文件（src/main/omp-config/models-file.ts），终端版 omp 同样用它。
 // 没有模型也没有 discovery 的条目只是覆盖 omp 内置的同名 provider（比如 `anthropic` 下只有 `modelOverrides`）：
 // 编辑表单存不了它（要 baseUrl 和模型），"编辑"打开 ProviderOverrideDialog，只改 `apiKey` 和各模型的覆盖项。
@@ -7,12 +8,13 @@ import type { CustomProviderInfo } from "../../../../shared/custom-models.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Plus } from "../../icons.tsx";
-import { ProviderLogo } from "./ProviderLogo.tsx";
-import { Badge, Button, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
+import { Pencil, Plus, Trash } from "../../icons.tsx";
+import { modelLogo, ProviderLogo } from "./ProviderLogo.tsx";
+import { Badge, Button, IconButton, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { customErrorText, CustomProviderForm } from "./CustomProviderForm.tsx";
+import { ModelChips } from "./ModelChips.tsx";
 import { ProviderOverrideDialog } from "./ProviderOverrideDialog.tsx";
 import {
   loadCustomProviders,
@@ -29,6 +31,13 @@ import "./custom-providers.css";
 type Editing = { kind: "add" } | { kind: "edit"; id: string } | { kind: "override"; id: string };
 
 const overridesBuiltin = (provider: CustomProviderInfo): boolean => provider.models.length === 0 && !provider.discovery;
+
+/** 端点那一行：去掉协议和末尾的 `/`（完整地址在悬停里）。 */
+const endpointText = (baseUrl: string): string => baseUrl.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+
+/** 卡片上列的模型：自己的模型；只覆盖内置 provider 的条目列它覆盖了的模型。 */
+const cardModels = (provider: CustomProviderInfo): string[] =>
+  overridesBuiltin(provider) ? provider.overrides.map((model) => model.id) : provider.models.map((model) => model.id);
 
 /** 卡片元信息行开头的拉取失败徽标：key 被拒、地址不通，其余笼统写拉取失败；完整原因在悬停里。 */
 const fetchBadgeKey = (failure: FetchFailure) =>
@@ -59,37 +68,24 @@ export function CustomProviders() {
   // 后台刷新失败（比如文件在终端里被改坏了）时不假装还是上次的内容：显示错误，也不让添加。
   const loadError = load.kind === "error" ? load.error : load.kind === "ready" ? load.refreshError : null;
 
-  const keyText = (provider: CustomProviderInfo): string => {
-    switch (provider.key.kind) {
-      case "none":
-        return overridesBuiltin(provider) ? t("custom.key.unset") : t("custom.key.none");
-      case "literal":
-        return t("custom.key.literal");
-      case "env":
-        // 变量设在哪：agent 目录的 `.env` / 系统环境变量 / 都没有（omp 会把变量名本身当 key 发出去）。
-        return t(`custom.key.env.${provider.key.source}`, { name: provider.key.name });
-      case "command":
-        return t("custom.key.command");
-    }
+  /** 端点（覆盖内置 provider 的没有自己的地址，不写这一行）+ 模型标签；没有模型、靠运行时发现的写一句说明。 */
+  const metaContent = (provider: CustomProviderInfo) => {
+    const models = cardModels(provider);
+    return (
+      <span className="cp-meta">
+        {provider.baseUrl !== null && !overridesBuiltin(provider) && (
+          <span className="cp-endpoint" title={provider.baseUrl}>
+            {endpointText(provider.baseUrl)}
+          </span>
+        )}
+        {models.length > 0 ? (
+          <ModelChips ids={models} testId={`custom-models-${provider.id}`} />
+        ) : provider.discovery ? (
+          <span>{t("custom.discovery")}</span>
+        ) : null}
+      </span>
+    );
   };
-
-  const metaText = (provider: CustomProviderInfo): string =>
-    [
-      provider.api,
-      overridesBuiltin(provider)
-        ? [
-            t("custom.override"),
-            provider.overrides.length > 0 ? t("custom.models", { count: provider.overrides.length }) : "",
-          ]
-            .filter((part) => part !== "")
-            .join(" · ")
-        : provider.models.length > 0 || !provider.discovery
-          ? t("custom.models", { count: provider.models.length })
-          : t("custom.discovery"),
-      keyText(provider),
-    ]
-      .filter((part) => part !== null && part !== "")
-      .join(" · ");
 
   const saved = () => {
     resetEditing();
@@ -187,7 +183,15 @@ export function CustomProviders() {
               <ListRow
                 key={provider.id}
                 testId={`custom-provider-${provider.id}`}
-                icon={<ProviderLogo id={provider.id} name={provider.id} />}
+                icon={
+                  <ProviderLogo
+                    id={provider.id}
+                    name={provider.id}
+                    logo={cardModels(provider)
+                      .map(modelLogo)
+                      .find((logo) => logo !== undefined)}
+                  />
+                }
                 title={provider.id}
                 badges={
                   <>
@@ -211,32 +215,26 @@ export function CustomProviders() {
                     )}
                   </>
                 }
-                meta={metaText(provider)}
+                meta={metaContent(provider)}
                 actions={
                   <>
-                    <Button
-                      size="sm"
+                    <IconButton
+                      label={t("custom.edit")}
                       disabled={busy}
                       onClick={() => openEditing({ kind: override ? "override" : "edit", id: provider.id })}
                       testId={`custom-edit-${provider.id}`}
                     >
-                      {t("custom.edit")}
-                    </Button>
-                    <RowMenu
-                      label={t("custom.more")}
+                      <Pencil size={14} />
+                    </IconButton>
+                    <IconButton
+                      label={t("custom.delete")}
+                      className="cp-delete"
                       disabled={busy}
-                      menuOnly
-                      testId={`custom-more-${provider.id}`}
-                      items={[
-                        {
-                          id: "delete",
-                          label: t("custom.delete"),
-                          tone: "danger",
-                          testId: `custom-delete-${provider.id}`,
-                          onSelect: () => openDeleting(provider),
-                        },
-                      ]}
-                    />
+                      onClick={() => openDeleting(provider)}
+                      testId={`custom-delete-${provider.id}`}
+                    >
+                      <Trash size={14} />
+                    </IconButton>
                   </>
                 }
               />

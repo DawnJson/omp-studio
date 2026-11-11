@@ -28,7 +28,6 @@ export const board = {
   todoAddPhase: "Phase",
   todoAddSubmit: "Add",
   todoCopyMarkdown: "Copy as Markdown",
-  todoCopied: "Copied todos as Markdown",
   todoExpandAll: "Expand all",
   todoCollapseAll: "Collapse finished phases",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

@@ -60,7 +60,6 @@ export function ProviderFlowDialog({
   const [backupKeys, setBackupKeys] = useState("");
   const takesBackupKeys = provider.id === "tavily";
   const [code, setCode] = useState("");
-  const [copied, setCopied] = useState(false);
   const started = useRef(false);
   /** 这个对话框跑过终端登录：失败后的"重试"重新走它，而不是原来的 RPC 登录。 */
   const ranTerminal = useRef(false);
@@ -177,13 +176,6 @@ export function ProviderFlowDialog({
       finish();
     });
 
-  const copy = (text: string) => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
-  };
-
   const close = () => {
     if (flow.kind === "login") void window.studio.cancelLogin();
     if (flow.kind === "terminal") void window.studio.cancelTerminalLogin();
@@ -199,9 +191,7 @@ export function ProviderFlowDialog({
   let footer: ReactNode = null;
   if (flow.kind === "login") {
     const input = flow.input;
-    body = (
-      <LoginBody flow={flow} code={code} copied={copied} onCode={setCode} onCopy={copy} onSubmitCode={submitCode} />
-    );
+    body = <LoginBody flow={flow} code={code} onCode={setCode} onSubmitCode={submitCode} />;
     footer = (
       <>
         <Button onClick={close} testId="provider-login-cancel">

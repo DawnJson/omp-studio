@@ -4,7 +4,8 @@ import type { LoginEvent, TavilyKeyUsage } from "../../../../shared/ipc.ts";
 import type { LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import type { ProviderKeyEnv } from "../../../../shared/provider-keys.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { Badge, Button, FormField, Textarea, TextField } from "../../ui/controls.tsx";
+import { Badge, Button, FormField, IconButton, Textarea, TextField } from "../../ui/controls.tsx";
+import { CopyGlyph, useCopy } from "../../ui/CopyGlyph.tsx";
 import { describeError } from "../../ui/errors.ts";
 // 额度行和输入框旁"用量"对话框同一套样式（.uq-limit）。
 import "../composer/usage.css";
@@ -32,18 +33,15 @@ export type Flow =
 export function LoginBody({
   flow,
   code,
-  copied,
   onCode,
-  onCopy,
   onSubmitCode,
 }: {
   flow: { kind: "login" } & LoginProgress;
   code: string;
-  copied: boolean;
   onCode(value: string): void;
-  onCopy(text: string): void;
   onSubmitCode(inputId: string): void;
 }) {
+  const { copied, copy } = useCopy();
   const t = useT();
   return (
     <div className="pv-flow" role="status">
@@ -61,9 +59,9 @@ export function LoginBody({
               onFocus={(event) => event.target.select()}
               aria-label={t("login.fallback")}
             />
-            <Button onClick={() => onCopy(flow.launchUrl ?? flow.url ?? "")}>
-              {copied ? t("common.copied") : t("common.copy")}
-            </Button>
+            <IconButton label={t("common.copy")} size="md" onClick={() => copy(flow.launchUrl ?? flow.url ?? "")}>
+              <CopyGlyph copied={copied} size={16} />
+            </IconButton>
             <Button onClick={() => void window.studio.openExternal(flow.url ?? "")}>{t("login.reopen")}</Button>
           </div>
         </FormField>

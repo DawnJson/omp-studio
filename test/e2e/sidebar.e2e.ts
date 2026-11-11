@@ -303,11 +303,14 @@ for (const [locale, colorScheme] of [
         element.style.maxHeight = "";
       });
 
-      // 状态点：形状不同，各有 aria-label；正常结束的任务不画（只有等你 2 + 在跑 1 + 出错 1 个图标）。
+      // 状态点：形状不同，各有 aria-label；看过的正常结束不画（等你 2 + 在跑 1 + 出错 1 + 后台跑完没看过的绿点 1）。
       await expect(sidebar.locator(".sb-dot-waiting")).toHaveCount(2);
       await expect(sidebar.locator(".sb-dot-running")).toHaveCount(1);
       await expect(sidebar.locator(".sb-dot-error")).toHaveCount(1);
-      await expect(sidebar.locator(".sb-dot-mark")).toHaveCount(4);
+      await expect(
+        sidebar.getByTestId("task-row").filter({ hasText: "整理日志格式" }).locator(".sb-dot-unread"),
+      ).toHaveCount(1);
+      await expect(sidebar.locator(".sb-dot-mark")).toHaveCount(5);
       // 键盘：Tab 进入列表后方向键移动，F2 重命名，Enter 提交。
       const firstRow = sidebar.getByTestId("task-row").first().locator(".sb-row-main");
       await firstRow.focus();
@@ -420,7 +423,7 @@ for (const [locale, colorScheme] of [
   });
 }
 
-test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文件夹不自己收起；用户点了才折叠", async () => {
+test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文件夹不自己收起；用户点了才折叠；后台跑完没看过的任务挂绿点，文件夹收起时头部也有", async () => {
   const agentDir = await makeAgentDir();
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
   const { app, page } = launched;
@@ -434,22 +437,34 @@ test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文�
     const deploy = apiServer.getByTestId("task-row").filter({ hasText: "Deploy pipeline" });
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(deploy.locator(".sb-dot-waiting")).toBeVisible();
-    // 主进程推来：这个任务这一轮结束了（不再等你、也不在跑）。文件夹照旧展开，看得到它的图标没了（正常结束不画，槽位留着）。
+    // 主进程推来：这个任务这一轮在后台结束了，还没看过（unread）。文件夹照旧展开，行上换成绿色小圆点、标题变亮。
     const finished = {
       ...tasks.find((task) => task.id === "t8")!,
       status: "idle",
       lastTurn: { status: "completed", endedAt: now },
+      unread: true,
     };
-    await app.evaluate(({ BrowserWindow }, state) => {
-      BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:taskState", state);
-    }, finished);
-    await expect(deploy.locator(".sb-dot-mark")).toHaveCount(0);
-    await expect(deploy.locator(".sb-dot")).toBeVisible();
+    const push = (state: unknown) =>
+      app.evaluate(({ BrowserWindow }, value) => {
+        BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:taskState", value);
+      }, state);
+    await push(finished);
+    await expect(deploy.locator(".sb-dot-unread")).toHaveAttribute("aria-label", "有新结果");
+    await expect(deploy).toHaveAttribute("data-unread", "true");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    // 用户自己点了才折叠。
+    // 用户自己点了才折叠；收起后头部计数旁有绿点。
+    const folderUnread = apiServer.getByTestId("sidebar-folder-unread");
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(deploy).toHaveCount(0);
+    await expect(folderUnread).toBeVisible();
+    // 看过了（主进程清掉 unread）：行上什么都不画（槽位留着），头部的点也没了。
+    await push({ ...finished, unread: false });
+    await expect(folderUnread).toHaveCount(0);
+    await toggle.click();
+    await expect(deploy.locator(".sb-dot-mark")).toHaveCount(0);
+    await expect(deploy.locator(".sb-dot")).toBeVisible();
+    await expect(deploy).not.toHaveAttribute("data-unread");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

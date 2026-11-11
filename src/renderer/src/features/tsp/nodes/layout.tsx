@@ -34,10 +34,12 @@ import { answerText } from "../../../../../shared/tsp/last-answer.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { useTaskValue } from "../../../store/index.ts";
 import { formatTurnFooter, matchesTurnTitle, withTurnDetails } from "../turn-footer.ts";
-import { copyAnswerPlainText, copyText, showAnswerCopyMenu, TURN_COPY_ROLE } from "../actions.ts";
+import { copyAnswerPlainText, showAnswerCopyMenu, TURN_COPY_ROLE } from "../actions.ts";
 import { editUserCard, forkAfterAnswer, forkFromUserCard } from "../../conversation/fork-actions.ts";
 import { reportErrorNow } from "../../../ui/errors.ts";
 import { useT } from "../../../i18n/use-t.ts";
+import { CopyGlyph, useCopy } from "../../../ui/CopyGlyph.tsx";
+import { TSP_COPY_GLYPH } from "../../../ui/morph-glyphs.ts";
 
 const GAPS: ReadonlySet<TspSpace> = new Set(["none", "xs", "sm", "md", "lg"]);
 
@@ -132,6 +134,36 @@ function PlainCol(props: NodeProps) {
   );
 }
 
+/** 补的用量行开头的复制回答：复制这条回答的 markdown 后图标形变成对勾（CopyGlyph，几何同 omp 画的 TSP 复制图标）。 */
+function RestoredTurnCopy(props: NodeProps) {
+  const { taskId, sf } = props.ctx;
+  const { copied, copy } = useCopy();
+  const copyMarkdown = () => {
+    const surface = peekTspDocument(taskId)?.surfaces.get(sf);
+    const answer = surface === undefined ? "" : answerText(surface, props.node.id);
+    if (answer !== "") copy(answer);
+  };
+  return (
+    <span
+      className="tsp-icon tsp-act"
+      data-role={TURN_COPY_ROLE}
+      role="button"
+      tabIndex={0}
+      title={labels.copyAnswer}
+      aria-label={labels.copyAnswer}
+      onClick={copyMarkdown}
+      onContextMenu={(event) => showAnswerCopyMenu(event, props.ctx, copyMarkdown)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        copyMarkdown();
+      }}
+    >
+      <CopyGlyph copied={copied} size={14} idle={TSP_COPY_GLYPH} />
+    </span>
+  );
+}
+
 /**
  * omp 的助手消息容器。恢复会话时 omp 不重发每轮末尾的用量行（实测 18.12.4），这里在一轮的最后一个助手消息后面
  * 补一行（数据来自会话文件，见 main/tsp/session-extras.ts）；实时的轮 omp 自己带这一行，不补；还在跑的那一轮也不补（useBareTurnIndex）。
@@ -147,33 +179,12 @@ function AssistantCol(props: NodeProps) {
   const text = useMemo(() => (footer === null ? null : formatTurnFooter(footer)), [footer]);
   // 补的用量行是 children 之外的元素，有它就不算空。
   const blank = useBlank(props, text !== null);
-  const copyMarkdown = () => {
-    const surface = peekTspDocument(taskId)?.surfaces.get(sf);
-    const answer = surface === undefined ? "" : answerText(surface, props.node.id);
-    if (answer !== "") copyText(answer);
-  };
   return (
     <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p), blank })}>
       <TspChildren {...props} />
       {text !== null && (
         <div className="tsp-row" data-role="omp.turn.usage" data-restored="" title={text.title}>
-          <span
-            className="tsp-icon tsp-act"
-            data-role={TURN_COPY_ROLE}
-            role="button"
-            tabIndex={0}
-            title={labels.copyAnswer}
-            aria-label={labels.copyAnswer}
-            onClick={copyMarkdown}
-            onContextMenu={(event) => showAnswerCopyMenu(event, props.ctx, copyMarkdown)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              copyMarkdown();
-            }}
-          >
-            <TspIcon name="copy" />
-          </span>
+          <RestoredTurnCopy {...props} />
           <AnswerActions ctx={props.ctx} anchorId={props.node.id} />
           <div className="tsp-text">{text.text}</div>
         </div>

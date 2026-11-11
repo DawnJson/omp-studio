@@ -8,6 +8,8 @@ import { LIVE_TOOL_STATUSES, runOpen, type RunFold, type ToolRun } from "../../.
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { useTaskValue } from "../../store/index.ts";
 import { ChevronDown } from "../../icons.tsx";
+import { CHECK_GLYPH } from "../../ui/morph-glyphs.ts";
+import { RunGlyph, useRanHere } from "../../ui/RunGlyph.tsx";
 import { toolIconName } from "./icon-names.ts";
 import { TspIcon } from "./icons.tsx";
 import { labels } from "./labels.ts";
@@ -68,6 +70,7 @@ export function useToolRunStates(taskId: TaskId, sf: string, runs: readonly Tool
 export function ToolRunHead({ run, open, onToggle }: { run: ToolRun; open: boolean; onToggle(): void }) {
   const failed = run.tools.filter((tool) => tool.status === "error").length;
   const running = run.tools.some((tool) => LIVE_TOOL_STATUSES.has(tool.status));
+  const ran = useRanHere(running);
   const allDone = run.tools.every((tool) => tool.status === "done");
   const head = toolRunHead(run);
   const name = [labels.agentTools(run.tools.length), failed > 0 ? labels.toolsFailed(failed) : null]
@@ -105,8 +108,8 @@ export function ToolRunHead({ run, open, onToggle }: { run: ToolRun; open: boole
       {failed > 0 && <span className="tsp-run-failed">{labels.toolsFailed(failed)}</span>}
       <span className="tsp-tool-sp" />
       <span className="tsp-tool-st">
-        {running ? (
-          <i className="tsp-tool-spin" />
+        {ran && (running || allDone) ? (
+          <RunGlyph running={running} result={CHECK_GLYPH} size={14} className={running ? undefined : "tsp-check"} />
         ) : allDone ? (
           <span className="tsp-check">
             <TspIcon name="check" />

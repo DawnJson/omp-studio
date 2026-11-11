@@ -119,7 +119,7 @@
   height: var(--control-h-sm);
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background: transparent;
   cursor: pointer;
 }
@@ -132,11 +132,12 @@ button.usage-context:hover,
 .usage-context[data-pending] {
   cursor: default;
 }
+/* 费用：等宽小字的文字按钮，悬停 / 打开同图标按钮（--text + --bg-hover）；键盘焦点走全局 :focus-visible */
 .session-cost {
   height: var(--control-h-sm);
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-1-5);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-2);
   font-family: var(--font-mono);
@@ -145,10 +146,14 @@ button.usage-context:hover,
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .session-cost:hover,
 .session-cost[aria-expanded="true"] {
   color: var(--text);
+  background: var(--bg-hover);
 }
 .session-cost-sub {
   color: var(--text-3);
@@ -157,10 +162,9 @@ button.usage-context:hover,
 .send {
   font: inherit;
 }
-.send:focus-visible,
-.session-cost:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+.send:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 
 /* 工具条胶囊统一用 ui/controls.css 的 .ui-chip（28 高、无底色、悬停 / 打开时 --bg-hover）。这里只放模型胶囊的收缩和内部排版。 */
@@ -195,18 +199,23 @@ button.usage-context:hover,
   /* 模型名比思考强度、路径都重要：被挤时也留这么宽，不会缩成 "D…"；名字本来就更短时不撑宽。 */
   min-width: calc-size(max-content, min(size, var(--chip-name-min-w)));
 }
+/* 模型胶囊里的"慢""备用"标签：同 Badge（20 高、--fs-xs 中粗、--radius-md、实底无框） */
 .chip-badge {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  height: calc(var(--control-h-xs) - var(--space-1));
   padding: 0 var(--space-1-5);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 1;
 }
 /* 在用 omp 的备用模型（TaskState.fallbackModel）：警告色，和慢速徽标同形 */
 .chip-badge[data-tone="warning"] {
-  background: color-mix(in srgb, var(--st-waiting) 16%, transparent);
+  background: var(--st-waiting-soft);
   color: var(--st-waiting-text);
 }
 /* 快速模式：实心闪电。没有刻度时跟在模型名后面（12px）；有刻度时是刻度左上角的 8px 角标，
@@ -918,8 +927,8 @@ button.usage-context:hover,
   cursor: pointer;
 }
 .todo-phase-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
 }
 .todo-phase[data-collapsed] .todo-phase-head {
   margin-bottom: 0;
@@ -995,7 +1004,8 @@ button.usage-context:hover,
     opacity: 0.35;
   }
 }
-/* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（--bg-overlay + --shadow-2 + --radius-lg，行高 --row-menu，悬停 / 键盘选中 --bg-hover）。 */
+/* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（--bg-overlay + 1px --border + --radius-xl + --shadow-2，
+   项 --radius-md、行高 --row-menu，悬停 / 键盘选中 --bg-hover）。就地挂在输入框上（不挂 body），层级同 .ui-popover 用 --z-popover。 */
 .composer {
   position: relative;
 }
@@ -1008,12 +1018,13 @@ button.usage-context:hover,
   display: flex;
   flex-direction: column;
   padding: var(--space-1);
-  /* 最多同时显示 8 行，更多的滚动；上方放不下 8 行（窗口矮）时到主区顶边为止（--fit-room 由 ui/Popover.tsx 的 useFitInside 写）。 */
-  max-height: min(calc(8 * var(--row-menu) + 2 * var(--space-1)), var(--fit-room, 100vh));
+  /* 最多同时显示 8 行（+ 上下内边距和 1px 边框），更多的滚动；上方放不下 8 行（窗口矮）时到主区顶边为止（--fit-room 由 ui/Popover.tsx 的 useFitInside 写）。 */
+  max-height: min(calc(8 * var(--row-menu) + 2 * var(--space-1) + 2px), var(--fit-room, 100vh));
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bg-overlay);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
@@ -1030,7 +1041,7 @@ button.usage-context:hover,
   min-height: var(--row-menu);
   padding: var(--space-1) var(--space-2-5) var(--space-1) var(--space-2);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -1172,8 +1183,8 @@ button.usage-context:hover,
   background: var(--bg-active);
 }
 .mp-scope:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .mp-scope-label {
   flex: 1;
@@ -1282,8 +1293,8 @@ button.usage-context:hover,
   background: var(--bg-hover);
 }
 .mp-group-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
 }
 .mp-group-toggle > svg {
   flex: none;
@@ -1392,14 +1403,19 @@ button.usage-context:hover,
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
 }
+/* "推理""识图"标签：同 Badge（20 高、--fs-xs 中粗、--radius-md、实底无框）；所在的参数行是等宽字，这里换回正文字体 */
 .mp-pill {
+  display: inline-flex;
+  align-items: center;
+  height: calc(var(--control-h-xs) - var(--space-1));
   padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
   color: var(--text-2);
   font-family: var(--font-sans);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-xs);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 1;
 }
 /* 一行控件：标签列 88 + 内容；三行（思考强度 / Prewalk / 预设）左缘对齐。 */
 .mp-ctl {
@@ -1459,48 +1475,50 @@ button.usage-context:hover,
   background: var(--text-3);
 }
 
-/* 输入框上方的药丸 `[👥 N | ⚡ N]`（StatusPills.tsx）：一颗描边药丸，两个半段各自是按钮，中间一条细分隔线；个数为 0 的半段不画。
+/* 输入框上方的药丸 `[👥 N | ⚡ N]`（StatusPills.tsx）：外观同 Segmented（.ui-seg：--bg-active 的槽，块 --radius-md 内缩 2px），
+   两个半段各自是按钮（不是单选），中间一条细分隔线；子代理面板开着时左半段是"选中块"（--control-on + --shadow-1）。个数为 0 的半段不画。
+   高 --control-h-xs，和同一行的扩展状态标签、取消 / 重试按钮同一档（spec 4.14）。
    两段都没有时（只剩看板的锚点，作业都结束后 `/jobs` 打开的看板）药丸收成 0 高，看板仍从它的位置弹出。 */
 .status-pills {
   display: inline-flex;
   flex: none;
+  gap: var(--space-0-5);
   align-items: center;
   height: var(--control-h-xs);
-  padding: 0 1px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--bg-raised);
+  padding: var(--space-0-5);
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
 }
 .status-pills[data-empty] {
   height: 0;
   padding: 0;
-  border: 0;
   background: none;
 }
 .status-pill-seg {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
-  height: 20px;
-  padding: 0 var(--space-2-5);
+  height: 100%;
+  padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-2);
   font: inherit;
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-out);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
-.status-pill-seg:hover,
-.status-pill-seg[aria-expanded="true"] {
-  background: var(--bg-hover);
+.status-pill-seg:hover {
   color: var(--text);
 }
-.status-pill-seg:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+.status-pill-seg[aria-expanded="true"] {
+  color: var(--text);
+  background: var(--control-on);
+  box-shadow: var(--shadow-1);
 }
 .status-pill-count {
   font-weight: var(--fw-medium);
@@ -1509,7 +1527,7 @@ button.usage-context:hover,
   flex: none;
   width: 1px;
   height: 12px;
-  background: var(--border);
+  background: var(--border-strong);
 }
 
 /* 悬停后台作业那一段时的作业卡片（StatusPills 的 JobsCard，代替悬停提示）：挂在 body 上，位置由 JobsCard 写（right / bottom），
@@ -1559,14 +1577,18 @@ button.usage-context:hover,
 }
 /* 作业类型（bash / eval / task）：名字右边一个小标签，omp 的叫法原样写 */
 .jobs-card-type {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  height: calc(var(--control-h-xs) - var(--space-1));
   padding: 0 var(--space-1-5);
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
+  font-size: var(--fs-code-sm);
+  font-weight: var(--fw-medium);
+  line-height: 1;
   color: var(--text-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
 }
 .jobs-card-progress {
   display: flex;

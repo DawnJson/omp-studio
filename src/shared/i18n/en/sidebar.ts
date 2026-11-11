@@ -25,6 +25,7 @@ export const sidebar = {
   showMore: "Show {n} more",
   toggleProject: "Expand or collapse {project}",
   waitingHere: "A task is waiting for you",
+  unreadHere: "A task finished and you haven't looked yet",
   collapseForks: { one: "Collapse {count} fork", other: "Collapse {count} forks" },
   expandForks: { one: "Show {count} hidden fork", other: "Show {count} hidden forks" },
   loadFailed: "Could not load tasks: {message}",

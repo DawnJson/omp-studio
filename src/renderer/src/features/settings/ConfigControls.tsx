@@ -318,6 +318,14 @@ export function fitsCell(item: OmpConfigItem): boolean {
   }
 }
 
+/** 可选值正好是 on / off、当前值也是其中之一（omp 版本变了、手改成别的值时退回分段，不悄悄改写）。 */
+function onOffEnum(item: OmpConfigItem): boolean {
+  const options = item.options;
+  if (options === null || options.length !== 2 || !options.includes("on") || !options.includes("off")) return false;
+  const effective = item.hasValue ? item.value : item.defaultValue;
+  return effective === "on" || effective === "off";
+}
+
 /** 按 omp 给的类型选控件；凭据另外处理（ConfigRow）。 */
 export function ConfigControl(props: ControlProps) {
   const { item, labelId, onSave } = props;
@@ -325,6 +333,13 @@ export function ConfigControl(props: ControlProps) {
     case "boolean":
       return <Switch checked={item.value === true} labelledBy={labelId} onChange={onSave} />;
     case "enum":
+      if (onOffEnum(item)) {
+        // 只有 on / off 两个值的枚举（如 ask.notify）和布尔一样画成开关：同一组里开 / 关不混用分段和开关（仓库所有者定，2026-11-11）。
+        const effective = item.hasValue ? item.value : item.defaultValue;
+        return (
+          <Switch checked={effective === "on"} labelledBy={labelId} onChange={(on) => onSave(on ? "on" : "off")} />
+        );
+      }
       return item.options ? <EnumControl {...props} /> : <StringControl {...props} />;
     case "number":
       return <NumberControl {...props} />;

@@ -150,6 +150,16 @@ test("顶栏按钮打开文件面板：目录在前文件在后、不列 .git，
     await expect(row(page, "src/alpha.ts")).toHaveCount(0);
     await row(page, "src").click();
     await expect(row(page, "src/alpha.ts")).toBeVisible();
+    // 图标按类型：src 是专属文件夹图（展开换 -open），.ts / .md 各有自己的图，而且真的加载出来了（CSP、打包路径都对）。
+    const icon = (rel: string) => row(page, rel).locator(".file-type-icon");
+    await expect(icon("src")).toHaveAttribute("data-icon", "folder-src-open");
+    await expect(icon("docs")).toHaveAttribute("data-icon", "folder-docs");
+    await expect(icon("big")).toHaveAttribute("data-icon", "folder");
+    await expect(icon("src/alpha.ts")).toHaveAttribute("data-icon", "typescript");
+    await expect(icon("notes.md")).toHaveAttribute("data-icon", "markdown");
+    await expect
+      .poll(() => icon("src/alpha.ts").evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
+      .toBeGreaterThan(0);
 
     // 点文件：切到预览页，渲染 Markdown。
     await row(page, "notes.md").click();

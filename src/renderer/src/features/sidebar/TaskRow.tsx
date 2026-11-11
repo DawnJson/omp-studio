@@ -8,7 +8,7 @@ import { Bolt, Branch, Dots, Pin } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { taskTail } from "../../../../shared/ui/task-time.ts";
-import { taskTitle } from "../../../../shared/ui/sidebar-model.ts";
+import { dotKind, taskTitle } from "../../../../shared/ui/sidebar-model.ts";
 import { useCoarseClock } from "./task-time.ts";
 import { ChevronIcon } from "./icons.tsx";
 
@@ -217,6 +217,7 @@ export const TaskRow = memo(function TaskRow({
       data-menu=""
       data-selected={selected}
       data-status={task.status}
+      data-unread={dotKind(task) === "unread" || undefined}
       {...depthProps(depth)}
       data-testid="task-row"
       onContextMenu={(event) => {

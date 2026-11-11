@@ -5,8 +5,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
 import { Code, PanelRight, Quote } from "../icons.tsx";
-import { MorphIcon } from "../ui/MorphIcon.tsx";
-import { CHECK_GLYPH, COPY_GLYPH } from "../ui/morph-glyphs.ts";
+import { CopyGlyph, useCopy } from "../ui/CopyGlyph.tsx";
 import { previewKind, usePreviewCode } from "./code-preview.ts";
 import { useQuoteCode } from "./code-quote.ts";
 import { onThemeChange } from "../ui/theme-change.ts";
@@ -36,7 +35,7 @@ interface CodeBlockProps {
 
 export const CodeBlock = memo(function CodeBlock({ code, lang, closed, view }: CodeBlockProps) {
   const t = useT();
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   const quote = useQuoteCode();
   const preview = usePreviewCode();
   const previewAs = preview !== null && closed ? previewKind(lang) : null;
@@ -62,19 +61,6 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed, view }: C
   const lines = code.split("\n");
   const isDiff = resolveLanguage(lang) === "diff";
 
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1200);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  const copy = () => {
-    navigator.clipboard.writeText(code).then(
-      () => setCopied(true),
-      (error: unknown) => console.error("复制失败", error),
-    );
-  };
-
   return (
     <div className="md-codeblock" data-anchor data-testid="codeblock" data-figure={drawing || undefined}>
       <div className="md-codehead">
@@ -96,11 +82,11 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed, view }: C
           <button
             type="button"
             className="md-codebtn"
-            onClick={copy}
+            onClick={() => copy(code)}
             aria-label={t("code.copy")}
             title={t("code.copy")}
           >
-            <MorphIcon glyph={copied ? CHECK_GLYPH : COPY_GLYPH} size={14} />
+            <CopyGlyph copied={copied} size={14} />
           </button>
           {quote !== null && closed && (
             <button
@@ -126,9 +112,6 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed, view }: C
               <PanelRight size={14} />
             </button>
           )}
-        </span>
-        <span className="md-sr" aria-live="polite">
-          {copied ? t("common.copied") : ""}
         </span>
       </div>
       {drawing ? (

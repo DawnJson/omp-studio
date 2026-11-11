@@ -24,6 +24,7 @@ export const sidebar = {
   showMore: "显示更多（{n}）",
   toggleProject: "展开或收起 {project}",
   waitingHere: "有任务在等你",
+  unreadHere: "有任务跑完了还没看",
   collapseForks: "收起 {count} 个分叉",
   expandForks: "展开 {count} 个分叉",
   loadFailed: "任务列表加载失败：{message}",

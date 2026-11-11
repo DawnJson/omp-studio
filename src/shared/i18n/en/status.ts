@@ -5,5 +5,6 @@ export const status = {
   running: "Running",
   waiting: "Waiting for you",
   error: "Error",
+  unread: "New result",
   interrupted: "Interrupted",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

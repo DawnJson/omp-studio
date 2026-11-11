@@ -391,7 +391,10 @@ test("通用页：通知与回顾是 omp 自己的设置、改了写进 omp；�
     // studio 自己的"有任务在等你时通知我"开关已经去掉：通知只看 omp 的设置。
     await expect(page.getByTestId("setting-notify")).toHaveCount(0);
     expect(await configValue(page, "error.notify")).toBe("off");
-    await notify.getByTestId("cfg-error.notify").getByRole("radio", { name: "开启" }).click();
+    // 只有 on / off 的枚举画成开关（和旁边的布尔开关一样），点一下写 "on"。
+    const errorNotify = notify.getByTestId("cfg-error.notify").getByRole("switch");
+    await expect(errorNotify).not.toBeChecked();
+    await errorNotify.click();
     await expect.poll(() => configValue(page, "error.notify"), { timeout: 10_000 }).toBe("on");
 
     const shortcuts = page.getByTestId("omp-shortcuts");

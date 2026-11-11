@@ -10,6 +10,24 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Files in the file panel, the preview title and composer attachments now show a colored icon for their type (ts, py, pdf, images and so on are easy to tell apart), and common folders such as src, docs and test have their own icons.
+- In the sidebar, a task that finished in the background and you haven't opened yet gets a small green dot and a brighter title; a collapsed folder shows the dot on its header too. Opening the task clears it.
+
+### Fixed
+
+- "Copy session ID" and "Copy session file path" in the task menu now show a "Copied" toast.
+
+### Changed
+
+- Custom provider cards in Settings now show three lines: name, endpoint, and model tags (extras fold into +N, hover to see all); the icon shows which company the models come from (OpenAI, Claude, Gemini, Grok, ...); edit and delete are a pencil and a trash icon, and delete asks first.
+- Copy buttons now turn into a check mark after copying and then back (side question, todo board, copy command on tool cards, restored copy-answer, login dialog link) instead of showing a "Copied" toast; tool and bash cards turn their spinner into ✓ / × when they finish, and the approval chip and the API key show/hide button (now an eye icon) morph their icon too.
+- The three omp notification settings (asks waiting for you, task finished, task failed) are now switches instead of On / Off segments, matching the other switches in that group.
+- The add / edit custom provider dialog now fits its content, so there's no big empty area before any models are added; its top stays put and it only grows downward.
+- Confirmation dialogs (delete, discard, ...) no longer have a × in the corner; close them with Cancel or Esc.
+- All controls have a cleaner look (modeled on shadcn/ui): buttons, inputs and dropdowns have slightly rounder corners, secondary buttons and inputs sit on a white surface with a light shadow; checked switches and checkboxes use the black/white primary color instead of purple; focused inputs get a light gray border and ring, and the keyboard focus ring is thicker; menus and popovers have a thin border; tooltips are dark with light text; badges are solid small tags that stay readable in every theme. Hand-made buttons and tags in the conversation, sidebar and Settings now follow the same style.
+
 ## [0.7.5] - 2026-11-10
 
 ### Fixed

@@ -139,20 +139,6 @@
   border-radius: var(--radius-md);
 }
 
-.eu-chip {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  height: 22px;
-  padding: 0 var(--space-2);
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  background: var(--bg-hover);
-  border-radius: var(--radius-md);
-}
-
 /* 没有统计库时只有"标题 + 一句说明"：说明比标题轻一档，两行贴在一起（2026-10-29：原来说明 --fs-base 比标题还重，卡片空出 100 高） */
 .eu-note {
   margin: 0;

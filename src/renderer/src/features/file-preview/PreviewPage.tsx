@@ -4,10 +4,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PreviewFile, ProjectFilesTarget } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { External, FileIcon, Folder } from "../../icons.tsx";
+import { External, Folder } from "../../icons.tsx";
 import { useFigurePalette } from "../../markdown/figure-palette.ts";
 import { Button, Checkbox, IconButton, Segmented } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
+import { FileTypeIcon } from "../../ui/FileTypeIcon.tsx";
 import { baseName, extension, PreviewContent } from "./PreviewContent.tsx";
 import { snippetExtension, snippetFile, snippetLabel, type Snippet } from "./snippet.ts";
 
@@ -160,7 +161,8 @@ export function PreviewPage({
   return (
     <div className="file-preview-page" hidden={hidden}>
       <div className="file-preview-bar">
-        <FileIcon size={14} />
+        {/* 片段没有文件名，按它的语言（扩展名）取图标 */}
+        <FileTypeIcon name={snippet === null ? name : `snippet.${ext}`} size={14} />
         <span className="file-preview-name" data-testid="file-preview-name">
           {name}
         </span>

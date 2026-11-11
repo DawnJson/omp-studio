@@ -242,37 +242,38 @@
   display: flex;
   gap: var(--space-0-5);
 }
+/* 代码块头部的图标键：同 .ui-icon-btn 的样子（--text-2，悬停 --text + --bg-hover，按下 / 切到源码 --bg-active），
+   压在 28 高的代码块头里用 --control-h-xs 一档；平时隐藏，悬停代码块或键盘聚焦时出现（焦点环走全局 :focus-visible）。 */
 .md-codebtn {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-2);
   opacity: 0;
   cursor: pointer;
   transition:
     opacity var(--dur-fast) var(--ease-out),
-    background var(--dur-instant);
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .md-codeblock:hover .md-codebtn,
-.md-codeblock:focus-within .md-codebtn {
+.md-codeblock:focus-within .md-codebtn,
+.md-codebtn:focus-visible {
   opacity: 1;
 }
 .md-codebtn:hover {
+  color: var(--text);
   background: var(--bg-hover);
 }
 .md-codebtn:active,
 .md-codebtn[aria-pressed="true"] {
+  color: var(--text);
   background: var(--bg-active);
-}
-.md-codebtn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  opacity: 1;
 }
 /* 助手画的 svg 图：不铺底色（omp 约定画布就是读者的主题），1 个单位 ≈ 1px，宽了按比例缩到列宽 */
 .md-figure {
@@ -289,13 +290,6 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   color: var(--text-3);
-}
-.md-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
 }
 /* 画成图的代码块带一份源码，平时不显示；回答右键"复制纯文本"时容器挂 data-copying（同步取 innerText 后就摘掉，不重绘），
    这时只留正文：代码块头（语言名、按钮）和画出来的图不要，图换成它的源码。 */

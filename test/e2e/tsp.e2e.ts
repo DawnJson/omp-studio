@@ -205,25 +205,26 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
   const { launched, received, cleanup } = await start("task");
   try {
     const { page } = launched;
-    // 工具卡跑完的 ✓ 只亮一下（画出、停 1.2s、淡出后卸掉），断言时早已不在：从发送前开始记下出现过的 ✓ 和它的动画。
+    // 工具卡跑完：转圈的弧形变成 ✓（ui/RunGlyph.tsx，同一个 <path> 换 d）。从发送前开始给出现过的弧做记号，看后来有没有带记号的 ✓。
     await page.evaluate(() => {
       const g = globalThis as unknown as {
         document: { body: unknown };
         MutationObserver: new (cb: () => void) => { observe(target: unknown, options: unknown): void };
-        getComputedStyle(node: unknown): { animationName: string };
-        drawnChecks: string[];
+        morphedChecks: number;
       };
-      g.drawnChecks = [];
+      g.morphedChecks = 0;
       const doc = g.document as unknown as {
-        querySelectorAll(selector: string): Iterable<{ dataset: { seen?: string } }>;
+        querySelectorAll(selector: string): Iterable<{ dataset: { arc?: string; counted?: string } }>;
       };
       new g.MutationObserver(() => {
-        for (const path of doc.querySelectorAll(".tsp-tool-st > .tsp-draw-check path")) {
-          if (path.dataset.seen !== undefined) continue;
-          path.dataset.seen = "";
-          g.drawnChecks.push(g.getComputedStyle(path).animationName);
+        for (const path of doc.querySelectorAll(".tsp-tool-st > .run-glyph[data-running] svg:last-child path"))
+          if (path.dataset.arc === undefined) path.dataset.arc = "";
+        for (const path of doc.querySelectorAll(".tsp-tool-st > .tsp-check path[data-arc]")) {
+          if (path.dataset.counted !== undefined) continue;
+          path.dataset.counted = "";
+          g.morphedChecks += 1;
         }
-      }).observe(g.document.body, { childList: true, subtree: true });
+      }).observe(g.document.body, { childList: true, subtree: true, attributes: true });
     });
     // 界面语言默认跟系统;CI 的 macOS 机器是英文系统,发之前就切到中文(下面"全部完成"只在一个短窗口里断言)。
     await setLocaleTheme(page, "zh-CN", "light");
@@ -293,10 +294,10 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
       `(() => { const el = document.querySelector(".tsp-scroller"); return el.scrollHeight - el.clientHeight - el.scrollTop; })()`,
     );
     expect(distance).toBeLessThanOrEqual(2);
-    // 工具卡跑完：✓ 用描边画出来（tsp-draw），之后常驻（issue #9，照 ompweb）；淡紫的运行底用 background-color 过渡褪掉。
-    expect(await page.evaluate(() => (globalThis as unknown as { drawnChecks: string[] }).drawnChecks)).toContain(
-      "tsp-draw",
-    );
+    // 工具卡跑完：转圈的弧形变成 ✓，之后常驻（issue #9，照 ompweb）；淡紫的运行底用 background-color 过渡褪掉。
+    expect(
+      await page.evaluate(() => (globalThis as unknown as { morphedChecks: number }).morphedChecks),
+    ).toBeGreaterThan(0);
     await expect(role(page, "omp.tool.bash").first().getByTestId("tsp-tool-check")).toBeVisible();
     await expect(page.locator('[data-testid="tsp-view"] .tsp-tool.card.st-done').first()).toHaveCSS(
       "transition-property",
@@ -2351,7 +2352,7 @@ test("omp 进程退出后：还在跑的工具卡画成已取消，不转圈、�
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "error", { timeout: 30_000 });
     const card = role(page, "omp.tool.bash").last();
     await expect(card).toHaveClass(/\bst-cancelled\b/);
-    await expect(page.locator('[data-testid="tsp-view"] .tsp-tool-spin')).toHaveCount(0);
+    await expect(page.locator('[data-testid="tsp-view"] .run-glyph[data-running]')).toHaveCount(0);
     const timer = card.locator(".tsp-tool-time");
     const shown = await timer.textContent();
     expect(shown).toMatch(/\ds/);
@@ -3134,7 +3135,7 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     await expect(turns).toHaveCount(2, { timeout: 30_000 });
     await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.nth(1)).toContainText("gamma");
-    // 复制答案:头部的按钮把当前话题最新一问的答案写进系统剪贴板(渲染进程剪贴板),出"已复制"toast。
+    // 复制答案:头部的按钮把当前话题最新一问的答案写进系统剪贴板(渲染进程剪贴板),图标变成对勾(读屏播报"已复制"),不弹 toast。
     const unlock = await lockClipboard();
     try {
       await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
@@ -3142,6 +3143,7 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
       await expect
         .poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
         .toContain("gamma");
+      await expect(panel.getByTestId("btw-copy-answer")).toContainText(/已复制|Copied/);
     } finally {
       await unlock();
     }
@@ -3280,6 +3282,7 @@ test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添�
           (await todo.launched.app.evaluate(({ clipboard }) => clipboard.readText())).replace(/\r\n/g, "\n"),
         )
         .toBe("# Alpha\n- [x] Write tests\n- [x] Fix bug\n\n# Beta\n- [x] Ship it\n");
+      await expect(page.getByTestId("todo-copy")).toContainText(/已复制|Copied/);
     } finally {
       await unlock();
     }
