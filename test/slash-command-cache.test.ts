@@ -133,6 +133,9 @@ describe("SlashCommandCache", () => {
     const { cache } = open();
     await cache.list(project, fetch);
     await writeFile(path.join(nested, "review.md"), "review\n");
+    // 只靠已有目录的修改时间发现新文件：Windows CI 上偶尔和取指纹时一样（2026-11-11 v0.7.8 的 main 构建撞过），显式往后拨，同上面的 skills。
+    const later = new Date(Date.now() + 30_000);
+    await utimes(nested, later, later);
     await cache.list(project, fetch);
     await cache.list(project, fetch);
     expect(state.fetches).toBe(2);
