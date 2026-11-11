@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-11-11
+
 ### Changed
 
 - Connected cards in Settings -> Providers now use icon buttons like the custom provider cards: a key to set or replace the key, a door arrow to sign out or clear the key, a person with a plus to add an account, each explained on hover; the buttons sit on the right and names are no longer cut short by them.
