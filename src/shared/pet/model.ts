@@ -77,6 +77,9 @@ export interface PetView {
   growth: Stats;
   /** 还没孵化好（smol 还没写出名字）时为 null。 */
   soul: Soul | null;
+  /** 陪伴天数（有动静的天数）和连续签到天数，属性卡上显示。 */
+  days: number;
+  streak: number;
   mood: Mood;
   /** 说话（气泡）开着。 */
   talk: boolean;
@@ -90,6 +93,8 @@ export interface PetView {
 export type PetReaction =
   | { kind: "say"; text: string }
   | { kind: "hearts" }
+  /** 成就（待办阶段做完、目标完成、开了 PR）：撒一阵彩纸。 */
+  | { kind: "celebrate" }
   | { kind: "levelUp"; level: number }
   | { kind: "evolve"; stage: Stage }
   | { kind: "card" }

@@ -58,11 +58,9 @@
 .pet-sprite[data-mood="done"] .pet-body {
   animation: pet-hop 0.5s steps(1) infinite;
 }
+/* 只上下动、不左右晃（2026-11-11 所有者定）：出错是往下一沉，蛋和其他阶段一样跟着表情走。 */
 .pet-sprite[data-mood="error"] .pet-body {
-  animation: pet-shake 0.45s steps(1) infinite;
-}
-.pet-sprite[data-stage="egg"] .pet-body {
-  animation: pet-wobble 1.6s steps(1) infinite;
+  animation: pet-slump 1.2s steps(1) infinite;
 }
 .pet-mark {
   animation: pet-mark 1.2s steps(1) infinite;
@@ -84,6 +82,26 @@
   animation: pet-shiny 3s steps(90) infinite;
 }
 
+/* 等级装饰（decor.ts）：蝴蝶上下飘，星星一闪一闪；满级的金边换成流动的彩虹色。 */
+.pet-decor-float {
+  animation: pet-bob 2.4s steps(1) infinite;
+}
+.pet-decor-twinkle {
+  animation: pet-twinkle 2s steps(1) infinite;
+}
+.pet-sprite[data-max] .pet-outline {
+  animation: pet-shiny 3s steps(90) infinite;
+}
+@keyframes pet-twinkle {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.35;
+  }
+}
+
 @keyframes pet-bob {
   0%,
   66% {
@@ -102,24 +120,13 @@
     transform: translateY(-2px);
   }
 }
-@keyframes pet-shake {
-  0% {
-    transform: translateX(0);
-  }
-  33% {
-    transform: translateX(-1px);
-  }
-  66% {
-    transform: translateX(1px);
-  }
-}
-@keyframes pet-wobble {
+@keyframes pet-slump {
   0%,
   66% {
-    transform: translateX(0);
+    transform: translateY(0);
   }
   33% {
-    transform: translateX(1px);
+    transform: translateY(1px);
   }
 }
 @keyframes pet-mark {
@@ -254,6 +261,35 @@
   opacity: 0;
 }
 
+/* 彩纸：从头顶抛到 --dx 再往下落，2 秒内淡出。 */
+.pet-confetti {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--pet-h) - var(--space-4));
+  pointer-events: none;
+}
+.pet-confetti span {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  opacity: 0;
+  animation: pet-confetti 1.8s var(--ease-out) var(--delay) forwards;
+}
+@keyframes pet-confetti {
+  0% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  35% {
+    opacity: 1;
+    translate: calc(var(--dx) * 0.7) var(--dy);
+  }
+  100% {
+    opacity: 0;
+    translate: var(--dx) 24px;
+  }
+}
+
 @keyframes pet-pop {
   from {
     opacity: 0;
@@ -357,6 +393,14 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
 }
+.pet-card-together {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+.pet-card-max {
+  color: #e8a400;
+}
 .pet-card-meta [data-rarity="rare"] {
   color: #3b82f6;
 }
@@ -433,8 +477,17 @@
   .pet-page *::after {
     animation: none !important;
   }
+  .pet-confetti span {
+    opacity: 1;
+    translate: calc(var(--dx) * 0.7) var(--dy);
+  }
 }
 :root.pet-page[data-motion="reduced"] *,
 :root.pet-page[data-motion="reduced"] *::after {
   animation: none !important;
+}
+/* 彩纸动画关掉后停在抛到最高处的样子（页面 2.5 秒后自己收掉），不然什么都看不见。 */
+:root.pet-page[data-motion="reduced"] .pet-confetti span {
+  opacity: 1;
+  translate: calc(var(--dx) * 0.7) var(--dy);
 }

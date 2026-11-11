@@ -34,7 +34,7 @@ import { pathKey, TaskRegistry } from "./task-registry.ts";
 import { sessionLeaseHeld } from "../history/session-lease.ts";
 import { runOmpCommand } from "../usage/usage-service.ts";
 import { serviceCwd } from "../service/service-omp.ts";
-import { petOnTaskRemoved, petOnTaskState } from "../pet/pet-service.ts";
+import { petOnTaskNotice, petOnTaskRemoved, petOnTaskState } from "../pet/pet-service.ts";
 
 /** `omp session lease` 的上限（真 omp 起一次约 1–3 秒）。 */
 const LEASE_TIMEOUT_MS = 30_000;
@@ -170,7 +170,10 @@ function createPool(): Promise<TaskPool> {
         petOnTaskState(state, tasks);
       },
       tspBatch: (batch) => tspFeed().push(batch),
-      notice: (notice) => emitEvent("taskNotice", notice),
+      notice: (notice) => {
+        emitEvent("taskNotice", notice);
+        petOnTaskNotice(notice);
+      },
       taskRemoved: (id) => {
         forgetExport(id);
         notifier.forget(id);

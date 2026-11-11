@@ -147,6 +147,33 @@ test("pet.json 里的位置在屏幕外：夹回屏幕里；种子不变（还�
   }
 });
 
+test("满级：五件装饰、彩虹边；属性卡名字前有 ★，显示陪伴天数", async () => {
+  const userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-pet-"));
+  await writeFile(
+    path.join(userData, "pet.json"),
+    JSON.stringify({
+      seed: "00000000-0000-4000-8000-000000000044",
+      soul: { name: "Old", personality: "", hatchedAt: 1 },
+      // Lv99 = 20 × 98²
+      growth: { xp: 192_080, totals: { daily: 123 } },
+    }),
+  );
+  const launched = await launchApp({ ...petEnv, STUDIO_USER_DATA: userData });
+  try {
+    const pet = await petPage(launched);
+    const sprite = pet.getByTestId("pet-sprite");
+    await expect(sprite).toHaveAttribute("data-max", "true");
+    await expect(sprite.locator("[data-decor]")).toHaveCount(5);
+    await expect(sprite.locator(".pet-outline")).toHaveCount(1);
+    await launched.page.evaluate(() => globalThis.studio.petAction("card"));
+    await expect(pet.getByTestId("pet-name")).toHaveText("★ Old");
+    await expect(pet.getByTestId("pet-together")).toContainText("123");
+  } finally {
+    await launched.close();
+    await rm(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("右键重新孵化：宠物窗口里的 studio 样式确认框；Esc 和取消都不动，确认后换新种子、重新起名", async () => {
   const userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-pet-"));
   const seed = "00000000-0000-4000-8000-000000000043";

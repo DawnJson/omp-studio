@@ -13,6 +13,8 @@ export const pet = {
   "rehatch.confirm": "Hatch",
   "rehatch.cancel": "Cancel",
   level: "Lv {level}",
+  together: "Together {days}d",
+  streak: "Streak {streak}d",
   hatching: "Hatching…",
   rename: "Rename",
   renameInvalid: "Names are 1–24 characters",

@@ -139,9 +139,10 @@ export async function hatchSoul(runner: VoiceRunner, bones: Bones, locale: Local
   }
 }
 
-/** 说话的起因：任务事件（带标题）、被摸、升级、进化。 */
+/** 说话的起因：任务事件（带标题）、成就、被摸、升级、进化。待办阶段只说"做完了一个阶段"，不发阶段名（只发状态和标题）。 */
 export type VoiceTrigger =
-  | { kind: "turn" | "gate" | "recovered" | "error" | "waiting"; title: string }
+  | { kind: "turn" | "gate" | "recovered" | "error" | "waiting" | "todoPhase" | "goal"; title: string }
+  | { kind: "pr"; title: string; number: string }
   | { kind: "pet" }
   | { kind: "levelUp"; level: number }
   | { kind: "evolve"; stage: Stage };
@@ -158,6 +159,12 @@ function situation(trigger: VoiceTrigger): string {
       return `The task "${trigger.title}" is waiting for the user to approve or answer something.`;
     case "error":
       return `The task "${trigger.title}" just crashed with an error.`;
+    case "todoPhase":
+      return `The task "${trigger.title}" just finished a whole phase of its todo list. Celebrate a little.`;
+    case "goal":
+      return `The task "${trigger.title}" just completed its goal. Celebrate!`;
+    case "pr":
+      return `The task "${trigger.title}" just opened pull request #${trigger.number}. Celebrate!`;
     case "pet":
       return "The user just petted you.";
     case "levelUp":

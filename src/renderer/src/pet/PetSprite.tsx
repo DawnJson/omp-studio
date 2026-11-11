@@ -1,9 +1,11 @@
-// 宠物的像素画（docs/design/spec/4.32-pet.md）：物种 × 阶段的底图（shared/pet/sprites.ts）+ 眼睛表情 + 帽子 + 状态小标记。
+// 宠物的像素画（docs/design/spec/4.32-pet.md）：物种 × 阶段的底图（shared/pet/sprites.ts）+ 眼睛表情 + 帽子 + 状态小标记 + 等级装饰（decor.ts）。
 // 坐标单位是像素格；外层 viewBox 在 16×16 的画布四周留出帽子和标记的位置。动画全在 pet.css（按 data-mood 切换，3 帧 steps），
 // 减少动效时停在第一帧。颜色是物种自己的固定色，状态标记用主题的状态色。
 import { memo, type ReactNode } from "react";
+import { maxLevel } from "../../../shared/pet/growth.ts";
 import type { Bones, EyeStyle, Mood, Stage } from "../../../shared/pet/model.ts";
 import { SPRITE_SIZE, sprites, type SpriteDef } from "../../../shared/pet/sprites.ts";
+import { decorations, OUTLINE_COLOR, OUTLINE_LEVEL, type DecorDef } from "./decor.ts";
 import { hatSprites } from "./hats.ts";
 
 /** viewBox：左右各留 3 格，上面留 7 格（帽子、标记），下面不留（站在底边）。 */
@@ -43,6 +45,25 @@ function Pixels({
   return list.map((cell) => (
     <rect key={`${cell.x}-${cell.y}`} x={cell.x + dx} y={cell.y + dy} width={1} height={1} fill={palette[cell.char]} />
   ));
+}
+
+function Decor({ def }: { def: DecorDef }) {
+  return (
+    <g className={def.className} data-decor={def.level}>
+      <Pixels list={cells(def.rows)} palette={def.palette} dx={def.x} dy={def.y} />
+    </g>
+  );
+}
+
+/** 身体外面一圈：挨着身体（上下左右）的透明格。 */
+function outlineCells(sprite: SpriteDef): Cell[] {
+  const filled = (x: number, y: number) => (sprite.rows[y]?.[x] ?? ".") !== ".";
+  const ring: Cell[] = [];
+  for (let y = -1; y <= SPRITE_SIZE; y++)
+    for (let x = -1; x <= SPRITE_SIZE; x++)
+      if (!filled(x, y) && (filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1)))
+        ring.push({ x, y, char: "o" });
+  return ring;
 }
 
 /** 睁眼：按骨里的眼睛样式画在这一格里。 */
@@ -143,11 +164,14 @@ interface PetSpriteProps {
   bones: Bones;
   stage: Stage;
   mood: Mood;
+  level: number;
   label: string;
 }
 
-export const PetSprite = memo(function PetSprite({ bones, stage, mood, label }: PetSpriteProps) {
+export const PetSprite = memo(function PetSprite({ bones, stage, mood, level, label }: PetSpriteProps) {
   const sprite = sprites[bones.species][stage];
+  const unlocked = decorations.filter((def) => level >= def.level);
+  const outline = level >= OUTLINE_LEVEL ? outlineCells(sprite) : null;
   const all = cells(sprite.rows);
   const body = all.filter((cell) => cell.char !== "e");
   const eyes = all.filter((cell) => cell.char === "e");
@@ -170,9 +194,20 @@ export const PetSprite = memo(function PetSprite({ bones, stage, mood, label }: 
       data-mood={mood}
       data-stage={stage}
       data-shiny={bones.shiny || undefined}
+      data-max={level >= maxLevel || undefined}
       data-testid="pet-sprite"
     >
+      {unlocked
+        .filter((def) => def.behind === true)
+        .map((def) => (
+          <Decor key={def.level} def={def} />
+        ))}
       <g className="pet-body">
+        {outline !== null && (
+          <g className="pet-outline">
+            <Pixels list={outline} palette={{ o: OUTLINE_COLOR }} />
+          </g>
+        )}
         <g className="pet-pixels">
           <Pixels list={body} palette={sprite.palette} />
           {eyes.map((cell) => (
@@ -198,6 +233,11 @@ export const PetSprite = memo(function PetSprite({ bones, stage, mood, label }: 
           ))}
         </g>
       </g>
+      {unlocked
+        .filter((def) => def.behind !== true)
+        .map((def) => (
+          <Decor key={def.level} def={def} />
+        ))}
       <Mark mood={mood} top={head.y} right={rightEdge} />
     </svg>
   );

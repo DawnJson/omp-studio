@@ -2,18 +2,21 @@
 // 任务状态从 tasks/runtime.ts 的 state / taskRemoved 事件进来；设置（petEnabled、petTalk、主题、语言、减少动效）变了重推一次画面。
 import path from "node:path";
 import { app, type MenuItemConstructorOptions } from "electron";
-import type { TaskId, TaskState } from "../../shared/ipc.ts";
+import type { TaskId, TaskNotice, TaskState } from "../../shared/ipc.ts";
 import { t } from "../../shared/i18n/index.ts";
 import { rollBones } from "../../shared/pet/bones.ts";
 import {
+  applyAchievement,
   applyEvent,
+  applyOutput,
   currentStats,
   levelOf,
   maxLevel,
   stageOf,
   xpForLevel,
   dayKey,
-  type XpSource,
+  type CountedSource,
+  type GrowthStep,
 } from "../../shared/pet/growth.ts";
 import { PET_NAME_MAX_CHARS, type Bones, type Mood, type PetSpend, type PetView } from "../../shared/pet/model.ts";
 import { eventToVoice, PetTaskTracker, summarizeMood, type PetTaskEvent } from "../../shared/pet/mood.ts";
@@ -55,6 +58,13 @@ function mood(): Mood {
   return (base === "idle" || base === "running") && Date.now() < doneUntil ? "done" : base;
 }
 
+/** 连签只在昨天或今天还签过时算数（断了的连签存着旧值，下次签到才清）。 */
+function liveStreak(day: string | null, streak: number): number {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return day === dayKey(new Date()) || day === dayKey(yesterday) ? streak : 0;
+}
+
 function view(): PetView {
   const current = store!.get();
   const level = levelOf(current.growth.xp);
@@ -68,6 +78,8 @@ function view(): PetView {
     stats: currentStats(bones!, current.growth),
     growth: { ...current.growth.statGrowth },
     soul: current.soul,
+    days: current.growth.totals.daily,
+    streak: liveStreak(current.growth.day, current.growth.streak),
     mood: mood(),
     talk: settings.petTalk,
     locale: resolveLocale(),
@@ -150,11 +162,9 @@ function say(trigger: VoiceTrigger, gapMs: number, force = false): void {
   });
 }
 
-/** 记一次成长事件；升级、进化时冒提示，mayTalk 时让它说一句（一次状态变化里只第一次升级说话）。 */
-function grow(source: Exclude<XpSource, "daily">, mayTalk = true): void {
-  if (store === null) return;
-  const step = applyEvent(store.get().growth, source, new Date());
-  store.update({ growth: step.growth });
+/** 记一步成长；升级、进化时冒提示，mayTalk 时让它说一句（一次状态变化里只第一次升级说话）。 */
+function grow(step: GrowthStep, mayTalk: boolean): void {
+  store!.update({ growth: step.growth });
   if (step.evolved !== null) {
     sendPetReaction({ kind: "evolve", stage: step.evolved });
     if (mayTalk) say({ kind: "evolve", stage: step.evolved }, 0, true);
@@ -164,12 +174,55 @@ function grow(source: Exclude<XpSource, "daily">, mayTalk = true): void {
   }
 }
 
-function onTaskEvent(event: PetTaskEvent, mayTalk: boolean): void {
-  grow(event.kind, mayTalk);
-  if (event.kind === "turn") {
-    doneUntil = Date.now() + DONE_MS;
-    clearTimeout(doneTimer);
-    doneTimer = setTimeout(push, DONE_MS + 50);
+/** 记一次按次数算的事件；返回它算没算进来（超过当天上限的不算）。 */
+function growBy(source: CountedSource, mayTalk = true): boolean {
+  if (store === null) return false;
+  const before = store.get().growth.totals[source];
+  const step = applyEvent(store.get().growth, source, new Date());
+  grow(step, mayTalk);
+  return step.growth.totals[source] > before;
+}
+
+/**
+ * 记一件任务事件；返回它要不要庆祝 / 说话。成就同一项已经算过、或这类成就今天已到上限的不要
+ * （免得一口气做完很多阶段时每个都调一次模型）。
+ */
+function onTaskEvent(event: PetTaskEvent, mayTalk: boolean): boolean {
+  const now = new Date();
+  const growth = store!.get().growth;
+  switch (event.kind) {
+    case "output":
+      grow(applyOutput(growth, event.tokens, now), mayTalk);
+      return true;
+    case "todoPhase":
+    case "pr": {
+      const step = applyAchievement(growth, event.kind, event.key, now);
+      if (step === null) return false;
+      grow(step, mayTalk);
+      if (step.growth.totals[event.kind] === growth.totals[event.kind]) return false;
+      sendPetReaction({ kind: "celebrate" });
+      return true;
+    }
+    case "turn":
+      doneUntil = Date.now() + DONE_MS;
+      clearTimeout(doneTimer);
+      doneTimer = setTimeout(push, DONE_MS + 50);
+      growBy(event.kind, mayTalk);
+      return true;
+    default:
+      growBy(event.kind, mayTalk);
+      return true;
+  }
+}
+
+function voiceOf(event: PetTaskEvent): VoiceTrigger | null {
+  switch (event.kind) {
+    case "output":
+      return null;
+    case "pr":
+      return { kind: "pr", title: event.title, number: event.detail };
+    default:
+      return { kind: event.kind, title: event.title };
   }
 }
 
@@ -178,12 +231,11 @@ export function petOnTaskState(state: TaskState, all: readonly TaskState[]): voi
   tasks = all;
   if (store === null) return;
   const spokeBefore = lastSpokeAt;
-  const events = tracker.update(state);
-  for (const event of events) onTaskEvent(event, lastSpokeAt === spokeBefore);
-  // 一次变化最多说一句：升级 / 进化已经开口就不再说事件；出错后修好的那句不看间隔（优先于同时到来的"跑完一轮"）。
+  const events = tracker.update(state).filter((event) => onTaskEvent(event, lastSpokeAt === spokeBefore));
+  // 一次变化最多说一句：升级 / 进化已经开口就不再说事件；成就和出错后修好的那句不看间隔（优先于同时到来的"跑完一轮"）。
   const voiced = eventToVoice(events);
-  if (voiced !== null && lastSpokeAt === spokeBefore)
-    say({ kind: voiced.kind, title: voiced.title }, voiced.kind === "recovered" ? 0 : AUTO_TALK_GAP_MS);
+  const trigger = voiced === null || lastSpokeAt !== spokeBefore ? null : voiceOf(voiced);
+  if (trigger !== null) say(trigger, trigger.kind === "turn" || trigger.kind === "error" ? AUTO_TALK_GAP_MS : 0);
   const before = lastMood;
   push();
   if (before !== "waiting" && lastMood === "waiting" && state.status === "needs_you")
@@ -196,10 +248,22 @@ export function petOnTaskRemoved(id: TaskId, all: readonly TaskState[]): void {
   push();
 }
 
+/** runtime.ts 的 notice 事件：目标完成是一件成就。 */
+export function petOnTaskNotice(notice: TaskNotice): void {
+  if (store === null || notice.kind !== "goal_complete") return;
+  const task = tasks.find((candidate) => candidate.id === notice.taskId);
+  const spokeBefore = lastSpokeAt;
+  if (growBy("goal")) {
+    sendPetReaction({ kind: "celebrate" });
+    if (lastSpokeAt === spokeBefore) say({ kind: "goal", title: task?.title ?? "" }, 0);
+  }
+  push();
+}
+
 function petIt(): void {
   if (store === null) return;
   sendPetReaction({ kind: "hearts" });
-  grow("pet");
+  growBy("pet");
   push();
   say({ kind: "pet" }, PET_TALK_GAP_MS);
 }

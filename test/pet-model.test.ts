@@ -2,13 +2,44 @@
 import { describe, expect, test } from "vitest";
 import type { TaskState } from "../src/shared/ipc.ts";
 import { rollBones } from "../src/shared/pet/bones.ts";
-import { applyEvent, emptyGrowth, levelOf, stageOf, xpForLevel, type Growth } from "../src/shared/pet/growth.ts";
+import {
+  applyAchievement,
+  applyEvent,
+  applyOutput,
+  emptyGrowth,
+  levelOf,
+  outputXp,
+  stageOf,
+  xpForLevel,
+  type Growth,
+} from "../src/shared/pet/growth.ts";
 import { hatMinRarity, rarities, rarityInfo, type Rarity } from "../src/shared/pet/model.ts";
 import { eventToVoice, PetTaskTracker, summarizeMood } from "../src/shared/pet/mood.ts";
 import { addSpend, emptySpend, parsePetRecord, rehatched, spendOn } from "../src/main/pet/pet-store.ts";
 import { chooseVoiceModel, parseJsonOutput } from "../src/main/pet/pet-voice.ts";
 
 const seed = (index: number) => `00000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`;
+
+/** 任务状态里宠物看的那几项；默认是个还没用量、没待办、没 PR 的任务。 */
+const tracked = (
+  status: TaskState["status"],
+  extra: Partial<Pick<TaskState, "sessionUsage" | "todoPhases" | "prNumber" | "title">> = {},
+) => ({
+  id: "t1" as TaskState["id"],
+  status,
+  title: "修 bug",
+  cwd: "/repo",
+  sessionUsage: null,
+  todoPhases: [],
+  prNumber: null,
+  ...extra,
+});
+
+const usage = (output: number): TaskState["sessionUsage"] => ({
+  tokens: { input: 100, output, cacheRead: 0, cacheWrite: 0, total: 100 + output },
+  cost: 0,
+  premiumRequests: 0,
+});
 
 describe("骨", () => {
   test("同一个种子永远抽出同一只，不同种子会不同", () => {
@@ -43,18 +74,50 @@ describe("成长", () => {
 
   test("每天第一次事件先签到；同一天的同种事件超过上限不再给经验", () => {
     let growth: Growth = emptyGrowth();
-    const first = applyEvent(growth, "turn", day("2026-11-10"));
-    expect(first.gained).toBe(30 + 10);
+    const first = applyEvent(growth, "gate", day("2026-11-10"));
+    expect(first.gained).toBe(30 + 5);
     growth = first.growth;
-    for (let index = 1; index < 30; index += 1) growth = applyEvent(growth, "turn", day("2026-11-10")).growth;
-    expect(growth.today.turn).toBe(30);
-    const capped = applyEvent(growth, "turn", day("2026-11-10"));
+    for (let index = 1; index < 20; index += 1) growth = applyEvent(growth, "gate", day("2026-11-10")).growth;
+    expect(growth.today.gate).toBe(20);
+    const capped = applyEvent(growth, "gate", day("2026-11-10"));
     expect(capped.gained).toBe(0);
-    expect(capped.growth.totals.turn).toBe(30);
+    expect(capped.growth.totals.gate).toBe(20);
     // 第二天上限重置，连续签到经验变多
-    const next = applyEvent(capped.growth, "turn", day("2026-11-11"));
+    const next = applyEvent(capped.growth, "gate", day("2026-11-11"));
     expect(next.growth.streak).toBe(2);
-    expect(next.gained).toBe(35 + 10);
+    expect(next.gained).toBe(35 + 5);
+  });
+
+  test("输出 token 按当天累计取对数：分几次给和一次给的经验一样；第二天从头算", () => {
+    const start = applyEvent(emptyGrowth(), "pet", day("2026-11-10")).growth;
+    let split = start;
+    let gained = 0;
+    for (const tokens of [20_000, 80_000, 100_000]) {
+      const step = applyOutput(split, tokens, day("2026-11-10"));
+      gained += step.gained;
+      split = step.growth;
+    }
+    expect(gained).toBe(applyOutput(start, 200_000, day("2026-11-10")).gained);
+    expect(gained).toBe(outputXp(200_000));
+    expect(split.totals.output).toBe(200_000);
+    // 越多越难：当天第二个 20 万比第一个给得少；跑完一轮本身不给经验
+    expect(applyOutput(split, 200_000, day("2026-11-10")).gained).toBeLessThan(gained);
+    expect(applyEvent(split, "turn", day("2026-11-10")).gained).toBe(0);
+    const nextDay = applyOutput(split, 200_000, day("2026-11-11"));
+    expect(nextDay.growth.today.output).toBe(200_000);
+    expect(nextDay.gained).toBe(35 + outputXp(200_000));
+  });
+
+  test("成就同一个 key 只算一次；超过当天上限也记下 key", () => {
+    const first = applyAchievement(emptyGrowth(), "pr", "pr:/repo#12", day("2026-11-10"));
+    expect(first?.gained).toBe(30 + 100);
+    expect(applyAchievement(first!.growth, "pr", "pr:/repo#12", day("2026-11-10"))).toBeNull();
+    let growth = first!.growth;
+    for (let index = 13; index < 17; index += 1)
+      growth = applyAchievement(growth, "pr", `pr:/repo#${index}`, day("2026-11-10"))!.growth;
+    const capped = applyAchievement(growth, "pr", "pr:/repo#99", day("2026-11-10"));
+    expect(capped?.gained).toBe(0);
+    expect(capped?.growth.achieved).toContain("pr:/repo#99");
   });
 
   test("断了一天连续签到从 1 重新算；不改传入的对象", () => {
@@ -80,7 +143,7 @@ describe("成长", () => {
     expect([1, 4, 5, 14, 15, 29, 30].map(stageOf)).toEqual(["egg", "egg", "baby", "baby", "adult", "adult", "final"]);
     const almost: Growth = { ...emptyGrowth(), xp: xpForLevel(5) - 5, day: "2026-11-10", streak: 1 };
     almost.today.daily = 1;
-    const step = applyEvent(almost, "turn", day("2026-11-10"));
+    const step = applyEvent(almost, "recovered", day("2026-11-10"));
     expect(step.levelUp).toBe(5);
     expect(step.evolved).toBe("baby");
   });
@@ -98,8 +161,7 @@ describe("任务状态", () => {
 
   test("认出跑完一轮、处理掉的门、出错和出错后跑通", () => {
     const tracker = new PetTaskTracker();
-    const state = (status: TaskState["status"]) => ({ id: "t1" as TaskState["id"], status, title: "修 bug" });
-    const kinds = (status: TaskState["status"]) => tracker.update(state(status)).map((event) => event.kind);
+    const kinds = (status: TaskState["status"]) => tracker.update(tracked(status)).map((event) => event.kind);
     expect(kinds("starting")).toEqual([]);
     expect(kinds("idle")).toEqual([]);
     expect(kinds("running")).toEqual([]);
@@ -114,6 +176,49 @@ describe("任务状态", () => {
     expect(kinds("running")).toEqual([]);
     expect(kinds("idle")).toEqual(["turn"]);
   });
+
+  test("输出 token：第一次读到的累计只当基准，之后给涨出来的部分；读到之前和变小（换了会话）不算", () => {
+    const tracker = new PetTaskTracker();
+    const output = (sessionUsage: TaskState["sessionUsage"]) =>
+      tracker
+        .update(tracked("running", { sessionUsage }))
+        .flatMap((event) => (event.kind === "output" ? [event.tokens] : []));
+    expect(output(null)).toEqual([]);
+    const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+    expect(output({ ...usage(0)!, tokens: zero })).toEqual([]);
+    expect(output(usage(90_000))).toEqual([]);
+    expect(output(usage(91_500))).toEqual([1_500]);
+    expect(output(null)).toEqual([]);
+    expect(output(usage(91_500))).toEqual([]);
+    expect(output(usage(300))).toEqual([]);
+    expect(output(usage(800))).toEqual([500]);
+  });
+
+  test("待办阶段做完、开了 PR 是成就，只在 agent 干活时算；恢复旧任务时 idle 里读到的旧待办和 PR 只当基准", () => {
+    const tracker = new PetTaskTracker();
+    const phase = (name: string, ...statuses: ("pending" | "completed" | "abandoned")[]) => ({
+      name,
+      tasks: statuses.map((status, index) => ({ content: `${name}${index}`, status })),
+    });
+    const events = (status: TaskState["status"], extra: Parameters<typeof tracked>[1]) =>
+      tracker.update(tracked(status, extra)).map((event) => event.kind);
+    // 恢复：先空，idle 里才读出旧待办和标题里的 PR 号
+    expect(events("starting", {})).toEqual([]);
+    expect(events("idle", { todoPhases: [phase("A", "completed")], prNumber: 3 })).toEqual([]);
+    const done = [phase("A", "completed"), phase("B", "completed", "abandoned")];
+    expect(
+      events("running", { todoPhases: [phase("A", "completed"), phase("B", "completed", "pending")], prNumber: 3 }),
+    ).toEqual([]);
+    expect(events("running", { todoPhases: done, prNumber: 3 })).toEqual(["todoPhase"]);
+    // 全部放弃的阶段不算做完；跑完那一下（running → idle）开的 PR 算
+    expect(events("running", { todoPhases: [phase("C", "abandoned")], prNumber: 3 })).toEqual([]);
+    expect(events("idle", { todoPhases: [], prNumber: 4 })).toEqual(["pr", "turn"]);
+    // 同名、内容不同的新一份待办做完还算；用户空闲时在待办板上勾的不算
+    expect(events("idle", { todoPhases: [phase("B", "completed")], prNumber: 4 })).toEqual([]);
+    expect(events("running", { todoPhases: [phase("B", "completed", "completed", "completed")], prNumber: 4 })).toEqual(
+      ["todoPhase"],
+    );
+  });
 });
 
 describe("pet.json", () => {
@@ -124,7 +229,14 @@ describe("pet.json", () => {
     const parsed = parsePetRecord({
       seed: seed(7),
       soul: { name: "", personality: "x", hatchedAt: 1 },
-      growth: { xp: -5, streak: 2, day: "nope", totals: { turn: 3.5, gate: 2 }, statGrowth: { wisdom: 4 } },
+      growth: {
+        xp: -5,
+        streak: 2,
+        day: "nope",
+        totals: { turn: 3.5, gate: 2 },
+        statGrowth: { wisdom: 4 },
+        achieved: ["pr:/repo#1", 7, ""],
+      },
       position: { x: 10.4, y: "a" },
     });
     expect(parsed.seed).toBe(seed(7));
@@ -136,6 +248,7 @@ describe("pet.json", () => {
     expect(parsed.growth.totals.gate).toBe(2);
     expect(parsed.growth.statGrowth.wisdom).toBe(4);
     expect(parsed.position).toBeNull();
+    expect(parsed.growth.achieved).toEqual(["pr:/repo#1"]);
   });
 });
 
@@ -149,19 +262,28 @@ describe("说话用的模型", () => {
 });
 
 describe("一次状态变化说哪句", () => {
-  test("出错后又跑完一轮：同一批里有 turn 和 recovered，只说 recovered；只处理确认门不说话", () => {
+  test("出错后又跑完一轮：同一批里有 turn 和 recovered，只说 recovered；只处理确认门、只写了 token 不说话", () => {
     const tracker = new PetTaskTracker();
-    const task = (status: TaskState["status"]) => ({ id: "t1" as TaskState["id"], status, title: "修样式" });
-    tracker.update(task("running"));
-    tracker.update(task("error"));
-    tracker.update(task("running"));
-    const events = tracker.update(task("idle"));
+    tracker.update(tracked("running"));
+    tracker.update(tracked("error"));
+    tracker.update(tracked("running"));
+    const events = tracker.update(tracked("idle"));
     expect(events.map((event) => event.kind)).toEqual(["turn", "recovered"]);
     expect(eventToVoice(events)?.kind).toBe("recovered");
-    tracker.update(task("running"));
-    expect(eventToVoice(tracker.update(task("idle")))?.kind).toBe("turn");
-    tracker.update(task("needs_you"));
-    expect(eventToVoice(tracker.update(task("running")))).toBeNull();
+    tracker.update(tracked("running"));
+    expect(eventToVoice(tracker.update(tracked("idle")))?.kind).toBe("turn");
+    tracker.update(tracked("needs_you"));
+    expect(eventToVoice(tracker.update(tracked("running")))).toBeNull();
+    tracker.update(tracked("running", { sessionUsage: usage(10) }));
+    expect(eventToVoice(tracker.update(tracked("running", { sessionUsage: usage(20) })))).toBeNull();
+  });
+
+  test("成就优先：同一批里开了 PR 又跑完一轮，说 PR", () => {
+    const tracker = new PetTaskTracker();
+    tracker.update(tracked("running"));
+    const events = tracker.update(tracked("idle", { prNumber: 9 }));
+    expect(events.map((event) => event.kind)).toEqual(["pr", "turn"]);
+    expect(eventToVoice(events)?.kind).toBe("pr");
   });
 });
 

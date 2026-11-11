@@ -3,7 +3,7 @@
 // 文件坏了逐字段回落：种子坏了换一个新的（等于重新孵化），成长坏了从头来，都不让应用起不来。
 import { randomUUID } from "node:crypto";
 import { PET_NAME_MAX_CHARS, statNames, type PetSpend, type Soul, type VoiceSpend } from "../../shared/pet/model.ts";
-import { emptyGrowth, xpSources, type Growth } from "../../shared/pet/growth.ts";
+import { ACHIEVED_KEEP, emptyGrowth, xpSources, type Growth } from "../../shared/pet/growth.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
 import { readJsonFile } from "../settings/json-file.ts";
@@ -101,6 +101,11 @@ function parseGrowth(value: unknown): Growth {
   }
   const stats = isRecord(value["statGrowth"]) ? value["statGrowth"] : {};
   for (const name of statNames) growth.statGrowth[name] = count(stats[name]);
+  const achieved = value["achieved"];
+  if (Array.isArray(achieved))
+    growth.achieved = achieved
+      .filter((key): key is string => typeof key === "string" && key !== "" && key.length <= 500)
+      .slice(-ACHIEVED_KEEP);
   return growth;
 }
 

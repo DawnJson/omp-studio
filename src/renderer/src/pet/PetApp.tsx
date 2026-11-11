@@ -1,8 +1,9 @@
 // 宠物窗口的页面（docs/design/spec/4.32-pet.md）：底部正中是宠物，上面是气泡 / 属性卡 / 升级提示。
 // 透明的地方鼠标穿透：指针在带 data-pet-hit 的元素上时告诉主进程接住鼠标（setInteractive）。
 // 宠物身上：按下拖动（主进程跟着光标挪窗口），没挪动就算单击 = 摸一下；双击打开 studio；右键弹系统菜单。
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { createT } from "../../../shared/i18n/index.ts";
+import { maxLevel } from "../../../shared/pet/growth.ts";
 import {
   PET_NAME_MAX_CHARS,
   rarityInfo,
@@ -15,6 +16,19 @@ import { PetSprite } from "./PetSprite.tsx";
 
 /** 按下后挪动超过这么多像素就算拖动，不算单击。 */
 const DRAG_THRESHOLD = 4;
+
+/** 成就时撒的彩纸：从宠物头顶往两边抛起再落下（pet.css 的 pet-confetti）。 */
+const CONFETTI = [
+  { dx: -44, dy: -30, delay: 0, color: "#ff5c8a" },
+  { dx: -30, dy: -52, delay: 0.1, color: "#ffd23f" },
+  { dx: -16, dy: -40, delay: 0.05, color: "#6ec6ff" },
+  { dx: -4, dy: -60, delay: 0.15, color: "#5fb760" },
+  { dx: 8, dy: -46, delay: 0, color: "#a855f7" },
+  { dx: 20, dy: -56, delay: 0.12, color: "#ff9f1a" },
+  { dx: 34, dy: -38, delay: 0.06, color: "#ff5c8a" },
+  { dx: 46, dy: -48, delay: 0.18, color: "#6ec6ff" },
+] as const;
+
 /** 单击等这么久看是不是双击（双击不摸）。 */
 const CLICK_DELAY_MS = 260;
 
@@ -102,6 +116,11 @@ function Card({ view, onClose }: { view: PetView; onClose: () => void }) {
             }}
             data-testid="pet-name"
           >
+            {view.level >= maxLevel && (
+              <span className="pet-card-max" aria-hidden="true">
+                ★{" "}
+              </span>
+            )}
             {soul?.name ?? t("pet.hatching")}
           </button>
         )}
@@ -129,6 +148,12 @@ function Card({ view, onClose }: { view: PetView; onClose: () => void }) {
         <span className="pet-bar" role="progressbar" aria-valuenow={Math.round(xpShare * 100)} data-testid="pet-xp">
           <span className="pet-bar-fill" style={{ width: `${xpShare * 100}%` }} />
         </span>
+      </div>
+      <div className="pet-card-together" data-testid="pet-together">
+        {[
+          t("pet.together", { days: view.days }),
+          ...(view.streak > 1 ? [t("pet.streak", { streak: view.streak })] : []),
+        ].join(" · ")}
       </div>
       <dl className="pet-card-stats">
         {statNames.map((name) => {
@@ -220,6 +245,7 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
   const [bubble, setBubble] = useState<{ text: string; key: number } | null>(null);
   const [badge, setBadge] = useState<{ text: string; key: number } | null>(null);
   const [hearts, setHearts] = useState(0);
+  const [confetti, setConfetti] = useState(0);
   const [cardOpen, setCardOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const dragRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
@@ -255,6 +281,10 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
         case "hearts":
           setHearts(current);
           later(2500, () => setHearts((shown) => (shown === current ? 0 : shown)));
+          break;
+        case "celebrate":
+          setConfetti(current);
+          later(2500, () => setConfetti((shown) => (shown === current ? 0 : shown)));
           break;
         case "levelUp":
         case "evolve": {
@@ -339,6 +369,23 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
           <span>♥</span>
         </div>
       )}
+      {confetti !== 0 && (
+        <div key={confetti} className="pet-confetti" aria-hidden="true" data-testid="pet-confetti">
+          {CONFETTI.map((piece, index) => (
+            <span
+              key={index}
+              style={
+                {
+                  "--dx": `${piece.dx}px`,
+                  "--dy": `${piece.dy}px`,
+                  "--delay": `${piece.delay}s`,
+                  background: piece.color,
+                } as CSSProperties
+              }
+            />
+          ))}
+        </div>
+      )}
       <div
         className="pet-stage"
         data-pet-hit
@@ -355,7 +402,7 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
           window.pet.menu();
         }}
       >
-        <PetSprite bones={view.bones} stage={view.stage} mood={view.mood} label={label} />
+        <PetSprite bones={view.bones} stage={view.stage} mood={view.mood} level={view.level} label={label} />
       </div>
     </div>
   );

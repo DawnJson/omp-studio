@@ -10,6 +10,8 @@ export const pet = {
   "rehatch.confirm": "重新孵化",
   "rehatch.cancel": "取消",
   level: "Lv {level}",
+  together: "陪伴 {days} 天",
+  streak: "连签 {streak} 天",
   hatching: "孵化中…",
   rename: "改名",
   renameInvalid: "名字要 1–24 个字",

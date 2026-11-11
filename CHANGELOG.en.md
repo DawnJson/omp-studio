@@ -10,6 +10,11 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- The pet now has achievements: finishing a phase of the todo list, completing a goal or opening a pull request makes it throw confetti, say something and earn a big chunk of experience.
+- The pet keeps growing after its final form: from Lv40 it gains a decoration every 10 levels (a flower, a mushroom, a butterfly, grass, a star), a gold outline at Lv90 and a rainbow outline at the Lv99 cap, with a ★ before its name on the stats card. The stats card also shows how many days you've been together and your check-in streak.
+
 ### Fixed
 
 - The pet's speech bubble and stats card no longer cast a large grey shadow that looked like leftover background over the desktop and other windows.
@@ -17,6 +22,8 @@ How to write it:
 ### Changed
 
 - The pet's "Hatch a new pet" confirmation now looks like the rest of omp-studio's confirmations and opens right above the pet instead of as a system dialog.
+- The pet now gains experience in real time from what your tasks actually write (output tokens): more writing means more experience, with diminishing returns; simply finishing a turn no longer gives experience.
+- The pet no longer wobbles side to side: every animation moves only up and down, it slumps on errors, and the egg follows its mood too.
 
 ## [0.8.0] - 2026-11-11
 
