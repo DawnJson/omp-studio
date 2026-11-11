@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- The pet's speech bubble and stats card no longer cast a large grey shadow that looked like leftover background over the desktop and other windows.
+
 ### Changed
 
 - The pet's "Hatch a new pet" confirmation now looks like the rest of omp-studio's confirmations and opens right above the pet instead of as a system dialog.

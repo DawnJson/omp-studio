@@ -261,6 +261,18 @@ function scanBrowserWindowFlags(files: SourceFile[]): Finding[] {
   );
 }
 
+/** 宠物窗口透明、直接盖在桌面上：大模糊阴影会在浮层下面留一片灰雾（2026-11-11 所有者截图），只用 --shadow-1。 */
+function scanPetShadows(files: SourceFile[]): Finding[] {
+  const targets = files.filter((file) => file.path.startsWith("src/renderer/src/pet/"));
+  return grepLines(
+    targets,
+    /var\(--shadow-(modal|2|3)\)/,
+    "pet-shadow",
+    "宠物窗口里的浮层只用 --shadow-1（docs/design/spec/4.32-pet.md「气泡」）",
+    true,
+  );
+}
+
 /** 渲染进程里整秒刷新的计时用 use-now.ts（对齐起点），不用 1000ms 的 setInterval。 */
 function scanInterval1000(files: SourceFile[]): Finding[] {
   const findings: Finding[] = [];
@@ -713,6 +725,7 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...scanNodeMapOrder(files),
     ...scanSpecRefs(files),
     ...scanBrowserWindowFlags(files),
+    ...scanPetShadows(files),
     ...scanInterval1000(files),
     ...scanE2eLocaleTheme(files),
     ...scanCssHas(files),

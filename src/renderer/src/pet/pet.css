@@ -155,6 +155,8 @@
 }
 
 /* ── 气泡、升级提示、爱心、属性卡 ── */
+/* 阴影只用贴身的 --shadow-1，靠 1px 边框和桌面分开：主界面浮层的 --shadow-modal（24px 下移、64px 模糊）
+   在透明窗口里会在气泡下面留一大片灰雾，盖在桌面和别的窗口上像残留的背景（2026-11-11 所有者截图）。 */
 .pet-bubble,
 .pet-card {
   position: absolute;
@@ -164,7 +166,7 @@
   background: var(--bg-overlay);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-modal);
+  box-shadow: var(--shadow-1);
 }
 
 /* 重新孵化的确认框：studio 的 .ui-dialog（controls.css）原样用，只改成贴着宠物、占满窗口宽度；窗口窄，左右内边距收一档。 */
@@ -178,6 +180,8 @@
   width: auto;
   max-width: none;
   cursor: default;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
 }
 .pet-confirm .ui-dialog-head,
 .pet-confirm .ui-dialog-head:not(:has(> .ui-icon-btn)) {
