@@ -2275,6 +2275,108 @@ test("后台作业对话框:omp 的测试进度和逐条用时柱状图(omp.job.
   }
 });
 
+// omp 18.19.0：恢复隔离的计划会话后 /plan-review，不调用模型；目录跳转和取消保留真实事件。
+test("计划审核(TSP):长计划正文独立滚动,目录跳转和大字号下的操作可用", async () => {
+  const { launched, received, cleanup } = await start("plan-review");
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 900, height: 700 });
+    await sendFirst(page, "/plan-review");
+    const overlay = role(page, "omp.overlay.planReview");
+    const card = overlay.getByRole("dialog");
+    const body = role(page, "omp.plan.body");
+    const toc = role(page, "omp.plan.toc");
+    const sidebar = overlay.locator('.tsp-col:has(> [data-role="omp.plan.toc"])');
+    const options = role(page, "omp.plan.options");
+    const cancel = role(page, "omp.plan.tools").getByRole("button", { name: /Cancel/ });
+    await expect(card).toBeVisible();
+    const viewBox = (await page.getByTestId("tsp-view").boundingBox())!;
+    const cardBox = (await card.boundingBox())!;
+    expect(cardBox.y).toBeGreaterThanOrEqual(viewBox.y - 1);
+    expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(viewBox.y + viewBox.height + 1);
+    await expect(card.locator(".tspi-ov-head")).toBeInViewport({ ratio: 1 });
+    await expect(cancel).toBeInViewport({ ratio: 1 });
+    await expect(options).toBeInViewport({ ratio: 1 });
+    await expect(body.getByRole("heading").first()).toBeInViewport({ ratio: 1 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(card);
+      const cellChars = await body
+        .locator("td")
+        .first()
+        .evaluate((el) => {
+          const g = globalThis as unknown as {
+            getComputedStyle(element: unknown): { fontSize: string; paddingLeft: string; paddingRight: string };
+          };
+          const style = g.getComputedStyle(el);
+          const width = (el as unknown as { clientWidth: number }).clientWidth;
+          return (width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / parseFloat(style.fontSize);
+        });
+      expect(cellChars).toBeGreaterThanOrEqual(2);
+      const lastParagraph = body.locator(".md p").last();
+      await lastParagraph.scrollIntoViewIfNeeded();
+      await expect(lastParagraph).toBeInViewport({ ratio: 1 });
+      await expect(sidebar).toBeInViewport({ ratio: 1 });
+      await expect(cancel).toBeInViewport({ ratio: 1 });
+      await expect(options).toBeInViewport({ ratio: 1 });
+    }
+    // 目录跳到最后一节、再回第一节，只改变正文滚动位置。
+    await toc.locator(".tspi-item").last().click();
+    await expect(body.getByRole("heading").last()).toBeInViewport({ ratio: 1 });
+    await toc.locator(".tspi-item").first().click();
+    await expect(body.getByRole("heading").first()).toBeInViewport({ ratio: 1 });
+    // 最小窗口与最大字号组合：正文仍有阅读区域，底部操作可滚到。
+    await page.setViewportSize({ width: 800, height: 560 });
+    await page.evaluate(() => globalThis.studio.setFontSize(22));
+    await expect
+      .poll(() =>
+        launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor()),
+      )
+      .toBeCloseTo(22 / 15, 3);
+    await expect
+      .poll(() => body.evaluate((el) => (el as unknown as { clientHeight: number }).clientHeight))
+      .toBeGreaterThan(0);
+    const lastParagraph = body.locator(".md p").last();
+    await lastParagraph.scrollIntoViewIfNeeded();
+    await expect(lastParagraph).toBeInViewport({ ratio: 1 });
+    const lastOption = options.locator(".tspi-item").last();
+    await lastOption.scrollIntoViewIfNeeded();
+    await expect(lastOption).toBeInViewport({ ratio: 1 });
+    await cancel.click();
+    await expect(overlay).toHaveCount(0);
+    expect(await received()).toEqual(recordedUserEvents(loadTspFixture("plan-review")).map((entry) => entry.event));
+  } finally {
+    await cleanup();
+  }
+});
+
+test("计划审核(TSP):无目录的短计划和操作在矮窗口中完整可见", async () => {
+  const { launched, received, cleanup } = await start("plan-review-short");
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 900, height: 560 });
+    await sendFirst(page, "/plan-review");
+    const overlay = role(page, "omp.overlay.planReview");
+    await expect(overlay.getByRole("dialog")).toBeVisible();
+    await expect(role(page, "omp.plan.toc")).toHaveCount(0);
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(overlay.getByRole("dialog"));
+      await expect(role(page, "omp.plan.body")).toBeInViewport({ ratio: 1 });
+      await expect(role(page, "omp.plan.options")).toBeInViewport({ ratio: 1 });
+    }
+    await role(page, "omp.plan.tools")
+      .getByRole("button", { name: /Cancel/ })
+      .click();
+    await expect(overlay).toHaveCount(0);
+    expect(await received()).toEqual(
+      recordedUserEvents(loadTspFixture("plan-review-short")).map((entry) => entry.event),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入框有焦点时按 Esc 把 Esc 键写给 omp 一次", async () => {
   test.setTimeout(90_000);
   const { launched, received, receivedKeys, cleanup } = await start("jobs-chart");

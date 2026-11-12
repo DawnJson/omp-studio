@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Long plans and their contents lists scroll independently in Plan Review, table columns remain readable, and actions stay reachable in short windows.
+
 ## [0.8.1] - 2026-11-11
 
 ### Added
