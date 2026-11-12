@@ -282,7 +282,9 @@ export interface TaskError {
     /** 任务的 worktree 目录已被删除（和 omp 一致：只能查看记录，不能继续聊）。 */
     | "worktree_missing"
     /** 任务的会话文件已被删除（在 omp 里删的）；发消息时在这个任务里开新会话。 */
-    | "session_missing";
+    | "session_missing"
+    /** 会话正被别的 omp 进程（终端里的 omp 等）占着，没有起进程；那边退出后发消息或重开会话重试。 */
+    | "session_in_use";
   message: string;
 }
 
@@ -1270,6 +1272,11 @@ export interface StudioInvokeApi {
   /** 重开会话：结束这个任务的 omp 进程，再用 `--resume` 恢复同一个会话文件（等于终端里退出再进）。`restartable` 为 false 时 reject。 */
   restartTask(taskId: TaskId): Promise<void>;
   /**
+   * 关闭会话：结束这个任务的 omp 进程，任务和对话快照留着（状态 stopped）；再切到它或发消息时用 `--resume` 恢复同一个会话文件。
+   * 没有进程时什么也不做；`restartable` 为 false（在跑、在等你、后台还有工作）时 reject。
+   */
+  closeTask(taskId: TaskId): Promise<void>;
+  /**
    * 会话级斜杠命令（native-ui-plan I1）：封闭联合类型，主进程拼命令文本，在该任务自己的 omp 里执行；返回 omp 的状态 toast 原文。
    * 任务没有进程时先拉起；omp 报错（别的 toast）时以原文 reject。渲染进程不传自由文本。
    */
@@ -1807,6 +1814,7 @@ export const invokeNames = {
   recordInputHistory: true,
   compactTask: true,
   restartTask: true,
+  closeTask: true,
   runTaskCommand: true,
   runBuiltin: true,
   exportTaskHtml: true,

@@ -9,6 +9,7 @@
 - 持久化：`userData/tasks.json`（`TaskRegistry`，先写临时文件再改名，写盘串行）。`tasks.json` 损坏时 `load` 抛错，不当成空表覆盖。重命名和归档存这里。字段见 `TaskRecord`。`updatedAt` 只由用户发消息和一轮结束写入（侧栏按它排序，改名、存会话文件、归档等记账写入不碰它）。
 - 读老记录：`load` 丢掉已无意义的 `engine` 字段，其余原样保留；设置里残留的 `taskEngine` 由 `sanitize` 在下次写设置时丢掉。
 - `sessionFile`：omp 启动时就用 `OSC 1337 SetUserVar=omp_session_file=<base64 路径>` 报出路径，但新会话的文件要到第一条回复之后才落盘，所以只在文件存在时才记进任务；每批帧、回合结束、进程退出、关闭时都重试。必须在第一轮进行中就记上：否则会话列表（`SessionSummary.taskId` 按记录里的会话文件匹配）把它当另一条列出，点开后再 `--resume` 同一个文件，omp 发现文件被占就分叉，侧栏出现两条同名任务（见 [session-history.md](session-history.md) 「终端正在使用同一个会话时恢复」；`test/task-tsp.test.ts`「一轮进行中」；真实 omp 18.12.6 实测还在 running 时就记上了）。
+- 一个会话文件最多挂在一个任务上（issue #11）：`TaskRegistry.addTask` / `updateTask` 遇到别的任务已经挂着的 `sessionFile`（按 `pathKey` 比，Windows 上不分大小写、不看斜杠写法）抛 `SessionFileTakenError`。`resume` / `archiveSession` 先按会话文件找已有任务，不会撞上；omp 在进程里换到了别的任务的会话（omp 里 `/resume` 了它）时，`TspRunner.#persistSessionFile` 记一条 WARN，这个任务的记录保持原来的文件，同一个文件不再重试。两个任务挂同一个文件就会对同一个会话起两个 omp，后写的那个被 omp 分叉成新文件。
 - 标题：新任务标题为空；第一次 `sendPrompt` 取首条消息第一行（`convert.ts`）；之后以 omp **记在会话文件里的标题**为准：omp 每次定标题（自动生成、`/rename`）都在文件末尾追加 `{"type":"title_change","title":…}`（omp 18.16.0 实测），`SessionTitleTracker`（`tsp/session-files.ts`）取最后一条，只在"记录里标题为空、是草稿第一句话临时取的、或是上一次采用的 omp 标题"时才覆盖，用户改过名就不再动。
   - **终端标题（OSC 0/2）不当标题**：Windows 上 ConPTY 把伪终端里任何程序改的控制台标题都转发成 OSC 0，omp 跑的 cmd、PowerShell 会把它改成 `C:\WINDOWS\system32\cmd.exe` 之类（issue #8）。OSC 标题只用来取 ` · #12` 的 PR 号，且只认去掉后缀后和会话文件标题一致（或是占位 `omp`）的那条；收到 OSC 标题时和每轮结束时读会话文件。
   - **误存的控制台标题自动换掉**（issue #9）：`looksLikeConsoleTitle`（`shared/ui/clean-title.ts`）识别；`TaskPool.init` 对这样的记录（含已归档的）读会话文件头换成 omp 的标题，没有就用首条消息首行，再没有（含会话文件已不在）就留空；读不了的只记日志、原样保留。分叉不沿用控制台标题。
@@ -22,11 +23,17 @@
 
 ## 启动
 
-`TspRunner.start()`：状态机 `start` → worktree 目录还在吗（不在：`worktree_missing`）→ 开始读新任务默认模型（`#loadNewTaskDefaults`，不等它）→ `acquireSlot`（进程上限，见下）→ `buildLaunch`（`--resume=<会话文件>` 或 `--fork=<forkFrom>`、`--model`、`--thinking`、`--allow-home`，cwd = 任务目录，env = 进程环境 + `TERM_PROGRAM=tern` 等）→ `TspSession.start`（node-pty 起进程、回 `hello`、按信用值回 `ack`，细节见 [tsp-migration.md](tsp-migration.md) §7）→ 等握手 → 等默认模型读完 → 状态机 `ready`，随后立刻对当前文档同步一次状态（omp 可能在回复 hello 之前就已经发了第一批帧）。
+`TspRunner.start()`：状态机 `start` → worktree 目录还在吗（不在：`worktree_missing`）→ 会话文件还在吗（不在：`session_missing`）→ 有会话文件时问租约（被占：`session_in_use`，见下）→ 开始读新任务默认模型（`#loadNewTaskDefaults`，不等它）→ `acquireSlot`（进程上限，见下）→ `buildLaunch`（`--resume=<会话文件>` 或 `--fork=<forkFrom>`、`--model`、`--thinking`、`--allow-home`，cwd = 任务目录，env = 进程环境 + `TERM_PROGRAM=tern` 等）→ `TspSession.start`（node-pty 起进程、回 `hello`、按信用值回 `ack`，细节见 [tsp-migration.md](tsp-migration.md) §7）→ 等握手 → 等默认模型读完 → 状态机 `ready`，随后立刻对当前文档同步一次状态（omp 可能在回复 hello 之前就已经发了第一批帧）。
 
 默认模型和 omp 启动同时进行，两段耗时不相加：冷启动拉模型目录约 0.6 秒，omp 到握手约 0.7 秒（omp 18.12.6 实测，新任务到输入框可发送约 1.05 秒）。默认模型只在新任务（记录里没有模型）时读，`--model` 不依赖它。
 
-启动失败的 `TaskError.kind`：`omp_unavailable`（找不到 omp）、`spawn_failed`、`worktree_missing`、`session_missing`；进程意外退出 `exited`。失败时状态是 `error`，promise 也 reject。`STUDIO_TEST_OMP`（JSON `{command,args}`，仅未打包）替换整条命令，e2e 和单测用它跑 `fake-tsp-omp`。
+**恢复前看租约**（issue #11，仓库所有者批准，2026-11-12）：`--resume` 已有会话文件之前，`TspRunner` 问一次 `omp session lease --json -- <id>`（`TspRunnerHost.sessionInUse` ← `PoolDeps.sessionInUse`，`runtime.ts` 接 `history/session-lease.ts`，和删除会话同一个函数）。别的 omp 进程占着就不起进程，任务进 error（`session_in_use`），输入框占位写原因（`error.sessionHeld`）；用户在那边退出后发消息、重开会话或再点开任务都会重新查。原因：omp 不让两个进程写同一个会话，后写的那个第一次写盘时悄悄搬到新的兄弟文件（新 id，`parentSession` 指向原会话），见 omp 文档 `omp://session.md`「Persistence Guarantees and Failure Model」；studio 这边就成了侧栏里又一条同名会话。
+- 检查本身失败（老版本 omp 没有这个子命令、超时、输出认不出）记 WARN、照常起（仓库所有者定，2026-11-12）。
+- 这个任务自己的上一个进程不算进去：只有 stopped / error 的任务才走到 `#start`，`close()` 等进程退出才返回；omp 的租约是内核对象（Windows 命名 mutex、Linux 抽象 socket、macOS `flock`），进程一退出就释放（omp 18.19.0 文档）。
+- omp 只在写会话时占租约，只读打开不占：终端那边刚 `--resume`、还没写东西时查不出来，这时 studio 照常起，之后先写的那边留在原文件 [推测，omp 18.19.0 文档，没实测]。
+- 起进程的路径都是用户触发的（打开任务、发消息、重开会话、会话命令）；`init`、对账、回收都不起进程，不会在后台冒出这个错误。代价：每次打开有会话文件的任务多跑一次 `omp session lease`（实测约 0.1–0.2 秒，omp 18.19.0；上限 10 秒，超时照常起进程）。
+
+启动失败的 `TaskError.kind`：`omp_unavailable`（找不到 omp）、`spawn_failed`、`worktree_missing`、`session_missing`、`session_in_use`；进程意外退出 `exited`。失败时状态是 `error`，promise 也 reject。`STUDIO_TEST_OMP`（JSON `{command,args}`，仅未打包）替换整条命令，e2e 和单测用它跑 `fake-tsp-omp`。
 
 ## 状态机
 
@@ -58,6 +65,7 @@ omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的�
 - `maxLiveProcesses`（设置）是软上限。起新进程时存活数（含 starting）已到软上限：回收最久未用的**可回收**、没标保持运行的任务；没有可回收的就超出软上限照起，到硬上限（× 2）才失败，任务进 error（`spawn_failed`）。
 - 可回收（`TspRunner.recyclable`）：有进程、状态 idle、没有未答的门、文档里没有还在跑的 `tool` / `agent` 卡片（转到后台的任务）、没有在跑的旁路提问（`/btw`）；前台任务由池排除。
 - 定时回收：`sweep(now)` 每分钟跑一次，可回收状态持续到设置的时长（`StudioSettings.idleClose` → `IDLE_CLOSE_MS`；可设，仓库所有者定，2026-10-28）关进程；`now` 由调用方传入，测试不依赖真实时钟。
+- 关闭会话（issue #11，仓库所有者批准，2026-11-12）：任务菜单和命令面板的"关闭会话"（`closeTask` → `TaskPool.closeTask`）和空闲回收走同一条路（`#recycle`）：结束进程，任务和最后一份快照留着（stopped），前台任务也能关。忙（不可回收）时拒绝，没有进程时什么也不做。再切到它（`openTask`）或发消息（`sendPrompt` 先 `start`）时 `--resume` 同一个会话文件。用途：要在终端里接着用这个会话时先在 studio 关掉，否则 studio 的进程占着租约，终端那边一写就分叉。实测（omp 18.19.0，`test/task-real-omp.test.ts`）：跑过一轮的任务进程活着时 `omp session lease` 报占着，关闭会话后报没占，再打开照常恢复同一个文件。
 - 保持运行（`TaskRecord.keepAlive`，任务菜单里开关，`setTaskKeepAlive`；重启后还在）：定时回收和软上限回收都跳过它；硬上限照算，进程退出、用户停止照常。用途：Python eval 里的变量、`/add-dir` 加的目录、后台作业这些只在进程里的东西不丢。
 - 回收后的任务保留最后一份节点树快照，已停止的任务的快照按 LRU 限量保留，更久的释放，再打开时 `--resume` 由 omp 重发整段对话。意外退出（error）同样留着最后一份。进程不在时快照里可能还有 `running` 的工具卡、子代理和计时节点：渲染进程不改文档，只按 `TspEndedAtCtx` 把它们画成已取消 / 已中止、计时停在看到进程结束的那一刻（`use-clock.ts`），见 spec「omp 进程意外退出」。Windows 上 pty 的 Job 在进程退出时关掉，后台作业随之结束，所以这样画是真实状态。
 - `shutdown()`：并行 `close`（先 `taskkill /T /F` 进程树，再 `pty.kill()`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。

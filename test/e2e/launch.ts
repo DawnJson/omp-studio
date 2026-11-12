@@ -10,6 +10,7 @@ import { _electron as electron, expect, type ElectronApplication, type Locator, 
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { parseTestOmpOverride } from "../../src/main/omp/launch-args.ts";
 import type { ThemeName } from "../../src/shared/themes.ts";
+import { expectNoClipping, installClipWatch, takeClipFindings } from "./clip-watch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 
@@ -236,6 +237,7 @@ export async function launchApp(
     });
     const page = await app.firstWindow();
     await page.getByTestId("app-root").waitFor({ state: "attached" });
+    await installClipWatch(page);
     // globalSetup 已把测试进程降到"低于正常"，Electron 主进程继承了；GPU 进程（"高于正常"）和渲染进程（"正常"）的优先级是
     // Chromium 自己设的，不继承，起好后逐个降回去，跑 e2e 时不和用户手上的程序抢 CPU。量到的进程刚好退出时跳过。
     const pids = await app.evaluate(({ app: electronApp }) => electronApp.getAppMetrics().map((metric) => metric.pid));
@@ -258,12 +260,17 @@ export async function launchApp(
       userDataDir,
       agentDir,
       async close() {
+        let clipping: string[] = [];
         try {
           // 用例自己让应用退出过（app.quit() 路径）时不再去关（Playwright 对已退出的应用会抛错），只收拾目录。
-          if (!exited) await launchedApp.close();
+          if (!exited) {
+            clipping = await takeClipFindings(page);
+            await launchedApp.close();
+          }
         } finally {
           await removeDirs();
         }
+        expectNoClipping(clipping);
       },
     };
   } catch (error) {

@@ -2,7 +2,7 @@
 // 重命名：侧栏订阅 rename 命令，给当前任务就地改名（侧栏收起时 App 先把它展开）。
 import { useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { taskTitle } from "../../../../shared/ui/sidebar-model.ts";
+import { hasProcess, taskTitle } from "../../../../shared/ui/sidebar-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Dots } from "../../icons.tsx";
 import { useTask } from "../../store/index.ts";
@@ -36,6 +36,8 @@ export function SessionMenu({ taskId }: { taskId: TaskId }) {
             taskId,
             title: task ? taskTitle(task) : "",
             keepAlive: task?.keepAlive === true,
+            live: task !== null && hasProcess(task),
+            restartable: task?.restartable === true,
             pinned,
             selectedTaskId: taskId,
             onRename: () => emitStudioCommand("rename"),

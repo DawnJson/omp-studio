@@ -46,7 +46,7 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 - **同一进程**：回合结束后 `agent` 节点留在各自的 task 卡片下（`<卡片id>.<名字>`，`status:"done"`，统计齐全），两个回合的都在；没有子代理在跑时 hud 里没有 `agents.open`。omp 的 Hub（`/hub`）默认落在 Activity 页，Agents 页列出全部三个（`dot:"success"`，详情徽标叫 `idle`）。所以面板天然显示历史子代理，不用另读。
 - **任务说明**：`agent` 节点的 `task` 属性被压成一行（换行变空格，`# Target No files. # Change 1. …`）；带换行的原文在子节点 `<id>/0`（`k:"md"`，`role:"omp.task.assignment"`）。Hub 的 item `detail` 也是压平的一行。面板详情用原文（`HubAgent.assignment`），列表行用压平的那句。
 - **磁盘**：会话文件旁的同名目录里每个子代理一对 `<名字>.jsonl` + `<名字>.md`，不按回合分。子代理 `.jsonl` 第一条 user 消息是 `Complete assignment thoroughly:\n\n<原文>`，换行保留。
-- **`--resume` 之后**：旧 task 卡片重放出来是 `done`，卡下的 `agent` 节点却**一律是 `status:"pending"`**，没有 `model`，`stats` 只有 `took:0`（用量丢了），几秒后仍是 pending；omp 的 Hub 把它们列成 `dot:"muted"`、徽标 `parked`，`revive` 可用。所以 `listAgents` 把"卡片已结束（不是 pending / running）而节点还写着 pending / running"的子代理当作 `parked`：不算运行中（药丸不亮、不能结束），可以恢复和插话。录制里（`hub-steer` / `hub-kill`）子代理在跑时卡片一直是 pending / running，不受影响。
+- **`--resume` 之后**：旧 task 卡片重放出来是 `done`，卡下的 `agent` 节点却**一律是 `status:"pending"`**，没有 `model`，`stats` 只有 `took:0`（用量丢了），几秒后仍是 pending；omp 的 Hub 把它们列成 `dot:"muted"`、徽标 `parked`，`revive` 可用。所以 `listAgents` 把"卡片已结束（不是 pending / running）而节点还写着 pending / running"的子代理当作 `parked`；判断任务后台还有没有工作的 `hasRunningWork`（`shared/tsp/task-status.ts`）同样不算它们，否则恢复过、用过子代理的任务永远不能关闭会话、重开会话，空闲也不回收：不算运行中（药丸不亮、不能结束），可以恢复和插话。录制里（`hub-steer` / `hub-kill`）子代理在跑时卡片一直是 pending / running，不受影响。
 
 ### 实测：完成度估计（`fixtures/tsp/agent-progress.jsonl`，omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录）
 

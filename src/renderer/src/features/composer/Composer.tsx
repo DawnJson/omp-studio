@@ -5,7 +5,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus, useSettings, useTask } from "../../store/index.ts";
 import { onComposerText, onStudioCommand, refreshSlashCommands, useSlashCommands } from "../palette/index.ts";
 import { sendDraft, stopAndRestore, type Delivery } from "./actions.ts";
-import { reportError } from "../../ui/errors.ts";
+import { describeError, reportError } from "../../ui/errors.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { SessionTogglesMenu } from "../session-toggles/SessionTogglesMenu.tsx";
 import { getDraft, setDraftText, useDraft } from "./draft-store.ts";
@@ -160,8 +160,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   const focusedAgent = useTspDerived(taskId, focusedAgentName, Object.is);
   const placeholder = worktreeGone
     ? t("error.worktreeMissing")
-    : task?.error?.kind === "session_missing"
-      ? t("error.sessionMissing")
+    : task?.error?.kind === "session_missing" || task?.error?.kind === "session_in_use"
+      ? describeError(t, task.error)
       : screenOpen
         ? t("composer.placeholderScreen")
         : focusedAgent !== null

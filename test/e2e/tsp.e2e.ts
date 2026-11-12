@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { crc32, deflateSync } from "node:zlib";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
 import {
   copyFilesToClipboard,
@@ -3268,6 +3268,53 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     clearInterval(writer);
     await cleanup();
     await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+// 对话区按剩下的高度分（flex-basis 0）：长对话不会把旁路提问面板、终端这些能收缩的兄弟按比例压扁（#12：旁路提问被压成一条、文字被裁）。
+test("长对话里打开旁路提问和终端：两者都是自己的高度，不被对话区挤扁", async () => {
+  test.setTimeout(90_000);
+  const { launched, cleanup } = await start("user-long");
+  try {
+    const { page } = launched;
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    const bubble = role(page, "omp.user").first();
+    await expect(bubble).toContainText("第 1 行", { timeout: 30_000 });
+    // 展开 80 行的用户气泡：对话内容远高于主区。
+    await bubble.locator(".tsp-more").click();
+    // 可滚动的内容比可见高度多出多少（倍数）；面板 overflow: hidden，被压扁时同样大于 1。
+    const overflow = (locator: Locator) =>
+      locator.evaluate((el) => {
+        const box = el as unknown as { scrollHeight: number; clientHeight: number };
+        return box.scrollHeight / box.clientHeight;
+      });
+    await expect.poll(() => overflow(page.locator(".tsp-scroller"))).toBeGreaterThan(2);
+    const input = page.getByTestId("composer-input");
+    await input.fill("/btw ");
+    await input.press("Enter");
+    const panel = page.getByTestId("btw-panel");
+    await expect(panel).toBeVisible();
+    await page.keyboard.press(`${process.platform === "darwin" ? "Meta" : "Control"}+\``);
+    const terminal = page.getByTestId("terminal-panel");
+    await expect(terminal).toBeVisible();
+    const stored = (await page.evaluate(() => globalThis.studio.getShellState())).terminalHeight;
+    await expect
+      .poll(async () => ({
+        btwClipped: (await overflow(panel)) > 1.01,
+        terminal: Math.round((await terminal.boundingBox())?.height ?? 0),
+      }))
+      .toEqual({ btwClipped: false, terminal: stored });
+    // 窗口最小、字号最大时（800×560、22/15 缩放的视口）：放不下时旁路提问和终端让出高度，面板自己不被裁（标题行、输入行都在）。
+    await page.setViewportSize({ width: 545, height: 382 });
+    await expect
+      .poll(async () => ({
+        btwClipped: (await overflow(panel)) > 1.01,
+        terminalUsable: ((await terminal.boundingBox())?.height ?? 0) >= 119.5,
+        headVisible: await panel.locator(".btw-head").isVisible(),
+      }))
+      .toEqual({ btwClipped: false, terminalUsable: true, headVisible: true });
+  } finally {
+    await cleanup();
   }
 });
 

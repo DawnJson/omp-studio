@@ -13,16 +13,22 @@ import { emitStudioCommand } from "../palette/studio-command.ts";
 /**
  * 执行一条会话命令。omp 认得出的开关状态由主进程读 toast 后发布到 TaskState.sessionToggles（菜单自己更新）；
  * 认不出的回话（用法提示、模型不支持、预设的保存结果）原样弹给用户，不吞。
+ * `toastReply`：回话总是弹出来（斜杠命令发出去后输入框里看不到任何变化，靠它知道 omp 做了什么）。
  * omp 写进配置的开关（SAVED_TO_CONFIG）执行后重读配置快照，菜单的默认值才和 omp 一致（重开会话后显示的就是它）。
  */
-export async function runToggleCommand(taskId: TaskId, command: TaskCommand): Promise<void> {
+export async function runToggleCommand(
+  taskId: TaskId,
+  command: TaskCommand,
+  { toastReply = false }: { toastReply?: boolean } = {},
+): Promise<void> {
   const { text } = await window.studio.runTaskCommand(taskId, command);
   const name = command.kind === "browserMode" ? "browser" : command.kind === "toggle" ? command.name : null;
   if (name !== null && SAVED_TO_CONFIG.has(name)) await loadOmpConfig();
-  if (text.trim() !== "" && parseToggleToast(text) === null) pushToast({ level: "info", message: text });
+  if (text.trim() !== "" && (toastReply || parseToggleToast(text) === null))
+    pushToast({ level: "info", message: text });
 }
 
-/** 斜杠命令入口（studio-slash-table.ts）：不带参数 / status 打开菜单，带参数直接执行；参数不认识时抛出用法（草稿放回输入框）。 */
+/** 斜杠命令入口（studio-slash-table.ts）：不带参数 / status 打开菜单，带参数（和不带参数的 /prewalk）直接执行并弹出 omp 的回话；参数不认识时抛出用法（草稿放回输入框）。 */
 export async function runToggleSlash(taskId: TaskId, name: ToggleSlashName, args: string, t: TFunction): Promise<void> {
   const resolved = resolveToggleSlash(name, args);
   switch (resolved.kind) {
@@ -38,7 +44,7 @@ export async function runToggleSlash(taskId: TaskId, name: ToggleSlashName, args
     case "usage":
       throw new Error(t("toggles.slashUsage", { usage: resolved.usage }));
     case "run":
-      await runToggleCommand(taskId, resolved.command);
+      await runToggleCommand(taskId, resolved.command, { toastReply: true });
       return;
   }
 }

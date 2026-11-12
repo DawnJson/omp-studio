@@ -14,6 +14,7 @@ export const error = {
   worktreeMissing: "This task's worktree was deleted, so the record is view-only and the chat cannot continue.",
   sessionMissing: "This task's session file was deleted. Sending a message starts a new session.",
   sessionInUse: "This conversation is open in another omp. Quit it there first, then delete it.",
+  sessionHeld: "This session is open in another omp. Quit it there, then send again.",
   model: "The model returned an error: {message}",
   modelUnavailable: "The model used by this session isn't available.",
   generic: "That didn’t work.",

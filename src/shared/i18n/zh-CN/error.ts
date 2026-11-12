@@ -13,6 +13,7 @@ export const error = {
   worktreeMissing: "这个任务的工作区已被删除，只能查看记录，不能继续对话。",
   sessionMissing: "这个任务的会话文件已被删除，发送消息会开始新会话。",
   sessionInUse: "这个会话正在别的 omp 里开着，先在那里退出再删除。",
+  sessionHeld: "这个会话正在别的 omp 里打开，先在那里退出再发送。",
   model: "模型返回错误：{message}",
   modelUnavailable: "这个会话用的模型现在不可用。",
   generic: "操作没有完成。",

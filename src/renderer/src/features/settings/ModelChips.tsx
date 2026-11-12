@@ -35,7 +35,7 @@ export function ModelChips({ ids, testId }: { ids: readonly string[]; testId?: s
 
   const hidden = ids.length - fit.shown;
   return (
-    <span ref={box} className="cp-chips" title={ids.join("\n")} data-testid={testId}>
+    <span ref={box} className="cp-chips" title={ids.join("\n")} data-testid={testId} data-clip="hidden-chips">
       {ids.map((id, index) => (
         <span key={id} className="cp-chip" data-cut={index >= fit.shown || undefined}>
           {id}

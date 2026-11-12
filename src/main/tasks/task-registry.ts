@@ -50,6 +50,16 @@ export function pathKey(p: string): string {
   return process.platform === "win32" ? resolved.toLowerCase() : resolved;
 }
 
+/** 会话文件已经挂在另一个任务上：一个会话文件最多对应一个任务（两个任务各起一个 omp 写同一个会话，后写的那个会被 omp 分叉成新文件）。 */
+export class SessionFileTakenError extends Error {
+  override name = "SessionFileTakenError";
+  readonly owner: TaskId;
+  constructor(sessionFile: string, owner: TaskId) {
+    super(`session file ${sessionFile} already belongs to task ${owner}`);
+    this.owner = owner;
+  }
+}
+
 export class TaskRegistry {
   readonly #file: string;
   #data: TasksFile = { version: 1, projects: [], tasks: [] };
@@ -155,6 +165,16 @@ export class TaskRegistry {
     return this.#data.tasks.find((task) => task.sessionFile !== null && pathKey(task.sessionFile) === key);
   }
 
+  /** 别的任务（不是 `self`）已经挂着这个会话文件时抛 SessionFileTakenError。 */
+  #assertSessionFileFree(sessionFile: string | null | undefined, self: TaskId | null): void {
+    if (sessionFile == null) return;
+    const key = pathKey(sessionFile);
+    const owner = this.#data.tasks.find(
+      (task) => task.id !== self && task.sessionFile !== null && pathKey(task.sessionFile) === key,
+    );
+    if (owner) throw new SessionFileTakenError(sessionFile, owner.id);
+  }
+
   async addTask(
     input: Omit<
       TaskRecord,
@@ -166,6 +186,7 @@ export class TaskRegistry {
     },
   ): Promise<TaskRecord> {
     const now = Date.now();
+    this.#assertSessionFileFree(input.sessionFile, null);
     const { worktree, updatedAt, ...fields } = input;
     const record: TaskRecord = {
       ...fields,
@@ -182,10 +203,11 @@ export class TaskRegistry {
     return record;
   }
 
-  /** 更新字段并写盘；不改 `updatedAt`（要改就在 patch 里显式给）。返回更新后的记录。 */
+  /** 更新字段并写盘；不改 `updatedAt`（要改就在 patch 里显式给）。返回更新后的记录。`sessionFile` 已挂在别的任务上时抛 SessionFileTakenError。 */
   async updateTask(id: TaskId, patch: Partial<Omit<TaskRecord, "id">>): Promise<TaskRecord> {
     const current = this.findTask(id);
     if (!current) throw new Error(`unknown task ${id}`);
+    this.#assertSessionFileFree(patch.sessionFile, id);
     const next: TaskRecord = { ...current, ...patch };
     this.#data = { ...this.#data, tasks: this.#data.tasks.map((task) => (task.id === id ? next : task)) };
     await this.save();

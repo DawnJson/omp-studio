@@ -3,11 +3,12 @@
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { IdleClose, ProjectId, StudioSettings, TaskId, TaskState } from "../src/shared/ipc.ts";
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry, type TaskRecord } from "../src/main/tasks/task-registry.ts";
+import { log } from "../src/main/log/log.ts";
 import { loadTspFixture, recordedUserEvents } from "./tsp-fixtures.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -707,4 +708,161 @@ describe("任务池：删除会话（经 omp 的 /delete，issue #10）", () => 
     expect(h.registry.listTasks()).toEqual([]);
     expect(h.events.removed).toEqual(["seed-0"]);
   });
+});
+
+describe("任务池：关闭会话（issue #11）", () => {
+  const sessionsDir = () => path.join(scratch, "关闭 会话");
+  async function sessionFile(name: string): Promise<string> {
+    await mkdir(sessionsDir(), { recursive: true });
+    const file = path.join(sessionsDir(), name);
+    await writeFile(file, "{}\n");
+    return file;
+  }
+  async function exited(pid: number): Promise<boolean> {
+    for (let i = 0; i < 80; i += 1) {
+      try {
+        process.kill(pid, 0);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      } catch {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  it("空闲的前台任务：进程退出，任务和对话快照留着（stopped）；再打开时 --resume 同一个会话文件", async () => {
+    const file = await sessionFile("空闲.jsonl");
+    const pidFile = path.join(scratch, "close-idle.pid");
+    const h = await harness({ seed: [{ sessionFile: file }] });
+    const id = "seed-0" as TaskId;
+    h.next.push({ fixture: "slash-status", env: { FAKE_OMP_PID_FILE: pidFile } });
+    await h.pool.openTask(id);
+    await h.events.until(id, (s) => s.status === "idle");
+    const pid = Number((await readFile(pidFile, "utf8")).trim().split("\n")[0]);
+
+    await h.pool.closeTask(id);
+    expect(h.pool.listTasks().map((s) => [s.id, s.status])).toEqual([[id, "stopped"]]);
+    expect(await exited(pid)).toBe(true);
+    expect(h.registry.findTask(id)).toMatchObject({ sessionFile: file, archived: false });
+    expect(h.events.removed).toEqual([]);
+    // 快照还是退出前那份：对话照常显示。
+    expect(h.pool.getTspSnapshot(id).document.surfaces.length).toBeGreaterThan(0);
+    // 没有进程时再关什么也不做。
+    await h.pool.closeTask(id);
+
+    await h.pool.openTask(id);
+    await h.events.until(id, (s) => s.status === "idle");
+    expect(h.launches.map((launch) => launch.sessionFile)).toEqual([file, file]);
+  }, 60_000);
+
+  it("发消息会把关掉的任务重新拉起来", async () => {
+    const file = await sessionFile("发消息.jsonl");
+    const h = await harness({ seed: [{ sessionFile: file }] });
+    const id = "seed-0" as TaskId;
+    await h.pool.openTask(id);
+    await h.events.until(id, (s) => s.status === "idle");
+    await h.pool.closeTask(id);
+    expect(h.pool.listTasks()[0]?.status).toBe("stopped");
+    await h.pool.sendPrompt(id, { text: "/status", whenBusy: "steer" });
+    expect(h.launches.map((launch) => launch.sessionFile)).toEqual([file, file]);
+    expect(h.pool.listTasks()[0]?.status).not.toBe("stopped");
+  }, 60_000);
+
+  it("忙（在等你确认）的任务拒绝关闭，进程照常", async () => {
+    const h = await harness();
+    const { text } = approvalSend();
+    h.next.push({ fixture: "approval" });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    await h.pool.sendPrompt(created.id, { text, whenBusy: "steer" });
+    await h.events.until(created.id, (s) => s.status === "needs_you");
+    await expect(h.pool.closeTask(created.id)).rejects.toThrow("the task is busy");
+    expect(h.pool.listTasks()[0]?.status).toBe("needs_you");
+  }, 60_000);
+});
+
+describe("任务池：恢复前看会话租约（issue #11）", () => {
+  const sessionsDir = () => path.join(scratch, "租约 会话");
+  async function sessionFile(name: string): Promise<string> {
+    await mkdir(sessionsDir(), { recursive: true });
+    const file = path.join(sessionsDir(), name);
+    await writeFile(file, "{}\n");
+    return file;
+  }
+
+  it("别的 omp 占着会话：报 session_in_use，不起进程；那边退出后再打开照常 --resume", async () => {
+    const file = await sessionFile("被占着.jsonl");
+    let held = true;
+    const asked: string[] = [];
+    const h = await harness({
+      seed: [{ sessionFile: file }],
+      sessionInUse: async (sessionFile) => {
+        asked.push(sessionFile);
+        return held;
+      },
+    });
+    const id = "seed-0" as TaskId;
+    await h.pool.openTask(id);
+    const failed = await h.events.until(id, (s) => s.status === "error");
+    expect(failed.error?.kind).toBe("session_in_use");
+    expect(h.launches).toEqual([]);
+    expect(asked).toEqual([file]);
+    // 发消息也一样不起进程，错误照抛。
+    await expect(h.pool.sendPrompt(id, { text: "hi", whenBusy: "steer" })).rejects.toThrow(
+      "held by another omp process",
+    );
+    expect(h.launches).toEqual([]);
+
+    held = false;
+    await h.pool.openTask(id);
+    await h.events.until(id, (s) => s.status === "idle");
+    expect(h.launches.map((launch) => launch.sessionFile)).toEqual([file]);
+  }, 60_000);
+
+  it("检查本身失败（老版本 omp、超时）：照常起", async () => {
+    const file = await sessionFile("查不了.jsonl");
+    const h = await harness({
+      seed: [{ sessionFile: file }],
+      sessionInUse: async () => {
+        throw new Error("omp session lease exited with code 1");
+      },
+    });
+    await h.pool.openTask("seed-0" as TaskId);
+    await h.events.until("seed-0" as TaskId, (s) => s.status === "idle");
+    expect(h.launches.map((launch) => launch.sessionFile)).toEqual([file]);
+  }, 60_000);
+
+  it("还没有会话文件的新任务不问", async () => {
+    const asked: string[] = [];
+    const h = await harness({
+      sessionInUse: async (sessionFile) => {
+        asked.push(sessionFile);
+        return true;
+      },
+    });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    expect(asked).toEqual([]);
+  }, 60_000);
+});
+
+describe("任务池：一个会话文件只对应一个任务（issue #11）", () => {
+  it("omp 报的会话文件已挂在别的任务上：这个任务的记录不改，不出现两个任务挂同一个文件", async () => {
+    const dir = path.join(scratch, "唯一 会话");
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, "已有主.jsonl");
+    await writeFile(file, "{}\n");
+    const h = await harness({ seed: [{ sessionFile: file }] });
+    h.next.push({ fixture: "slash-status", env: { FAKE_TSP_SESSION_FILE: file } });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    // omp 一报会话文件，任务就试着存它（TspRunner.#persistSessionFile）：等到存成了或者记下"挂在别的任务上"。
+    const warn = vi.spyOn(log, "warn");
+    const settled = () =>
+      h.registry.findTask(created.id)?.sessionFile === file ||
+      warn.mock.calls.some(([message]) => message.includes("omp switched to a session that belongs to another task"));
+    await vi.waitFor(() => expect(settled()).toBe(true), { timeout: 30_000 });
+    warn.mockRestore();
+    expect(h.registry.findTask(created.id)?.sessionFile).toBeNull();
+    expect(h.registry.findTask("seed-0" as TaskId)?.sessionFile).toBe(file);
+  }, 60_000);
 });
