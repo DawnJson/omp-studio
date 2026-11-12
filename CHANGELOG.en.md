@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-11-12
+
 ### Fixed
 
 - Quitting while a session is being deleted now also ends the temporary omp process used for the deletion instead of leaving it running.
