@@ -592,8 +592,8 @@
   justify-content: flex-end;
 }
 
-/* 列表行末尾唯一的删除 / 移除（RowMenu）：安静按钮，悬停或键盘聚焦才显出危险色 */
-.ui-btn.st-quiet-danger:is(:hover, :focus-visible):not(:disabled) {
+/* 列表行末尾唯一的删除 / 移除（RowMenu）：安静的垃圾桶，悬停或键盘聚焦才显出危险色 */
+.ui-icon-btn.st-quiet-danger:is(:hover, :focus-visible):not(:disabled) {
   color: var(--st-error);
   background: var(--st-error-soft);
 }

@@ -3,8 +3,8 @@
 import { useId, useState } from "react";
 import type { MarketplaceInstall, MarketplacePlugin, NpmPlugin } from "../../../../shared/omp-output/plugins.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Puzzle } from "../../icons.tsx";
-import { Badge, Button, Disclosure, ListRow, Switch } from "../../ui/controls.tsx";
+import { ArrowUp, ChevronDown, Puzzle } from "../../icons.tsx";
+import { Badge, IconButton, ListRow, Switch } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
@@ -53,26 +53,27 @@ export function PluginRow({
         actions={
           <>
             {npmDetails !== null && (
-              <Disclosure
+              <IconButton
+                label={open ? t("plugins.details.hide") : t("plugins.details")}
                 expanded={open}
-                controls={detailsId}
-                onToggle={() => setOpen(!open)}
+                aria-controls={detailsId}
+                onClick={() => setOpen(!open)}
                 testId={`plugin-expand-${rowKey}`}
               >
-                {open ? t("plugins.details.hide") : t("plugins.details")}
-              </Disclosure>
+                <ChevronDown className="ui-chev" />
+              </IconButton>
             )}
             {/* 链接的本地插件没有可升级的来源（omp 会拒绝），所以只有市场插件显示"升级"。 */}
             {plugin.kind === "marketplace" && (
-              <Button
-                size="sm"
+              <IconButton
+                label={t("plugins.upgrade")}
                 disabled={busy}
                 loading={working === `upgrade:${rowKey}`}
                 onClick={() => void runAction(t, { kind: "upgrade", id, ...scoped }, `upgrade:${rowKey}`)}
                 testId={`plugin-upgrade-${rowKey}`}
               >
-                {t("plugins.upgrade")}
-              </Button>
+                <ArrowUp />
+              </IconButton>
             )}
             <Switch
               checked={enabled}

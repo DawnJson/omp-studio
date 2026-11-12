@@ -6,7 +6,7 @@ import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus, Restart, Terminal } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
-import { Badge, Button, IconButton, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
+import { Badge, IconButton, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
@@ -67,15 +67,14 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
             >
               <Restart />
             </IconButton>
-            <Button
-              size="sm"
-              icon={<Plus size={14} />}
+            <IconButton
+              label={t("integrations.ssh.add")}
               disabled={!ready || busy}
               onClick={() => openAdding(true)}
               testId="ssh-add"
             >
-              {t("integrations.ssh.add")}
-            </Button>
+              <Plus />
+            </IconButton>
           </>
         }
       />

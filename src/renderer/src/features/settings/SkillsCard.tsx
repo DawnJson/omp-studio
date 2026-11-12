@@ -7,7 +7,7 @@ import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus, Restart, Sparkle } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
-import { Badge, Button, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
+import { Badge, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
@@ -139,15 +139,14 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
             >
               <Restart />
             </IconButton>
-            <Button
-              size="sm"
-              icon={<Plus size={14} />}
+            <IconButton
+              label={t("integrations.skills.add")}
               disabled={!ready || busy}
               onClick={() => openAdding(true)}
               testId="skills-add"
             >
-              {t("integrations.skills.add")}
-            </Button>
+              <Plus />
+            </IconButton>
           </>
         }
       />

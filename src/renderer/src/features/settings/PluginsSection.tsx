@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import type { ProjectId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Puzzle, Restart } from "../../icons.tsx";
+import { ArrowUp, Bolt, Puzzle, Restart, Wrench } from "../../icons.tsx";
 import { useOmpStatus, useTasks } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead, type Tone } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
@@ -77,15 +77,15 @@ export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
           actions={
             <>
               {hasMarketplacePlugins && (
-                <Button
-                  size="sm"
+                <IconButton
+                  label={t("plugins.upgrade.all")}
                   disabled={busy}
                   loading={state.working === "upgrade:all"}
                   onClick={() => void runAction(t, { kind: "upgrade", id: null }, "upgrade:all")}
                   testId="plugins-upgrade-all"
                 >
-                  {t("plugins.upgrade.all")}
-                </Button>
+                  <ArrowUp />
+                </IconButton>
               )}
               <IconButton
                 label={t("plugins.refresh")}
@@ -137,23 +137,24 @@ export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
           title={t("plugins.doctor")}
           actions={
             <>
-              <Button
-                size="sm"
+              <IconButton
+                label={t("plugins.doctor.run")}
                 disabled={busy}
                 loading={state.working === "doctor"}
                 onClick={() => void runAction(t, { kind: "doctor", fix: false }, "doctor")}
                 testId="plugins-doctor-run"
               >
-                {t("plugins.doctor.run")}
-              </Button>
-              <Button
-                size="sm"
+                <Bolt />
+              </IconButton>
+              <IconButton
+                label={t("plugins.doctor.fix")}
                 disabled={busy}
                 loading={state.working === "doctor:fix"}
                 onClick={() => void runAction(t, { kind: "doctor", fix: true }, "doctor:fix")}
+                testId="plugins-doctor-fix"
               >
-                {t("plugins.doctor.fix")}
-              </Button>
+                <Wrench />
+              </IconButton>
             </>
           }
         />

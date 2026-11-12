@@ -9,7 +9,7 @@ import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plug, Plus, Restart } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
-import { Badge, Button, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
+import { Badge, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
@@ -90,15 +90,15 @@ function McpRow({
       }
       actions={
         <>
-          <Button
-            size="sm"
+          <IconButton
+            label={t("integrations.mcp.test")}
             disabled={busy || !manageable}
             loading={test === "running"}
             onClick={onTest}
             testId={`mcp-test-${row.name}`}
           >
-            {t("integrations.mcp.test")}
-          </Button>
+            <Plug />
+          </IconButton>
           <Switch
             checked={row.enabled}
             disabled={busy || !manageable}
@@ -212,15 +212,14 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
             >
               <Restart />
             </IconButton>
-            <Button
-              size="sm"
-              icon={<Plus size={14} />}
+            <IconButton
+              label={t("integrations.mcp.add")}
               disabled={!ready || busy}
               onClick={() => openAdding(true)}
               testId="mcp-add"
             >
-              {t("integrations.mcp.add")}
-            </Button>
+              <Plus />
+            </IconButton>
           </>
         }
       />

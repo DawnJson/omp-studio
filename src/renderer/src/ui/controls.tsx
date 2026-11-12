@@ -77,6 +77,8 @@ export interface IconButtonProps extends Omit<NativeButton, "aria-label" | "titl
   expanded?: boolean | undefined;
   testId?: string | undefined;
   ref?: Ref<HTMLButtonElement> | undefined;
+  /** 动作进行中：图标换成转圈，按钮禁用。 */
+  loading?: boolean | undefined;
 }
 
 export function IconButton({
@@ -87,6 +89,8 @@ export function IconButton({
   expanded,
   testId,
   className,
+  loading = false,
+  disabled,
   children,
   ...rest
 }: IconButtonProps) {
@@ -99,6 +103,9 @@ export function IconButton({
       title={tip ?? label}
       aria-pressed={pressed}
       aria-expanded={expanded}
+      data-loading={loading || undefined}
+      aria-busy={loading || undefined}
+      disabled={disabled === true || loading}
       data-testid={testId}
       {...rest}
     >

@@ -13,6 +13,7 @@ How to write it:
 ### Changed
 
 - In Settings → Integrations & plugins, the "Scope" label in the page header is now an icon: a globe for user scope, a folder for a project; hover shows "Scope".
+- In Settings → Integrations & plugins, Add, Test connection, Upgrade, Details, Browse, Update catalog, Install, and the diagnostics Run and Fix are now icon buttons, and a lone Delete, Remove, or Uninstall at the end of a row is a trash icon; hovering shows the original text.
 
 ## [0.8.4] - 2026-11-12
 

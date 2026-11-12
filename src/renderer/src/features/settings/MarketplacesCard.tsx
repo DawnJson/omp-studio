@@ -8,8 +8,17 @@ import {
   type PluginsSnapshot,
 } from "../../../../shared/omp-output/plugins.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { Plus, Puzzle, Search, Storefront } from "../../icons.tsx";
-import { Badge, Button, FormField, ListRow, SectionHead, Segmented, TextField } from "../../ui/controls.tsx";
+import { ChevronDown, Download, Plus, Puzzle, Restart, Search, Storefront } from "../../icons.tsx";
+import {
+  Badge,
+  Button,
+  FormField,
+  IconButton,
+  ListRow,
+  SectionHead,
+  Segmented,
+  TextField,
+} from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog, Dialog } from "../../ui/Dialog.tsx";
 import { describeError } from "../../ui/errors.ts";
@@ -83,15 +92,15 @@ function Browse({
                 has ? (
                   <Badge tone="success">{t("plugins.installedBadge")}</Badge>
                 ) : (
-                  <Button
-                    size="sm"
+                  <IconButton
+                    label={t("plugins.install")}
                     disabled={working !== null}
                     loading={working === `install:${id}`}
                     onClick={() => onInstall({ marketplace, entry })}
                     testId={`discover-install-${id}`}
                   >
-                    {t("plugins.install")}
-                  </Button>
+                    <Download />
+                  </IconButton>
                 )
               }
             />
@@ -213,15 +222,14 @@ export function MarketplacesCard({
         title={t("plugins.marketplaces")}
         count={snapshot?.marketplaces.length}
         actions={
-          <Button
-            size="sm"
-            icon={<Plus size={14} />}
+          <IconButton
+            label={t("plugins.marketplaces.add.open")}
             disabled={busy}
             onClick={() => openAdding(true)}
             testId="marketplace-add-open"
           >
-            {t("plugins.marketplaces.add.open")}
-          </Button>
+            <Plus />
+          </IconButton>
         }
       />
       {projectId !== null && (
@@ -250,17 +258,20 @@ export function MarketplacesCard({
                 meta={marketplace.source}
                 actions={
                   <>
-                    <Button
-                      size="sm"
+                    <IconButton
+                      label={
+                        browsing === marketplace.name
+                          ? t("plugins.marketplaces.browse.hide")
+                          : t("plugins.marketplaces.browse")
+                      }
+                      expanded={browsing === marketplace.name}
                       onClick={() => toggleBrowse(marketplace.name)}
                       testId={`marketplace-browse-btn-${marketplace.name}`}
                     >
-                      {browsing === marketplace.name
-                        ? t("plugins.marketplaces.browse.hide")
-                        : t("plugins.marketplaces.browse")}
-                    </Button>
-                    <Button
-                      size="sm"
+                      <ChevronDown className="ui-chev" />
+                    </IconButton>
+                    <IconButton
+                      label={t("plugins.marketplaces.update")}
                       disabled={busy}
                       loading={working === `marketplace:update:${marketplace.name}`}
                       onClick={() =>
@@ -271,8 +282,8 @@ export function MarketplacesCard({
                         )
                       }
                     >
-                      {t("plugins.marketplaces.update")}
-                    </Button>
+                      <Restart />
+                    </IconButton>
                     <RowMenu
                       label={t("plugins.more")}
                       disabled={busy}
@@ -320,16 +331,15 @@ export function MarketplacesCard({
                 meta={preset.source}
                 testId={`marketplace-preset-${preset.name}`}
                 actions={
-                  <Button
-                    size="sm"
-                    icon={<Plus size={14} />}
+                  <IconButton
+                    label={t("plugins.marketplaces.add")}
                     disabled={busy}
                     loading={working === `marketplace:add:${preset.source}`}
                     onClick={() => void addPreset(preset)}
                     testId={`marketplace-preset-add-${preset.name}`}
                   >
-                    {t("plugins.marketplaces.add")}
-                  </Button>
+                    <Plus />
+                  </IconButton>
                 }
               />
             ))}

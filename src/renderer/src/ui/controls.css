@@ -130,7 +130,8 @@
   color: transparent;
   pointer-events: none;
 }
-.ui-btn[data-loading]::after {
+.ui-btn[data-loading]::after,
+.ui-icon-btn[data-loading]::after {
   position: absolute;
   inset: 0;
   width: 14px;
@@ -220,6 +221,21 @@
 .ui-icon-btn:disabled {
   color: var(--text-disabled);
   background: transparent;
+}
+/* 加载：图标藏起来，同一个环叠在中间（和 .ui-btn 一样） */
+.ui-icon-btn[data-loading] {
+  position: relative;
+  pointer-events: none;
+}
+.ui-icon-btn[data-loading] > svg {
+  visibility: hidden;
+}
+/* 展开类的图标按钮（详情、浏览）用向下的 V，展开时翻过来 */
+.ui-icon-btn > .ui-chev {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ui-icon-btn[aria-expanded="true"] > .ui-chev {
+  transform: rotate(180deg);
 }
 
 /* ───────── Field（文本 / 数字 / 搜索 / 下拉触发器共用一个框） ───────── */

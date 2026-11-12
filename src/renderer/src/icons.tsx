@@ -389,6 +389,18 @@ export const Puzzle = (props: IconProps) => (
     <path d="M2.5 5h2.8a1.6 1.6 0 1 1 2.4 0h2.8v2.8a1.6 1.6 0 1 1 0 2.4V13h-8V5Z" />
   </Icon>
 );
+/** 安装：向下箭头落进托盘 */
+export const Download = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M8 2.5v7.5M4.5 6.5 8 10l3.5-3.5M3 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1" />
+  </Icon>
+);
+/** 修复：扳手 */
+export const Wrench = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M10.2 2.7a3.2 3.2 0 0 0-3.8 4.3L2.9 10.5a1.4 1.4 0 0 0 2 2l3.5-3.5a3.2 3.2 0 0 0 4.3-3.8L10.9 7l-1.7-.3-.3-1.7 1.3-2.3Z" />
+  </Icon>
+);
 /** 插件市场：带遮阳篷的小店 */
 export const Storefront = (props: IconProps) => (
   <Icon {...props}>
