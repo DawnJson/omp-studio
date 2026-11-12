@@ -3047,14 +3047,24 @@ test("作业磁贴入场(TSP,减少动效):不错开、不位移", async () => {
 // 不画 omp 的弹窗;提问 / 追问 / 取消都是主进程在后台对弹窗发的事件(action / select / edit),回答收尾后自动关弹窗。
 // 假 omp 只在事件和录制逐字相同时才往下放帧,所以走完就证明事件发对了;话题 id 靠会话旁边的 btw-history/,
 // 这里在假 omp 收到 `/btw <问题>` 时写(和真实 omp 一样)。
-test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 → 取消长回答,不画 omp 的弹窗,事件序列和录制一致", async () => {
+test("旁路提问面板(TSP):长主对话中问答和追问可读,再问、取消的事件序列和录制一致", async () => {
   test.setTimeout(120_000);
   const events = recordedUserEvents(loadTspFixture("btw")).map((entry) => entry.event);
-  const note = String(events[0]!["text"]);
+  const originalNote = String(events[0]!["text"]);
+  const note = `${originalNote}\n\n`.repeat(300).trim();
+  events[0]!["text"] = note;
   const scratch = await mkdtemp(path.join(os.tmpdir(), "omp btw e2e-"));
+  // 只加长主对话的首条消息，旁路问答和后续交互仍按原录制回放。
+  const fixture = path.join(scratch, "btw-long.jsonl");
+  await writeFile(
+    fixture,
+    (await readFile(path.join(root, "fixtures", "tsp", "btw.jsonl"), "utf8"))
+      .replaceAll(JSON.stringify(originalNote), JSON.stringify(note))
+      .replaceAll(JSON.stringify("gamma"), JSON.stringify("gamma\n\n".repeat(50).trim())),
+  );
   const sessionFile = path.join(scratch, "session.jsonl");
   await writeFile(sessionFile, "{}\n");
-  const { launched, received, cleanup } = await start("btw", { FAKE_TSP_SESSION_FILE: sessionFile });
+  const { launched, received, cleanup } = await start(fixture, { FAKE_TSP_SESSION_FILE: sessionFile });
   const topics: Record<string, { id: string; answer: string; status: string }> = {
     "/btw Reply with exactly the word: pong": { id: "15af3d5a2937f9fd", answer: "pong", status: "complete" },
     "/btw Reply with exactly the word: ping": { id: "15af3d67d7b7f9ff", answer: "ping", status: "complete" },
@@ -3089,6 +3099,7 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
   }, 50);
   try {
     const { page } = launched;
+    await page.setViewportSize({ width: 900, height: 700 });
     await sendFirst(page, note);
     // 第一句话由主进程等 omp 输入框可发送后异步 send:等它到了 omp 再问 /btw,事件先后才和录制一致。
     await expect
@@ -3119,6 +3130,9 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     await expect(turns).toHaveCount(1);
     await expect(turns.first()).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.first()).toContainText("pong");
+    await expectNoOverflow(panel);
+    await expect(turns.first().locator(".btw-q")).toBeInViewport({ ratio: 1 });
+    await expect(turns.first().locator(".md")).toBeInViewport({ ratio: 1 });
     // 2) 面板里"新话题"再问 ping:两个话题标签。
     await panel.getByTestId("btw-new-topic").click();
     await panel.getByTestId("btw-input").fill("Reply with exactly the word: ping");
@@ -3135,6 +3149,16 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     await expect(turns).toHaveCount(2, { timeout: 30_000 });
     await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.nth(1)).toContainText("gamma");
+    await setLocaleTheme(page, "en", "light");
+    await expectNoOverflow(panel);
+    await turns.nth(1).locator(".btw-q").scrollIntoViewIfNeeded();
+    await expect(turns.nth(1).locator(".btw-q")).toBeInViewport({ ratio: 1 });
+    const lastParagraph = turns.nth(1).locator(".md p").last();
+    await lastParagraph.scrollIntoViewIfNeeded();
+    await expect(lastParagraph).toBeInViewport({ ratio: 1 });
+    const mainPanel = (await page.getByTestId("main-panel").boundingBox())!;
+    expect((await panel.boundingBox())!.height).toBeLessThanOrEqual(mainPanel.height * 0.45 + 1);
+    await expect(page.getByTestId("composer-input")).toBeInViewport({ ratio: 1 });
     // 复制答案:头部的按钮把当前话题最新一问的答案写进系统剪贴板(渲染进程剪贴板),图标变成对勾(读屏播报"已复制"),不弹 toast。
     const unlock = await lockClipboard();
     try {

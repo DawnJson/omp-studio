@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Side questions and follow-ups no longer collapse into a thin strip in long conversations; long answers remain scrollable inside the panel.
+
 ## [0.8.1] - 2026-11-11
 
 ### Added

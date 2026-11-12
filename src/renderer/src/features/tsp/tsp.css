@@ -67,7 +67,8 @@
 
   position: relative;
   display: flex;
-  flex: 1 1 auto;
+  /* 主对话只占其余面板让出的空间，不按历史内容高度挤压旁路提问。 */
+  flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   font-family: var(--font-sans);
