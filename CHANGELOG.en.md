@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- In Settings → Integrations & plugins, the "Scope" label in the page header is now an icon: a globe for user scope, a folder for a project; hover shows "Scope".
+
 ## [0.8.4] - 2026-11-12
 
 ### Fixed

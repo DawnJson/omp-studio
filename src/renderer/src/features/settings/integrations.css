@@ -1,7 +1,7 @@
 /* 设置 → 集成（MCP 服务器、SSH 主机）。只有布局；控件样式在 ui/controls.css。 */
 
-.ig-scope-label {
-  font-size: var(--fs-sm);
+.ig-scope-icon {
+  display: inline-flex;
   color: var(--text-3);
 }
 
