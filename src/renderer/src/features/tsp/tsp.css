@@ -3188,6 +3188,55 @@ button.tsp-sh-fold:focus-visible {
   display: none;
 }
 
+/* 计划审核优先在目录和正文内滚动，保留工具、决策选项和页脚的空间。 */
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-card {
+  width: min(70vw, 100%);
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-head {
+  flex: none;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-body {
+  overflow-y: auto;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-body > .tsp-col {
+  flex: 1;
+  min-height: 0;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-body > .tsp-col > * {
+  flex-shrink: 0;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-body > .tsp-col > .tsp-row:not([data-role]),
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-body > .tsp-col > [data-role="omp.plan.body"] {
+  flex: 1;
+  /* 固定操作放不下时保留阅读区域，让外层滚动找到其余操作。 */
+  min-height: calc(var(--lh-prose) + var(--space-1));
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-body > .tsp-col > .tsp-row:not([data-role]) {
+  align-items: stretch;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"]
+  .tspi-ov-body
+  > .tsp-col
+  > .tsp-row:not([data-role])
+  > .tsp-col:first-child {
+  width: min(200px, 30%);
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] [data-role="omp.plan.body"],
+.tspi-overlay[data-role="omp.overlay.planReview"]
+  .tspi-ov-body
+  > .tsp-col
+  > .tsp-row:not([data-role])
+  > .tsp-col:first-child {
+  min-height: 0;
+  overflow-y: auto;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] [data-role="omp.plan.body"] > * {
+  flex-shrink: 0;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"] [data-role="omp.plan.body"] .md-table :is(th, td) {
+  min-width: 8ch;
+}
+
 /* /jobs 弹窗（omp.overlay.jobs）照 studio 自己的对话框排（2026-10-25）：标题栏、左边作业列表（侧栏底色、整列高）、
    右边详情自己滚动、底栏（摘要 + Close）钉在最下面；卡片高度固定，切作业时不跳。详情里命令 / 事实 / 进度 / 输出
    各成一段，段间 --space-4；进度小部件放在浅底块里，输出放在下沉底的终端块里。 */

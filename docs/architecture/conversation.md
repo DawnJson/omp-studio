@@ -151,7 +151,8 @@
 - **速度**：`omp.composer.rate`（`p.value` tok/s，约 10 次/秒），只在 omp 设置 `composer.tokenRate` 开着时有（默认关）；有就用它（取整），没有退回会话文件里的值。
 - **状态区**（dock → `omp.hud.status`）：自动重试 = `omp.working` 行，`meter style=ring` 的 value 1 → 0（每 0.5 秒一帧，总等待不在文档里，界面用第一帧和当前帧估秒数 `estimateRetrySeconds`），标签 `Retrying · attempt N of M`，取消 = `omp.working.stop` 的 `interrupt` 动作；压缩 = 同一行多一个无 value 的 `progress`，Stop 同一动作；上一轮停在工具调用中途 = `omp.hint.retry`（"F5 to retry"），界面显示"上一轮被中断 + 重试"（`/retry`）；空闲 loader 能取消的（文字以 `(… to cancel)` 结尾）发 Esc。
 - **聚焦子代理**：`omp.composer.focus`，状态行上方横幅 + "回到主会话"（点 omp 的 `focus:Main` 动作），输入框占位符写明对象。
-- 未实测（推测）：`/plan` 在已有计划时的退出确认弹窗、`/plan-review`、`omp.hint.retry` 在新一轮开始后何时消失。
+- **计划审核**（实测 omp 18.19.0，`fixtures/tsp/plan-review*.jsonl`）：恢复隔离的计划会话后 `/plan-review` 在 layer 打开 `omp.overlay.planReview`，长计划的目录 `omp.plan.toc` 与正文 `omp.plan.body` 同处一行，短计划没有目录；目录选择发 `select` 后 omp 用 `reveal` 定位正文，工具行的 `cancel` 动作关闭审核。studio 让目录和正文分别滚动，工具、决策选项和页脚不收缩；空间不足时保留正文的最小阅读区域，外层可滚动访问操作。录制不调用模型，e2e 覆盖长表格、目录首尾跳转、无目录短计划、大字号与矮窗口组合和取消。
+- 未实测（推测）：`/plan` 在已有计划时的退出确认弹窗、`omp.hint.retry` 在新一轮开始后何时消失。
 
 ## e2e
 

@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Plan Review adapts to the window width with a narrower contents list; both panes scroll independently, table columns remain readable, and actions stay reachable in short windows.
+
 ## [0.8.3] - 2026-11-12
 
 ### Fixed
