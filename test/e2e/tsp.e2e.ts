@@ -2338,7 +2338,8 @@ test("计划审核(TSP):长计划正文独立滚动,目录跳转和大字号下�
       .toBeGreaterThan(0);
     const lastParagraph = body.locator(".md p").last();
     await lastParagraph.scrollIntoViewIfNeeded();
-    await expect(lastParagraph).toBeInViewport({ ratio: 1 });
+    // 缩放 22/15 时 scrollTop 是小数，滚到底后末段仍被裁掉零点几个像素（实测 0.06px，ratio 0.997），看不出来。
+    await expect(lastParagraph).toBeInViewport({ ratio: 0.99 });
     const lastOption = options.locator(".tspi-item").last();
     await lastOption.scrollIntoViewIfNeeded();
     await expect(lastOption).toBeInViewport({ ratio: 1 });
