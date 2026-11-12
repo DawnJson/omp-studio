@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-12
+
 ### Added
 
 - "Close session" in the task menu (sidebar right-click, ⋯, top bar ⋯) and the command palette: ends the task's omp process but keeps the conversation; opening the task or sending a message picks the same session back up. Close it here before continuing the session in a terminal, so the terminal doesn't fork an identical copy of it.
