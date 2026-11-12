@@ -25,7 +25,7 @@ import { blockZoom } from "../window/security.ts";
 import type { PetPosition } from "./pet-store.ts";
 
 /** 窗口大小（DIP）；宠物（renderer/src/pet/pet.css 的 --pet-w / --pet-h）画在底部正中，上面留给属性卡和气泡。 */
-export const PET_WINDOW = { width: 260, height: 400 } as const;
+const PET_WINDOW = { width: 260, height: 400 } as const;
 const SPRITE = { width: 110, height: 115 } as const;
 /** 拖动时跟光标的间隔：Windows 的系统时钟约 15.6ms 一跳，写 10 才每跳都跑（同 main-window.ts 的 frameMs）。 */
 const DRAG_FRAME_MS = 10;
@@ -64,7 +64,7 @@ function spriteRect(bounds: Pick<Rectangle, "x" | "y">): Rectangle {
  * 把窗口位置夹到某块屏幕的工作区里：保证宠物本身整个看得见（窗口上方透明的部分可以出屏）。
  * 没摆过（null）时放到主屏工作区右下角。拔掉显示器、改分辨率后也走这里。
  */
-export function clampPosition(position: PetPosition | null): PetPosition {
+function clampPosition(position: PetPosition | null): PetPosition {
   if (position === null) {
     const area = screen.getPrimaryDisplay().workArea;
     return {

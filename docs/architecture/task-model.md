@@ -18,7 +18,7 @@
 - 归档：关进程，记录保留 `archived:true`；`listSessionLinks` 带上 `archived`，已归档任务的会话只在侧栏的"已归档"里列出（issue #9），点开走 `TaskPool.resume()`，找到同一会话文件的任务会把它恢复成未归档（同一 id）。终端里开的历史会话也能归档（`TaskPool.archiveSession`：建一条已归档记录，不起进程）。
 - 从列表移除项目：只设 `Project.hidden`（`TaskRegistry.setProjectHidden`），任务不动；`addProject`（打开文件夹）、`ensureProject`、在里面新建任务和恢复会话时清掉（issue #9）。
 - 会话文件被删（在 omp 的会话列表里删的）：**对账**（issue #10，仓库所有者定，2026-11-10）：启动后（`runtime.ts`）和每次重扫会话列表时（`listSessions`）在后台跑 `TaskPool.pruneMissingSessions`，同时满足这些的任务记录直接去掉（`TaskRegistry.removeTask` + `taskRemoved`）：没归档、有 `sessionFile`、`stat` 报 `ENOENT` / `ENOTDIR`（别的错误不算）、隔一段时间再看还不在（omp 在 Windows 上原子重写会话文件时文件可能短暂不在原处）、没有进程也不在启动中、不是前台任务、没有 worktree。不对账的话侧栏一直列着打不开的任务。没被对账去掉的：起进程前 `stat` 一次，报 `ENOENT` / `ENOTDIR` 才是 `session_missing`（别的错误照常起 omp，由它报错），不起 omp（`--resume=<不存在的文件>` 会让 omp 打 `Session … not found` 后退出 1）。输入框占位换成 `error.sessionMissing`；用户照常发消息时清掉记录里的 `sessionFile`、不带 `--resume` 起进程，在这个任务里开新会话（任务设置保留）。
-- 删除会话（issue #10，仓库所有者批准，2026-11-10；界面见 spec §4.2）：`TaskPool.deleteTask` / `deleteSession`。studio 不写 `~/.omp`，删除经 omp 自己的 `/delete`（实测见 [session-history.md](session-history.md)「删除会话」）：有进程（或正在启动）的任务在它自己的 omp 里发；其余（没进程、已归档、终端里开的会话）先问 `omp session lease --json -- <id>`（`history/session-lease.ts`），别的 omp 进程占着就拒绝（`error.sessionInUse`），再起一个临时 omp（`TspRunner`，只在内存、不进任务表、`buildLaunch(…, { temporary: true })`）`--resume` 后发 `/delete`。成功的判据是会话文件真的不在了（`TspCommands.deleteSession` 轮询 `stat`；之前出现新的错误行、警告行或状态 toast 就以原文失败），然后关进程、去掉任务记录。会话文件已经不在、或任务还没有会话文件时不起 omp，直接去掉记录。失败时任务记录不动。
+- 删除会话（issue #10，仓库所有者批准，2026-11-10；界面见 spec §4.2）：`TaskPool.deleteTask` / `deleteSession`。studio 不写 `~/.omp`，删除经 omp 自己的 `/delete`（实测见 [session-history.md](session-history.md)「删除会话」）：有进程（或正在启动）的任务在它自己的 omp 里发；其余（没进程、已归档、终端里开的会话）先问 `omp session lease --json -- <id>`（`history/session-lease.ts`），别的 omp 进程占着就拒绝（`error.sessionInUse`），再起一个临时 omp（`TspRunner`，只在内存、不进任务表、`buildLaunch(…, { temporary: true })`）`--resume` 后发 `/delete`。成功的判据是会话文件真的不在了（`TspCommands.deleteSession` 轮询 `stat`；之前出现新的错误行、警告行或状态 toast 就以原文失败），然后关进程、去掉任务记录。临时 omp 不在任务表里，单独记着，`shutdown()` 也关它（删到一半退出应用时删除以失败结束）。会话文件已经不在、或任务还没有会话文件时不起 omp，直接去掉记录。失败时任务记录不动。
 - 分叉 / 回溯见 [session-tree.md](session-tree.md)：`TaskPool.forkTask` 新增一条记录，`forkFrom` 记要 `omp --fork` 的原会话文件，新会话文件一落盘就记进 `sessionFile` 并清掉它（worktree 任务的分叉共用同一个 worktree，所以 `discardWorktree` 在还有别的任务（含已归档的）用它时拒绝）；回溯不换会话文件。
 
 ## 启动
@@ -28,7 +28,7 @@
 默认模型和 omp 启动同时进行，两段耗时不相加：冷启动拉模型目录约 0.6 秒，omp 到握手约 0.7 秒（omp 18.12.6 实测，新任务到输入框可发送约 1.05 秒）。默认模型只在新任务（记录里没有模型）时读，`--model` 不依赖它。
 
 **恢复前看租约**（issue #11，仓库所有者批准，2026-11-12）：`--resume` 已有会话文件之前，`TspRunner` 问一次 `omp session lease --json -- <id>`（`TspRunnerHost.sessionInUse` ← `PoolDeps.sessionInUse`，`runtime.ts` 接 `history/session-lease.ts`，和删除会话同一个函数）。别的 omp 进程占着就不起进程，任务进 error（`session_in_use`），输入框占位写原因（`error.sessionHeld`）；用户在那边退出后发消息、重开会话或再点开任务都会重新查。原因：omp 不让两个进程写同一个会话，后写的那个第一次写盘时悄悄搬到新的兄弟文件（新 id，`parentSession` 指向原会话），见 omp 文档 `omp://session.md`「Persistence Guarantees and Failure Model」；studio 这边就成了侧栏里又一条同名会话。
-- 检查本身失败（老版本 omp 没有这个子命令、超时、输出认不出）记 WARN、照常起（仓库所有者定，2026-11-12）。
+- 检查本身失败（低于最低版本的 omp 没有这个子命令：它仍可能装在机器上，界面只禁用发送；超时；输出认不出）记 WARN、照常起（仓库所有者定，2026-11-12）。
 - 这个任务自己的上一个进程不算进去：只有 stopped / error 的任务才走到 `#start`，`close()` 等进程退出才返回；omp 的租约是内核对象（Windows 命名 mutex、Linux 抽象 socket、macOS `flock`），进程一退出就释放（omp 18.19.0 文档）。
 - omp 只在写会话时占租约，只读打开不占：终端那边刚 `--resume`、还没写东西时查不出来，这时 studio 照常起，之后先写的那边留在原文件 [推测，omp 18.19.0 文档，没实测]。
 - 起进程的路径都是用户触发的（打开任务、发消息、重开会话、会话命令）；`init`、对账、回收都不起进程，不会在后台冒出这个错误。代价：每次打开有会话文件的任务多跑一次 `omp session lease`（实测约 0.1–0.2 秒，omp 18.19.0；上限 10 秒，超时照常起进程）。
@@ -68,7 +68,7 @@ omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的�
 - 关闭会话（issue #11，仓库所有者批准，2026-11-12）：任务菜单和命令面板的"关闭会话"（`closeTask` → `TaskPool.closeTask`）和空闲回收走同一条路（`#recycle`）：结束进程，任务和最后一份快照留着（stopped），前台任务也能关。忙（不可回收）时拒绝，没有进程时什么也不做。再切到它（`openTask`）或发消息（`sendPrompt` 先 `start`）时 `--resume` 同一个会话文件。用途：要在终端里接着用这个会话时先在 studio 关掉，否则 studio 的进程占着租约，终端那边一写就分叉。实测（omp 18.19.0，`test/task-real-omp.test.ts`）：跑过一轮的任务进程活着时 `omp session lease` 报占着，关闭会话后报没占，再打开照常恢复同一个文件。
 - 保持运行（`TaskRecord.keepAlive`，任务菜单里开关，`setTaskKeepAlive`；重启后还在）：定时回收和软上限回收都跳过它；硬上限照算，进程退出、用户停止照常。用途：Python eval 里的变量、`/add-dir` 加的目录、后台作业这些只在进程里的东西不丢。
 - 回收后的任务保留最后一份节点树快照，已停止的任务的快照按 LRU 限量保留，更久的释放，再打开时 `--resume` 由 omp 重发整段对话。意外退出（error）同样留着最后一份。进程不在时快照里可能还有 `running` 的工具卡、子代理和计时节点：渲染进程不改文档，只按 `TspEndedAtCtx` 把它们画成已取消 / 已中止、计时停在看到进程结束的那一刻（`use-clock.ts`），见 spec「omp 进程意外退出」。Windows 上 pty 的 Job 在进程退出时关掉，后台作业随之结束，所以这样画是真实状态。
-- `shutdown()`：并行 `close`（先 `taskkill /T /F` 进程树，再 `pty.kill()`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
+- `shutdown()`：并行 `close` 任务的进程和删除会话的临时 omp（先 `taskkill /T /F` 进程树，再 `pty.kill()`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
 - 窗口 × 不退出：窗口只隐藏（`hide-on-close.ts`），任务池、状态机和 omp 子进程都不受影响，应用常驻托盘（决策见 [background-run.md](background-run.md)）。窗口隐藏期间状态变化照常经 `taskState` 推给渲染进程并刷新托盘；节点树批次（`tspBatch`）在窗口隐藏或最小化期间压下不发，窗口出来时渲染进程重拉快照（`main/tasks/tsp-feed.ts`，见 [tsp-migration.md](tsp-migration.md) §8）。真正的退出入口（托盘"退出"、应用菜单退出、安装更新、系统注销）才走 `shutdown()`。
 - 新加一种以某个目录为 cwd 的常驻子进程（项目 rpc-ui、终端、pty）时，同时检查所有会删这个目录的路径（丢弃 worktree、清理无主 worktree）有没有先把它关掉：cwd 占着目录，`rmdir` 报 EBUSY（例：`service/project-omp.ts` 的 `closeUnder` 由 `runtime.ts` 的 `worktreeOps.remove` 先调）。
 

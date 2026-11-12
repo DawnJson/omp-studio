@@ -58,7 +58,7 @@ function tipSource(node: Element): { el: HTMLElement; text: string; titled: bool
 }
 
 /** 文字和尾随快捷键（没有快捷键时 key 为 null）。 */
-export function splitShortcut(text: string): { body: string; key: string | null } {
+function splitShortcut(text: string): { body: string; key: string | null } {
   const match = SHORTCUT.exec(text.trim());
   if (match === null || match[1]!.trim() === "") return { body: text.trim(), key: null };
   return { body: match[1]!.trim(), key: match[2]!.trim() };

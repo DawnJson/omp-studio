@@ -60,7 +60,7 @@ export interface Soul {
  * 宠物此刻的样子：所有任务汇总出来的状态（mood.ts）。
  * done = 刚有任务跑完一轮（主进程只保持几秒）；其余是持续状态。
  */
-export const moods = ["idle", "running", "waiting", "error", "done"] as const;
+const moods = ["idle", "running", "waiting", "error", "done"] as const;
 export type Mood = (typeof moods)[number];
 
 /** 宠物窗口画一次需要的全部数据（主进程算好推过来）。 */

@@ -1458,22 +1458,6 @@ button.usage-context:hover,
 }
 
 /* 后台任务：输入框右上方的看板胶囊 + 看板浮层（状态行下不再另列 job 小卡，免得同一个 job 显示两遍）。 */
-.job-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background: var(--st-done);
-}
-.job-dot[data-status="running"] {
-  background: var(--st-running);
-}
-.job-dot[data-status="failed"] {
-  background: var(--st-error);
-}
-.job-dot[data-status="cancelled"] {
-  background: var(--text-3);
-}
 
 /* 输入框上方的药丸 `[👥 N | ⚡ N]`（StatusPills.tsx）：外观同 Segmented（.ui-seg：--bg-active 的槽，块 --radius-md 内缩 2px），
    两个半段各自是按钮（不是单选），中间一条细分隔线；子代理面板开着时左半段是"选中块"（--control-on + --shadow-1）。个数为 0 的半段不画。

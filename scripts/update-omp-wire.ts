@@ -1,7 +1,7 @@
 // 从 omp 官方仓库对应版本的 tag 拷贝协议类型：RPC wire（服务进程用）和 TSP（任务界面用，连同它引用的 shell-viz / shell-trace）。
 // 用法：npm run omp:update-wire -- <omp 版本>。依据：docs/architecture/omp-rpc.md「类型从哪来」、docs/architecture/omp-boundaries.md「协议」。
 // 拷过来只改一处：相对 import 补上 `.generated.ts`（我们的 tsconfig 是 nodenext，相对路径必须带扩展名）。
-// 换完 TSP 类型要看 src/main/tsp/tsp-session.ts 的 TSP_DECLARED_KINDS：新种类没写组件前不能声明。
+// 换完 TSP 类型要看 src/main/tsp/tsp-session.ts 的 UNSUPPORTED_KINDS：新种类没写组件前加进去，不向 omp 声明。
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 

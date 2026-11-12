@@ -5,7 +5,7 @@ import type { TaskMode } from "../../../../shared/ipc.ts";
 type LoopMode = Extract<TaskMode, { kind: "loop" }>;
 
 /** omp 的写法：`1h30m`、`2m5s`、`45s`。 */
-export function formatLeft(seconds: number): string {
+function formatLeft(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const rest = seconds % 60;

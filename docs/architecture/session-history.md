@@ -83,7 +83,7 @@ omp 没有"列出会话"的 RPC。omp 自己的文档给出存储格式，我们
 
 `test/session-index.test.ts`：路径含空格和中文；标题槽/旧格式/字符串内容；截断前缀；损坏、空、非会话文件计数；超长首条消息；缓存失效和删除；Windows 路径大小写；`resolveAgentDir`。`test/sidebar-model.test.ts`：分组排序、重名项目标签、等你确认跳转、状态点形状、模糊匹配、面板分组。
 `test/e2e/sidebar.e2e.ts`：侧栏键盘、归档撤销、命令面板、已归档会话和任务菜单的"删除会话…"与确认框（主进程的删除换成桩）。
-`test/task-pool.test.ts`「会话文件在 omp 里被删了」「删除会话」：对账的各个条件、有进程 / 没进程 / 已归档 / 终端会话的删除（假 omp 收到 `/delete` 删文件，`FAKE_TSP_DELETE_FILE`）、租约被占时拒绝；`test/session-delete.test.ts`：`omp session lease` 输出、警告行、"不在"的错误码。
+`test/task-pool.test.ts`「会话文件在 omp 里被删了」「删除会话」：对账的各个条件、有进程 / 没进程 / 已归档 / 终端会话的删除（假 omp 收到 `/delete` 删文件，`FAKE_TSP_DELETE_FILE`）、租约被占时拒绝、删到一半退出应用（`shutdown()` 关掉临时 omp）；`test/session-delete.test.ts`：`omp session lease` 输出、警告行、"不在"的错误码。
 
 ## 会话信息、请求记录、置顶、分享、重试（omp 18.12.5）
 

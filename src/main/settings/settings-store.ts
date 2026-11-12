@@ -51,7 +51,7 @@ function parseBackdropFile(value: unknown): string | null {
 }
 
 /** 设置文件里的终端 shell：null 或绝对路径（文件在不在、能不能跑，开终端时才查）。 */
-export function parseTerminalShell(value: unknown): string | null {
+function parseTerminalShell(value: unknown): string | null {
   if (value === null) return null;
   if (typeof value === "string" && value.length <= 1024 && path.isAbsolute(value)) return value;
   throw new Error("terminalShell 必须是绝对路径或 null");

@@ -812,7 +812,7 @@ export class TspRunner {
     if (this.#closing || this.#disposed) throw new Error("task was stopped while starting");
   }
 
-  /** 会话被别的 omp 进程占着（host.sessionInUse）。检查本身失败（老版本 omp 没有 `session lease`、超时、输出认不出）时记 WARN、按没占着处理（所有者定，2026-11-12：照常起）。 */
+  /** 会话被别的 omp 进程占着（host.sessionInUse）。检查本身失败（低于最低版本的 omp 没有 `session lease`：它仍可能装在机器上，界面只禁用发送；超时；输出认不出）时记 WARN、按没占着处理（所有者定，2026-11-12：照常起）。 */
   async #sessionHeldElsewhere(sessionFile: string): Promise<boolean> {
     const check = this.#host.sessionInUse;
     if (!check) return false;

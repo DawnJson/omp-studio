@@ -60,7 +60,7 @@ export function userEntryText(entry: Record<string, unknown>): string | null {
 }
 
 /** 摘要预览：去掉 omp 固定的开头（"User explored another conversation branch…" / "Exploration summary:"）、Markdown 标题和列表符号，取第一句有内容的话。 */
-export function summaryPreview(summary: string): string {
+function summaryPreview(summary: string): string {
   const body = summary
     .replace(/^\s*User explored another conversation branch, then returned here\.\s*/, "")
     .replace(/^\s*Exploration summary:\s*/, "");

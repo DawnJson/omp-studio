@@ -112,11 +112,6 @@ export function buildTreeFromEntries(
   return buildSessionTree(linkEntries(entries), fileLeafId(entries, override));
 }
 
-/** 会话文件内容 → 会话树面板的节点。 */
-export function buildTreeFromSessionText(text: string, override?: LeafOverride | null): SessionTreeNode[] {
-  return buildTreeFromEntries(parseSessionEntries(text), override);
-}
-
 /**
  * 树面板、回溯、标签反复读同一个会话文件：缓存增量读取器，只读新追加的完整行，分块读不长时间占住主进程。
  * 和任务 runner 的用量读取器（session-files.ts）分开、不被占住：条目留着用户消息的整条内容，只留最近查过的几个文件。

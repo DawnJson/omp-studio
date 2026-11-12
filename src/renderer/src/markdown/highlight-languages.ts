@@ -1,7 +1,7 @@
 // 打包的 Shiki 语言名，以及 ```lang 写法的归一。这里只有名字（没有 import()），主线程放心引用；
 // 语言包的按需加载表在 highlight-loaders.ts，只有高亮 worker 引用，语言包 chunk 只打一份。
 
-export const LANGUAGES = [
+const LANGUAGES = [
   "bash",
   "batch",
   "c",

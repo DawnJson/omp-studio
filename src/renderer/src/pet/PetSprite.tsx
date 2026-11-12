@@ -9,7 +9,7 @@ import { decorations, OUTLINE_COLOR, OUTLINE_LEVEL, type DecorDef } from "./deco
 import { hatSprites } from "./hats.ts";
 
 /** viewBox：左右各留 3 格，上面留 7 格（帽子、标记），下面不留（站在底边）。 */
-export const VIEW = { x: -3, y: -7, width: SPRITE_SIZE + 6, height: SPRITE_SIZE + 7 } as const;
+const VIEW = { x: -3, y: -7, width: SPRITE_SIZE + 6, height: SPRITE_SIZE + 7 } as const;
 const EYE_COLOR = "#1b1424";
 
 interface Cell {

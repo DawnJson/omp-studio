@@ -45,7 +45,7 @@
         "patterns": [
           {
             "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
-            "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+            "message": "Copy wire types with npm run omp:update-wire; only the omp extension imports omp at runtime."
           }
         ]
       }
@@ -74,7 +74,7 @@
             "patterns": [
               {
                 "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
-                "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+                "message": "Copy wire types with npm run omp:update-wire; only the omp extension imports omp at runtime."
               }
             ]
           }
@@ -102,7 +102,7 @@
             "patterns": [
               {
                 "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
-                "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+                "message": "Copy wire types with npm run omp:update-wire; only the omp extension imports omp at runtime."
               }
             ]
           }
@@ -119,7 +119,7 @@
             "patterns": [
               {
                 "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
-                "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+                "message": "Copy wire types with npm run omp:update-wire; only the omp extension imports omp at runtime."
               }
             ]
           }

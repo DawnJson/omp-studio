@@ -11,7 +11,7 @@ import { log } from "../log/log.ts";
 const fileNames = ["keybindings.yml", "keybindings.yaml", "keybindings.json"] as const;
 
 /** 用户文件解析后的值；没有文件、读不了或解析不了时 null。 */
-export async function readUserKeybindings(agentDir: string): Promise<unknown> {
+async function readUserKeybindings(agentDir: string): Promise<unknown> {
   for (const name of fileNames) {
     const file = path.join(agentDir, name);
     let text: string;

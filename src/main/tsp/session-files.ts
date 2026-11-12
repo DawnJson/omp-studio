@@ -14,7 +14,7 @@ import { SessionReaderCache, type SessionEntryConsumer, type SessionFileEntry } 
  * 同时重写文件开头的标题槽；增量读只看追加的部分，所以以最后一条 `title_change` 为准，没有时用标题槽、再用会话头。
  * 任务标题以它为准，不信终端标题：ConPTY 把伪终端里任何进程改的控制台标题（cmd、PowerShell、npm）都转成 OSC 0（issue #8）。
  */
-export class SessionTitleTracker implements SessionEntryConsumer {
+class SessionTitleTracker implements SessionEntryConsumer {
   #changed: string | null = null;
   #slot: string | null = null;
   #header: string | null = null;
@@ -80,7 +80,7 @@ export class ModelFallbackTracker implements SessionEntryConsumer {
  * （omp `session/credential-pin.ts`；18.17 实测和 `omp usage --json` 的 metadata 算出来的一致，见 usage-service `identityHash`）。
  * 按文件顺序取每个 provider 最后一条；omp 自己沿当前分支取，分叉回到旧分支时可能不同 [推测：很少见]。
  */
-export class CredentialPinTracker implements SessionEntryConsumer {
+class CredentialPinTracker implements SessionEntryConsumer {
   #pins: Readonly<Record<string, string>> = {};
 
   entry(entry: SessionFileEntry): void {

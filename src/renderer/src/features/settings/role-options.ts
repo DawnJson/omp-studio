@@ -4,7 +4,7 @@ import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts"
 import type { ModelKey, ModelOption, RunnerModel, TaskThinkingLevel } from "../../../../shared/ipc.ts";
 import { roleKinds } from "../composer/model-groups.ts";
 
-export const selectorOf = (key: ModelKey) => `${key.provider}/${key.modelId}`;
+const selectorOf = (key: ModelKey) => `${key.provider}/${key.modelId}`;
 
 /** 一个对话模型（`provider/model-id`）支持的思考档位（含 auto）；不是对话模型、不支持思考或不在目录里是空。 */
 export function levelsOfSelector(selector: string | null, sources: ModelSources): TaskThinkingLevel[] {

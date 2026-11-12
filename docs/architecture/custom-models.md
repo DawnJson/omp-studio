@@ -167,7 +167,7 @@ omp 的 `generate_image` 工具用 `modelRoles.image` 的模型，工具本身�
 
 ## 测试
 
-- `test/custom-models-file.test.ts`：`models.yml` 读写（保留注释 / 未知字段、增改删、key 三种写法、自动发现开关和覆盖项、能力参数、生图模型、CRLF、非法输入、读出来不含 key、文件优先级、`models.json`、读不懂不动、并发写不丢）；`.env` 只改一行、保存 / 换名 / 删除时同步 `.env`、`unsafe-env` 时两个文件都不动；`applyKey` 一组覆盖内置 provider 的 key。
+- `test/custom-models-file.test.ts`：`models.yml` 读写（保留注释 / 未知字段、增改删、key 三种写法、自动发现开关和覆盖项、能力参数、生图模型、CRLF、非法输入、读出来不含 key、文件优先级、`models.json`、读不懂不动、并发写不丢）；`.env` 只改一行、保存 / 换名 / 删除时同步 `.env`、`unsafe-env` 时两个文件都不动；`applyOverride` 一组覆盖内置 provider 的 key 和 `modelOverrides`。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取的成功和各种失败、Anthropic 路径和头、重定向不跟随；列表说没说生图。
 - `test/model-catalog.test.ts`：公开模型目录的汇总和查找、`catalogSaysImage` 按接口类型。
 - `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt；自动发现及其覆盖项、上游下架与刷新；环境变量形式的 key；能力参数被 omp 采用。

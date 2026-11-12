@@ -13,6 +13,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { CHANGELOGS, nextHeading } from "../src/shared/changelog.ts";
+import { dictionaries } from "../src/shared/i18n/index.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const MAX_LINES = 40;
@@ -57,6 +58,32 @@ const ALLOW: { id: string; file: string; text: string; reason: string }[] = [
     file: "src/renderer/src/features/tsp/tsp-store.ts",
     text: "markKnown(taskId, surface.id, surface.nodes.values())",
     reason: "把快照里已有的节点记成「见过」（进场动画不播），是集合，顺序不出去",
+  },
+  {
+    id: "dead-export",
+    file: "src/main/platform/win32/job-object.ts",
+    text: "export function isInAppJob",
+    reason: "测试经模块私有的 Job 句柄确认子进程真的进了 Job，搬到测试里就拿不到句柄",
+  },
+  {
+    id: "dead-export",
+    file: "src/main/history/session-usage.ts",
+    text: "export function summarizeSessionUsage",
+    reason:
+      "整段文本喂 SessionUsageAccumulator，和 tsp/session-files.ts 增量读文件同一套规则；测试拿它当增量结果的对照",
+  },
+  {
+    id: "dead-export",
+    file: "src/main/tsp/session-extras.ts",
+    text: "export function parseSession",
+    reason:
+      "整段文本喂 SessionExtrasAccumulator，和 tsp/session-files.ts 增量读文件同一套规则；测试拿它当增量结果的对照",
+  },
+  {
+    id: "dead-export",
+    file: "src/main/tsp/session-tree-file.ts",
+    text: "export function parseSessionEntries",
+    reason: "整段文本喂 SessionEntriesAccumulator，和 readSessionEntries 增量读文件同一套规则；测试用它从夹具建树",
   },
 ];
 
@@ -115,16 +142,17 @@ function stagedFiles(): SourceFile[] {
   return names.map((name) => toSource(name, git(["show", `:${name}`]))).filter((file) => file !== null);
 }
 
+function allowed(id: string, file: string, line: string): boolean {
+  return ALLOW.some((entry) => entry.id === id && entry.file === file && line.includes(entry.text));
+}
+
 /** 逐行匹配；`skipComments` 时跳过 `//`、`/*`、`*` 开头的注释行。 */
 function grepLines(files: SourceFile[], pattern: RegExp, id: string, message: string, skipComments = false): Finding[] {
   const findings: Finding[] = [];
   for (const file of files)
     file.lines.forEach((line, index) => {
       if (skipComments && COMMENT_LINE.test(line)) return;
-      if (
-        pattern.test(line) &&
-        !ALLOW.some((entry) => entry.id === id && entry.file === file.path && line.includes(entry.text))
-      )
+      if (pattern.test(line) && !allowed(id, file.path, line))
         findings.push({ file: file.path, line: index + 1, id, message });
     });
   return findings;
@@ -331,6 +359,225 @@ function scanE2eLocaleTheme(files: SourceFile[]): Finding[] {
     "e2e-locale-theme",
     "切语言、主题用 launch.ts 的 setLocale / setTheme / setLocaleTheme，它们会等主题的淡入放完",
   );
+}
+
+// ───────── 死代码 ─────────
+// 2026-11-12 审计发现悄悄攒下来的：一个没人 import 的文件、3f5a1bf 删掉调用方后留下的两个导出、一批没人用的 i18n key。
+// 下面三项只读已经载入的 SourceFile[]。
+
+/** 内置插件的 omp 扩展：原样写进 omp 的扩展目录（client-accounts/deploy.ts），不经 import 进应用。 */
+const EXTENSION_DIR = "src/main/client-accounts/extension/";
+
+/** dead-file、dead-export 查的模块：src/ 下的 .ts / .tsx，不含声明文件、生成的协议类型和内置插件。 */
+function isAppModule(file: string): boolean {
+  return (
+    file.startsWith("src/") &&
+    /\.tsx?$/.test(file) &&
+    !file.endsWith(".d.ts") &&
+    !file.endsWith(".generated.ts") &&
+    !file.startsWith(EXTENSION_DIR)
+  );
+}
+
+/** 相对路径的 `import … from`、`import "…"`、`import("…")`、`export … from`、`new URL("…", import.meta.url)`（worker）。仓库里的 import 都带扩展名。 */
+const RELATIVE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*|\bnew\s+URL\(\s*)(["'`])(\.{1,2}\/[^"'`]*)\1/g;
+
+/** 文件里相对 import 的目标（相对仓库根目录），`?raw` `?url` 这类后缀去掉；注释行不算。 */
+function relativeImports(file: SourceFile): string[] {
+  const text = file.lines.filter((line) => !COMMENT_LINE.test(line)).join("\n");
+  return [...text.matchAll(RELATIVE_IMPORT)].map((match) =>
+    path.posix.join(path.posix.dirname(file.path), (match[2] ?? "").replace(/\?.*$/s, "")),
+  );
+}
+
+/** 从 `entries` 沿相对 import 走得到的文件。 */
+function reachable(byPath: Map<string, SourceFile>, entries: string[]): Set<string> {
+  const seen = new Set<string>();
+  const pending = [...entries];
+  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
+    const file = byPath.get(next);
+    if (file === undefined || seen.has(next)) continue;
+    seen.add(next);
+    if (CODE.test(next)) pending.push(...relativeImports(file));
+  }
+  return seen;
+}
+
+/** 应用入口：主进程和两个 preload（electron.vite.config.ts），加上 src/renderer/*.html 的 `<script src>`（vite 的 root 是 src/renderer）。 */
+function appEntries(files: SourceFile[]): string[] {
+  const scripts = files
+    .filter((file) => /^src\/renderer\/[^/]+\.html$/.test(file.path))
+    .flatMap((file) => file.lines.flatMap((line) => [...line.matchAll(/<script\b[^>]*\bsrc="\/([^"]+)"/g)]))
+    .map((match) => `src/renderer/${match[1] ?? ""}`);
+  return ["src/main/index.ts", "src/preload/index.ts", "src/preload/pet.ts", ...scripts];
+}
+
+/** src/ 下从应用入口沿相对 import 走不到的模块。只有 test/、scripts/ 引用的也算：生产代码树里不放只给测试用的模块。 */
+function scanDeadFiles(files: SourceFile[]): Finding[] {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const app = reachable(byPath, appEntries(files));
+  const tooling = reachable(
+    byPath,
+    files.filter((file) => /^(test|scripts)\//.test(file.path) && CODE.test(file.path)).map((file) => file.path),
+  );
+  return files
+    .filter(
+      (file) => isAppModule(file.path) && !app.has(file.path) && !allowed("dead-file", file.path, file.lines[0] ?? ""),
+    )
+    .map((file) => ({
+      file: file.path,
+      line: 1,
+      id: "dead-file",
+      message: tooling.has(file.path)
+        ? "只有 test/、scripts/ 用：生产代码树里不放只给测试用的模块，挪进 test/"
+        : "从应用入口沿 import 走不到，没人用，删掉",
+    }));
+}
+
+/** `export const|let|function|class|enum|interface|type NAME`（含 async、declare、abstract、const enum）。 */
+const EXPORT_DECLARATION =
+  /^export\s+(?:declare\s+)?(?:async\s+)?(?:abstract\s+)?(const\s+enum|const|let|function\*?|class|enum|interface|type)\s+([\w$]+)/;
+/** 一行写完、不带 from 的 `export { a, type B, c as d };`。 */
+const EXPORT_LIST = /^export\s+(type\s+)?\{([^}]*)\}\s*;?\s*$/;
+const IDENTIFIER = /[A-Za-z_$][\w$]*/g;
+
+interface ExportedName {
+  file: string;
+  line: number;
+  text: string;
+  name: string;
+  isType: boolean;
+}
+
+function exportedNames(file: SourceFile): ExportedName[] {
+  const names: ExportedName[] = [];
+  file.lines.forEach((text, index) => {
+    const declaration = EXPORT_DECLARATION.exec(text);
+    if (declaration) {
+      const kind = declaration[1] ?? "";
+      const isType = kind === "interface" || kind === "type";
+      names.push({ file: file.path, line: index + 1, text, name: declaration[2] ?? "", isType });
+      return;
+    }
+    const list = EXPORT_LIST.exec(text);
+    if (list)
+      for (const item of (list[2] ?? "").split(",")) {
+        const words = item.trim().split(/\s+/);
+        const name = words.at(-1);
+        const isType = list[1] !== undefined || words[0] === "type";
+        if (name) names.push({ file: file.path, line: index + 1, text, name, isType });
+      }
+  });
+  return names;
+}
+
+/**
+ * src/ 下的导出（范围同 dead-file）按名字在 src/、test/、scripts/ 的代码里找用处，注释行不算：
+ * 别的文件没有、本文件也只有声明 → 没人用；别的文件没有、本文件在用 → 去掉 export（类型和接口不管这条）；
+ * 本文件只有声明、别的用处全在 test/ → 只有测试用。
+ * 只比名字、不解析绑定：两个不同的东西同名时互相遮住（conversation/format.ts 的 formatDuration 就因此没被按名字查出来，是 dead-file 抓到的）。
+ */
+function scanDeadExports(files: SourceFile[]): Finding[] {
+  const exported = files.filter((file) => isAppModule(file.path)).flatMap(exportedNames);
+  const wanted = new Set(exported.map((entry) => entry.name));
+  /** 名字 → 出现它的文件 → 次数。本文件不算：ALLOW 表里写着名字。 */
+  const uses = new Map<string, Map<string, number>>();
+  for (const file of files) {
+    if (!/^(src|test|scripts)\//.test(file.path) || !CODE.test(file.path) || file.path === "scripts/check.ts") continue;
+    for (const line of file.lines) {
+      if (COMMENT_LINE.test(line)) continue;
+      for (const [word] of line.matchAll(IDENTIFIER)) {
+        if (!wanted.has(word)) continue;
+        const byFile = uses.get(word) ?? new Map<string, number>();
+        byFile.set(file.path, (byFile.get(file.path) ?? 0) + 1);
+        uses.set(word, byFile);
+      }
+    }
+  }
+  const findings: Finding[] = [];
+  for (const entry of exported) {
+    const byFile = uses.get(entry.name) ?? new Map<string, number>();
+    const own = byFile.get(entry.file) ?? 0;
+    const others = [...byFile.keys()].filter((file) => file !== entry.file);
+    const message =
+      others.length === 0 && own <= 1
+        ? "没有任何地方用，删掉"
+        : others.length === 0 && !entry.isType
+          ? "只在本文件用，去掉 export"
+          : own <= 1 && others.length > 0 && others.every((file) => file.startsWith("test/"))
+            ? "只有测试用"
+            : null;
+    if (message !== null && !allowed("dead-export", entry.file, entry.text))
+      findings.push({ file: entry.file, line: entry.line, id: "dead-export", message: `${entry.name} ${message}` });
+  }
+  return findings;
+}
+
+/** 按算出来的名字整块查的命名空间 → 在哪查。 */
+const DYNAMIC_NAMESPACES: Record<string, string> = {
+  ompcfg: 'features/settings/config-meta.ts 按 omp 的配置键查 dictionaries[locale]["ompcfg"]',
+};
+const I18N_DICTIONARIES = /^src\/shared\/i18n\/(zh-CN|en|run)\//;
+/** 整个是 `ns.key` 的字符串字面量（任一种引号；模板字面量里没有插值）。 */
+const KEY_LITERAL = /(["'`])([A-Za-z][\w-]*\.[^"'`$\s]+)\1/g;
+/** 以 `ns.` 开头、走到 `${` 的模板字面量，前面这段是前缀。 */
+const KEY_PREFIX = /`([A-Za-z][\w-]*\.[^`$]*)\$\{/g;
+
+/** 命名空间在 zh-CN/index.ts 里从哪个文件 import（run/ 下的也在这里）。 */
+function namespaceFiles(files: SourceFile[]): Map<string, SourceFile> {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const index = byPath.get("src/shared/i18n/zh-CN/index.ts");
+  const result = new Map<string, SourceFile>();
+  for (const line of index?.lines ?? []) {
+    const match = /^import \{ (\w+) \} from "(\.{1,2}\/[^"]+)";/.exec(line);
+    const file = match && byPath.get(path.posix.join("src/shared/i18n/zh-CN", match[2] ?? ""));
+    if (match && file) result.set(match[1] ?? "", file);
+  }
+  return result;
+}
+
+/** 字典文件里定义 `key` 的那一行（`key:`、`"key":`）。 */
+function definesKey(line: string, key: string): boolean {
+  const trimmed = line.trimStart();
+  return [`${key}:`, `"${key}":`, `'${key}':`].some((start) => trimmed.startsWith(start));
+}
+
+/**
+ * zh-CN 字典的每个 `ns.key` 都要在 src/（字典目录之外，注释行不算）用到：写成字符串字面量，或被动态前缀盖住
+ * （`` `agents.kind.${x}` `` 盖住 agents.kind. 开头的所有 key，`` `goal.${op}Failed` `` 盖住整个 goal）。
+ * 弱点：`` `ns.${x}` `` 盖住整个命名空间，这样拼 key 的命名空间里没人用的 key 查不出来。
+ */
+function scanUnusedMessages(files: SourceFile[]): Finding[] {
+  const literals = new Set<string>();
+  const prefixes: string[] = [];
+  for (const file of files) {
+    if (!file.path.startsWith("src/") || !CODE.test(file.path) || I18N_DICTIONARIES.test(file.path)) continue;
+    for (const line of file.lines) {
+      if (COMMENT_LINE.test(line)) continue;
+      for (const match of line.matchAll(KEY_LITERAL)) literals.add(match[2] ?? "");
+      for (const match of line.matchAll(KEY_PREFIX)) prefixes.push(match[1] ?? "");
+    }
+  }
+  const sources = namespaceFiles(files);
+  const findings: Finding[] = [];
+  for (const [namespace, messages] of Object.entries(dictionaries["zh-CN"])) {
+    if (namespace in DYNAMIC_NAMESPACES) continue;
+    const source = sources.get(namespace);
+    for (const key of Object.keys(messages)) {
+      const full = `${namespace}.${key}`;
+      if (literals.has(full) || prefixes.some((prefix) => full.startsWith(prefix))) continue;
+      const index = source?.lines.findIndex((line) => definesKey(line, key)) ?? -1;
+      const file = source?.path ?? "src/shared/i18n/zh-CN/index.ts";
+      if (!allowed("i18n-unused", file, source?.lines[index] ?? ""))
+        findings.push({
+          file,
+          line: index === -1 ? 1 : index + 1,
+          id: "i18n-unused",
+          message: `${full} 没有地方用，zh-CN 和 en 里一起删掉`,
+        });
+    }
+  }
+  return findings;
 }
 
 // ───────── CSS 扫描 ─────────
@@ -728,6 +975,9 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...scanPetShadows(files),
     ...scanInterval1000(files),
     ...scanE2eLocaleTheme(files),
+    ...scanDeadFiles(files),
+    ...scanDeadExports(files),
+    ...scanUnusedMessages(files),
     ...scanCssHas(files),
     ...scanAppChildWildcard(rules),
     ...scanDuplicateClasses(rules),

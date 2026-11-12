@@ -20,7 +20,7 @@ import { PET_PERSONALITY_MAX_CHARS } from "./pet-store.ts";
 
 const VOICE_TIMEOUT_MS = 60_000;
 /** 气泡里一句话最长多少字符（超出截断）。 */
-export const PET_LINE_MAX_CHARS = 120;
+const PET_LINE_MAX_CHARS = 120;
 
 export interface VoiceRunner {
   omp: OmpCommand;

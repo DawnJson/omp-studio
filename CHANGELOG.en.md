@@ -12,7 +12,12 @@ How to write it:
 
 ### Fixed
 
+- Quitting while a session is being deleted now also ends the temporary omp process used for the deletion instead of leaving it running.
 - Plan Review adapts to the window width with a narrower contents list; both panes scroll independently, table columns remain readable, and actions stay reachable in short windows.
+
+### Changed
+
+- omp 18.14.1 is now the minimum version: older omp can't delete sessions that aren't running, and Settings and the input box ask you to update.
 
 ## [0.8.3] - 2026-11-12
 

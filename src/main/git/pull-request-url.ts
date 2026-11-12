@@ -7,7 +7,7 @@ import { currentBranch, pushRemote, requireRepoRoot } from "./repo.ts";
  * remote URL → `https://host/owner/repo`；认不出（本地路径、没有 owner/repo 两段）为 null。
  * 认 `https://[user[:token]@]host/o/r(.git)`、`git@host:o/r(.git)`、`ssh://git@host[:port]/o/r(.git)`、`git://host/o/r(.git)`；凭据一律丢掉。
  */
-export function repoWebUrl(remoteUrl: string): string | null {
+function repoWebUrl(remoteUrl: string): string | null {
   const text = remoteUrl.trim();
   const scp = /^(?:[^@/\s]+@)?([^:/\s]+):(?!\/\/)([^/\s][^\s]*)$/.exec(text);
   const url = /^(?:https?|ssh|git):\/\/(?:[^@/\s]+@)?([^:/\s]+)(?::\d+)?\/([^\s]+)$/i.exec(text);

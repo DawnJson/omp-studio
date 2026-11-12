@@ -28,7 +28,7 @@ const RESULT_GRACE_MS = 1_500;
 /** 启动失败时带上的 omp 终端输出行数。 */
 const TAIL_LINES = 4;
 
-export const LOGIN_CANCELLED = "cancelled";
+const LOGIN_CANCELLED = "cancelled";
 
 export interface TerminalLoginDeps {
   /** omp 登录 provider 的 id（`get_login_providers`）：只有这里面的 id 才会起进程，渲染进程传来的 id 不可信。 */

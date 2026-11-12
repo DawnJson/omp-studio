@@ -8,11 +8,11 @@ export type Stage = "egg" | "baby" | "adult" | "final";
 /** 每张精灵都是 16 行 × 16 列 */
 export const SPRITE_SIZE = 16;
 
-/** '.' 透明；'o' 轮廓；'a' 主体；'b' 阴影/次色；'c' 点缀（嘴、肚皮、天线等）；'d' 细节；'f' 只在 final 阶段用的特效色（光、纹样）；'e' 眼睛（恰好 2 格，左右各 1，同一行）。 */
-export type SpriteChar = "." | "o" | "a" | "b" | "c" | "d" | "f" | "e";
-
 export interface SpriteDef {
-  /** 16 行，每行 16 个 SpriteChar */
+  /**
+   * 16 行，每行 16 个字符：'.' 透明；'o' 轮廓；'a' 主体；'b' 阴影/次色；'c' 点缀（嘴、肚皮、天线等）；'d' 细节；
+   * 'f' 只在 final 阶段用的特效色（光、纹样）；'e' 眼睛（恰好 2 格，左右各 1，同一行）。
+   */
   rows: readonly string[];
   /** 各字符的颜色（"#rrggbb"）；'.' 不画，'e' 由渲染端画表情 */
   palette: Readonly<Record<"o" | "a" | "b" | "c" | "d" | "f", string>>;

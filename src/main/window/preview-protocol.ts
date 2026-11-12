@@ -15,7 +15,7 @@ const pages = new Map<string, string>();
  * 预览网页的 CSP（响应头，页面改不了）。frame-ancestors 是应用页面的源：打包后 app://studio，开发服务器时是它的源
  * （自己拼：Node 的 URL 对非特殊协议的 origin 给 "null"）。
  */
-export function previewCsp(): string {
+function previewCsp(): string {
   const entry = new URL(rendererEntryUrl());
   return [
     "default-src 'none'",

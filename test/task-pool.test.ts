@@ -701,6 +701,35 @@ describe("任务池：删除会话（经 omp 的 /delete，issue #10）", () => 
     expect(h.events.removed).toEqual([]);
   });
 
+  it("删到一半退出应用：shutdown 连临时 omp 一起关，删除以失败结束", async () => {
+    const file = await sessionFile("退出时.jsonl");
+    const pidFile = path.join(scratch, "delete-shutdown.pid");
+    const h = await harness();
+    // 不给 FAKE_TSP_DELETE_FILE：假 omp 收到 /delete 不删文件，删除一直轮询到 shutdown（上限 10 秒）。
+    h.next.push({ fixture: "slash-status", env: { FAKE_OMP_PID_FILE: pidFile } });
+    const settled = h.pool.deleteSession({ sessionFile: file, cwd: projectDir }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await expect.poll(() => exists(pidFile), { timeout: 30_000 }).toBe(true);
+    const pid = Number((await readFile(pidFile, "utf8")).trim().split("\n")[0]);
+    const alive = () => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    await h.pool.shutdown();
+    // 等的时间远小于删除的 10 秒上限：shutdown 不关临时进程的话，它这时还活着。
+    await expect.poll(alive, { timeout: 2_000 }).toBe(false);
+    expect(await settled).toBeInstanceOf(Error);
+    expect(await exists(file)).toBe(true);
+    expect(h.temporaryLaunches).toEqual([file]);
+  }, 60_000);
+
   it("会话文件已经不在：不起 omp，直接去掉记录", async () => {
     const h = await harness({ seed: [{ sessionFile: path.join(sessionsDir(), "早没了.jsonl") }] });
     await h.pool.deleteTask("seed-0" as TaskId);

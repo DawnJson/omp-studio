@@ -91,7 +91,7 @@ export function emptyGrowth(): Growth {
 }
 
 /** 进化的等级：蛋 Lv1 起，Lv5 破壳成幼年，Lv15 成年，Lv30 完全体。 */
-export const stageLevels: readonly (readonly [Stage, number])[] = [
+const stageLevels: readonly (readonly [Stage, number])[] = [
   ["egg", 1],
   ["baby", 5],
   ["adult", 15],

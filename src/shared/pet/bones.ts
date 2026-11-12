@@ -28,7 +28,7 @@ export function fnv1a(text: string): number {
 }
 
 /** Mulberry32：32 位种子的小型伪随机数发生器，返回 [0, 1)。 */
-export function mulberry32(seed: number): () => number {
+function mulberry32(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state = (state + 0x6d2b79f5) >>> 0;

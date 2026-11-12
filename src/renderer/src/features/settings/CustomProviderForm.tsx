@@ -233,7 +233,7 @@ function savedMetaOf(provider: CustomProviderInfo | undefined, modelId: string):
 const ompFallback = { reasoning: false, images: false, contextWindow: 128_000 };
 
 /** 用公开模型目录查到的能力填还是"自动"的格子：只填"支持"和上下文，目录说不支持的留自动（omp 默认就是不支持）。 */
-export function prefillRow(row: ModelRow, caps: ModelCapabilities): ModelRow {
+function prefillRow(row: ModelRow, caps: ModelCapabilities): ModelRow {
   return {
     ...row,
     reasoning: row.reasoning === null && caps.reasoning ? true : row.reasoning,

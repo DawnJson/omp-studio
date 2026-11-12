@@ -17,7 +17,7 @@ import { Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { Select } from "../../ui/Select.tsx";
 
 // 只有一列分节，不分"omp-studio 的 / omp 的"（omp 的设置和终端共用一份，omp-settings.md），按要做的事排。
-export const settingsPages: readonly SettingsPage[] = [
+const settingsPages: readonly SettingsPage[] = [
   "general",
   "models",
   "providers",
@@ -32,7 +32,7 @@ export const settingsPages: readonly SettingsPage[] = [
 // 同一时刻只挂一个搜索框（侧栏里的，或内容顶上的）：Ctrl+F 聚焦它。
 let searchInput: HTMLInputElement | null = null;
 
-export function focusSettingsSearch(): void {
+function focusSettingsSearch(): void {
   searchInput?.focus();
   searchInput?.select();
 }

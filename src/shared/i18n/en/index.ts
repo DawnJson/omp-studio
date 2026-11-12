@@ -21,7 +21,6 @@ import { notify } from "./notify.ts";
 import { error } from "./error.ts";
 import { slash } from "./slash.ts";
 import { common } from "./common.ts";
-import { duration } from "./duration.ts";
 import { time } from "./time.ts";
 import { dropzone } from "./dropzone.ts";
 import { project } from "./project.ts";
@@ -78,7 +77,6 @@ export const en = {
   error,
   slash,
   common,
-  duration,
   time,
   dropzone,
   project,

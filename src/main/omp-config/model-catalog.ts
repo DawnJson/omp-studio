@@ -11,7 +11,7 @@ const FETCH_TIMEOUT_MS = 20_000;
 const MAX_BODY_CHARS = 64 * 1024 * 1024;
 
 /** 中转站的模型名可能带厂商前缀（`moonshotai/kimi-k3.1-pro`），大小写也不一定：取最后一段、转小写。 */
-export function catalogKey(id: string): string {
+function catalogKey(id: string): string {
   return id.slice(id.lastIndexOf("/") + 1).toLowerCase();
 }
 
@@ -103,7 +103,7 @@ export function summarizeCatalog(body: unknown): Map<string, ModelCapabilities> 
   return new Map([...grouped].map(([key, entries]) => [key, merge(entries)]));
 }
 
-export async function downloadCatalog(fetchFn: FetchFn, url: string): Promise<Map<string, ModelCapabilities>> {
+async function downloadCatalog(fetchFn: FetchFn, url: string): Promise<Map<string, ModelCapabilities>> {
   const response = await fetchFn(url, {
     method: "GET",
     headers: { accept: "application/json" },

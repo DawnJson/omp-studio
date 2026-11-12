@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { groupOf, isTerminalOnly } from "../src/shared/ui/config-groups.ts";
+import { groupOf } from "../src/shared/ui/config-groups.ts";
 
 const keys = Object.keys(
   JSON.parse(readFileSync(new URL("../fixtures/omp-config/list.json", import.meta.url), "utf8")) as Record<
@@ -8,6 +8,7 @@ const keys = Object.keys(
     unknown
   >,
 );
+const isTerminalOnly = (key: string) => groupOf(key) === null;
 
 describe("omp-studio 设置分组", () => {
   it("rpc-ui 下起作用的常用项一个都不能被藏起来", () => {

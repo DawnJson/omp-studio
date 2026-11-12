@@ -194,10 +194,6 @@ export function groupOf(key: string): ConfigGroup | null {
   return "other";
 }
 
-export function isTerminalOnly(key: string): boolean {
-  return groupOf(key) === null;
-}
-
 /** 按 omp-studio 的分组归类可见的项；每组内保持 omp 给出的顺序。没有项的组不出现。 */
 export function groupConfigItems(items: readonly OmpConfigItem[]): Map<ConfigGroup, OmpConfigItem[]> {
   const byGroup = new Map<ConfigGroup, OmpConfigItem[]>();

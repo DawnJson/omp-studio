@@ -10,7 +10,7 @@ import { backdropFilePattern, htmlPreviewScheme } from "../../shared/ipc.ts";
 import { backdropsDir } from "../settings/backdrop-image.ts";
 
 const appScheme = "app";
-export const appOrigin = `${appScheme}://studio`;
+const appOrigin = `${appScheme}://studio`;
 
 const rendererRoot = path.join(import.meta.dirname, "..", "renderer");
 const backdropPrefix = "/@backdrop/";

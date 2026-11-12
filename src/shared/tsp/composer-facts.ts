@@ -212,7 +212,7 @@ export function deriveComposerFacts(doc: TspDocument): ComposerFacts {
   return { ...base, composer: true, mode, extStatuses, rate };
 }
 
-export function sameComposerMode(a: ComposerMode | null, b: ComposerMode | null): boolean {
+function sameComposerMode(a: ComposerMode | null, b: ComposerMode | null): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 

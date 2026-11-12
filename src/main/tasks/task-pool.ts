@@ -134,6 +134,8 @@ export interface ResumeInput {
 export class TaskPool {
   readonly #deps: PoolDeps;
   readonly #runners = new Map<TaskId, TspRunner>();
+  /** 删除会话时临时起的 omp（#deleteWithTemporaryProcess）：不在 #runners 里，shutdown 也要关。 */
+  readonly #temporary = new Set<TspRunner>();
   readonly #recyclableSince = new Map<TaskId, number>();
   #foreground: TaskId | null = null;
   #sweepTimer: NodeJS.Timeout | undefined;
@@ -601,10 +603,12 @@ export class TaskPool {
       onTspBatch: () => {},
       session: this.#deps.tsp.session,
     });
+    this.#temporary.add(runner);
     try {
       await runner.deleteSession();
     } finally {
       await runner.dispose();
+      this.#temporary.delete(runner);
     }
   }
 
@@ -911,11 +915,13 @@ export class TaskPool {
     }
   }
 
-  /** 关所有子进程：并行 close，超时按进程树结束；最后等任务记录写完盘（`/move` 之类改动是不等写盘就发出的）。before-quit 调用。 */
+  /** 关所有子进程（任务的和删除会话的临时 omp）：并行 close，超时按进程树结束；最后等任务记录写完盘（`/move` 之类改动是不等写盘就发出的）。before-quit 调用。 */
   async shutdown(): Promise<void> {
     this.#shuttingDown = true;
     clearInterval(this.#sweepTimer);
-    await Promise.all([...this.#runners.values()].map((runner) => runner.close(SHUTDOWN_CLOSE_TIMEOUT_MS)));
+    await Promise.all(
+      [...this.#runners.values(), ...this.#temporary].map((runner) => runner.close(SHUTDOWN_CLOSE_TIMEOUT_MS)),
+    );
     for (const runner of this.#runners.values()) await runner.dispose();
     await this.#deps.registry.flushed();
   }

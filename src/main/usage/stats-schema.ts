@@ -3,14 +3,14 @@
 import type { DatabaseSync } from "node:sqlite";
 
 /** 错误文字里的固定开头：shared/ui/errors.ts 按它认出这类错误并翻译。 */
-export const STATS_SCHEMA_ERROR_PREFIX = "omp stats.db schema mismatch";
+const STATS_SCHEMA_ERROR_PREFIX = "omp stats.db schema mismatch";
 
-export class StatsSchemaError extends Error {
+class StatsSchemaError extends Error {
   override name = "StatsSchemaError";
 }
 
 /** 每张表 studio 读到的列（名字照 omp 18.12.6 实测的真实库）。 */
-export const STATS_TABLES = {
+const STATS_TABLES = {
   message_rollup: ["bucket", "requests", "total_tokens", "cost_total"],
   messages: [
     "id",

@@ -3,11 +3,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { discardedTurns, filterTreeNodes } from "../src/shared/session-tree-view.ts";
-import { buildTreeFromSessionText } from "../src/main/tsp/session-tree-file.ts";
+import { buildTreeFromEntries, parseSessionEntries } from "../src/main/tsp/session-tree-file.ts";
 import { focusIndexFromEnd } from "../src/renderer/src/features/conversation/tree-focus.ts";
 
 const read = (name: string) =>
   readFileSync(path.resolve(import.meta.dirname, "..", "fixtures", "omp-session", `${name}.jsonl`), "utf8");
+const buildTreeFromSessionText = (text: string) => buildTreeFromEntries(parseSessionEntries(text));
 const ALPHA = "beac8e08";
 const BETA = "b772c2f5";
 const GAMMA = "47b8e31d";

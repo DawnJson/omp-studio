@@ -103,7 +103,8 @@ describe("versions", () => {
   });
 
   it("flags versions below the supported minimum", () => {
-    expect(isBelowMinimum("18.8.7")).toBe(true);
-    expect(isBelowMinimum("18.12.0")).toBe(false);
+    expect(isBelowMinimum("18.14.0")).toBe(true);
+    expect(isBelowMinimum("18.14.1")).toBe(false);
+    expect(isBelowMinimum("18.18.5")).toBe(false);
   });
 });

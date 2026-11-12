@@ -165,7 +165,7 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
       state: "ready",
       source: { kind: "user_installed" },
       path: "C:\\x\\omp.exe",
-      version: "18.12.0",
+      version: "18.14.1",
       belowMinimum: false,
       stagedUpdate: null,
     });

@@ -45,7 +45,7 @@ export function formatTokens(count: number): string {
 }
 
 /** 回答完成的时刻，写法同 omp 用户消息时间的悬停（"2026/10/22 02:47:57"，本地时间）。 */
-export function formatFinishedAt(epochMs: number): string {
+function formatFinishedAt(epochMs: number): string {
   const d = new Date(epochMs);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;

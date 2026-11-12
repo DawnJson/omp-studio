@@ -2,7 +2,7 @@
 import katex from "katex";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { renderMarkdown } from "../src/renderer/src/markdown/markdown-static.ts";
+import { renderMarkdown } from "./markdown-static.ts";
 import { renderBlock } from "../src/renderer/src/markdown/render.ts";
 import {
   blockTokens,

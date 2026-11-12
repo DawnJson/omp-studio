@@ -78,7 +78,6 @@
   --ls-label: 0.01em; /* 11–12px 的 Latin 小字 */
 
   /* 间距：4px 栅格，--space-N = N × 4px；半档仅用于组件内边距 */
-  --space-0: 0px;
   --space-0-5: 2px;
   --space-1: 4px;
   --space-1-5: 6px;

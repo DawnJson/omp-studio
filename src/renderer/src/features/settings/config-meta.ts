@@ -135,7 +135,7 @@ export interface PrefixGroup {
 }
 
 /** "高级"里一个分组的非常用项：按 key 的第一段分小组，保持 omp 的顺序；只有一项的前缀并进最后的"其他"，不单独占一行。 */
-export function prefixGroups(items: readonly OmpConfigItem[]): PrefixGroup[] {
+function prefixGroups(items: readonly OmpConfigItem[]): PrefixGroup[] {
   const byPrefix = new Map<string, OmpConfigItem[]>();
   for (const item of items) {
     if (isCommon(item.key)) continue;

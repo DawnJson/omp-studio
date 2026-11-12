@@ -5,7 +5,7 @@
 // 做法照 omp 自己的 packages/tui/src/chat/svg-source.ts 的 prepareSvg。
 
 /** omp 的图色名 → studio 的 token（tokens.css）。 */
-export const FIGURE_TOKENS: Readonly<Record<string, string>> = {
+const FIGURE_TOKENS: Readonly<Record<string, string>> = {
   fg: "--text",
   muted: "--text-3",
   border: "--border",

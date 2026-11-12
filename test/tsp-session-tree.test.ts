@@ -4,10 +4,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  buildTreeFromSessionText,
+  buildTreeFromEntries,
   findUserEntry,
   fileLeafId,
   parseSessionEntries,
+  type LeafOverride,
 } from "../src/main/tsp/session-tree-file.ts";
 import { applyMessage, createDocument } from "../src/shared/tsp/document.ts";
 import {
@@ -25,6 +26,8 @@ import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
 const sessionDir = path.resolve(import.meta.dirname, "..", "fixtures", "omp-session");
 const linear = readFileSync(path.join(sessionDir, "linear.jsonl"), "utf8");
 const branched = readFileSync(path.join(sessionDir, "branched.jsonl"), "utf8");
+const buildTreeFromSessionText = (text: string, override?: LeafOverride) =>
+  buildTreeFromEntries(parseSessionEntries(text), override);
 
 // linear：两轮对话 ALPHA / BETA（omp 18.12.5 `omp -p` + `--continue -p`）。
 const ALPHA = "beac8e08";

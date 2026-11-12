@@ -4,7 +4,7 @@ import { visibleRange } from "./picker-model.ts";
 /** 子项少于这个数不虚拟化：全量渲染更简单，也不会因行高估算偏差出现滚动跳动。 */
 export const VIRTUAL_MIN_ITEMS = 100;
 /** 窗口上下各多画几行。 */
-export const VIRTUAL_OVERSCAN = 8;
+const VIRTUAL_OVERSCAN = 8;
 /** 还没量到真实行高时的估计（一行 item：`--lh-sm` + 内边距）。 */
 export const VIRTUAL_ROW_ESTIMATE = 30;
 

@@ -25,10 +25,10 @@ import {
 import { isRecord } from "../../shared/type-guards.ts";
 import { requireSuccess, type RunOmp } from "../usage/usage-service.ts";
 
-export const SKILL_FILE = "SKILL.md";
+const SKILL_FILE = "SKILL.md";
 const DISABLED_KEY = "disabledExtensions";
 
-export class SkillInputError extends Error {
+class SkillInputError extends Error {
   override name = "SkillInputError";
 }
 
@@ -90,7 +90,7 @@ async function toEntry(raw: RawSkill, home: string): Promise<SkillEntry> {
   };
 }
 
-export async function readDisabledExtensions(run: RunOmp): Promise<string[]> {
+async function readDisabledExtensions(run: RunOmp): Promise<string[]> {
   const result = await run(["config", "get", "--json", DISABLED_KEY]);
   requireSuccess("omp config get", result);
   return parseDisabledExtensions(result.stdout);
@@ -144,7 +144,7 @@ function belongsToScope(raw: RawSkill, project: string | null): boolean {
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
-export function checkSkillName(name: string): string {
+function checkSkillName(name: string): string {
   if (name.trim() === "" || name.length > 200 || CONTROL.test(name)) throw new SkillInputError("name is invalid");
   return name;
 }
@@ -164,7 +164,7 @@ export async function setSkillEnabled(run: RunOmp, name: string, enabled: boolea
  * 重新跑 `omp skill list --json` 按名字和层级找到 skill，校验后返回要移进回收站的文件夹。
  * 校验：不是插件带的、形如 `…/skills/<目录>`、里面有 SKILL.md。
  */
-export async function removableSkillFolder(
+async function removableSkillFolder(
   runList: RunOmp,
   name: string,
   scope: SkillScope,

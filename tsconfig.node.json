@@ -27,7 +27,6 @@
     "src/renderer/src/markdown/parse.ts",
     "src/renderer/src/markdown/math.ts",
     "src/renderer/src/markdown/render.ts",
-    "src/renderer/src/markdown/markdown-static.ts",
     "src/renderer/src/markdown/svg-figure.ts",
     "src/renderer/src/markdown/code-preview.ts",
     "src/renderer/src/features/conversation/model.ts",

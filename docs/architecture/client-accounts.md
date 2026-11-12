@@ -103,7 +103,7 @@ pi.registerProvider(id, {
 ## 4. studio 侧接线
 
 - `deploy.ts` / `prepare.ts`：见 3.1。启动参数（`buildOmpArgs` / `buildTspArgs`）和 `runOmpCommand` 都不加扩展参数。
-- 界面：**不改**。provider 出现在 `get_login_providers` 里，走现有 `ProviderPickDialog` → `ProviderFlowDialog`；登录后 omp 自己 `refreshProvider`，studio 照旧 `serviceOmp.close()` 重读模型列表（`account-handlers.ts` 的 `applyKeyChange`）。
+- 界面：**不改**。provider 出现在 `get_login_providers` 里，走现有 `ProviderPickDialog` → `ProviderFlowDialog`；登录后 omp 自己 `refreshProvider`，studio 照旧作废缓存的模型目录，下次现读（`account-handlers.ts` 的 `startLogin` → `startupCache().forgetCatalog()`；终端登录是另一个进程写的凭据，再用 `reloadServiceModels` 关掉服务进程）。
 - 退出登录：现有 `logout` UI，凭据从 agent.db 删掉；模型随进程重启消失。
 - `src/shared/provider-login.ts` 不列这些 id，走"按 `oauth` 处理"的默认分支；`shared/provider-keys.ts` 也不列，所以没有"设置 API key"。
 - i18n：provider 名字由扩展的 `oauth.name` 给，studio 不翻；登录对话框里 omp 给的提示是英文。
