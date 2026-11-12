@@ -3187,6 +3187,9 @@ button.tsp-sh-fold:focus-visible {
 }
 
 /* 计划审核优先在目录和正文内滚动，保留工具、决策选项和页脚的空间。 */
+.tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-card {
+  width: min(1000px, 100%);
+}
 .tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-head {
   flex: none;
 }
@@ -3208,6 +3211,13 @@ button.tsp-sh-fold:focus-visible {
 }
 .tspi-overlay[data-role="omp.overlay.planReview"] .tspi-ov-body > .tsp-col > .tsp-row:not([data-role]) {
   align-items: stretch;
+}
+.tspi-overlay[data-role="omp.overlay.planReview"]
+  .tspi-ov-body
+  > .tsp-col
+  > .tsp-row:not([data-role])
+  > .tsp-col:first-child {
+  width: min(200px, 30%);
 }
 .tspi-overlay[data-role="omp.overlay.planReview"] [data-role="omp.plan.body"],
 .tspi-overlay[data-role="omp.overlay.planReview"]

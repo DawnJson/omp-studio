@@ -12,7 +12,7 @@ How to write it:
 
 ### Fixed
 
-- Long plans and their contents lists scroll independently in Plan Review, table columns remain readable, and actions stay reachable in short windows.
+- Plan Review gives more width to the plan and less to its contents list; both scroll independently, table columns remain readable, and actions stay reachable in short windows.
 
 ## [0.8.1] - 2026-11-11
 
