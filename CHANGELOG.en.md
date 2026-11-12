@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-12
+
 ### Fixed
 
 - After reopening a session that used subagents, "Close session" and "Restart session" are no longer stuck greyed out, and the session closes on its own when idle again.
