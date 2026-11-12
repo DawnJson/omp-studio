@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- After reopening a session that used subagents, "Close session" and "Restart session" are no longer stuck greyed out, and the session closes on its own when idle again.
+
 ## [0.8.2] - 2026-11-12
 
 ### Added
