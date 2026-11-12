@@ -70,6 +70,8 @@ layer.ov-<x>  overlay  role=omp.overlay.btwHistory  modal  head="BTW history"
 
 **入口**：`/btw [问题]`（`studio-slash-table.ts`，`tsp: "studio"`）和命令面板“旁路提问（/btw）”；`App.tsx` 在 TSP 分支里挂 `BtwPanel`。
 
+**高度分配**：主对话 `TspView` 从零基准分配剩余高度，历史内容在内部滚动，不以全部内容高度参与和旁路面板的空间竞争。旁路面板保留高度上限和矮窗口下的收缩，长答案在正文内滚动。
+
 ## 3. 依赖的 omp 约定（omp 升级时先看这里）
 
 role `omp.overlay.btwHistory` / `omp.btw.*` / `omp.btn`、按钮动作名 `stop` `close` `follow-up` `send` `discard`、状态词 `Answering` `Cancelled` `Failed` `Interrupted`、`btw-history/entry-*.json` 的目录和形状。全部集中在 `shared/tsp/btw.ts` 和 `main/tsp/btw-history.ts`；`test/tsp-btw.test.ts` 用 18.12.5 录制逐帧验证，omp 改了这里先红。解析不了的磁盘文件跳过并记日志；弹窗读不到按钮时以 `omp's side-question window has no <动作> button` reject。
