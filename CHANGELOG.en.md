@@ -12,7 +12,7 @@ How to write it:
 
 ### Fixed
 
-- Plan Review gives more width to the plan and less to its contents list; both scroll independently, table columns remain readable, and actions stay reachable in short windows.
+- Plan Review adapts to the window width with a narrower contents list; both panes scroll independently, table columns remain readable, and actions stay reachable in short windows.
 
 ## [0.8.1] - 2026-11-11
 
