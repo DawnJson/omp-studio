@@ -99,3 +99,10 @@ describe("hasRunningWork", () => {
     expect(steps[143]?.runningWork).toBe(false);
   });
 });
+
+describe("hasRunningWork：--resume 之后（omp 18.12.6 录制 resume）", () => {
+  it("重放出来的旧子代理写着 pending、它的 task 卡片已经 done：不算还有工作，任务可以关闭、回收", () => {
+    const { steps } = replay("resume");
+    expect(steps.at(-1)?.runningWork).toBe(false);
+  });
+});

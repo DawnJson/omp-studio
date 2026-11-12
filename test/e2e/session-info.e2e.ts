@@ -281,6 +281,37 @@ test("保持运行：顶栏任务菜单打开 / 取消，记进任务记录；�
   }
 });
 
+test("关闭会话：任务菜单结束 omp 进程，对话留着；再点开任务时用同一个会话文件恢复（issue #11）", async () => {
+  test.setTimeout(120_000);
+  const { launched, sessionFile, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await runErrorTurn(page);
+    const status = () => page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.status);
+    const errorCard = page.locator('[data-testid="tsp-view"] [data-role="omp.error"]');
+    await expect.poll(status).toBe("idle");
+    await page.getByTestId("task-menu").click();
+    await page.getByTestId("task-menu-close").click();
+    await expect.poll(status).toBe("stopped");
+    // 对话（快照）还在，进程没了：菜单里不再有"关闭会话"。
+    await expect(errorCard).toBeVisible();
+    await expect(page.getByTestId("task-menu")).toHaveAttribute("aria-expanded", "false");
+    await page.getByTestId("task-row").first().click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: /重命名|Rename/ })).toBeVisible();
+    await expect(page.getByTestId("task-menu-close")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    // 再点开：同一个会话文件 `--resume`，记录里的会话文件不变。
+    await openTaskRow(page);
+    await expect.poll(status).toBe("idle");
+    const tasks = JSON.parse(await readFile(path.join(launched.userDataDir, "tasks.json"), "utf8")) as {
+      tasks: { sessionFile: string | null }[];
+    };
+    expect(tasks.tasks.map((task) => task.sessionFile)).toEqual([sessionFile]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("请求记录：/trace 打开请求记录页签；每个请求一行（从新到旧），出错行带标记，详情默认折叠", async () => {
   test.setTimeout(120_000);
   const { launched, cleanup } = await start();

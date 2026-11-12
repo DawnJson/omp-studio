@@ -11,7 +11,7 @@
 | `/computer` | 切换："Computer use enabled for this session. Computer use: enabled · prelude: active · …"；`status` → "Computer use: disabled · …" | `/computer on\|off`（computer-use.md） |
 | `/advisor` | 切换："Advisor enabled."；`/advisor status` 在 TSP 里开弹窗，所以只用开关命令自己的 toast | `/advisor on\|off`（advisor-watchdog.md） |
 | `/browser` | "Browser mode: visible"；`/browser status` → usage 文字（不是状态查询） | `/browser visible\|headless` |
-| `/prewalk` | "prewalk: Prewalk: target … already matches …; nothing to switch."；`/prewalk status` → usage 文字 | 在模型选择器的 Prewalk 一行：`/prewalk`（arm）、`/prewalk restart`、`/prewalk off` |
+| `/prewalk` | "prewalk: Prewalk: target … already matches …; nothing to switch."；`/prewalk status` → usage 文字 | 模型选择器的 Prewalk 一行：`/prewalk`（arm）、`/prewalk restart`、`/prewalk off`；斜杠 `/prewalk` 不带参数直接 arm，`/prewalk status` 打开模型选择器 |
 | `/fast` `/slow` | 不支持的模型：`/fast` → "…no service-tier control…"、`/slow` → "The current model has no slow mode: …" | 只在模型选择器里（`SpeedToggle`，`setTaskFastMode` / `setTaskSlowMode`），不在会话开关菜单 |
 | `/modelpreset` | 无预设时 "No model presets saved. …" | `/modelpreset save\|switch\|delete <名字>` |
 
@@ -32,6 +32,8 @@ omp（任务进程）──状态 toast──▶ TspRunner.#syncToggles ──pa
 - **哪些开关写 omp 配置**（omp 18.12.6 实测）：`/extended-context on` 往 agent 目录 `config.yml` 写 `extendedContext: true`，`/browser headless` 写 `browser.headless: true`；`/skillful`、`/computer`、`/advisor` 不写配置，重开会话后回到配置默认值（对话上下文还在）。所以界面上这两项不标"本会话"、改完重读配置快照（`SAVED_TO_CONFIG`，`shared/omp-output/toggles.ts`），说明写"写进 omp 配置"。`/slow` 的状态顺便在同一处记进 `#slowEnabled`（用户自己敲也同步）；`/fast` 的状态从输入框卡片读（`composer-state`）。
 - 初始值 = 配置默认值：渲染进程用设置页同一份快照（`omp config list --json`）的 `skillful`、`extendedContext`、`computer.enabled`、`advisor.enabled`、`browser.headless`、`prewalk.enabled` 补"没动过"的开关（`toggleDefaults` / `toggleView`），和默认不同时画圆点；读不到快照时按关显示、不画圆点。不在主进程再起一个 `omp config list`：快照现成、设置页刷新时跟着更新。
 - `/computer on`（菜单或斜杠）必须先确认（仓库所有者定，2026-10-21）：确认页在菜单里就地换出，取消不发命令。
+- 回话怎么显示（`runToggleCommand`）：菜单和模型选择器里点的，认得出的状态 toast 只更新控件，认不出的原文弹 toast（Prewalk 一行另把回话写在按钮下面）；斜杠命令直接执行的（`/skillful on`、`/browser headless`、`/prewalk`、`/modelpreset switch …`）回话**总是**弹 toast，因为输入框里看不到任何变化，不弹就像没反应。
+- `/prewalk` 不带参数直接启用，和终端一致（所有者定，2026-11-12）。
 
 ## 代码
 

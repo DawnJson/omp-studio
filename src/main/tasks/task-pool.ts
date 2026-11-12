@@ -113,8 +113,8 @@ export interface PoolDeps {
     session: TspSessionDeps;
   };
   /**
-   * 会话正被某个 omp 进程占着（`omp session lease`，history/session-lease.ts）：删除会话要起临时 omp 时先问，占着就拒绝。
-   * 没传时不检查（单元测试）。
+   * 会话正被某个 omp 进程占着（`omp session lease`，history/session-lease.ts）：删除会话要起临时 omp 时先问，占着就拒绝；
+   * 任务 `--resume` 已有会话文件之前也问（TspRunnerHost.sessionInUse，占着报 session_in_use）。没传时不检查（单元测试）。
    */
   sessionInUse?(sessionFile: string): Promise<boolean>;
   /** 对账时第二次看会话文件之前的等待；默认等 MISSING_RECHECK_MS。测试注入，在等待里改文件模拟"短暂不在"。 */
@@ -168,6 +168,7 @@ export class TaskPool {
         exportSession: (sessionFile: string, outputPath: string, cwd: string) =>
           deps.exportSession!(sessionFile, outputPath, cwd),
       }),
+      ...(deps.sessionInUse && { sessionInUse: (sessionFile: string) => deps.sessionInUse!(sessionFile) }),
     };
   }
 
@@ -418,12 +419,16 @@ export class TaskPool {
     return runner.state;
   }
 
-  /** 切到这个任务：需要时拉起 omp 并恢复会话，并清除 unread。启动失败不抛，状态里有 error。 */
+  /**
+   * 切到这个任务：需要时拉起 omp 并恢复会话，并清除 unread。启动失败不抛，状态里有 error。会话被别的 omp 占着（session_in_use）
+   * 的任务也重试：用户切回来时那边可能已经退出了。
+   */
   async openTask(id: TaskId): Promise<void> {
     const runner = this.#runner(id);
     this.#foreground = id;
     runner.markRead();
-    if (runner.status === "stopped" || runner.status === "starting") await runner.start().catch(() => {});
+    const retry = runner.status === "error" && runner.state.error?.kind === "session_in_use";
+    if (runner.status === "stopped" || runner.status === "starting" || retry) await runner.start().catch(() => {});
   }
 
   /** 任务当前的节点树和序号（不拉起进程）。 */
@@ -611,6 +616,18 @@ export class TaskPool {
   /** 重开会话（`TspRunner.restart`）：关进程再 `--resume`；任务忙时拒绝。 */
   async restartTask(id: TaskId): Promise<void> {
     await this.#runner(id).restart();
+  }
+
+  /**
+   * 关闭会话（任务菜单、命令面板）：结束 omp 进程，任务和对话快照留着（stopped），和空闲回收一样（#recycle）；前台任务也能关。
+   * 再切到它（openTask）或发消息（sendPrompt 先 start）时 `--resume` 同一个会话文件。没有进程时什么也不做；忙（在跑、在等你、
+   * 后台还有工作，即不可回收）时拒绝，不打断正在做的事。
+   */
+  async closeTask(id: TaskId): Promise<void> {
+    const runner = this.#runner(id);
+    if (!runner.hasProcess) return;
+    if (!runner.recyclable) throw new Error("the task is busy; close it when it is idle");
+    await this.#recycle(runner);
   }
 
   /**

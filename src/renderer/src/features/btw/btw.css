@@ -1,10 +1,15 @@
 /* 旁路提问面板：停在输入框上方，宽度和输入框一致。克制：只用现有 token，没有常驻动效（光标闪烁等由 Markdown 流式样式负责，已遵守 reduced-motion）。 */
 /* 折叠容器：45% 的高度上限放在这一层（Reveal 里的百分比高度算不出来），面板在里面按 flex 收缩。
-   和输入框、终端一起放不下时（窗口矮）这一层也让出高度（可以缩到 0，内容在 .btw-body 里滚），输入框不被挤出主区（2026-11-09）。 */
+   和输入框、终端一起放不下时（窗口矮）这一层也让出高度（问答区在 .btw-body 里滚，下限见下一条），输入框不被挤出主区（2026-11-09）。 */
 .btw-reveal {
   flex: 0 1 auto;
   min-height: 0;
   max-height: 45%;
+}
+/* 让高度时只让问答区：标题行、话题标签、输入行的高度（BtwPanel 量好写进 --btw-chrome）是下限。展开 / 收起动画期间不设，
+   不然动画从这个高度起步（#12：长对话把面板压成一条，文字上下被裁）。 */
+.btw-reveal:not([data-phase]) {
+  min-height: var(--btw-chrome, 0px);
 }
 .btw-reveal > .reveal-inner {
   display: flex;

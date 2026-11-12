@@ -12,6 +12,7 @@ omp-studio 和终端版 omp、别人装的 omp 共用一台机器和一份 `~/.o
 ## `~/.omp`
 
 - **和终端版共用**，只读可以；修改只经 omp 的命令（RPC、`omp config set`），不自己写配置或会话文件，否则两边互相写坏。改设置不另存副本、不用 `--config` 覆盖。
+- **会话和终端版共用，同一时刻只该有一个 omp 写它**：omp 按会话 id 持有租约，别的进程占着时后写的那个第一次写盘就悄悄分叉到新的兄弟文件（`omp://session.md`「Persistence Guarantees and Failure Model」）。studio 起 `--resume` 前和删除会话前都先问 `omp session lease`（只观察、不占用），被占着就不动；终端要接着用 studio 开着的会话时，用户先在 studio "关闭会话"。见 [task-model.md](task-model.md)「恢复前看租约」「关闭会话」（issue #11）。
 - **自动写入只有两处**，都是未设置时经 `omp config set` 写一次、用户设过就不碰：
   - `goal.continuationModes` 加上 `rpc`（`omp-config/goal-default.ts`）；
   - `startup.setupWizard` 设为 `false`，免得 omp 的首次运行引导占满第一个 TSP 任务（`omp-config/setup-wizard-default.ts`，仓库所有者 2026-10-21 批准）。

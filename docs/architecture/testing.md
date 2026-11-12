@@ -27,6 +27,7 @@
 
 - 每个测试要对应一个用户能观察到的失败；不测"函数被调用了""默认值等于默认值"。
 - 回归测试要撤掉修复跑一次，确认会失败。断言"淡入了""没越界""焦点环不画"这类容易空过的，尤其要这样核对。
+- **截断巡检**：`launchApp` 给每个用例装上 `test/e2e/clip-watch.ts`，整个用例期间每 400ms 找 overflow 是 hidden / clip、内容比可见区域多出 2px 以上并且连续 3 次都这样的元素，`close()` 时有就记 soft 失败。规则和放过的情况（省略号、line-clamp、`data-clip`、xterm）在文件头；版面规则见 spec §4「不截断」。巡检报的是真截断就修布局，有意裁剪才加 `data-clip="<原因>"`，不放宽巡检。
 - 修越界前先在已有 e2e 里用 `test/e2e/launch.ts` 的 `expectNoOverflow` 写出会失败的断言（窄窗口 900 宽、中英文、长内容），失败了再改 CSS；复现不出来就不改。
 - 关于 omp 行为的结论写明实测的 omp 版本，记进对应的 `docs/architecture/<功能>.md`；没实测的标成推测。
 - 单测只 import 列在 `tsconfig.node.json` include 里的纯模块；碰 `window`、`Worker`、`URL.createObjectURL` 的渲染进程模块不写单测，靠 e2e；要测 `.tsx` 里的纯逻辑先拆到 `.ts`（`npm run typecheck` 会报漏加的 include）。

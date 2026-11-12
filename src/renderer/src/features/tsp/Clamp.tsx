@@ -73,7 +73,13 @@ export function Clamp({ lines, tail = false, onExpand, className, lineCount, chi
   return (
     <div className={className} data-clamped={clamped || undefined}>
       {clamped && tail && label}
-      <div className="tsp-clamp" data-tail={tail || undefined} data-on={clamped || undefined} style={style}>
+      <div
+        className="tsp-clamp"
+        data-tail={tail || undefined}
+        data-on={clamped || undefined}
+        data-clip={clamped ? "collapsed" : undefined}
+        style={style}
+      >
         <div ref={inner}>{typeof children === "function" ? children(skipped > 0 ? lines : null) : children}</div>
       </div>
       {clamped && !tail && label}

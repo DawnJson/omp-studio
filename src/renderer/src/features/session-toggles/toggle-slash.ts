@@ -1,4 +1,5 @@
-// 会话开关类斜杠命令的参数判定（纯函数）：不带参数 / status → 打开菜单，带 on / off 等 → 直接执行。
+// 会话开关类斜杠命令的参数判定（纯函数）：不带参数 / status → 打开菜单，带 on / off 等 → 直接执行；
+// `/prewalk` 例外：不带参数就启用（和终端一致）。
 // 发出去的永远是封闭的 TaskCommand，不把用户写的文字原样交给 omp。
 import type { TaskCommand } from "../../../../shared/omp-output/index.ts";
 import { presetNameUsable, presetRefUsable } from "../../../../shared/omp-output/toggles.ts";
@@ -12,7 +13,7 @@ export type ToggleSlash =
   /** `/computer on`：先确认再执行。 */
   | { kind: "confirmComputer" }
   | { kind: "run"; command: TaskCommand }
-  /** `/modelpreset`、`/modelpreset list`、`/prewalk`：预设和 Prewalk 在模型选择器里。 */
+  /** `/modelpreset`、`/modelpreset list`、`/prewalk status`：预设和 Prewalk 在模型选择器里。 */
   | { kind: "models" }
   /** 参数不认识：用法提示。 */
   | { kind: "usage"; usage: string };
@@ -46,11 +47,12 @@ export function resolveToggleSlash(name: ToggleSlashName, args: string): ToggleS
       return { kind: "usage", usage: "/browser [visible|headless]" };
     }
     case "prewalk": {
-      // Prewalk 在模型选择器里（能看到会从哪个模型换到哪个）。
-      if (words.length === 0 || (words.length === 1 && first === "status")) return { kind: "models" };
+      // 不带参数直接启用，和终端一致；status 打开模型选择器（能看到会从哪个模型换到哪个）。
+      if (words.length === 0) return { kind: "run", command: { kind: "prewalk", op: "arm" } };
+      if (words.length === 1 && first === "status") return { kind: "models" };
       if (words.length === 1 && (first === "restart" || first === "off"))
         return { kind: "run", command: { kind: "prewalk", op: first } };
-      return { kind: "usage", usage: "/prewalk [restart|off]" };
+      return { kind: "usage", usage: "/prewalk [status|restart|off]" };
     }
     case "modelpreset": {
       if (words.length === 0 || (words.length === 1 && first === "list")) return { kind: "models" };

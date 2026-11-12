@@ -70,6 +70,11 @@ function folderName(cwd: string): string {
   return parts[parts.length - 1] ?? cwd;
 }
 
+/** 任务现在有 omp 进程：空闲、在跑或在等你（starting 还在起，stopped / error 没有）。任务菜单和命令面板的"关闭会话"按它显示。 */
+export function hasProcess(task: Pick<TaskState, "status">): boolean {
+  return task.status === "idle" || task.status === "running" || task.status === "needs_you";
+}
+
 /** 任务标题：去掉图标字形；空串表示还没有标题。 */
 export function taskTitle(task: Pick<TaskState, "title">): string {
   return stripIconGlyphs(task.title);

@@ -36,8 +36,8 @@ import { runOmpCommand } from "../usage/usage-service.ts";
 import { serviceCwd } from "../service/service-omp.ts";
 import { petOnTaskNotice, petOnTaskRemoved, petOnTaskState } from "../pet/pet-service.ts";
 
-/** `omp session lease` 的上限（真 omp 起一次约 1–3 秒）。 */
-const LEASE_TIMEOUT_MS = 30_000;
+/** `omp session lease` 的上限：打开任务时也要等它（实测一次约 0.1–0.2 秒，omp 18.19.0）。 */
+const LEASE_TIMEOUT_MS = 10_000;
 
 let consent: SetupConsent | null = null;
 /** setup 脚本的确认记录（userData/setup-consent.json）；要在 app ready 之后调用。 */
@@ -127,7 +127,7 @@ function createPool(): Promise<TaskPool> {
     // 都先看按目录的缓存（service/slash-commands.ts），输入没变时不起 omp。
     listSlashCommands,
     exportSession: exportSessionHtml,
-    // 删除会话前问 omp 这个会话是不是正被别的 omp 进程写着（session-lease.ts）。
+    // 删除会话前、`--resume` 已有会话文件前问 omp 这个会话是不是正被别的 omp 进程写着（session-lease.ts）。
     sessionInUse: async (sessionFile) => {
       const executable = await getOmpExecutable();
       return sessionLeaseHeld(runOmpCommand(executable.path, await serviceCwd(), LEASE_TIMEOUT_MS), sessionFile);
