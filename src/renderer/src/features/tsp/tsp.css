@@ -67,7 +67,9 @@
 
   position: relative;
   display: flex;
-  flex: 1 1 auto;
+  /* 基准 0：对话区只分剩下的高度。基准 auto 时它的基准是整段对话的高度，主区放不下时旁路提问、终端这些能收缩的兄弟
+     按基准比例跟它一起缩，长对话里它们被压成一条（#12）。 */
+  flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   font-family: var(--font-sans);

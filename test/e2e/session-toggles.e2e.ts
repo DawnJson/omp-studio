@@ -212,8 +212,8 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
   }
 });
 
-test("斜杠命令：/skillful 不带参数打开菜单，/computer on 打开确认，/prewalk 打开模型选择器，不直接发给 omp", async () => {
-  test.setTimeout(90_000);
+test("斜杠命令：/skillful 不带参数打开菜单，/computer on 先确认；带参数的和不带参数的 /prewalk 直接发给 omp，回话弹 toast", async () => {
+  test.setTimeout(120_000);
   const { launched, sent, cleanup } = await start();
   try {
     const { page } = launched;
@@ -224,6 +224,7 @@ test("斜杠命令：/skillful 不带参数打开菜单，/computer on 打开确
     await openTaskRow(page);
     await expect(page.getByTestId("toggles-button")).toBeVisible({ timeout: 30_000 });
     const input = page.getByTestId("composer-input");
+    const toasts = page.getByTestId("toasts");
     await input.fill("/skillful");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("toggle-skillful")).toBeVisible();
@@ -238,10 +239,42 @@ test("斜杠命令：/skillful 不带参数打开菜单，/computer on 打开确
       .click();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("toggles-computer-confirm")).toHaveCount(0);
+    expect(await sent()).toEqual([]);
+
+    // 带参数直接执行；斜杠命令发出去输入框里看不到变化，omp 的回话总是弹 toast（认得出的状态 toast 也弹）。
+    // 假 omp 按录制顺序等命令，所以照录制的顺序发。
+    await input.fill("/skillful off");
+    await page.keyboard.press("Enter");
+    await expect(toasts).toContainText("Skill listing disabled for this session.");
+    await input.fill("/extended-context on");
+    await page.keyboard.press("Enter");
+    await expect(toasts).toContainText("Extended context enabled.");
+    await input.fill("/computer on");
+    await page.keyboard.press("Enter");
+    await page.getByTestId("toggles-computer-confirm-yes").click();
+    await expect(page.getByTestId("toggle-computer-switch")).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("toggle-skillful")).toHaveCount(0);
+    await input.fill("/advisor on");
+    await page.keyboard.press("Enter");
+    await expect(toasts).toContainText("Advisor enabled.");
+    await input.fill("/browser headless");
+    await page.keyboard.press("Enter");
+    await expect(toasts).toContainText("Browser mode: headless");
+
+    // /prewalk 不带参数直接启用，和终端一致（所有者定，2026-11-12）；不打开模型选择器。
     await input.fill("/prewalk");
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("model-prewalk")).toBeVisible();
-    expect(await sent()).toEqual([]);
+    await expect(toasts).toContainText("Prewalk: target");
+    await expect(page.getByTestId("model-prewalk")).toHaveCount(0);
+    expect(await sent()).toEqual([
+      "/skillful off",
+      "/extended-context on",
+      "/computer on",
+      "/advisor on",
+      "/browser headless",
+      "/prewalk",
+    ]);
   } finally {
     await cleanup();
   }

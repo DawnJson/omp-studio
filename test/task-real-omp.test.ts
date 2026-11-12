@@ -10,6 +10,8 @@ import { findOmpOnPath } from "../src/main/omp/discover.ts";
 import { buildTspArgs } from "../src/main/omp/launch-args.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
+import { runCommand } from "../src/main/git/exec.ts";
+import { sessionLeaseHeld } from "../src/main/history/session-lease.ts";
 
 const enabled = process.env["STUDIO_REAL_OMP"] === "1";
 let scratch: string;
@@ -42,8 +44,15 @@ describe.skipIf(!enabled)("真实 omp", () => {
     const states: TaskState[] = [];
     const waiters: { predicate: (s: TaskState) => boolean; resolve: (s: TaskState) => void }[] = [];
     const registry = new TaskRegistry(path.join(scratch, "tasks.json"));
+    const agentEnv = { ...process.env, PI_CODING_AGENT_DIR: path.join(scratch, "agent") };
+    const leaseHeld = (sessionFile: string) =>
+      sessionLeaseHeld(async (args) => {
+        const result = await runCommand(omp, args, { cwd: scratch, env: agentEnv, timeoutMs: 30_000 });
+        return { code: result.code, stdout: result.stdout.toString("utf8"), stderr: result.stderr };
+      }, sessionFile);
     pool = new TaskPool({
       registry,
+      sessionInUse: leaseHeld,
       getSettings: async () => ({
         locale: "en",
         theme: "system",
@@ -122,6 +131,17 @@ describe.skipIf(!enabled)("真实 omp", () => {
     // 回答在节点树里（role omp.assistant）。
     expect(JSON.stringify(pool.getTspSnapshot(created.id).document)).toContain("omp.assistant");
     await until(() => registry.findTask(created.id)?.sessionFile != null);
-    expect(registry.findTask(created.id)?.sessionFile).toContain(path.join(scratch, "agent"));
+    const sessionFile = registry.findTask(created.id)?.sessionFile ?? "";
+    expect(sessionFile).toContain(path.join(scratch, "agent"));
+
+    // 进程活着时它占着会话的租约（别的 omp 这时打开会悄悄分叉）；"关闭会话"后租约放掉，再打开同一个文件照常恢复。
+    expect(await leaseHeld(sessionFile)).toBe(true);
+    await pool.closeTask(created.id);
+    expect(pool.listTasks()[0]?.status).toBe("stopped");
+    expect(await leaseHeld(sessionFile)).toBe(false);
+    await pool.openTask(created.id);
+    await until((s) => s.status === "idle" || s.status === "error");
+    expect(pool.listTasks()[0]?.error).toBeNull();
+    expect(registry.findTask(created.id)?.sessionFile).toBe(sessionFile);
   }, 120_000);
 });

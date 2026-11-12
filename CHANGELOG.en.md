@@ -10,6 +10,17 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- "Close session" in the task menu (sidebar right-click, ⋯, top bar ⋯) and the command palette: ends the task's omp process but keeps the conversation; opening the task or sending a message picks the same session back up. Close it here before continuing the session in a terminal, so the terminal doesn't fork an identical copy of it.
+
+### Fixed
+
+- In a long conversation, the side question panel (`/btw`) and the terminal are no longer squeezed into a thin strip with their text cut off; in a very short window only the answer area shrinks, and the header and input row stay whole.
+- Opening a session that an omp in a terminal has open no longer silently forks a new session; it says "This session is open in another omp. Quit it there, then send again."
+- Typing `/prewalk` in the composer turns Prewalk on directly, like in the terminal; `/prewalk status` still opens the model picker.
+- Session toggle slash commands (`/skillful on`, `/browser headless`, `/prewalk` and others) now show omp's reply instead of giving no feedback.
+
 ## [0.8.1] - 2026-11-11
 
 ### Added

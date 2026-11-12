@@ -316,13 +316,17 @@ describe("forkTask（TSP：omp --fork 起新任务，再在新进程里回溯）
   it("不带条目（null）= 当前分支最后一条用户消息；新文件落盘后记进 sessionFile 并清掉 forkFrom，之后恢复用 --resume", async () => {
     const h = await harness();
     const { id, file } = await taskWithSession(h);
+    // 真实 omp `--fork` 建出自己的新会话文件并报告它；假 omp 报 FAKE_TSP_SESSION_FILE，所以换成一份副本（一个会话文件只挂在一个任务上）。
+    const forked = path.join(path.dirname(file), "2026-10-21T18-20-00-000Z_forked.jsonl");
+    await copyFile(file, forked);
+    h.sessionFile.current = forked;
     const { task, text } = await h.pool.forkTask(id, null, "before-user");
     expect(text).toBe("Reply with exactly: BETA. No tools.");
-    // 假 omp 报告的会话文件就是 FAKE_TSP_SESSION_FILE（真实 omp 报告的是新建的那份）：落盘后记进记录、forkFrom 清掉。
-    await until(() => h.registry.findTask(task.id)?.sessionFile === file, "the forked task's session file");
+    await until(() => h.registry.findTask(task.id)?.sessionFile === forked, "the forked task's session file");
     expect(h.registry.findTask(task.id)?.forkFrom ?? null).toBeNull();
-    expect(buildTspArgs({ cwd: projectDir, resumeSessionFile: file, forkSessionFile: null })).toEqual([
-      `--resume=${file}`,
+    expect(h.registry.findTask(id)?.sessionFile).toBe(file);
+    expect(buildTspArgs({ cwd: projectDir, resumeSessionFile: forked, forkSessionFile: null })).toEqual([
+      `--resume=${forked}`,
     ]);
   }, 60_000);
 

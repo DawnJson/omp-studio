@@ -44,6 +44,7 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const stuck = useRef(true);
   const answerCopy = useCopy();
 
@@ -51,6 +52,8 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
   const running = isBtwRunning(records);
   const latest = topic === null ? null : latestTurn(topic);
   const lastAnswer = latest?.answer.length ?? 0;
+  const hasTopics = records.length > 1;
+  const hasBody = topic !== null;
 
   // 打开时记下焦点原来在哪，关闭时还回去（输入框里按 Esc 之后继续打字不用再点一下）。
   // 按 open 而不是按卸载：收起动画期间焦点就该回去了。
@@ -71,6 +74,29 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
     const body = bodyRef.current;
     if (body && stuck.current) body.scrollTop = body.scrollHeight;
   }, [topic?.id, topic?.followUps?.length, lastAnswer]);
+
+  // 主区放不下时面板跟着让高度，只许让问答区（它自己滚）：标题行、话题标签、输入行的高度写进折叠容器的 --btw-chrome，
+  // btw.css 拿它当最小高度，面板不会被压到把这几行裁掉（#12）。高度只能量：标签行有没有、字号多大都会变。
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const reveal = panel?.closest<HTMLElement>(".btw-reveal");
+    if (!panel || !reveal) return;
+    const measure = () => {
+      const style = getComputedStyle(panel);
+      // 边框 + 上下外边距（面板在折叠容器里，外边距算在容器高度里）。
+      let chrome =
+        panel.offsetHeight -
+        panel.clientHeight +
+        Number.parseFloat(style.marginTop) +
+        Number.parseFloat(style.marginBottom);
+      for (const child of panel.children) if (child !== bodyRef.current) chrome += (child as HTMLElement).offsetHeight;
+      reveal.style.setProperty("--btw-chrome", `${chrome}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    for (const child of panel.children) observer.observe(child);
+    return () => observer.disconnect();
+  }, [hasTopics, hasBody]);
 
   const ask = () => {
     const question = text.trim();
@@ -98,7 +124,7 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
   };
 
   return (
-    <section className="btw" aria-label={t("btw.title")} data-testid="btw-panel" onKeyDown={onKeyDown}>
+    <section ref={panelRef} className="btw" aria-label={t("btw.title")} data-testid="btw-panel" onKeyDown={onKeyDown}>
       <header className="btw-head">
         <span className="btw-title" title={t("btw.slashDesc")}>
           {t("btw.title")}
@@ -134,7 +160,7 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
           <Close size={14} />
         </IconButton>
       </header>
-      {records.length > 1 && (
+      {hasTopics && (
         <div className="btw-topics">
           <Tabs
             label={t("btw.topics")}
@@ -146,7 +172,7 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
           />
         </div>
       )}
-      {topic !== null && (
+      {hasBody && (
         <div
           className="btw-body"
           ref={bodyRef}

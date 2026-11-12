@@ -86,7 +86,7 @@ import { readSubagentRecord } from "../tsp/subagent-file.ts";
 import { HubDriver } from "./tsp-hub-driver.ts";
 import type { AnswerTarget, RewindTarget } from "../tsp/session-tree-file.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
-import { pathKey, type TaskRecord } from "./task-registry.ts";
+import { pathKey, SessionFileTakenError, type TaskRecord } from "./task-registry.ts";
 import { WorkspaceDirs } from "./workspace-dirs.ts";
 import { TspGoalTracker } from "./tsp-goal.ts";
 import { TspComposerFactsTracker } from "./tsp-composer-facts.ts";
@@ -156,6 +156,11 @@ export interface TspRunnerHost {
   exportSession?(sessionFile: string, outputPath: string, cwd: string): Promise<void>;
   /** 新任务默认值；没提供时输入框出现之前不显示模型。 */
   newTaskDefaults?(project: Project): Promise<NewTaskDefaults>;
+  /**
+   * 会话正被某个 omp 进程占着（`omp session lease`，history/session-lease.ts）：`--resume` 已有会话文件之前问一次，占着就不起进程
+   * （session_in_use）；检查本身失败时照常起。没提供时不检查（删除会话的临时进程、多数测试）。
+   */
+  sessionInUse?(sessionFile: string): Promise<boolean>;
 }
 
 /** omp 对一个项目的新任务默认值：和草稿页同源（`omp config list` 的 modelRoles.default / defaultThinkingLevel，没设置时用服务进程 get_state 的模型）。 */
@@ -341,6 +346,8 @@ export class TspRunner {
   /** omp 报告的会话文件；文件在第一条回复之后才落盘，落盘之前不能存（恢复会失败）。undefined = 还没报过（用任务记录里的），null = omp 清空了它。 */
   #sessionFile: string | null | undefined = undefined;
   #persistingSessionFile = false;
+  /** omp 报的会话文件已经挂在别的任务上（SessionFileTakenError）：记录不改，同一个文件不再重试、不重复记日志。 */
+  #takenSessionFile: string | null = null;
   /** 标题的来源：用户改名之后（既不是空、也不是下面两个）omp 的标题不再覆盖。 */
   #provisionalTitle: string | null = null;
   #adoptedTitle: string | null = null;
@@ -682,6 +689,11 @@ export class TspRunner {
       const sessionFile = this.#record.sessionFile;
       if (sessionFile !== null && (await sessionFileMissing(sessionFile)))
         throw new StartError({ kind: "session_missing", message: "the task's session file no longer exists" });
+      // 会话正被别的 omp（终端里的 Tern 等）写着：再起一个 `--resume` 的 omp，它第一次写盘就会悄悄分叉出一个新会话文件
+      // （omp://session.md「Persistence」），侧栏多出一条同名会话。不起进程，报 session_in_use，等用户在那边退出后重试。
+      // 这个任务自己的上一个进程不会被算进去：走到这里时它已经退出（close 等进程退出），omp 的租约随进程退出释放。
+      if (sessionFile !== null && (await this.#sessionHeldElsewhere(sessionFile)))
+        throw new StartError({ kind: "session_in_use", message: "the task's session is held by another omp process" });
       const movedTo = this.#record.cwd;
       if (
         movedTo != null &&
@@ -800,6 +812,18 @@ export class TspRunner {
     if (this.#closing || this.#disposed) throw new Error("task was stopped while starting");
   }
 
+  /** 会话被别的 omp 进程占着（host.sessionInUse）。检查本身失败（老版本 omp 没有 `session lease`、超时、输出认不出）时记 WARN、按没占着处理（所有者定，2026-11-12：照常起）。 */
+  async #sessionHeldElsewhere(sessionFile: string): Promise<boolean> {
+    const check = this.#host.sessionInUse;
+    if (!check) return false;
+    try {
+      return await check(sessionFile);
+    } catch (error) {
+      log.warn(`task ${this.id} checking the session lease failed; starting anyway`, { message: String(error) });
+      return false;
+    }
+  }
+
   async #buildLaunch(): Promise<OmpLaunch> {
     try {
       return await this.#host.buildLaunch(this.#record, this.#project);
@@ -912,7 +936,8 @@ export class TspRunner {
 
   async #persistSessionFile(): Promise<void> {
     const file = this.#sessionFile;
-    if (!file || file === this.#record.sessionFile || this.#persistingSessionFile) return;
+    if (!file || file === this.#record.sessionFile || file === this.#takenSessionFile || this.#persistingSessionFile)
+      return;
     this.#persistingSessionFile = true;
     try {
       const exists = await stat(file).then(
@@ -927,6 +952,14 @@ export class TspRunner {
         this.#publish();
       }
     } catch (error) {
+      // omp 换到了已经挂在别的任务上的会话（omp 里 `/resume` 了它）：一个会话文件只对应一个任务，这个任务的记录保持原来的文件。
+      if (error instanceof SessionFileTakenError) {
+        this.#takenSessionFile = file;
+        log.warn(`task ${this.id} kept its session file: omp switched to a session that belongs to another task`, {
+          owner: error.owner,
+        });
+        return;
+      }
       log.warn(`task ${this.id} persisting the session file failed`, { message: String(error) });
     } finally {
       this.#persistingSessionFile = false;

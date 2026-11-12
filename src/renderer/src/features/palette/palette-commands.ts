@@ -5,6 +5,7 @@ import type { Locale, TaskState, TerminalKey } from "../../../../shared/ipc.ts";
 import { showView } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
+import { hasProcess } from "../../../../shared/ui/sidebar-model.ts";
 import { startDraft } from "../empty/index.ts";
 import { addProjectAsDraft, jumpToWaitingTask } from "../sidebar/sidebar-actions.ts";
 import { toggleFilesPanel } from "../file-preview/index.ts";
@@ -79,6 +80,14 @@ export function buildCommands({ t, locale, current, terminalKey, hasWaiting }: C
       shortcut: "Ctrl Shift R",
       run: () => void restartSession(t, current),
     },
+    // 关闭会话：结束 omp 进程、对话留着（任务菜单里的同一项）；只列有进程、空闲的当前任务。
+    current !== null &&
+      current.restartable &&
+      hasProcess(current) && {
+        id: "closeSession",
+        label: t("task.close"),
+        run: () => guard(window.studio.closeTask(current.id)),
+      },
     // 目标（`/goal`）：走 omp 的 `/goal pause|resume|drop`（docs/architecture/conversation.md「目标模式」）。
     ...(current
       ? goalButtons(current.goal).map((op) => ({

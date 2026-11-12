@@ -1,7 +1,8 @@
 // 会话是不是正被别的 omp 进程占着：`omp session lease --json -- <id>`（omp://session.md「Persistence」：只观察、不占用、
 // 不会让对方分叉），输出 `{"held":[...],"unknown":[...]}`。删除会话前用（TaskPool.deleteTask 的临时进程路径）：
 // omp 18.18.6 实测，别的进程占着租约时另一个 omp 里的 `/delete` 照样说 `Session deleted`，文件却没删、还被截成半个，恢复不了
-// （docs/architecture/session-history.md「删除会话」）。
+// （docs/architecture/session-history.md「删除会话」）。任务 `--resume` 已有会话文件前也用（TspRunner 的 session_in_use）：别的进程占着时
+// omp 不报错，而是第一次写盘时把整段对话悄悄搬到新文件（omp://session.md）。
 import { readSessionHeader } from "../session-info/session-header.ts";
 import { requireSuccess, type RunOmp } from "../usage/usage-service.ts";
 

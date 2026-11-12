@@ -33,7 +33,9 @@ describe("resolveToggleSlash", () => {
     expect(text("browser", "headless")).toBe("/browser headless");
     expect(text("browser", "visible")).toBe("/browser visible");
     expect(resolveToggleSlash("browser", "fullscreen")).toMatchObject({ kind: "usage" });
-    expect(resolveToggleSlash("prewalk", "")).toEqual({ kind: "models" });
+    // 不带参数直接启用，和终端一致；status 打开模型选择器。
+    expect(text("prewalk", "")).toBe("/prewalk");
+    expect(resolveToggleSlash("prewalk", "status")).toEqual({ kind: "models" });
     expect(text("prewalk", "restart")).toBe("/prewalk restart");
     expect(text("prewalk", "off")).toBe("/prewalk off");
     expect(resolveToggleSlash("prewalk", "on")).toMatchObject({ kind: "usage" });

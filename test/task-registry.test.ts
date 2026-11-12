@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ProjectId, TaskId } from "../src/shared/ipc.ts";
-import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
+import { SessionFileTakenError, TaskRegistry } from "../src/main/tasks/task-registry.ts";
 
 let scratch: string;
 beforeAll(async () => {
@@ -129,6 +129,32 @@ describe("TaskRegistry（tasks.json）", () => {
     const task = await registry.addTask({ ...newTask(project.id), sessionFile: path.join(scratch, "s", "one.jsonl") });
     expect(registry.findTaskBySessionFile(path.join(scratch, "s", ".", "one.jsonl"))?.id).toBe(task.id);
     expect(registry.findTaskBySessionFile(path.join(scratch, "s", "two.jsonl"))).toBeUndefined();
+  });
+
+  it("一个会话文件只挂在一个任务上：新建、改成别的任务已有的会话文件都拒绝（路径写法不同、Windows 上大小写不同也算同一个）", async () => {
+    const registry = new TaskRegistry(path.join(scratch, "unique.json"));
+    const project = await registry.addProject(scratch);
+    const file = path.join(scratch, "s", "owned.jsonl");
+    const owner = await registry.addTask({ ...newTask(project.id), sessionFile: file });
+    const other = await registry.addTask(newTask(project.id));
+    const spelled = [
+      path.join(scratch, "s", ".", "owned.jsonl"),
+      ...(process.platform === "win32" ? [file.toUpperCase(), file.replaceAll("\\", "/")] : []),
+    ];
+    for (const alias of [file, ...spelled]) {
+      await expect(registry.addTask({ ...newTask(project.id), sessionFile: alias })).rejects.toThrow(
+        SessionFileTakenError,
+      );
+      await expect(registry.updateTask(other.id, { sessionFile: alias })).rejects.toThrow(SessionFileTakenError);
+    }
+    expect(registry.listTasks()).toHaveLength(2);
+    expect(registry.findTask(other.id)?.sessionFile).toBeNull();
+    // 自己的会话文件照常能写回、别的字段照常能改；清空（null）不受限制。
+    await registry.updateTask(owner.id, { sessionFile: file, title: "改名" });
+    await registry.updateTask(other.id, { title: "另一个" });
+    await registry.updateTask(owner.id, { sessionFile: null });
+    await registry.updateTask(other.id, { sessionFile: file });
+    expect(registry.findTaskBySessionFile(file)?.id).toBe(other.id);
   });
 
   it("tasks.json 损坏时 load 抛错，而不是当成空表把用户的任务列表覆盖掉", async () => {

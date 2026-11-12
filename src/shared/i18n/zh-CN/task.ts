@@ -31,5 +31,7 @@ export const task = {
   restartBusyWaiting: "任务在等你回答，答完才能重开",
   restartBusyStarting: "任务正在启动",
   restartBusyBackground: "后台还有工作在运行，结束后才能重开",
+  close: "关闭会话",
+  closeBusy: "任务忙着，空闲后才能关闭",
   exportHtml: "导出为 HTML…",
 } satisfies Record<string, MessageEntry>;
