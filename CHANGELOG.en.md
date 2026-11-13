@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- When a resumed session used one of several same-named models, the identified provider was occasionally not saved with the task, so reopening it could start with another provider's model of the same name.
+
 ## [0.8.5] - 2026-11-13
 
 ### Fixed

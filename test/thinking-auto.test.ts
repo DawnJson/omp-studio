@@ -5,6 +5,7 @@ import { applyMessage, createDocument, type TspDocument } from "../src/shared/ts
 import { TspComposerObserver } from "../src/main/tasks/tsp-composer-observer.ts";
 import { TspCommands, type TspCommandsHost } from "../src/main/tasks/tsp-commands.ts";
 import type { TaskRecord } from "../src/main/tasks/task-registry.ts";
+import type { SessionUsageAccumulator } from "../src/main/history/session-usage.ts";
 import type { TspDocScans } from "../src/main/tasks/tsp-doc-scans.ts";
 import type { TspSession } from "../src/main/tsp/tsp-session.ts";
 import { parseThinkingLevel } from "../src/main/ipc/validate.ts";
@@ -105,6 +106,41 @@ describe("输入框卡片的观察者", () => {
     watcher.syncComposer(composerDoc("low"));
     watcher.setObservedThinkingLevels(["low", "auto", "off"]);
     expect(watcher.derived.thinkingLevels).toEqual(["low", "auto", "off"]);
+  });
+
+  it("写记录的过程中会话文件认出了重名模型是哪一家：写完补记模型，不丢（v0.8.5 Windows CI 偶发）", async () => {
+    const hf: ModelOption = { ...flash, key: { provider: "huggingface", modelId: "deepseek-ai/DeepSeek-V4-Flash" } };
+    let record = { id: "t1", model: null, thinkingLevel: null } as unknown as TaskRecord;
+    const persisted: Partial<TaskRecord>[] = [];
+    const firstWrite = Promise.withResolvers<void>();
+    const sessionRead = Promise.withResolvers<void>();
+    const watcher = new TspComposerObserver({
+      taskId: "t1" as TaskId,
+      record: () => record,
+      persistRecord: async (patch) => {
+        // 第一次写（只有思考强度：目录里两家同名，还认不出是哪一家）卡住，直到会话文件读完。
+        if (persisted.length === 0) await firstWrite.promise;
+        persisted.push(patch);
+        record = { ...record, ...patch };
+      },
+      ownModel: () => null,
+      catalog: () => [flash, hf],
+      knownModels: () => [],
+      disposed: () => false,
+      scans: () => ({ todoPhases: [], toastTexts: [] }) as unknown as TspDocScans,
+      readSessionFile: async () => {
+        sessionRead.resolve();
+        const usage = { summary: () => ({ models: [] }), currentModel: () => hf.key };
+        return { usage: usage as unknown as SessionUsageAccumulator };
+      },
+      publish: () => {},
+    });
+    watcher.syncComposer(composerDoc("low"));
+    await sessionRead.promise;
+    await vi.waitFor(() => expect(watcher.derived.model?.key).toEqual(hf.key));
+    firstWrite.resolve();
+    await vi.waitFor(() => expect(record.model).toEqual(hf.key));
+    expect(persisted).toEqual([{ thinkingLevel: "low" }, { model: hf.key }]);
   });
 });
 

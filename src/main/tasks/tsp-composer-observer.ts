@@ -88,7 +88,9 @@ export class TspComposerObserver {
    * （目录可能认错同名模型、比 omp 的发现结果旧）；有就用它。
    */
   #observedLevels = new Map<string, TaskThinkingLevel[]>();
+  /** `#persistModelChoice` 的合并状态：正在写、写的时候值是否又变了。 */
   #persistingChoice = false;
+  #choiceDirty = false;
   /** `/slow` 的状态：omp 没有状态节点，按 toast 记；一开始未知，当关。 */
   #slowEnabled = false;
   /** 会话开关（/skillful 等）：按 omp 的状态 toast 记（parseToggleToast），用户在输入框里自己敲的命令也同步；null 项 = 本会话没动过。 */
@@ -354,15 +356,40 @@ export class TspComposerObserver {
     const changed = JSON.stringify(next) !== JSON.stringify(this.#derived);
     this.#derived = next;
     if (changed) this.#host.publish();
-    void this.#persistModelChoice(model, thinkingLevel);
+    void this.#persistModelChoice();
   }
 
   /**
    * 把当前模型和思考强度记进任务记录（下次 `--resume` 起来用）。只记目录里确有、且不会认错的模型：
    * 显示用的占位（provider 为空）和目录里重名、又没有明确选择或会话文件佐证的不记（记错 provider 会让下次 `--model` 指到别家）。
+   * 同一时间只写一次；写的时候又变了（常见：先只记了思考强度，写的过程中会话文件读完、认出了是哪一家）就写完再按最新的值补一次，
+   * 不能直接丢掉：之后输入框不再变化时就没有下一次了，记录里一直缺模型（Windows CI 上偶发，v0.8.5）。
    */
-  async #persistModelChoice(model: ModelOption | null, thinkingLevel: TaskThinkingLevel | null): Promise<void> {
-    if (this.#persistingChoice || this.#host.disposed()) return;
+  async #persistModelChoice(): Promise<void> {
+    if (this.#persistingChoice) {
+      this.#choiceDirty = true;
+      return;
+    }
+    this.#persistingChoice = true;
+    try {
+      do {
+        this.#choiceDirty = false;
+        if (this.#host.disposed()) return;
+        const patch = this.#modelChoicePatch();
+        if (patch === null) continue;
+        try {
+          await this.#host.persistRecord(patch);
+        } catch (error) {
+          log.warn(`task ${this.#host.taskId} persisting the model choice failed`, { message: String(error) });
+        }
+      } while (this.#choiceDirty);
+    } finally {
+      this.#persistingChoice = false;
+    }
+  }
+
+  #modelChoicePatch(): Partial<Omit<TaskRecord, "id">> | null {
+    const { model, thinkingLevel } = this.#derived;
     const record = this.#host.record();
     const patch: Partial<Omit<TaskRecord, "id">> = {};
     // 先做便宜的比较：模型和记录里的一样（绝大多数消息）就不用去目录里数重名。
@@ -376,14 +403,6 @@ export class TspComposerObserver {
     )
       patch.model = model.key;
     if (thinkingLevel !== null && thinkingLevel !== record.thinkingLevel) patch.thinkingLevel = thinkingLevel;
-    if (Object.keys(patch).length === 0) return;
-    this.#persistingChoice = true;
-    try {
-      await this.#host.persistRecord(patch);
-    } catch (error) {
-      log.warn(`task ${this.#host.taskId} persisting the model choice failed`, { message: String(error) });
-    } finally {
-      this.#persistingChoice = false;
-    }
+    return Object.keys(patch).length === 0 ? null : patch;
   }
 }
