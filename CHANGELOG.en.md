@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-11-13
+
 ### Fixed
 
 - macOS: with the desktop pet on, the app no longer disappears from the Dock, the menu bar and the Force Quit list, and the pet now also floats above other apps' full-screen windows.
