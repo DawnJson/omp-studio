@@ -1,5 +1,5 @@
 // koffi 载入 kernel32 / advapi32 / user32 / dwmapi：整个主进程唯一一处 koffi.load（docs/architecture/security.md「子进程和原生调用」）。
-// job-object.ts（Job Object）和 user-path.ts（用户 PATH 注册表 + 环境变量广播）只 import 这里导出的函数，不自己载入 DLL。
+// job-object.ts（Job Object）、user-path.ts（用户 PATH 注册表 + 环境变量广播）、pet-window.ts（前台窗口变化）只 import 这里导出的函数，不自己载入 DLL。
 // 句柄一律用 `uintptr`（number）：Win32 句柄是内核对象表的索引，远小于 2^53；HKEY 的预定义值（0x80000001…）同样放得下。
 // 懒加载：只有第一次调用 `loadWin32()` 时才载入 koffi，非 Windows 平台和单元测试 import 本文件没有副作用。
 import koffi from "koffi";
@@ -28,6 +28,9 @@ export const win32Constants = {
   PROCESS_TERMINATE: 0x0001,
   PROCESS_SET_QUOTA: 0x0100,
   PROCESS_QUERY_LIMITED_INFORMATION: 0x1000,
+  // 前台窗口变化（SetWinEventHook）
+  EVENT_SYSTEM_FOREGROUND: 0x0003,
+  WINEVENT_OUTOFCONTEXT: 0x0000,
 } as const;
 
 /** `uintptr` 在 koffi 里返回 number，超出安全整数范围才是 bigint；句柄不会超出，统一成 number。 */
@@ -79,6 +82,8 @@ export interface Win32Api {
   user32: {
     /** 广播 `WM_SETTINGCHANGE`，lParam 是字符串（如 "Environment"）；在线程池里执行，不阻塞主线程。返回 SendMessageTimeoutW 的结果（0 = 失败或超时）。 */
     broadcastSettingChangeAsync(setting: string, timeoutMs: number): Promise<number>;
+    /** 任何进程的窗口变成前台窗口时回调（SetWinEventHook，回调在主线程的消息循环里）。返回停止监听的函数。 */
+    onForegroundChange(listener: () => void): () => void;
   };
   dwmapi: {
     /** 隐藏（cloak）窗口：系统不再画它、点不到它，窗口本身仍算显示着。返回 HRESULT（0 成功）。 */
@@ -160,6 +165,13 @@ function createApi(): Win32Api {
   const SendMessageTimeoutW = user32.func(
     "intptr SendMessageTimeoutW(uintptr hwnd, uint32 msg, uintptr wParam, str16 lParam, uint32 flags, uint32 timeout, _Out_ uintptr *result)",
   );
+  const WinEventProc = koffi.proto(
+    "void WinEventProc(uintptr hook, uint32 event, uintptr hwnd, int32 idObject, int32 idChild, uint32 thread, uint32 time)",
+  );
+  const SetWinEventHook = user32.func(
+    "uintptr SetWinEventHook(uint32 eventMin, uint32 eventMax, uintptr module, WinEventProc *proc, uint32 pid, uint32 thread, uint32 flags)",
+  );
+  const UnhookWinEvent = user32.func("bool UnhookWinEvent(uintptr hook)");
 
   // ───── dwmapi ─────
   const DwmSetWindowAttribute = dwmapi.func(
@@ -230,6 +242,19 @@ function createApi(): Win32Api {
           (error: Error | null, result: number | bigint) => (error ? reject(error) : resolve(num(result))),
         );
         return promise;
+      },
+      onForegroundChange: (listener) => {
+        const callback = koffi.register(() => listener(), koffi.pointer(WinEventProc));
+        const event = c.EVENT_SYSTEM_FOREGROUND;
+        const hook = num(SetWinEventHook(event, event, 0, callback, 0, 0, c.WINEVENT_OUTOFCONTEXT));
+        if (hook === 0) {
+          koffi.unregister(callback);
+          throw new Error("SetWinEventHook(EVENT_SYSTEM_FOREGROUND) failed");
+        }
+        return () => {
+          UnhookWinEvent(hook);
+          koffi.unregister(callback);
+        };
       },
     },
     dwmapi: {

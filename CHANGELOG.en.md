@@ -10,6 +10,11 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- macOS: with the desktop pet on, the app no longer disappears from the Dock, the menu bar and the Force Quit list, and the pet now also floats above other apps' full-screen windows.
+- Windows: the desktop pet is no longer covered by other always-on-top windows.
+
 ### Changed
 
 - In Settings → Integrations & plugins, the "Scope" label in the page header is now an icon: a globe for user scope, a folder for a project; hover shows "Scope".
