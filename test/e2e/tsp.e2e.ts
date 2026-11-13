@@ -1190,6 +1190,56 @@ test("bash 命令区(omp 18.18.6 录制,声明了 shell):按 omp 的行画 Pseud
   }
 });
 
+// omp 18.20.0，使用本地假模型返回含两个文本字段的 HTML 表单；每个按键后保留真实回帧。
+test("提问文本框:一次退格或 Delete 只删一个字符,数字和输入法文字只发送一次,选区删除不额外发键", async () => {
+  const { launched, received, receivedKeys, cleanup } = await start("ask-input");
+  try {
+    const { page } = launched;
+    await sendFirst(page, "Show the test form.");
+    const field = page.locator('[data-testid="tsp-view"] [data-id="u"] textarea');
+    await expect(field).toHaveValue("1234");
+    await expect(field).toBeFocused();
+    // 点击文字末尾，按鼠标路径报告光标位置。
+    await field.click();
+    await expect.poll(async () => (await received(["edit"])).filter((event) => event["ev"] === "edit").length).toBe(1);
+    const before = (await receivedKeys()).join("").length;
+    const keys = async () => (await receivedKeys()).join("").slice(before);
+    await field.press("Backspace");
+    await expect(field).toHaveValue("123");
+    await expect.poll(keys).toBe("\x7f");
+    await field.press("ArrowLeft");
+    await expect
+      .poll(() => field.evaluate((el) => (el as unknown as { selectionStart: number }).selectionStart))
+      .toBe(2);
+    await field.press("Delete");
+    await expect(field).toHaveValue("12");
+    await expect.poll(keys).toBe("\x7f\x1b[D\x1b[3~");
+    await field.press("7");
+    await expect(field).toHaveValue("127");
+    await expect.poll(keys).toBe("\x7f\x1b[D\x1b[3~7");
+    await field.press("Control+a");
+    await field.press("Backspace");
+    await expect(field).toHaveValue("");
+    expect(await keys()).toBe("\x7f\x1b[D\x1b[3~7");
+    const cdp = await page.context().newCDPSession(page);
+    try {
+      const digit = { key: "5", code: "Digit5", windowsVirtualKeyCode: 53, nativeVirtualKeyCode: 53 };
+      await cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...digit });
+      await cdp.send("Input.insertText", { text: "5" });
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...digit });
+    } finally {
+      await cdp.detach();
+    }
+    await expect(field).toHaveValue("5");
+    await expect.poll(keys).toBe("\x7f\x1b[D\x1b[3~75");
+    expect(await received(["edit"])).toEqual(
+      recordedUserEvents(loadTspFixture("ask-input")).map((entry) => entry.event),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test("提问(omp 18.18.3 录制):选项前有序号,按数字选第 N 项(omp 不认数字键,studio 换成 select);选 Other… 后 omp 加一个带焦点的输入框,键盘直接进去,打字写给 omp(每个字只写一次,输入法英文模式也是);Enter 收起", async () => {
   const { launched, received, receivedKeys, cleanup } = await start("ask-other");
   try {

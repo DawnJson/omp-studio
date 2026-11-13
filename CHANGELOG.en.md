@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Text fields in question forms delete only one character per Backspace or Delete, and no longer duplicate typed text or digits.
+
 ### Changed
 
 - In Settings → Integrations & plugins, the "Scope" label in the page header is now an icon: a globe for user scope, a folder for a project; hover shows "Scope".
