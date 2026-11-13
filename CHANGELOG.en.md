@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-11-13
+
 ### Fixed
 
 - When a resumed session used one of several same-named models, the identified provider was occasionally not saved with the task, so reopening it could start with another provider's model of the same name.
