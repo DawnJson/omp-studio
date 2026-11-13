@@ -8,7 +8,7 @@ import type { NodeProps } from "../node-props.ts";
 import { peekTspDocument } from "../tsp-store.ts";
 import { askDigitInGate } from "../../../../../shared/tsp/ask-gate.ts";
 import { TspChildren } from "../TspChildren.tsx";
-import { likeOf } from "./key-event.ts";
+import { keyOwner, likeOf } from "./key-event.ts";
 
 function isBlankFocus(): boolean {
   const active = document.activeElement;
@@ -46,12 +46,8 @@ export function AskGateCol(props: NodeProps & { dom: NodeDomProps }) {
     };
   }, []);
 
+  // 里面的 list / editor 自己处理按键（keyOwner 只给这一层没人要的键：Review 页、按钮上的键）。
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Esc 是写给 omp 的按键（omp 自己决定取消还是返回），不能冒到 window 上被输入框当成"停止任务"。
-    if (e.key === "Escape") e.stopPropagation();
-    if (e.defaultPrevented) return;
-    // 里面的 list / editor 自己有处理按键的逻辑，只接没人要的键（Review 页、按钮上的键）。
-    if (!(e.target instanceof Element) || e.target.closest("[data-tspi-keys]") !== e.currentTarget) return;
     // 数字键选项（omp 不认数字键）：和 list 拿着焦点时一样，选这一题的第 N 项。
     const surface = peekTspDocument(ctx.taskId)?.surfaces.get(ctx.sf);
     const modified = e.ctrlKey || e.altKey || e.metaKey || e.shiftKey;
@@ -73,8 +69,10 @@ export function AskGateCol(props: NodeProps & { dom: NodeDomProps }) {
       ref={root}
       className={`${dom.className} tspi-ask-gate`}
       tabIndex={-1}
-      data-tspi-keys=""
-      onKeyDown={onKeyDown}
+      {...keyOwner(onKeyDown, (e) => {
+        // Esc 是写给 omp 的按键（omp 自己决定取消还是返回），不能冒到 window 上被输入框当成"停止任务"。
+        if (e.key === "Escape") e.stopPropagation();
+      })}
     >
       <TspChildren {...props} />
     </div>

@@ -22,7 +22,7 @@ import type { NodeProps } from "../node-props.ts";
 import { spanClass, TspSpans } from "../spans.tsx";
 import { useTspSurface } from "../tsp-store.ts";
 import { notifyCaretMoved, registerCaretProbe, useCaretOverlayOpen } from "./caret-registry.ts";
-import { likeOf } from "./key-event.ts";
+import { keyOwner, likeOf } from "./key-event.ts";
 import { clampOffset, splitRuns } from "./text-model.ts";
 
 /** 光标在画出来的第一行 / 最后一行？软换行只有渲染这边知道，用同样排版的镜像量。 */
@@ -369,7 +369,6 @@ export function Editor(props: NodeProps) {
         <textarea
           ref={field}
           className="tspi-ed-field"
-          data-tspi-keys=""
           rows={1}
           spellCheck={false}
           autoCapitalize="off"
@@ -378,7 +377,7 @@ export function Editor(props: NodeProps) {
           aria-label={typeof p.placeholder === "string" ? p.placeholder : undefined}
           aria-multiline={!single}
           wrap={single ? "off" : "soft"}
-          onKeyDown={onKeyDown}
+          {...keyOwner(onKeyDown)}
           onPaste={onPaste}
           onCut={onCut}
           onScroll={(e) => {

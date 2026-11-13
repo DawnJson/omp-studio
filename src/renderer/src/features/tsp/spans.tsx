@@ -40,7 +40,10 @@ function Linkified({ text }: { text: string }) {
               open();
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter") open();
+              // 自己处理了的 Enter 要 preventDefault：链接在 list / 提问对话框里时，外层就不再把它写给 omp（keyOwner）。
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              open();
             }}
           >
             {piece.text}
@@ -94,7 +97,9 @@ function SpanView({ span }: { span: TspSpan }) {
           else if (/^https?:/i.test(href)) void window.studio.openExternal(href);
         }}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && ctx) openHref(href, ctx);
+          if (event.key !== "Enter" || !ctx) return;
+          event.preventDefault();
+          openHref(href, ctx);
         }}
       >
         {content}

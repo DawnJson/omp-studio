@@ -4,7 +4,7 @@
 import { useEffect, useRef } from "react";
 import { encodeKey, encodePaste, isComposingKey, isTextKey } from "../keys.ts";
 import type { TspContext } from "../node-props.ts";
-import { likeOf } from "./key-event.ts";
+import { keyOwner, likeOf } from "./key-event.ts";
 
 interface TerminalInputProps {
   ctx: TspContext;
@@ -57,11 +57,10 @@ export function TerminalInput({ ctx, autoFocus = false, label }: TerminalInputPr
     <input
       ref={input}
       className="tspi-hidden-input"
-      data-tspi-keys=""
       aria-label={label}
       spellCheck={false}
       autoComplete="off"
-      onKeyDown={onKeyDown}
+      {...keyOwner(onKeyDown)}
       onPaste={onPaste}
       onCompositionStart={() => {
         composing.current = true;

@@ -14,7 +14,7 @@ How to write it:
 
 - macOS: with the desktop pet on, the app no longer disappears from the Dock, the menu bar and the Force Quit list, and the pet now also floats above other apps' full-screen windows.
 - Windows: the desktop pet is no longer covered by other always-on-top windows.
-- Text fields in question forms delete only one character per Backspace or Delete, and no longer duplicate typed text or digits.
+- Text fields in question forms delete only one character per Backspace or Delete, arrow keys move one character at a time, and typed text or digits are no longer duplicated; pressing Enter on a link in a question only opens the link instead of also sending Enter to omp.
 
 ### Changed
 

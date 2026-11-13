@@ -205,6 +205,26 @@ function scanNativeTooltips(files: SourceFile[]): Finding[] {
   );
 }
 
+/**
+ * 往伪终端写按键的元素会嵌套（提问对话框 > list > 编辑框），各自直接挂 onKeyDown 时同一个键里外各写一次给 omp：
+ * 提问文本框一次退格删两个字、方向键走两格（PR #17），之前编辑框打字也双倍过。这类元素只经 `keyOwner`（interactive/key-event.ts）
+ * 拿 `data-tspi-keys` 和 onKeyDown，它统一判断这个键归不归这一层。
+ */
+function scanKeyOwner(files: SourceFile[]): Finding[] {
+  const tsx = files.filter((file) => file.path.startsWith("src/renderer/") && file.path.endsWith(".tsx"));
+  const forwarders = tsx.filter(
+    (file) =>
+      file.path.startsWith("src/renderer/src/features/tsp/") &&
+      file.lines.some((line) => /\bctx\.keys\(|\bsendTspKeys\(/.test(line)),
+  );
+  const message =
+    "写按键给 omp 的元素用 {...keyOwner(onKeyDown)}（interactive/key-event.ts），不直接挂 data-tspi-keys / onKeyDown";
+  return [
+    ...grepLines(tsx, /\bdata-tspi-keys=/, "key-owner", message, true),
+    ...grepLines(forwarders, /\bonKeyDown=\{/, "key-owner", message, true),
+  ];
+}
+
 /** `spec §4.x` 的引用要能在 docs/design/spec.md 的索引里找到对应文件（2026-11-10 规范按节拆成 docs/design/spec/*.md）。 */
 function scanSpecRefs(files: SourceFile[]): Finding[] {
   const index = files.find((file) => file.path === "docs/design/spec.md");
@@ -968,6 +988,7 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...scanInnerHtml(files),
     ...scanShellTrue(files),
     ...scanNativeTooltips(files),
+    ...scanKeyOwner(files),
     ...scanUnthemedSvg(files),
     ...scanNodeMapOrder(files),
     ...scanSpecRefs(files),
