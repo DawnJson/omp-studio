@@ -57,10 +57,10 @@ function replay(name: string, size: number): { skipped: number; total: number } 
     DERIVES.forEach(({ name: label, deps, derive }, index) => {
       const entry = cached[index]!;
       const value = derive(doc);
-      total += 1;
+      if (at > 0) total += 1;
       const version = watches.get(deps)!.version;
       if (version === entry.version) {
-        skipped += 1;
+        if (at > 0) skipped += 1;
         expect(value, `${name} 第 ${at} 条起的一批：${label}`).toEqual(entry.value);
       }
       cached[index] = { version, value };
@@ -68,9 +68,9 @@ function replay(name: string, size: number): { skipped: number; total: number } 
     for (const surface of doc.surfaces.values()) {
       const index = buildRoleIndex(surface.nodes);
       const previous = roleCache.get(surface.id);
-      total += 1;
+      if (at > 0) total += 1;
       if (previous && !dirtyRoles.has(surface.id)) {
-        skipped += 1;
+        if (at > 0) skipped += 1;
         expect(index, `${name} 第 ${at} 条起的一批：role 索引 ${surface.id}`).toEqual(previous);
       }
       roleCache.set(surface.id, index);
@@ -89,7 +89,7 @@ describe("NodeWatch：没标脏的推导和整篇重算一致", () => {
         skipped += result.skipped;
         total += result.total;
       }
-      // 不是空测：大部分批次确实跳过了重算。
+      // 首批必定初始化缓存；多数后续批次应跳过重算，不受新增短录制的冷启动影响。
       expect(skipped / total).toBeGreaterThan(0.5);
     });
   }

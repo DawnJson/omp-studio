@@ -91,6 +91,9 @@ export function List(props: NodeProps) {
 
   const items = node.c.map((id) => ({ id, role: peekTspNode(ctx.taskId, ctx.sf, id)?.p["role"] }));
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.defaultPrevented) return;
+    // 文本框和内嵌列表自己处理按键，外层不重复转发。
+    if (!(e.target instanceof Element) || e.target.closest("[data-tspi-keys]") !== e.currentTarget) return;
     // 提问列表上的数字键 = 点第 N 项（omp 不认数字键）；其余键照常写给 omp。
     const modified = e.ctrlKey || e.altKey || e.metaKey || e.shiftKey;
     const pick = modified ? null : askDigitPick(e.key, items, selected);
