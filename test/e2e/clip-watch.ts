@@ -2,7 +2,7 @@
 // launchApp 起好窗口后装上，close() 时取结果，用 expect.soft 记失败（不盖掉用例自己的错误）。
 //
 // 算截断的：overflow 是 hidden / clip 的元素，内容比可见区域高（或宽）出 2px 以上，并且连续 CLIP_STREAK 次采样都这样
-// （展开 / 收起动画、换页淡入中间的帧不算；窗口藏起来或渲染进程不出帧的那段也不算，动画会停在半路）。不算的：overflow 是 auto / scroll（本来就滚）、横向的 text-overflow: ellipsis、
+// （展开 / 收起动画、换页淡入中间的帧不算：自己或里面还有没播完的一次性动画、窗口藏起来时都跳过）。不算的：overflow 是 auto / scroll（本来就滚）、横向的 text-overflow: ellipsis、
 // -webkit-line-clamp（有意截断，完整内容在 title 或展开按钮里）、输入框、xterm 内部、aria-hidden 的装饰、带 data-clip 的元素（有意裁剪，属性值写原因）。
 import { expect, type Page } from "@playwright/test";
 
@@ -31,6 +31,9 @@ export async function installClipWatch(page: Page): Promise<void> {
         getAttribute(name: string): string | null;
         closest(selector: string): El | null;
         getBoundingClientRect(): Rect;
+        getAnimations(options: {
+          subtree: boolean;
+        }): { effect: { getComputedTiming(): { iterations: number } } | null }[];
       }
       interface Style {
         overflowX: string;
@@ -42,7 +45,6 @@ export async function installClipWatch(page: Page): Promise<void> {
       const g = globalThis as unknown as ClipWindow & {
         document: {
           hidden: boolean;
-          timeline: { currentTime: unknown };
           querySelectorAll(selector: string): ArrayLike<El>;
         };
         getComputedStyle(el: El): Style;
@@ -67,15 +69,9 @@ export async function installClipWatch(page: Page): Promise<void> {
       };
       const streaks = new Map<El, number>();
       const found: Record<string, string> = {};
-      let lastFrameTime: unknown = null;
       const sample = () => {
         // 窗口藏起来时动画停在半路（折叠区域的展开帧会一直裁着），这段不算，计数从头来。
-        // 没藏起来但渲染进程一帧都没出（文档时间线不走）也一样：CI 的 mac / linux 机器上偶尔整个用例都是这样，
-        // 换页淡入停在第一帧（translateY 4px），侧栏和主区各"裁掉"4px（2026-11-13 探针：timeline=0，view-in 停在 0ms）。
-        const frameTime = g.document.timeline.currentTime;
-        const frozen = frameTime === null || frameTime === lastFrameTime;
-        lastFrameTime = frameTime;
-        if (g.document.hidden || frozen) {
+        if (g.document.hidden) {
           streaks.clear();
           return;
         }
@@ -97,6 +93,13 @@ export async function installClipWatch(page: Page): Promise<void> {
           const rect = el.getBoundingClientRect();
           // 读屏专用的 .sr-only 本来就压成 1px。
           if (rect.width <= 1 || rect.height <= 1) continue;
+          // 自己或里面还有没播完的一次性动画（展开、换页淡入）：是中间帧，不算。CI 的 mac / linux 机器上渲染进程偶尔
+          // 一直不出帧，换页淡入整个用例都停在第一帧（translateY 4px），侧栏和主区各"裁掉"4px（2026-11-13 探针：view-in 停在 0ms）。
+          // 循环动画（转圈、骨架扫光）不算没播完，不然有它们的区域永远查不了。
+          const settling = el
+            .getAnimations({ subtree: true })
+            .some((animation) => (animation.effect?.getComputedTiming().iterations ?? 0) !== Infinity);
+          if (settling) continue;
           seen.add(el);
           const count = (streaks.get(el) ?? 0) + 1;
           streaks.set(el, count);
