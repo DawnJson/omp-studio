@@ -37,7 +37,10 @@
 
 ## 窗口
 
-- 用独立的 `BrowserWindow`：透明、无边框、置顶（`floating`）、不进任务栏、不可聚焦（点宠物不会抢走正在打字的窗口）、不可调大小。在 mac 上所有桌面（Space）和全屏应用里都能看到（未在 mac 上实测）。
+- 用独立的 `BrowserWindow`：透明、无边框、置顶（`floating`）、不进任务栏、不可聚焦（点宠物不会抢走正在打字的窗口）、不可调大小。
+- **置顶**：
+  - mac 上是 `type: "panel"`（NSPanel）+ `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })`：所有桌面（Space）和别的应用的全屏里都能看到，应用照常有 Dock 图标、菜单栏、在强制退出列表里（#16）。实测（GitHub 的 macOS 15 机器，Electron 44，2026-11-13；临时探针分支用 `screencapture` 截图 + `CGWindowListCopyWindowInfo` 查屏上窗口 + `lsappinfo` 查应用类型，另起一个 Electron 进程全屏）：普通窗口不加 `skipTransformProcessType` 时 Electron 把整个进程改成 UIElement（没有 Dock 图标），而且照样浮不到别的应用的全屏上，`screen-saver` 层级也一样；加上它、不用 panel，Dock 回来了但全屏上看不到宠物；只有 panel 两样都有。
+  - Windows 上置顶窗口之间按激活先后排：后激活的置顶窗口（如开了“总在最前”的编辑器）会盖住宠物，而宠物不可聚焦、自己不会被激活（#18）。所以主进程用 `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`（`platform/win32/ffi.ts` 的 `onForegroundChange`）监听前台窗口变化，每次变化都 `moveTop()` 把宠物提回置顶层最上面，不抢焦点、不轮询。实测（本机，2026-11-13）：另一个置顶窗口 `SetForegroundWindow` 之后，有监听时宠物在它上面，去掉监听时在它下面；宠物自己的确认框（临时可聚焦）、主窗口最小化再还原都不会丢掉置顶。没写成 e2e：要让别的窗口真的变成前台，会抢走正在用这台电脑的人的键盘焦点。
 - 窗口大小固定，宠物画在窗口底部正中，上方留给属性卡和气泡。拖到屏幕边缘时只保证宠物本身完整可见，窗口上方的透明部分可以伸出屏幕。窗口尺寸写在 `pet-window.ts` 的 `PET_WINDOW` / `SPRITE` 和 `pet.css` 的 `--pet-w` / `--pet-h`，两边要一致。
 - 鼠标穿透：窗口默认 `setIgnoreMouseEvents(true, { forward: true })`。页面根据转发来的 mousemove 判断指针是否在带 `data-pet-hit` 的元素上，在的时候调 `setInteractive(true)`。拖动过程中不改穿透状态，否则松开鼠标的事件到不了页面。Linux 不支持 `forward`，那里透明区域的点击会被窗口挡住（推测，未实测）。
 - 拖动不用 `-webkit-app-region: drag`，因为 Windows 上拖动区会吃掉单击和右键。做法是：按下时调 `dragStart`，主进程每 10ms 按 `screen.getCursorScreenPoint()` 用 `setBounds` 移动窗口（不用 `setPosition`：在缩放比例不同的两块屏之间拖时，它会把窗口尺寸也改掉）。松开时调 `dragEnd`，主进程把位置夹回屏幕并写进 `pet.json`。按下后移动不到 4px 算单击，单击延迟 260ms 生效，以便和双击区分开。

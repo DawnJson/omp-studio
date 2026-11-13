@@ -194,6 +194,8 @@ export function openPetWindow(position: PetPosition | null, next: PetWindowHandl
     skipTaskbar: true,
     focusable: false,
     alwaysOnTop: true,
+    // mac：NSPanel 才能浮在别的应用的全屏 Space 上，又不用把整个应用变成没有 Dock 图标、菜单栏的后台应用（#16，下面 skipTransformProcessType）。
+    ...(process.platform === "darwin" ? { type: "panel" } : {}),
     webPreferences: {
       preload: path.join(import.meta.dirname, "..", "preload", "pet.cjs"),
       contextIsolation: true,
@@ -206,9 +208,18 @@ export function openPetWindow(position: PetPosition | null, next: PetWindowHandl
   window = created;
   if (e2eBackground && process.platform === "win32")
     loadWin32().dwmapi.cloakWindow(Number(created.getNativeWindowHandle().readBigUInt64LE()));
-  // 全屏的应用、mac 的其他桌面（Space）上也在。
+  // 全屏的应用、mac 的其他桌面（Space）上也在（mac 15 实测，见 pet.md「置顶」）。
   created.setAlwaysOnTop(true, "floating");
-  if (process.platform === "darwin") created.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  if (process.platform === "darwin")
+    created.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  // Windows：置顶窗口之间按激活先后排，后激活的置顶窗口（开了"总在最前"的编辑器等）会盖住宠物，
+  // 而宠物不可聚焦、自己永远不会被激活（#18）。别的窗口一变成前台，就把宠物提回置顶层最上面（moveTop 不抢焦点）。
+  const stopRaising =
+    process.platform === "win32"
+      ? loadWin32().user32.onForegroundChange(() => {
+          if (!created.isDestroyed() && created.isVisible()) created.moveTop();
+        })
+      : undefined;
   created.setIgnoreMouseEvents(true, { forward: true });
   created.webContents.on("will-navigate", (event, url) => {
     if (!isPetUrl(url)) event.preventDefault();
@@ -220,6 +231,7 @@ export function openPetWindow(position: PetPosition | null, next: PetWindowHandl
   screen.on("display-metrics-changed", reclamp);
   created.once("closed", () => {
     stopDrag();
+    stopRaising?.();
     screen.off("display-removed", reclamp);
     screen.off("display-metrics-changed", reclamp);
     if (window === created) window = null;
