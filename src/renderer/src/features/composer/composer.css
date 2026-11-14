@@ -638,6 +638,11 @@ button.usage-context:hover,
   display: flex;
   justify-content: flex-end;
 }
+.composer-queue-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: var(--space-2);
+}
 .run-status {
   display: flex;
   align-items: center;

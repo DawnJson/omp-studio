@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- After sending during a run, press Enter with an empty input or click “Process now” to interrupt the current turn and process queued messages while keeping unsent drafts.
+
 ## [0.8.6] - 2026-11-13
 
 ### Fixed

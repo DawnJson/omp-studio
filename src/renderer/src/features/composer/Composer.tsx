@@ -46,6 +46,11 @@ import { PathLabel } from "../empty/ProjectLabel.tsx";
 import { Button } from "../../ui/controls.tsx";
 import { EnhanceButton } from "./EnhanceButton.tsx";
 import { usePromptEnhance } from "./use-prompt-enhance.ts";
+import { hasQueuedMessages } from "../../../../shared/tsp/queue-restore.ts";
+import { queuedSubmitTarget } from "../../../../shared/tsp/queue-submit.ts";
+import type { TspDocument } from "../../../../shared/tsp/document.ts";
+
+const canSubmitQueue = (document: TspDocument): boolean => queuedSubmitTarget(document) !== null;
 
 export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDraft?: boolean }) {
   const t = useT();
@@ -69,6 +74,11 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   // 按任务记：切到别的任务不会继承"正在停止"。
   const [stoppingId, setStoppingId] = useState<TaskId | null>(null);
   const stopping = stoppingId === taskId;
+  const queueRequests = useRef(new Set<TaskId>());
+  const [queuePending, setQueuePending] = useState<ReadonlySet<TaskId>>(() => new Set());
+  const submittingQueue = queuePending.has(taskId);
+  const queued = useTspDerived(taskId, hasQueuedMessages, Object.is) === true;
+  const queueReady = useTspDerived(taskId, canSubmitQueue, Object.is) === true;
   const ompCommands = useSlashCommands(taskId);
   // omp 的列表还没载入时保持空：守卫在空列表时一律放行（studio-slash 的命令发送时照样会被接管）。
   // studio 接管哪些命令、哪些交给 omp 由命令表按宿主（task / draft）定，见 studio-slash.ts。
@@ -128,10 +138,24 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     return false;
   };
   const sendNow = (whenBusy: Delivery) => {
+    if (queueRequests.current.has(taskId)) return;
     if (task !== null) recordHistory(task.projectId, historyText(getDraft(taskId)));
     resetHistoryCursor(taskId);
     setSlashNotice(null);
     void sendDraft(taskId, whenBusy, t);
+  };
+
+  const submitQueue = () => {
+    if (!running || !queueReady || stopping || queueRequests.current.has(taskId)) return;
+    queueRequests.current.add(taskId);
+    setQueuePending(new Set(queueRequests.current));
+    void window.studio
+      .submitQueuedMessages(taskId)
+      .catch((error: unknown) => reportError(t, error, t("composer.queueSubmitFailed")))
+      .finally(() => {
+        queueRequests.current.delete(taskId);
+        setQueuePending(new Set(queueRequests.current));
+      });
   };
 
   // 输入历史 = 会话里的用户消息 + 这个项目发过的（history-store.ts，studio 自己持久化）；↑ 翻看和 Ctrl+R 搜索用同一份。
@@ -200,7 +224,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       window.studio.sendTspKeys(taskId, "\x1b").catch((error: unknown) => reportError(t, error));
       return;
     }
-    if (!running || stopping) return;
+    if (!running || stopping || queueRequests.current.has(taskId)) return;
     setStoppingId(taskId);
     // 请求结束（成功或失败）都复位，否则失败后按钮永远停在"正在停止"。
     void stopAndRestore(taskId, t).finally(() => {
@@ -337,7 +361,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         keyCode: event.keyCode,
       },
       // `!` `/` 开头的文字原样发给 omp；门由 omp 画（tspAsking 时上面直接不发送）。
-      { running, gate: approval, hasContent, swapped },
+      { running, gate: approval, hasContent, swapped, queued },
     );
     if (action === "default") return;
     event.preventDefault();
@@ -345,7 +369,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     if ((tooOld || worktreeGone) && action !== "gatePrimary") return;
     // omp 的全屏面板（Agent Hub 等）开着：消息只会变成对主代理的插话，不发（主进程也拒绝，见 tsp-runner 的 #awaitComposer）。
     if (screenOpen && action !== "gatePrimary") return;
-    if (action === "gatePrimary") gateAction(GATE_ACTION_APPROVE);
+    if (action === "submitQueue") submitQueue();
+    else if (action === "gatePrimary") gateAction(GATE_ACTION_APPROVE);
     // TSP 审批：omp 收到消息就拒绝待批的调用并把消息当插话（approval-mode.md），不用另发 deny。
     else if (allowSend()) sendNow(action === "followUp" ? "followUp" : "steer");
   };
@@ -376,6 +401,20 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         )}
       </Reveal>
       <ComposerTop task={task} />
+      <Reveal open={running && queued && focusedAgent === null}>
+        <div className="composer-queue-actions">
+          <Button
+            size="sm"
+            data-testid="queue-submit"
+            title={t("composer.queueSubmitTip")}
+            loading={submittingQueue}
+            disabled={!queueReady || stopping || tooOld === true || worktreeGone}
+            onClick={submitQueue}
+          >
+            {t("composer.queueSubmit")}
+          </Button>
+        </div>
+      </Reveal>
       <div
         className="composer"
         data-composer-drop
@@ -473,7 +512,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           <EnhanceButton enhance={enhance} disabled={worktreeGone} />
           <SendStop
             running={running}
-            stopping={stopping}
+            stopping={stopping || submittingQueue}
             hasContent={hasContent}
             swapped={swapped}
             disabled={tooOld === true || worktreeGone || tspAsking || screenOpen}
