@@ -1,7 +1,7 @@
 // 右侧文件面板的状态：同一时间只有一个面板（任务 id 或新任务草稿的键），两页——文件树 / 预览；关闭时把焦点还给打开它的元素。
 // 预览页显示一个文件（path），或回答里代码块的一段代码（snippet，只在内存里）。
 // 文件树的展开状态按键记在 tree-state.ts（面板关了、切走任务再回来仍在）。
-import type { PreviewFile, TaskId, TerminalKey } from "../../../../shared/ipc.ts";
+import type { TaskId, TerminalKey } from "../../../../shared/ipc.ts";
 import type { PreviewKind } from "../../markdown/code-preview.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { selectedRoot } from "./roots-store.ts";
@@ -13,14 +13,14 @@ export interface PanelState {
   /** 面板属于谁：任务 id，或草稿的键（`new:<项目 id>`）。 */
   key: TerminalKey;
   page: PanelPage;
-  /** 预览页显示的文件：调用方给的路径（相对根目录，或落在根内的绝对路径）；还没打开过文件、或在看片段时为 null。 */
+  /** 预览页显示的文件：文件树给相对根目录的路径，链接也可以给本机绝对路径；看片段时为 null。 */
   path: string | null;
   /** 预览的文件在哪个根里：缺省 = 任务目录，n = 第 n 个额外工作区目录（roots-store.ts）。 */
   root?: number | undefined;
   /** 预览页显示的代码片段（回答里代码块的"在侧栏预览"）；和 path 二选一，打开文件时清掉。 */
   snippet?: Snippet | undefined;
-  /** 系统选择框单次返回的内容快照，只保留在当前面板内。 */
-  selectedFile?: PreviewFile | undefined;
+  /** 对话文件链接走直接只读预览；文件树仍按选定根读取。 */
+  fromLink?: boolean | undefined;
 }
 
 const store = createStore<PanelState | null>(null);
@@ -37,9 +37,9 @@ function rememberFocus(): void {
 /** 在预览页打开一个文件（工具卡上的文件链接）。 */
 export function openFilePreview(taskId: TaskId, path: string): void {
   const current = store.get();
-  if (current?.key === taskId && current.page === "preview" && current.path === path) return;
+  if (current?.key === taskId && current.page === "preview" && current.path === path && current.fromLink) return;
   rememberFocus();
-  store.set({ key: taskId, page: "preview", path });
+  store.set({ key: taskId, page: "preview", path, fromLink: true });
 }
 
 /** 片段编号：每打开一段加一，不按内容算，不会撞。 */
@@ -94,15 +94,8 @@ export function previewFileInPanel(path: string): void {
     path,
     root: root > 0 ? root : undefined,
     snippet: undefined,
-    selectedFile: undefined,
+    fromLink: undefined,
   });
-}
-
-/** 显示实际选中文件的快照，路径也跟着更新；不授予后续读取权限。 */
-export function setSelectedPreview(owner: PanelState, file: PreviewFile): void {
-  const current = store.get();
-  if (current !== owner) return;
-  store.set({ ...current, page: "preview", path: file.path, snippet: undefined, selectedFile: file });
 }
 
 export function closeFilePreview(): void {

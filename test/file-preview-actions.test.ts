@@ -3,13 +3,14 @@ import path from "node:path";
 import os from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { previewHandlers } from "../src/main/ipc/preview-handlers.ts";
+import { fileHandlers } from "../src/main/ipc/file-handlers.ts";
 import { readPreviewFile } from "../src/main/files/preview-file.ts";
 import type { TaskId } from "../src/shared/ipc.ts";
 
 const mocks = vi.hoisted(() => ({
   cwd: "",
+  workspaceDirs: [] as string[],
   exists: true,
-  choose: vi.fn(),
   buildMenu: vi.fn(),
   copy: vi.fn(),
   reveal: vi.fn(),
@@ -17,7 +18,6 @@ const mocks = vi.hoisted(() => ({
   network: false,
 }));
 vi.mock("electron", () => ({
-  dialog: { showOpenDialog: (...args: unknown[]) => mocks.choose(...args) },
   Menu: { buildFromTemplate: (...args: unknown[]) => mocks.buildMenu(...args) },
   clipboard: { writeText: (text: string) => mocks.copy(text) },
   shell: { showItemInFolder: (file: string) => mocks.reveal(file) },
@@ -46,7 +46,7 @@ vi.mock("../src/main/tasks/runtime.ts", () => ({
       if (!mocks.exists) throw new Error("unknown task");
       return mocks.cwd;
     },
-    taskWorkspaceDirs: () => [],
+    taskWorkspaceDirs: () => mocks.workspaceDirs,
   }),
 }));
 vi.mock("../src/main/tasks/chats-dir.ts", () => ({ chatsDir: () => mocks.cwd }));
@@ -56,7 +56,7 @@ let scratch = "";
 let requested = "";
 let selected = "";
 beforeEach(async () => {
-  scratch = await mkdtemp(path.join(os.tmpdir(), "omp-preview-consent-"));
+  scratch = await mkdtemp(path.join(os.tmpdir(), "omp-preview-actions-"));
   mocks.cwd = path.join(scratch, "task");
   const outside = path.join(scratch, "outside");
   await Promise.all([mkdir(mocks.cwd), mkdir(outside)]);
@@ -65,6 +65,7 @@ beforeEach(async () => {
   await writeFile(requested, "# requested");
   await writeFile(selected, "# selected");
   mocks.exists = true;
+  mocks.workspaceDirs = [];
   mocks.network = false;
   mocks.menuAction = null;
   mocks.copy.mockReset();
@@ -75,27 +76,53 @@ beforeEach(async () => {
       callback();
     },
   }));
-  mocks.choose.mockReset().mockResolvedValue({ canceled: false, filePaths: [selected] });
 });
 afterEach(() => rm(scratch, { recursive: true, force: true, maxRetries: 10 }));
 
-describe("单文件预览授权", () => {
-  it("只返回系统框实际选中的文件，不开放请求文件或其兄弟的后续读取", async () => {
-    const file = await previewHandlers.choosePreviewFile(target, requested);
-    expect(file).toMatchObject({ kind: "text", path: selected, text: "# selected", canOpen: false });
-    for (const file of [requested, selected]) await expect(readPreviewFile(mocks.cwd, file)).rejects.toThrow();
+describe("文件链接直接预览", () => {
+  it("直接返回链接指向的目录外文件，原读取接口仍拒绝它和兄弟文件", async () => {
+    const file = await previewHandlers.readLinkedPreviewFile(target.taskId, requested);
+    expect(file).toMatchObject({ kind: "text", path: requested, text: "# requested", external: true, canOpen: false });
+    for (const file of [requested, selected]) {
+      await expect(readPreviewFile(mocks.cwd, file)).rejects.toThrow();
+      await expect(fileHandlers.readPreviewFile(target, file)).rejects.toThrow();
+    }
+    await expect(fileHandlers.listDirectory(target, path.dirname(requested))).rejects.toThrow();
   });
 
-  it("取消选择不读取文件，也不留下目录权限", async () => {
-    mocks.choose.mockResolvedValue({ canceled: true, filePaths: [] });
-    expect(await previewHandlers.choosePreviewFile(target, path.join(scratch, "missing.md"))).toBeNull();
-    await expect(readPreviewFile(mocks.cwd, selected)).rejects.toThrow();
+  it("相对链接按任务目录解析，并返回绝对路径", async () => {
+    const file = await previewHandlers.readLinkedPreviewFile(target.taskId, path.relative(mocks.cwd, requested));
+    expect(file).toMatchObject({ kind: "text", path: requested, text: "# requested", external: true });
+  });
+
+  it("工作区内的文件沿用工作区读取，结果仍保留绝对路径", async () => {
+    const inside = path.join(mocks.cwd, "inside.md");
+    await writeFile(inside, "# inside");
+    const file = await previewHandlers.readLinkedPreviewFile(target.taskId, "inside.md");
+    expect(file).toMatchObject({ kind: "text", path: inside, text: "# inside" });
+    expect(file.external).not.toBe(true);
+  });
+
+  it("已加入工作区的文件保留根下标和绝对路径", async () => {
+    mocks.workspaceDirs = [path.dirname(requested)];
+    const file = await previewHandlers.readLinkedPreviewFile(target.taskId, requested);
+    expect(file).toMatchObject({ kind: "text", path: requested, text: "# requested", root: 1 });
+    expect(file.external).not.toBe(true);
+  });
+
+  it("目录外文件不存在时返回缺失状态", async () => {
+    const missing = path.join(scratch, "missing.md");
+    expect(await previewHandlers.readLinkedPreviewFile(target.taskId, missing)).toMatchObject({
+      kind: "missing",
+      path: missing,
+      external: true,
+      canOpen: false,
+    });
   });
 
   it.each(["note.md", "page.html", "image.svg", "data.bin"])("沿用文件类型分类：%s", async (name) => {
     const file = path.join(scratch, name);
     await writeFile(file, name.endsWith(".bin") ? Buffer.from([0, 1]) : "<h1>content</h1>");
-    mocks.choose.mockResolvedValue({ canceled: false, filePaths: [file] });
     const kind = name.endsWith(".svg")
       ? "image"
       : name.endsWith(".html")
@@ -103,9 +130,10 @@ describe("单文件预览授权", () => {
         : name.endsWith(".bin")
           ? "binary"
           : "text";
-    expect(await previewHandlers.choosePreviewFile(target, requested)).toMatchObject({
+    expect(await previewHandlers.readLinkedPreviewFile(target.taskId, file)).toMatchObject({
       kind,
       path: file,
+      external: true,
       canOpen: false,
     });
   });
@@ -118,42 +146,30 @@ describe("单文件预览授权", () => {
     "C:",
     "C:relative.md",
     "bad\0path",
-  ])("请求路径不安全时不打开系统框：%s", async (file) => {
-    await expect(previewHandlers.choosePreviewFile(target, file)).rejects.toThrow();
-    expect(mocks.choose).not.toHaveBeenCalled();
-  });
-
-  it("系统框返回网络路径仍被拒绝", async () => {
-    mocks.choose.mockResolvedValue({ canceled: false, filePaths: ["\\\\server\\share\\a.md"] });
-    await expect(previewHandlers.choosePreviewFile(target, requested)).rejects.toThrow();
+  ])("拒绝非本机或无效路径：%s", async (file) => {
+    await expect(previewHandlers.readLinkedPreviewFile(target.taskId, file)).rejects.toThrow();
   });
 
   it("实际文件解析到网络路径时，在读取元数据或内容前拒绝", async () => {
     mocks.network = true;
-    await expect(previewHandlers.choosePreviewFile(target, requested)).rejects.toThrow("local absolute paths");
+    await expect(previewHandlers.readLinkedPreviewFile(target.taskId, requested)).rejects.toThrow(
+      "local absolute paths",
+    );
   });
 
-  it("选择期间任务被删除时不返回内容", async () => {
-    mocks.choose.mockImplementation(async () => {
-      mocks.exists = false;
-      return { canceled: false, filePaths: [selected] };
-    });
-    await expect(previewHandlers.choosePreviewFile(target, requested)).rejects.toThrow("unknown task");
+  it("任务不存在时不返回内容", async () => {
+    mocks.exists = false;
+    await expect(previewHandlers.readLinkedPreviewFile(target.taskId, requested)).rejects.toThrow("unknown task");
   });
 
-  it("选择目录别名里的文件仍只返回所选文件", async () => {
+  it("工作区内的目录别名逃出根目录时仍被拒绝", async () => {
     const link = path.join(mocks.cwd, "link");
     await symlink(path.dirname(selected), link, "junction");
     const alias = path.join(link, "选择 文档.md");
-    // 父目录本身是已选目录的别名，仍只读取这个文件。
-    mocks.choose.mockResolvedValue({ canceled: false, filePaths: [alias] });
-    expect(await previewHandlers.choosePreviewFile(target, requested)).toMatchObject({
-      text: "# selected",
-      path: alias,
-    });
+    await expect(previewHandlers.readLinkedPreviewFile(target.taskId, alias)).rejects.toThrow("escapes");
   });
 
-  it("选中的文件链接逃出其目录时仍被拒绝", async ({ skip }) => {
+  it("工作区内的文件链接逃出根目录时仍被拒绝", async ({ skip }) => {
     const link = path.join(mocks.cwd, "link.md");
     try {
       await symlink(selected, link, "file");
@@ -162,8 +178,7 @@ describe("单文件预览授权", () => {
       skip();
       return;
     }
-    mocks.choose.mockResolvedValue({ canceled: false, filePaths: [link] });
-    await expect(previewHandlers.choosePreviewFile(target, requested)).rejects.toThrow("escapes");
+    await expect(previewHandlers.readLinkedPreviewFile(target.taskId, link)).rejects.toThrow("escapes");
   });
 });
 

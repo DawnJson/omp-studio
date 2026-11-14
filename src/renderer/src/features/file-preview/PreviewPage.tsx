@@ -1,5 +1,5 @@
 // 文件面板的"预览"页：一条工具栏（文件名、路径、预览/源码、缩放、打开、在文件夹中显示）+ 正文。
-// 内容由主进程 readPreviewFile 读（校验落在根目录内）；这里不拼任何文件路径去加载，避免绕过主进程校验。
+// 文件链接直接只读预览本机文件，文件树按选定根读取；路径、类型和大小仍由主进程校验。
 // 回答里代码块的片段（snippet.ts）不读盘：直接换成同样的 PreviewFile，走同一条渲染路径。
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PreviewFile, ProjectFilesTarget } from "../../../../shared/ipc.ts";
@@ -12,12 +12,8 @@ import { reportError } from "../../ui/errors.ts";
 import { FileTypeIcon } from "../../ui/FileTypeIcon.tsx";
 import { baseName, extension, PreviewContent } from "./PreviewContent.tsx";
 import { snippetExtension, snippetFile, snippetLabel, type Snippet } from "./snippet.ts";
-import { setSelectedPreview, type PanelState } from "./preview-store.ts";
 
-type Load =
-  | { state: "loading" }
-  | { state: "error"; message: string; permission: boolean }
-  | { state: "done"; file: PreviewFile };
+type Load = { state: "loading" } | { state: "error"; message: string } | { state: "done"; file: PreviewFile };
 
 const zoomStep = 1.25;
 const zoomRange = [0.1, 8] as const;
@@ -34,24 +30,20 @@ interface ZoomAnchor {
 
 /** 显示 `path` 指的文件，或 `snippet`（有片段时 path 为 null）。 */
 export function PreviewPage({
-  owner,
   target,
   path,
   snippet,
-  selectedFile,
+  fromLink,
   hidden,
 }: {
-  owner: PanelState;
   target: ProjectFilesTarget;
   path: string | null;
   snippet: Snippet | null;
-  selectedFile: PreviewFile | null;
+  fromLink: boolean;
   hidden: boolean;
 }) {
   const t = useT();
   const [load, setLoad] = useState<Load>({ state: "loading" });
-  const [authorizing, setAuthorizing] = useState(false);
-  const revision = useRef(0);
   const [source, setSource] = useState(false);
   const [scripts, setScripts] = useState(false);
   const [zoom, setZoom] = useState<number | "fit">("fit");
@@ -77,48 +69,30 @@ export function PreviewPage({
   const shownSnippet = useMemo(() => (snippet === null ? null : snippetFile(snippet, palette)), [snippet, palette]);
 
   useEffect(() => {
-    const current = ++revision.current;
+    let cancelled = false;
     setLoad({ state: "loading" });
-    setAuthorizing(false);
     setSource(false);
     setScripts(false);
     setZoom("fit");
-    if (path === null || selectedFile !== null) return;
-    window.studio.readPreviewFile(target, path).then(
+    if (path === null) return;
+    const read =
+      fromLink && target.kind === "task"
+        ? window.studio.readLinkedPreviewFile(target.taskId, path)
+        : window.studio.readPreviewFile(target, path);
+    read.then(
       (file) => {
-        if (revision.current === current) setLoad({ state: "done", file });
+        if (!cancelled) setLoad({ state: "done", file });
       },
       (error: unknown) => {
-        if (revision.current === current) {
-          const message = errorDetail(error);
-          setLoad({
-            state: "error",
-            message,
-            permission: /^path (must be relative to|escapes) the task directory$/.test(message),
-          });
-        }
+        if (!cancelled) setLoad({ state: "error", message: errorDetail(error) });
       },
     );
     return () => {
-      revision.current += 1;
+      cancelled = true;
     };
-  }, [target, path, snippet, selectedFile]);
+  }, [target, path, snippet, fromLink]);
 
-  const authorize = async () => {
-    if (path === null || authorizing) return;
-    const current = revision.current;
-    setAuthorizing(true);
-    try {
-      const file = await window.studio.choosePreviewFile(target, path);
-      if (file !== null && revision.current === current) setSelectedPreview(owner, file);
-    } catch (error) {
-      if (revision.current === current) reportError(t, error);
-    } finally {
-      if (revision.current === current) setAuthorizing(false);
-    }
-  };
-
-  const file = shownSnippet ?? selectedFile ?? (load.state === "done" ? load.file : null);
+  const file = shownSnippet ?? (load.state === "done" ? load.file : null);
   const filePath = snippet === null ? (file?.path ?? path ?? "") : "";
   const name = snippet === null ? baseName(filePath) : t("preview.snippet", { lang: snippetLabel(snippet.kind) });
   const ext = snippet === null ? extension(filePath) : snippetExtension(snippet.kind);
@@ -183,12 +157,11 @@ export function PreviewPage({
   }, [zoom, textZoom]);
 
   // 系统打开 / 在文件夹中显示按任务 id 走（只有任务有）；草稿的项目目录里只能预览，片段没有文件，也只能预览。
-  const taskId = snippet === null && selectedFile === null && target.kind === "task" ? target.taskId : null;
+  const taskId = snippet === null && !file?.external && target.kind === "task" ? target.taskId : null;
   const run = (action: "openTaskFile" | "revealTaskFile") => {
     if (!file || taskId === null) return;
     const root = file.root ?? (target.kind === "task" ? target.root : undefined);
-    const input = file.root === undefined ? file.path : (path ?? file.path);
-    window.studio[action](taskId, input, root).catch((error: unknown) => reportError(t, error));
+    window.studio[action](taskId, file.path, root).catch((error: unknown) => reportError(t, error));
   };
 
   return (
@@ -264,20 +237,11 @@ export function PreviewPage({
         data-testid="file-preview-body"
         style={{ "--preview-zoom": textZoom } as CSSProperties}
       >
-        {snippet === null && selectedFile === null && load.state === "loading" && (
-          <p className="file-preview-note">{t("preview.loading")}</p>
-        )}
-        {snippet === null && selectedFile === null && load.state === "error" && (
-          <div className="file-preview-note" role="alert">
-            <p>
-              {load.permission ? t("preview.outsideWorkspace") : t("preview.readFailed", { message: load.message })}
-            </p>
-            {load.permission && (
-              <Button size="sm" testId="file-preview-authorize" disabled={authorizing} onClick={() => void authorize()}>
-                {t("preview.authorizeFile")}
-              </Button>
-            )}
-          </div>
+        {snippet === null && load.state === "loading" && <p className="file-preview-note">{t("preview.loading")}</p>}
+        {snippet === null && load.state === "error" && (
+          <p className="file-preview-note" role="alert">
+            {t("preview.readFailed", { message: load.message })}
+          </p>
         )}
         {file && (
           <PreviewContent

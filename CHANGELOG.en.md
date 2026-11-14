@@ -16,7 +16,7 @@ How to write it:
 
 ### Fixed
 
-- File links automatically match added workspace folders; files outside the workspace can be selected for a one-time preview without granting access to the whole folder.
+- File links directly preview local files, including files outside the workspace, without asking you to select them again; links still automatically match added workspace folders.
 
 ## [0.8.6] - 2026-11-13
 

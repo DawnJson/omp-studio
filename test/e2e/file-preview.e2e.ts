@@ -116,20 +116,17 @@ test("readPreviewFile 按类型返回内容，越界拒绝", async () => {
   }
 });
 
-test("目录外文件只在系统框选择后单次预览，取消或重开不授予目录权限", async () => {
+test("目录外文件链接直接预览，不弹选择框，工作区读取边界保持不变", async () => {
   const lines = loadTspFixture("task");
   const prompt = String(recordedUserEvents(lines).find((entry) => entry.event["ev"] === "send")!.event["text"]);
   let external = "";
-  let chosen = "";
   let sibling = "";
   const { launched, taskId, cleanup } = await start(async (work) => {
     const outside = path.join(work, "目录外");
     await mkdir(outside);
     external = path.join(outside, "交接 文档.md");
-    chosen = path.join(outside, "选中的 文档.md");
     sibling = path.join(outside, "另一个文件.md");
-    await writeFile(external, "# 尚未选择的请求文件\n");
-    await writeFile(chosen, "# 单文件授权预览\n");
+    await writeFile(external, "# 目录外直接预览\n");
     await writeFile(sibling, "not authorized");
     const fixture = path.join(work, "outside-links.jsonl");
     await writeFile(
@@ -145,14 +142,14 @@ test("目录外文件只在系统框选择后单次预览，取消或重开不�
     const { page } = launched;
     const menuProbe = await installFileMenuProbe(launched.app);
     await page.evaluate(() => globalThis.studio.setGroupToolCalls(false));
-    await launched.app.evaluate(({ dialog }, selected) => {
+    await launched.app.evaluate(({ dialog }) => {
       const state = { count: 0 };
       (globalThis as unknown as { previewChoices: typeof state }).previewChoices = state;
       dialog.showOpenDialog = async () => {
         state.count += 1;
-        return state.count === 1 ? { canceled: true, filePaths: [] } : { canceled: false, filePaths: [selected] };
+        throw new Error("File preview must not open a selection dialog");
       };
-    }, chosen);
+    });
     const choices = () =>
       launched.app.evaluate(
         () => (globalThis as unknown as { previewChoices: { count: number } }).previewChoices.count,
@@ -177,19 +174,13 @@ test("目录外文件只在系统框选择后单次预览，取消或重开不�
     await link.click({ button: "right" });
     await expect.poll(menuProbe.revealed).toEqual([external]);
     await link.click();
-    const authorize = page.getByTestId("file-preview-authorize");
-    await expect(authorize).toBeVisible();
+    await expect(page.getByTestId("file-preview-md")).toContainText("目录外直接预览");
+    await expect(page.getByTestId("file-preview-name")).toHaveText("交接 文档.md");
     expect(await choices()).toBe(0);
-    await authorize.click();
-    await expect.poll(choices).toBe(1);
-    await expect(authorize).toBeEnabled();
-    await expect(page.getByTestId("file-preview-body")).not.toContainText("单文件授权预览");
-    await authorize.click();
-    await expect(page.getByTestId("file-preview-md")).toContainText("单文件授权预览");
-    await expect(page.getByTestId("file-preview-name")).toHaveText("选中的 文档.md");
+    await expect(page.getByTestId("file-preview-authorize")).toHaveCount(0);
     await expect(page.getByTestId("file-preview-open")).toHaveCount(0);
     await expect(page.getByTestId("file-preview-reveal")).toHaveCount(0);
-    for (const file of [external, chosen, sibling])
+    for (const file of [external, sibling])
       await expect(
         page.evaluate(
           ([id, input]) => globalThis.studio.readPreviewFile({ kind: "task", taskId: id as TaskId }, input!),
@@ -202,15 +193,12 @@ test("目录外文件只在系统框选择后单次预览，取消或重开不�
         taskId,
       ),
     ).toEqual([]);
-    await link.click();
-    await expect(authorize).toBeVisible();
-    expect(await choices()).toBe(2);
     await setLocale(page, "en");
     await page.getByTestId("file-preview-close").click();
     await expect(page.getByTestId("file-preview")).toHaveCount(0);
     await link.click();
-    await expect(authorize).toHaveText("Allow preview…");
-    expect(await choices()).toBe(2);
+    await expect(page.getByTestId("file-preview-md")).toContainText("目录外直接预览");
+    expect(await choices()).toBe(0);
     await expectNoOverflow(page.getByTestId("file-preview"));
   } finally {
     await cleanup();
