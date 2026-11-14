@@ -57,6 +57,7 @@ export function FilePreviewPane({
   const previewRoot = panel?.root ?? 0;
   // 回答里代码块的"在侧栏预览"：预览页显示这段代码，不读文件（preview-store.ts 的 openSnippetPreview）。
   const snippet = panel?.snippet ?? null;
+  const selectedFile = panel?.selectedFile ?? null;
   const target = useMemo(() => filesTarget(panelKey), [panelKey]);
   const treeTarget = useMemo(() => withRoot(target, treeRoot), [target, treeRoot]);
   const previewTarget = useMemo(() => withRoot(target, previewRoot), [target, previewRoot]);
@@ -179,8 +180,15 @@ export function FilePreviewPane({
         selected={previewRoot === treeRoot ? path : null}
         onOpenFile={previewFileInPanel}
       />
-      {(path !== null || snippet !== null) && (
-        <PreviewPage target={previewTarget} path={path} snippet={snippet} hidden={page !== "preview"} />
+      {panel && (path !== null || snippet !== null) && (
+        <PreviewPage
+          owner={panel}
+          target={previewTarget}
+          path={path}
+          snippet={snippet}
+          selectedFile={selectedFile}
+          hidden={page !== "preview"}
+        />
       )}
     </section>
   );

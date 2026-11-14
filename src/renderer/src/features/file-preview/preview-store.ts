@@ -1,7 +1,7 @@
 // 右侧文件面板的状态：同一时间只有一个面板（任务 id 或新任务草稿的键），两页——文件树 / 预览；关闭时把焦点还给打开它的元素。
 // 预览页显示一个文件（path），或回答里代码块的一段代码（snippet，只在内存里）。
 // 文件树的展开状态按键记在 tree-state.ts（面板关了、切走任务再回来仍在）。
-import type { TaskId, TerminalKey } from "../../../../shared/ipc.ts";
+import type { PreviewFile, TaskId, TerminalKey } from "../../../../shared/ipc.ts";
 import type { PreviewKind } from "../../markdown/code-preview.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { selectedRoot } from "./roots-store.ts";
@@ -19,6 +19,8 @@ export interface PanelState {
   root?: number | undefined;
   /** 预览页显示的代码片段（回答里代码块的"在侧栏预览"）；和 path 二选一，打开文件时清掉。 */
   snippet?: Snippet | undefined;
+  /** 系统选择框单次返回的内容快照，只保留在当前面板内。 */
+  selectedFile?: PreviewFile | undefined;
 }
 
 const store = createStore<PanelState | null>(null);
@@ -86,7 +88,21 @@ export function previewFileInPanel(path: string): void {
   const current = store.get();
   if (current === null) return;
   const root = selectedRoot(current.key);
-  store.set({ ...current, page: "preview", path, root: root > 0 ? root : undefined, snippet: undefined });
+  store.set({
+    ...current,
+    page: "preview",
+    path,
+    root: root > 0 ? root : undefined,
+    snippet: undefined,
+    selectedFile: undefined,
+  });
+}
+
+/** 显示实际选中文件的快照，路径也跟着更新；不授予后续读取权限。 */
+export function setSelectedPreview(owner: PanelState, file: PreviewFile): void {
+  const current = store.get();
+  if (current !== owner) return;
+  store.set({ ...current, page: "preview", path: file.path, snippet: undefined, selectedFile: file });
 }
 
 export function closeFilePreview(): void {

@@ -20,6 +20,7 @@ import { FileTypeIcon } from "../../ui/FileTypeIcon.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { flattenTree, treeKeyAction, type NodeRow, type TreeKey, type TreeRow } from "./tree-model.ts";
 import { treeMemory } from "./tree-state.ts";
+import { showFileContextMenu } from "./file-context-menu.ts";
 
 const overscan = 8;
 const treeKeys = new Set<string>(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "Enter", " "]);
@@ -185,6 +186,7 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
         {rows.slice(first, last).map((row, offset) => (
           <TreeRowView
             key={row.path}
+            target={target}
             id={`${idBase}-${first + offset}`}
             row={row}
             top={(first + offset) * rowHeight}
@@ -199,6 +201,7 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
 }
 
 interface TreeRowViewProps {
+  target: ProjectFilesTarget;
   id: string;
   row: TreeRow;
   top: number;
@@ -207,7 +210,7 @@ interface TreeRowViewProps {
   onClick(row: NodeRow): void;
 }
 
-function TreeRowView({ id, row, top, cursor, selected, onClick }: TreeRowViewProps) {
+function TreeRowView({ target, id, row, top, cursor, selected, onClick }: TreeRowViewProps) {
   const t = useT();
   const style = { top, "--depth": row.depth } as CSSProperties;
   if (row.type === "truncated") {
@@ -233,6 +236,7 @@ function TreeRowView({ id, row, top, cursor, selected, onClick }: TreeRowViewPro
       title={row.path}
       style={style}
       onClick={() => onClick(row)}
+      onContextMenu={(event) => showFileContextMenu(event, target, row.path)}
     >
       <span
         className="file-tree-chevron"

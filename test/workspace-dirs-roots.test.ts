@@ -75,6 +75,18 @@ describe("根下标", () => {
 });
 
 describe("文件面板读额外根", () => {
+  it("工具链接的绝对路径自动匹配已授权根，并返回后续打开所需的根下标", async () => {
+    const file = await fileHandlers.readPreviewFile({ kind: "task", taskId: task }, path.join(extra, "笔记 一.md"));
+    expect(file).toMatchObject({ kind: "text", path: "笔记 一.md", text: "extra file", root: 1 });
+    await expect(
+      fileHandlers.readPreviewFile({ kind: "task", taskId: task }, path.join(outside, "secret.txt")),
+    ).rejects.toThrow();
+    mocks.dirs = [];
+    await expect(
+      fileHandlers.readPreviewFile({ kind: "task", taskId: task }, path.join(extra, "笔记 一.md")),
+    ).rejects.toThrow();
+  });
+
   it("root 缺省 / 0 读任务 cwd；root 1 读额外目录（空格和中文）", async () => {
     expect(await targetCwd({ kind: "task", taskId: task })).toBe(cwd);
     expect(await targetCwd({ kind: "task", taskId: task, root: 1 })).toBe(extra);
@@ -129,6 +141,9 @@ describe("文件面板读额外根", () => {
     expect(names).not.toContain("to-cwd");
     await expect(fileHandlers.listDirectory(t, "escape")).rejects.toThrow();
     await expect(fileHandlers.readPreviewFile(t, "escape/secret.txt")).rejects.toThrow();
+    await expect(
+      fileHandlers.readPreviewFile({ kind: "task", taskId: task }, path.join(extra, "escape", "secret.txt")),
+    ).rejects.toThrow();
     await expect(fileHandlers.readPreviewFile(t, "to-cwd/a.txt")).rejects.toThrow();
     expect(await fileHandlers.readPreviewFile(t, "inner/ok.txt")).toMatchObject({ kind: "text", text: "ok" });
   });

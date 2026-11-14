@@ -10,6 +10,14 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Context menus for file-tree entries and conversation file links can copy full paths or reveal files and folders in the file manager.
+
+### Fixed
+
+- File links automatically match added workspace folders; files outside the workspace can be selected for a one-time preview without granting access to the whole folder.
+
 ## [0.8.6] - 2026-11-13
 
 ### Fixed
