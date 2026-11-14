@@ -14,6 +14,8 @@ export const preview = {
   zoomOut: "缩小",
   zoomFit: "适应窗口",
   loading: "正在读取…",
+  copyPath: "复制路径",
+  openInFileManager: "在文件管理器中打开",
   missing: "文件不存在",
   binary: "这是二进制文件，无法预览。",
   tooLarge: "文件太大（{size}），无法预览。",

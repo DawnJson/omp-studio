@@ -115,10 +115,14 @@ export interface DirListing {
   truncated: boolean;
 }
 
-/** 文件预览结果：path 是相对根目录（任务 cwd 或草稿的项目目录）的规范化路径（传入绝对路径但落在根内时会换算）。 */
+/** 文件预览结果：文件树读取用相对根目录的路径，显式文件链接预览用绝对路径。 */
 export interface PreviewFile {
   kind: "text" | "image" | "html" | "binary" | "too_large" | "missing";
   path: string;
+  /** 绝对链接自动匹配到的额外工作区根；后续打开/显示文件时沿用。 */
+  root?: number;
+  /** 目录外文件只读预览，不提供工具栏中的系统打开/定位动作。 */
+  external?: boolean;
   size: number;
   /** text / html 才有。 */
   text?: string;
@@ -1299,7 +1303,7 @@ export interface StudioInvokeApi {
    */
   taskGoal(taskId: TaskId, op: GoalOp, objective?: string): Promise<TaskGoal | null>;
   /**
-   * 用系统默认应用打开任务工作目录里的文件。relPath 相对根目录，主进程校验落在根之内；`root` 缺省 / 0 = 任务 cwd，
+   * 用系统默认应用打开任务工作目录里的文件。relPath 相对根目录，或为根内的绝对路径，主进程校验落在根之内；`root` 缺省 / 0 = 任务 cwd，
    * 1…n = 第 n 个额外工作区目录（`TaskState.workspaceDirs`，主进程按自己记的列表取，渲染进程不传绝对路径）。
    */
   openTaskFile(taskId: TaskId, relPath: string, root?: number): Promise<void>;
@@ -1318,6 +1322,10 @@ export interface StudioInvokeApi {
    * 文本 > 2 MB、图片 > 20 MB 返回 too_large；文件不存在返回 missing（不 reject）。
    */
   readPreviewFile(target: ProjectFilesTarget, relPath: string): Promise<PreviewFile>;
+  /** 显式文件链接直接预览本机文件，不弹选择或授权；目录外只读，不改变文件树及自动图片的工作区限制。 */
+  readLinkedPreviewFile(taskId: TaskId, path: string): Promise<PreviewFile>;
+  /** 原生文件右键菜单：仅复制完整路径或在系统文件管理器中定位，不读取内容或授予目录权限。 */
+  showFileContextMenu(target: ProjectFilesTarget, path: string): Promise<void>;
   /**
    * 文件预览里的网页（HTML 文件、回答里的 html 片段）交给主进程放在内存里，返回随机 token；iframe 加载
    * `htmlPreviewUrl(token)`。那是独立的源，响应头带固定 CSP（主进程 window/preview-protocol.ts），应用页面的 CSP 管不到它的脚本。
@@ -1827,6 +1835,8 @@ export const invokeNames = {
   refreshWorkspaceDirs: true,
   openTaskFolder: true,
   readPreviewFile: true,
+  readLinkedPreviewFile: true,
+  showFileContextMenu: true,
   registerHtmlPreview: true,
   releaseHtmlPreview: true,
   listDirectory: true,

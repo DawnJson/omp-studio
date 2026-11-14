@@ -2,6 +2,19 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
 
+/** 根内的绝对路径换成相对路径；根外路径仍交给现有边界校验拒绝。 */
+export function toRelative(cwd: string, input: string): string {
+  if (!path.isAbsolute(input)) return input;
+  const relative = path.relative(cwd, input);
+  return relative === "" || relative.startsWith("..") || path.isAbsolute(relative) ? input : relative;
+}
+
+/** 文件预览不访问网络共享、设备或盘符相对路径。 */
+export function assertLocalFilePath(file: string): void {
+  if (file.includes("\0") || !path.isAbsolute(file) || /^[\\/]{2}/.test(file) || /^[a-z]:[^\\/]/i.test(file))
+    throw new Error("file preview only supports local absolute paths");
+}
+
 /** 词法校验并返回绝对路径；越界抛错。不碰磁盘，单测直接用。 */
 export function resolveInside(cwd: string, relPath: string): string {
   if (relPath === "" || relPath.includes("\0")) throw new Error("invalid path");

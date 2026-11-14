@@ -6,9 +6,11 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
+import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
 import {
   expectNoOverflow,
   launchApp,
+  lockClipboard,
   openTaskRow,
   setLocale,
   setLocaleTheme,
@@ -16,6 +18,7 @@ import {
   testOmp,
   type LaunchedApp,
 } from "./launch.ts";
+import { installFileMenuProbe } from "./file-menu-probe.ts";
 
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#0b7a66"/></svg>';
@@ -108,6 +111,95 @@ test("readPreviewFile 按类型返回内容，越界拒绝", async () => {
 
     await expect(read("../outside.txt")).rejects.toThrow();
     await expect(read(path.join(os.tmpdir(), "x.txt"))).rejects.toThrow();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("目录外文件链接直接预览，不弹选择框，工作区读取边界保持不变", async () => {
+  const lines = loadTspFixture("task");
+  const prompt = String(recordedUserEvents(lines).find((entry) => entry.event["ev"] === "send")!.event["text"]);
+  let external = "";
+  let sibling = "";
+  const { launched, taskId, cleanup } = await start(async (work) => {
+    const outside = path.join(work, "目录外");
+    await mkdir(outside);
+    external = path.join(outside, "交接 文档.md");
+    sibling = path.join(outside, "另一个文件.md");
+    await writeFile(external, "# 目录外直接预览\n");
+    await writeFile(sibling, "not authorized");
+    const fixture = path.join(work, "outside-links.jsonl");
+    await writeFile(
+      fixture,
+      lines
+        .map((line) => JSON.stringify(line))
+        .join("\n")
+        .replaceAll("file:///E:/tern-probe/demo/tests/test_all.py", pathToFileURL(external).href) + "\n",
+    );
+    return testOmp(fixture);
+  });
+  try {
+    const { page } = launched;
+    const menuProbe = await installFileMenuProbe(launched.app);
+    await page.evaluate(() => globalThis.studio.setGroupToolCalls(false));
+    await launched.app.evaluate(({ dialog }) => {
+      const state = { count: 0 };
+      (globalThis as unknown as { previewChoices: typeof state }).previewChoices = state;
+      dialog.showOpenDialog = async () => {
+        state.count += 1;
+        throw new Error("File preview must not open a selection dialog");
+      };
+    });
+    const choices = () =>
+      launched.app.evaluate(
+        () => (globalThis as unknown as { previewChoices: { count: number } }).previewChoices.count,
+      );
+    await page.getByTestId("composer-input").fill(prompt);
+    await page.getByTestId("composer-input").press("Enter");
+    const link = page.locator(`a.tsp-link[data-href="${pathToFileURL(external).href}"]`).first();
+    await expect(link).toBeVisible({ timeout: 30_000 });
+    const unlock = await lockClipboard();
+    const previous = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
+    try {
+      await launched.app.evaluate(({ clipboard }) => clipboard.writeText("file-menu-probe"));
+      await link.click({ button: "right" });
+      await expect.poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(external);
+    } finally {
+      await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), previous);
+      await unlock();
+    }
+    expect((await menuProbe.labels())[0]).toEqual(["复制路径", "在文件管理器中打开"]);
+    await expect(page.getByTestId("file-preview")).toHaveCount(0);
+    await menuProbe.nextAction("reveal");
+    await link.click({ button: "right" });
+    await expect.poll(menuProbe.revealed).toEqual([external]);
+    await link.click();
+    await expect(page.getByTestId("file-preview-md")).toContainText("目录外直接预览");
+    await expect(page.getByTestId("file-preview-name")).toHaveText("交接 文档.md");
+    expect(await choices()).toBe(0);
+    await expect(page.getByTestId("file-preview-authorize")).toHaveCount(0);
+    await expect(page.getByTestId("file-preview-open")).toHaveCount(0);
+    await expect(page.getByTestId("file-preview-reveal")).toHaveCount(0);
+    for (const file of [external, sibling])
+      await expect(
+        page.evaluate(
+          ([id, input]) => globalThis.studio.readPreviewFile({ kind: "task", taskId: id as TaskId }, input!),
+          [taskId, file],
+        ),
+      ).rejects.toThrow();
+    expect(
+      await page.evaluate(
+        async (id) => (await globalThis.studio.listTasks()).find((task) => task.id === id)?.workspaceDirs,
+        taskId,
+      ),
+    ).toEqual([]);
+    await setLocale(page, "en");
+    await page.getByTestId("file-preview-close").click();
+    await expect(page.getByTestId("file-preview")).toHaveCount(0);
+    await link.click();
+    await expect(page.getByTestId("file-preview-md")).toContainText("目录外直接预览");
+    expect(await choices()).toBe(0);
+    await expectNoOverflow(page.getByTestId("file-preview"));
   } finally {
     await cleanup();
   }

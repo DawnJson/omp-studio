@@ -8,7 +8,7 @@ import { exportFileName } from "../tasks/export-name.ts";
 import { exportedFile, exportTarget, recordExport } from "../tasks/export-record.ts";
 import { limits, TERMINAL_LOGIN_ID } from "../../shared/ipc.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
-import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
+import { canOpenDirectly, resolveInsideReal, toRelative } from "./task-file-path.ts";
 import { parseRootIndex, rootDir } from "../files/task-roots.ts";
 import { terminalLogin } from "../login/terminal-login-instance.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
@@ -141,10 +141,8 @@ export const taskHandlers: HandlerGroup<
   openTaskFile: async (taskId, relPath, root) => {
     const pool = await getTaskPool();
     const id = parseTaskId(taskId);
-    const file = await resolveInsideReal(
-      rootDir(pool.taskCwd(id), pool.taskWorkspaceDirs(id), parseRootIndex(root)),
-      parseString(relPath, "relPath", 1024),
-    );
+    const cwd = rootDir(pool.taskCwd(id), pool.taskWorkspaceDirs(id), parseRootIndex(root));
+    const file = await resolveInsideReal(cwd, toRelative(cwd, parseString(relPath, "relPath", 1024)));
     if (!canOpenDirectly(file))
       throw new Error(
         "only plain text, code, image and document files are opened directly; reveal them in the folder instead",
@@ -157,12 +155,8 @@ export const taskHandlers: HandlerGroup<
   revealTaskFile: async (taskId, relPath, root) => {
     const pool = await getTaskPool();
     const id = parseTaskId(taskId);
-    shell.showItemInFolder(
-      await resolveInsideReal(
-        rootDir(pool.taskCwd(id), pool.taskWorkspaceDirs(id), parseRootIndex(root)),
-        parseString(relPath, "relPath", 1024),
-      ),
-    );
+    const cwd = rootDir(pool.taskCwd(id), pool.taskWorkspaceDirs(id), parseRootIndex(root));
+    shell.showItemInFolder(await resolveInsideReal(cwd, toRelative(cwd, parseString(relPath, "relPath", 1024))));
   },
 
   openTaskFolder: async (taskId) => {

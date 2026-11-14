@@ -11,6 +11,7 @@ import { DatabaseSync } from "node:sqlite";
 import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
+import { installFileMenuProbe } from "./file-menu-probe.ts";
 import {
   copyFilesToClipboard,
   expectNoOverflow,
@@ -768,6 +769,25 @@ test("回答里的本地图片：任务目录里的直接显示、点开在右�
     const link = page.getByTestId("md-image-link");
     await expect(link).toHaveText("外面的图");
     await expect(link).toHaveAttribute("title", outside);
+    const menus = await installFileMenuProbe(launched.app);
+    const unlock = await lockClipboard();
+    const previous = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
+    try {
+      await launched.app.evaluate(({ clipboard }) => clipboard.writeText("file-menu-probe"));
+      for (const [entry, file] of [
+        [page.getByTestId("md-local-image"), path.join(projectPath, "shot.png")],
+        [link, path.normalize(outside)],
+      ] as const) {
+        await entry.click({ button: "right" });
+        await expect.poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(file);
+      }
+    } finally {
+      await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), previous);
+      await unlock();
+    }
+    await menus.nextAction("reveal");
+    await page.getByTestId("md-local-image").click({ button: "right" });
+    await expect.poll(menus.revealed).toEqual([path.join(projectPath, "shot.png")]);
     await page.getByTestId("md-local-image").click();
     await expect(page.getByTestId("file-preview-image")).toBeVisible();
   } finally {

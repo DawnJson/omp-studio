@@ -3,9 +3,11 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, openTaskRow, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, lockClipboard, openTaskRow, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
+import { installFileMenuProbe } from "./file-menu-probe.ts";
 
 const bigCount = 1500;
 
@@ -45,7 +47,8 @@ async function start(options: { dirs?: boolean } = {}): Promise<Started> {
   // `/add-dir` 的额外目录（带空格和中文）和对应的回放录制：slash-status 录制的握手部分 + 两条命令的 toast（Added / Removed，omp 18.12.5 实测原文）。
   const extra = path.join(work, "额外 目录");
   await mkdir(path.join(extra, "sub"), { recursive: true });
-  await writeFile(path.join(extra, "额外 笔记.md"), "# 额外目录里的笔记\n");
+  const extraFile = path.join(extra, "额外 笔记.md");
+  await writeFile(extraFile, "# 额外目录里的笔记\n");
   const inputLog = path.join(work, "omp-input.jsonl");
   const listing = (...dirs: string[]) =>
     ["Workspace directories:", `  ${project} (working directory)`, ...dirs.map((dir) => `  ${dir}`)].join("\n");
@@ -62,6 +65,21 @@ async function start(options: { dirs?: boolean } = {}): Promise<Started> {
         s: seq,
         ops: [
           first ? ["add", "u", "main", null, { id: "u", ...toast(reply) }] : ["set", "u", toast(reply).p],
+          ...(first
+            ? [
+                [
+                  "add",
+                  "extra-link",
+                  "main",
+                  null,
+                  {
+                    id: "extra-link",
+                    k: "text",
+                    p: { spans: [{ t: "打开额外目录文档", href: pathToFileURL(extraFile).href }] },
+                  },
+                ],
+              ]
+            : []),
           ["settle", "u"],
         ],
       },
@@ -117,6 +135,46 @@ async function start(options: { dirs?: boolean } = {}): Promise<Started> {
 }
 
 const row = (page: Page, rel: string) => page.locator(`[data-testid=file-tree-row][data-path="${rel}"]`);
+
+test("文件树右键可复制完整路径和定位文件或目录，不触发预览或展开", async () => {
+  const { launched, taskId, cleanup } = await start();
+  try {
+    const { page } = launched;
+    const probe = await installFileMenuProbe(launched.app);
+    const cwd = await page.evaluate(
+      async (id) => (await globalThis.studio.listTasks()).find((task) => task.id === id)!.cwd,
+      taskId,
+    );
+    await page.getByTestId("topbar-files").click();
+    await expect(row(page, "notes.md")).toBeVisible();
+    const unlock = await lockClipboard();
+    const previous = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
+    try {
+      await launched.app.evaluate(({ clipboard }) => clipboard.writeText("file-menu-probe"));
+      for (const file of ["notes.md", "src"]) {
+        await row(page, file).click({ button: "right" });
+        await expect
+          .poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText()))
+          .toBe(path.join(cwd, file));
+      }
+    } finally {
+      await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), previous);
+      await unlock();
+    }
+    expect((await probe.labels())[0]).toEqual(["复制路径", "在文件管理器中打开"]);
+    await expect(page.getByTestId("file-preview")).toHaveAttribute("data-page", "files");
+    await expect(row(page, "src")).toHaveAttribute("aria-expanded", "false");
+    await probe.nextAction("reveal");
+    await row(page, "notes.md").click({ button: "right" });
+    await row(page, "src").click({ button: "right" });
+    await expect.poll(probe.revealed).toEqual([path.join(cwd, "notes.md"), path.join(cwd, "src")]);
+    await setLocale(page, "en");
+    await row(page, "notes.md").click({ button: "right" });
+    await expect.poll(async () => (await probe.labels()).at(-1)).toEqual(["Copy path", "Show in file manager"]);
+  } finally {
+    await cleanup();
+  }
+});
 
 test("顶栏按钮打开文件面板：目录在前文件在后、不列 .git，展开、点文件在同一面板预览，展开状态按任务记住", async () => {
   const { launched, cleanup } = await start();
@@ -357,6 +415,13 @@ test("工作区目录：添加文件夹（空格和中文）→ 额外根出现�
     await expect(row(page, "big")).toHaveCount(0);
     await row(page, "额外 笔记.md").click();
     await expect(page.getByTestId("file-preview-md")).toContainText("额外目录里的笔记");
+    const probe = await installFileMenuProbe(launched.app);
+    await page.getByRole("link", { name: "打开额外目录文档" }).click();
+    await expect(page.getByTestId("file-preview-md")).toContainText("额外目录里的笔记");
+    await page.getByTestId("file-preview-open").click();
+    await expect.poll(probe.opened).toEqual([path.join(extra, "额外 笔记.md")]);
+    await page.getByTestId("file-preview-reveal").click();
+    await expect.poll(probe.revealed).toEqual([path.join(extra, "额外 笔记.md")]);
 
     // 切回任务目录：原来的树。
     await page.getByTestId("file-preview-page-files").click();

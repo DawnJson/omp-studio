@@ -29,6 +29,7 @@ import { ColumnResizer, columnDragging, onColumnDragEnd } from "./ColumnResizer.
 import { ConversationLine } from "./ConversationLine.tsx";
 import type { TspContext } from "./node-props.ts";
 import { TspHosts } from "./TspHosts.tsx";
+import { showHrefContextMenu } from "./actions.ts";
 import { TspChildren } from "./TspChildren.tsx";
 import { MainFlow } from "./MainFlow.tsx";
 import { StudioHeader } from "../empty/StudioHeader.tsx";
@@ -371,6 +372,13 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
       data-covered={screen ? "" : undefined}
       data-parked={parked ? "" : undefined}
       data-ended={endedAt !== null ? "" : undefined}
+      onContextMenuCapture={(event) => {
+        if (!(event.target instanceof Element)) return;
+        const link = event.target.closest("a[data-href], a.md-link[href], a.md-image-frame[href]");
+        if (!link || !event.currentTarget.contains(link)) return;
+        const href = link.getAttribute("data-href") ?? link.getAttribute("href");
+        if (href !== null) showHrefContextMenu(event, href, { taskId });
+      }}
     >
       <TspParkedCtx.Provider value={parked}>
         <TspEndedAtCtx.Provider value={endedAt}>
