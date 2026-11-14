@@ -6,6 +6,7 @@ export type EnterAction =
   | "send"
   | "steer"
   | "followUp"
+  | "submitQueue"
   /** 有门停靠：拒绝门并把输入发给 omp。 */
   | "denyAndSend"
   /** 有门停靠：Ctrl+Enter = 门的主操作（审批 = 批准）。 */
@@ -26,6 +27,7 @@ export interface SendContext {
   gate: boolean;
   /** 文字或图片至少有一样。 */
   hasContent: boolean;
+  queued: boolean;
   /** 设置里对调 Enter 和 Ctrl+Enter 在运行中的含义。 */
   swapped: boolean;
 }
@@ -41,7 +43,7 @@ export function decideEnter(key: KeyInfo, ctx: SendContext): EnterAction {
     // 审批门上 Ctrl+Enter 一律是"批准"（omp 的 `app.approval.approve`），有没有草稿都一样。
     return "gatePrimary";
   }
-  if (!ctx.hasContent) return "default";
+  if (!ctx.hasContent) return ctx.running && ctx.queued && !ctrl ? "submitQueue" : "default";
   if (!ctx.running) return "send";
   const steerOnEnter = !ctx.swapped;
   return ctrl === steerOnEnter ? "followUp" : "steer";
