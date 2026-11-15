@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-14
+
 ### Fixed
 
 - Copying content with an image in the input box now copies the image too: pasting back into an input box brings the image along, and other apps get the image as well.
