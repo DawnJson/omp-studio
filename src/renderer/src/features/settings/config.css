@@ -27,6 +27,7 @@
 .st-cells .ui-row:has(> .ui-row-control > .cfg-note) > .ui-row-control {
   grid-row: 2;
   grid-column: 1 / -1;
+  justify-self: stretch;
 }
 
 .cfg-error {

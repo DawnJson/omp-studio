@@ -225,19 +225,29 @@
 .settings-section > .st-groups:first-child > .st-group:first-child > .st-cells:first-child {
   margin-top: calc(var(--space-10) + var(--space-3));
 }
-/* 格子里的行（2026-11-14 所有者批准的界面体检方案）：标签在左，控件紧跟在标签列右边，不推到格子最右；"恢复默认"跟在控件后面，出现时控件不动。
-   标签列至少 --st-label-min：标签短的几行控件左边线对齐；标签更长时按标签不折行的宽，Cells.tsx 按这个宽给格子分列，
+/* 格子里的行：标签在左，控件靠格子右边，同一列上下几行控件的右边线对齐，也和快捷键表右边的键对齐
+   （2026-11-15 所有者截图：控件紧跟标签时开关、分段、按钮的右边参差不齐）。"恢复默认"放在控件左边，出现时控件不动。
+   标签列至少 --st-label-min；标签更长时按标签不折行的宽，Cells.tsx 按这个宽给格子分列，
    所以格子放得下时标签不折行；整行都放不下时（窄窗口、omp 的长 key）标签自己折行（长 key 只在点后面断开），控件仍在右边。 */
 .st-cells {
   --st-label-min: 128px;
 }
 .st-cells .ui-row {
-  /* 控件列的下限写 min-content：.ui-row-control 的 min-width: 0 会让 auto 列在挤的时候缩到 0、控件越界，挤的时候宁可让标签折行 */
-  grid-template-columns: minmax(var(--st-label-min), max-content) minmax(min-content, max-content) auto;
-  justify-content: start;
+  /* 标签 | 恢复默认 | 控件。控件列的下限写 min-content：.ui-row-control 的 min-width: 0 会让 auto 列在挤的时候缩到 0、控件越界，挤的时候宁可让标签折行 */
+  grid-template-columns: minmax(var(--st-label-min), 1fr) auto minmax(min-content, max-content);
   min-height: var(--control-h-sm);
   padding: 0;
   border-bottom: 0;
+}
+.st-cells .ui-row > .ui-row-label {
+  grid-area: 1 / 1;
+}
+.st-cells .ui-row > :last-child {
+  grid-area: 1 / 2;
+}
+.st-cells .ui-row > .ui-row-control {
+  grid-area: 1 / 3;
+  justify-self: end;
 }
 .st-cells .ui-row[data-modified]::before {
   top: var(--space-1);
@@ -258,8 +268,12 @@
 }
 /* 文本框、标签输入：控件列占满标签后面余下的宽（至少原来的宽，Cells.tsx 按原宽分列），同一列上下几个框右边线一致 */
 .st-cells .ui-row:has(> .ui-row-control > .st-tags, > .ui-row-control > .ui-field:not(.ui-number, .ui-select)) {
-  grid-template-columns: minmax(var(--st-label-min), max-content) minmax(0, 1fr) auto;
-  justify-content: stretch;
+  grid-template-columns: minmax(var(--st-label-min), max-content) auto minmax(0, 1fr);
+}
+.st-cells
+  .ui-row:has(> .ui-row-control > .st-tags, > .ui-row-control > .ui-field:not(.ui-number, .ui-select))
+  > .ui-row-control {
+  justify-self: stretch;
 }
 /* Cells.tsx 量每格"不折行的宽"时（data-measuring，同一帧里量完就去掉）：标签和控件排成一行，标签按至少 --st-label-min 算，文本框、标签输入按原宽算。
    不这样量的话控件列的 1fr 不算进内容宽，格子少占一列，框被挤窄（2026-11-09）。 */
@@ -282,10 +296,16 @@
   width: 100%;
 }
 /* 关于页的版本（omp-studio、omp 各一格）：最多两列（每列至少半宽）；内容宽（版本 + 徽标 + 说明 + 按钮），放不下时在控件列里折行。
-   两格左右并排、不上下叠，标签列不用对齐，按标签自己的宽。 */
+   两格左右并排、不上下叠，标签列不用对齐，按标签自己的宽，内容紧跟标签（版本号不推到格子最右）。 */
 .st-cells.st-pair {
   --st-label-min: 0px;
   grid-template-columns: repeat(auto-fill, minmax(max(min(var(--cell-min), 100%), calc(50% - var(--space-6))), 1fr));
+}
+.st-cells.st-pair .ui-row {
+  grid-template-columns: max-content auto minmax(0, 1fr);
+}
+.st-cells.st-pair .ui-row > .ui-row-control {
+  justify-self: start;
 }
 
 /* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填；分隔线和格子一样。默认思考强度不在表里，是表上面的一格普通设置。
@@ -358,6 +378,19 @@
 @container (max-width: 860px) {
   .st-roles {
     grid-template-columns: var(--role-label-w) minmax(0, 1fr) minmax(104px, auto) var(--control-h-sm);
+  }
+}
+/* 表上面的"默认思考强度"：这一格和左半边角色格一样宽、到思考强度列为止，下拉的右边线对上下面各角色的思考强度下拉（2026-11-15 所有者截图：右侧不对齐）。
+   要减去的是删除列（--control-h-sm）和它两边的格内间距 */
+.st-cells:has([data-testid="setting-default-thinking"]) {
+  grid-template-columns: calc((100% - var(--space-6)) / 2 - var(--control-h-sm) - 2 * var(--space-2));
+}
+[data-testid="setting-default-thinking"] {
+  min-width: 104px;
+}
+@container (max-width: 860px) {
+  .st-cells:has([data-testid="setting-default-thinking"]) {
+    grid-template-columns: calc(100% - var(--control-h-sm) - 2 * var(--space-2));
   }
 }
 
