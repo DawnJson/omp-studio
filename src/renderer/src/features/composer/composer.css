@@ -1074,7 +1074,8 @@ button.usage-context:hover,
   line-height: var(--lh-xs);
   color: var(--text-3);
 }
-/* 文件名太长时和目录一起让位（目录先缩），全文在行的悬停提示里。 */
+/* 文件名太长时和目录一起让位（目录先缩），全文在行的悬停提示里。
+   命令名 / 文件名是这一行的主角：代码字号、正文色、中等字重；后面的说明是 --fs-xs --text-3（2026-11-15 所有者定）。 */
 .slash-name {
   flex: 0 1 auto;
   min-width: 0;
@@ -1083,7 +1084,8 @@ button.usage-context:hover,
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-code);
+  font-weight: var(--fw-medium);
 }
 .slash-hint {
   flex: none;

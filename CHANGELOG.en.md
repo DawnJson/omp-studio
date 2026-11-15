@@ -28,6 +28,8 @@ How to write it:
 - The row under the input box (model, approval mode, folder, usage) uses one text size with more spacing, and the folder path is no longer monospace; the subagent / background job pill above the input box loses its trough; the card shown when hovering a job no longer has fills or dividers.
 - Model picker: model names stand out, number columns are small muted text, and missing values ("–") are fainter; the sidebar and role marks no longer have a filled background.
 - Settings: theme thumbnails are small cards instead of filling half the screen; toggles and dropdowns sit right after their labels instead of at the far right; sections and provider / plugin cards no longer have fills or borders and are separated by space; section titles and setting labels use body text size.
+- Command palette: shortcuts are plain muted text instead of boxed keycaps (tooltips too); the current row no longer has a purple bar; rows are shorter, so more fit on screen.
+- Slash menu command names stand out more; the ＋ and ⋯ buttons on sidebar folder headers stay hidden until you hover.
 
 ## [0.8.6] - 2026-11-13
 

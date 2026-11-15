@@ -323,6 +323,15 @@
     transform var(--dur-base) var(--ease-out),
     visibility 0s;
 }
+/* ＋ 和 ⋯ 平时不显示，指针移到文件夹头上或焦点在里面才出现，和任务行的"更多"一样；侧栏扫一眼只有文件夹名
+   （2026-11-15 所有者定）。折叠时的行数照常显示。 */
+.sb-group-head:not(:hover, :focus-within) .sb-group-new,
+.sb-group-head:not(:hover, :focus-within) .sb-group-more[data-shown] {
+  opacity: 0;
+}
+.sb-group-head .sb-group-new {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
 .sb-group-empty {
   margin: 0;
   padding: var(--space-1) var(--space-2) var(--space-1) var(--space-6);

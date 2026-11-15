@@ -1269,17 +1269,18 @@
   text-wrap: pretty;
 }
 
+/* 快捷键提示：淡色小字，不画键帽框，和菜单、按钮里的 .ui-hint 同一个样子（2026-11-15 所有者定）。
+   命令面板、悬停提示都用它；键名文字按平台写（Windows Ctrl、mac ⌘）。 */
 .ui-kbd {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  height: 18px;
-  padding: 0 5px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  color: var(--text-2);
-  background: var(--bg-sunken);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  white-space: nowrap;
 }
 
 /* 悬停提示（ui/Tooltip.tsx）：全应用的 title 都画成这个，不出系统原生提示框。
@@ -1315,10 +1316,8 @@
   -webkit-line-clamp: 20;
 }
 .ui-tooltip .ui-kbd {
-  flex: none;
   color: inherit;
-  background: color-mix(in srgb, var(--bg-app) 16%, transparent);
-  border-color: transparent;
+  opacity: 0.6;
 }
 
 /* 输入框工具条的胶囊：一种样式，全部无底色，hover / 打开时才有底。左右内边距可由外层的 --chip-pad 收紧（输入框工具行用 4px）。 */
