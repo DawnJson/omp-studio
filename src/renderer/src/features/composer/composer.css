@@ -804,9 +804,10 @@ button.usage-context:hover,
 .todo-mark-track {
   stroke: var(--border);
 }
-/* 弧从 12 点钟开始；转动的是包着整张图的 HTML 盒子（底圈是对称的），--play-state 为 paused（减少动效）时弧停在原位。 */
+/* 弧从 12 点钟开始；转动的是包着整张图的 HTML 盒子（底圈是对称的），--play-state 为 paused（减少动效）时弧停在原位。
+ * 进度是状态不是要你动手的事，用正文次要色，不用强调色（2026-11-15 所有者批准的界面体检方案） */
 .todo-mark-arc {
-  stroke: var(--accent);
+  stroke: var(--text-2);
   transform: rotate(-90deg);
   transform-origin: 8px 8px;
 }
@@ -834,18 +835,18 @@ button.usage-context:hover,
 }
 
 .todo-popover {
-  padding: var(--space-1) var(--space-1-5);
+  padding: var(--space-1) var(--space-2);
   color: var(--text);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
 }
 .todo-phase + .todo-phase {
-  margin-top: var(--space-2-5);
+  margin-top: var(--space-3);
 }
 .todo-phase-head {
   display: flex;
   align-items: center;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   margin: 0 0 var(--space-1);
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
@@ -881,7 +882,7 @@ button.usage-context:hover,
   padding: var(--space-0-5) 0 var(--space-0-5) var(--space-1);
 }
 .todo-mark {
-  margin-top: calc((var(--lh-sm) - var(--icon-sm)) / 2);
+  margin-top: calc((var(--lh-base) - var(--icon-sm)) / 2);
 }
 .todo-item[data-status="completed"] .todo-content {
   color: var(--text-2);
@@ -913,7 +914,7 @@ button.usage-context:hover,
 /* 每条右边的 ⋯：平时淡出，悬停 / 键盘聚焦 / 菜单开着时显现 */
 .todo-more {
   flex: none;
-  margin-top: calc((var(--lh-sm) - 24px) / 2);
+  margin-top: calc((var(--lh-base) - 24px) / 2);
   opacity: 0;
 }
 .todo-item:hover .todo-more,
@@ -939,7 +940,7 @@ button.usage-context:hover,
   all: unset;
   display: flex;
   flex: 1;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   align-items: center;
   min-width: 0;
   cursor: pointer;
@@ -955,7 +956,7 @@ button.usage-context:hover,
 .todo-add {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   align-items: center;
   padding: var(--space-2) var(--space-1) 0;
   margin-top: var(--space-2);
@@ -1120,6 +1121,10 @@ button.usage-context:hover,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* 行在列表包装层（普通块）里：按钮默认按内容宽，长消息会撑出浮层、右边被裁掉没有省略号（2026-11-15 体检截图） */
+.history .slash-row {
+  width: 100%;
 }
 
 /* 模型选择对话框（ui/Dialog，className mp-dialog，照 Tern 里 omp 的 /models）：加宽到 --dialog-w-xl。

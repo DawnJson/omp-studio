@@ -18,6 +18,7 @@ How to write it:
 - Truncated session titles now end with "…".
 - Windows: when viewing an image full size, its close button is no longer hidden behind the window's own close button.
 - In narrow windows, short Chinese words in answer tables no longer wrap one character per line.
+- Very long messages in `Ctrl+R` history search no longer stretch past the popup and get cut off on the right; they end with "…".
 
 ### Changed
 
@@ -33,6 +34,8 @@ How to write it:
 - Review view: text uses body size; hunks and comment cards no longer have borders and `@@` lines no longer have a fill; branch name, status letters and +/− counts are no longer monospace; with no comments, "Send to agent" shows as a faint disabled button.
 - Context popover and usage dialog: numbers use small interface text instead of monospace; the four stats at the top of the usage dialog no longer have a fill or dividers; this week's usage on the new-task page no longer sits in a card.
 - Tables in answers: short file names and code such as `calc.py` or `3-5=-2` no longer break across two lines in narrow columns; in narrow windows a tool-group header only shortens the long command description, so `4/4` and `README.md` are no longer cut off.
+- The branch button in the top bar no longer has a border or monospace text, matching the buttons next to it; small tags such as `+err` and `↓ last 5` in command output and the todo progress ring are no longer purple.
+- Items in the todo popup use body text size.
 
 ## [0.8.6] - 2026-11-13
 

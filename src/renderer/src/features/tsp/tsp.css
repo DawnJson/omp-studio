@@ -1073,13 +1073,14 @@
 .tsp-sh-seg[data-tone="fn"] {
   color: var(--syn-func);
 }
+/* omp 给 `+err`、`↓ last 5` 这类说明 / 折叠小签标的 accent：画成中性灰，强调色只留给要你动手的地方（2026-11-15 所有者批准的界面体检方案） */
 .tsp-sh-seg[data-tone="accent"] {
-  color: var(--accent);
+  color: var(--text-2);
 }
 .tsp-sh-seg[data-pill] {
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--bg-active);
 }
 button.tsp-sh-fold {
   padding: 0 var(--space-1);
