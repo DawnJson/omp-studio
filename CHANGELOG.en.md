@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-14
+
 ### Changed
 
 - Settings: toggles, dropdowns and segmented controls sit on the right again, so their right edges line up down each column like the shortcut keys; the "Default thinking level" dropdown lines up with each role's thinking level below it.
