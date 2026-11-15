@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-14
+
 ### Fixed
 
 - Notifications at the top no longer cover menus that reach the top of the window, such as the task menu and session toggles; while such a menu is open they move to the bottom.
