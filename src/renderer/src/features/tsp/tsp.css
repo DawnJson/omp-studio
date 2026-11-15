@@ -2231,13 +2231,19 @@ button.tsp-sh-fold:focus-visible {
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
+/* 宽度不够时只有长目标那段（data-long，命令说明这类）缩成省略号，至少留 6em；`4/4`、`README.md` 这类短的保持原宽，
+   不被截成 `4/`、`READ…`（2026-11-15 体检截图：过程区在窄列里每一段都只剩几个字）。
+   全是短的仍放不下时，.tsp-run-kinds 在末尾裁掉。 */
 .tsp-run-kind {
   display: inline-flex;
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: none;
   align-items: center;
   gap: var(--space-1);
   color: var(--text-3);
+}
+.tsp-run-kind[data-long] {
+  flex: 0 1 auto;
+  min-width: 6em;
 }
 .tsp-run-label {
   min-width: 0;

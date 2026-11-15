@@ -188,6 +188,10 @@
   overflow-wrap: break-word;
   word-break: keep-all;
 }
+/* 不带空格的短行内代码（render.ts 的 shortCode）整段不折：`3-5=-2` 不在连字符处断成 `3-` / `5=-2` */
+.md-table .md-code-inline[data-nowrap] {
+  white-space: nowrap;
+}
 .md-table th {
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);

@@ -11,23 +11,17 @@
 .uq-summary {
   container-type: inline-size;
 }
-/* 只用底色分层，不再加描边（2026-10-29：底色 + 描边 + 竖线三层容器太重） */
+/* 四个数并排，不铺底、不画竖线：靠列间距分开，标签淡色小字、数值大字就够分层（2026-11-15 所有者批准的界面体检方案） */
 .uq-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-sunken);
+  gap: var(--space-4) var(--space-6);
 }
 .uq-stat {
   display: flex;
   flex-direction: column;
-  gap: var(--space-0-5);
+  gap: var(--space-1);
   min-width: 0;
-  padding: var(--space-3) var(--space-4);
-}
-.uq-stat + .uq-stat {
-  border-left: 1px solid var(--border-subtle);
 }
 .uq-stat-label {
   overflow: hidden;
@@ -77,12 +71,6 @@
 @container (max-width: 640px) {
   .uq-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .uq-stat:nth-child(odd) {
-    border-left: 0;
-  }
-  .uq-stat:nth-child(n + 3) {
-    border-top: 1px solid var(--border-subtle);
   }
 }
 

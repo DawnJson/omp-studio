@@ -30,6 +30,9 @@ How to write it:
 - Settings: theme thumbnails are small cards instead of filling half the screen; toggles and dropdowns sit right after their labels instead of at the far right; sections and provider / plugin cards no longer have fills or borders and are separated by space; section titles and setting labels use body text size.
 - Command palette: shortcuts are plain muted text instead of boxed keycaps (tooltips too); the current row no longer has a purple bar; rows are shorter, so more fit on screen.
 - Slash menu command names stand out more; the ＋ and ⋯ buttons on sidebar folder headers stay hidden until you hover.
+- Review view: text uses body size; hunks and comment cards no longer have borders and `@@` lines no longer have a fill; branch name, status letters and +/− counts are no longer monospace; with no comments, "Send to agent" shows as a faint disabled button.
+- Context popover and usage dialog: numbers use small interface text instead of monospace; the four stats at the top of the usage dialog no longer have a fill or dividers; this week's usage on the new-task page no longer sits in a card.
+- Tables in answers: short file names and code such as `calc.py` or `3-5=-2` no longer break across two lines in narrow columns; in narrow windows a tool-group header only shortens the long command description, so `4/4` and `README.md` are no longer cut off.
 
 ## [0.8.6] - 2026-11-13
 
