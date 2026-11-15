@@ -1459,13 +1459,12 @@ button.usage-context:hover,
   gap: var(--space-2) var(--space-4);
   min-width: 0;
 }
-/* 思考强度分段条：md 高，每档等宽、至少 56 */
+/* 思考强度分段条：md 高，每档等宽 = 最宽那档的文字宽（至少 56）。用 grid 而不是 flex 1 1 0：flex 平分整条的宽，
+   最宽的那档（Medium、XHigh）会比自己的字窄，字顶到选中块的右边（2026-11-15 所有者截图） */
 .mp-ctl-body > .ui-seg {
-  flex: 0 1 auto;
-}
-.mp-ctl-body > .ui-seg > button {
-  flex: 1 1 0;
-  min-width: 56px;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(56px, 1fr);
 }
 .mp-speed,
 .mp-speed-row {

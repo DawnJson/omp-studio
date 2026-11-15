@@ -17,6 +17,9 @@ import {
 // 输入框里的粘贴 / 撤销是系统编辑键：mac 是 Cmd，其他是 Ctrl。mac 分支没有在 mac 上跑过（推测）。
 const mod = process.platform === "darwin" ? "Meta" : "Control";
 
+/** 1×1 的 PNG（base64）。 */
+const onePixelPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==";
+
 interface Started {
   launched: LaunchedApp;
   work: string;
@@ -133,6 +136,63 @@ test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插�
     await expect(cards).toHaveCount(0);
     await page.keyboard.press(`${mod}+Z`);
     await expect(input).toHaveValue("看看 ");
+  } finally {
+    await cleanup();
+  }
+});
+
+// 2026-11-15 所有者：输入框有图片时复制不会复制图片（剪贴板只有占位符文字，粘回来只剩文字）。
+test("复制带图片的选区：系统剪贴板里有这张图；粘回输入框时文字和图片附件一起回来", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    // 新任务的草稿页：不用管任务模型收不收图片
+    await page.getByTestId("sidebar-new-task").click();
+    const input = page.getByTestId("draft-composer").getByTestId("composer-input");
+    await input.fill("看这张图 ");
+    await input.focus();
+    await page.keyboard.press("End");
+    // 粘贴一张图片（1×1 PNG，直接派发带文件的 paste 事件，不经系统剪贴板）
+    await input.evaluate((element, base64) => {
+      const page = globalThis as unknown as {
+        atob(data: string): string;
+        File: new (parts: unknown[], name: string, init: { type: string }) => unknown;
+        DataTransfer: new () => { items: { add(file: unknown): void } };
+        ClipboardEvent: new (
+          type: string,
+          init: { clipboardData: unknown; bubbles: boolean; cancelable: boolean },
+        ) => unknown;
+      };
+      const bytes = Uint8Array.from(page.atob(base64), (char) => char.charCodeAt(0));
+      const data = new page.DataTransfer();
+      data.items.add(new page.File([bytes], "a.png", { type: "image/png" }));
+      const target = element as unknown as { dispatchEvent(event: unknown): boolean };
+      target.dispatchEvent(new page.ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+    }, onePixelPng);
+    const cards = page.getByTestId("attachment");
+    await expect(cards).toHaveCount(1);
+    await page.keyboard.press("End");
+    await page.keyboard.type("结尾");
+    const typed = await input.inputValue();
+
+    await page.keyboard.press(`${mod}+A`);
+    await page.keyboard.press(`${mod}+C`);
+    // 别的软件能粘出图片：剪贴板里除了占位符文字还有这张图（写图片是异步的）。
+    await expect
+      .poll(() =>
+        launched.app.evaluate(async ({ clipboard }) => {
+          const items = await (clipboard as unknown as { read(): Promise<{ types: string[] }[]> }).read();
+          return items.flatMap((item) => item.types);
+        }),
+      )
+      .toContain("image/png");
+    expect(await clipboardText(launched)).toMatch(/^看这张图 \[Image #1, \d+x\d+\] 结尾$/);
+
+    await page.keyboard.press("Delete");
+    await expect(cards).toHaveCount(0);
+    await page.keyboard.press(`${mod}+V`);
+    await expect(cards).toHaveCount(1);
+    await expect(input).toHaveValue(typed);
   } finally {
     await cleanup();
   }

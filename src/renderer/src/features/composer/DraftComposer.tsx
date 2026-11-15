@@ -217,6 +217,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
                 : undefined
           }
           addFiles={attach.addFiles}
+          refuseImages={attach.refuseImages}
           onEdit={(caret) => {
             slashMenu.reset();
             fileMenu.trackCaret(caret);

@@ -225,16 +225,21 @@
 .settings-section > .st-groups:first-child > .st-group:first-child > .st-cells:first-child {
   margin-top: calc(var(--space-10) + var(--space-3));
 }
+/* 没有小标题的组（omp 常用项里不归任何小块的那几项）是上一组的续行：上面留一行格子的间距，不贴着上一组的最后一行 */
+.st-groups > .st-group + .st-group:not(:has(> .ui-section-head)) {
+  margin-top: var(--space-4);
+}
 /* 格子里的行：标签在左，控件靠格子右边，同一列上下几行控件的右边线对齐，也和快捷键表右边的键对齐
    （2026-11-15 所有者截图：控件紧跟标签时开关、分段、按钮的右边参差不齐）。"恢复默认"放在控件左边，出现时控件不动。
-   标签列至少 --st-label-min；标签更长时按标签不折行的宽，Cells.tsx 按这个宽给格子分列，
-   所以格子放得下时标签不折行；整行都放不下时（窄窗口、omp 的长 key）标签自己折行（长 key 只在点后面断开），控件仍在右边。 */
+   标签不定宽：标签列吃掉控件左边余下的宽，Cells.tsx 按"标签不折行 + 控件"的宽给格子分列，所以放得下时一格占一列、标签不折行
+   （2026-11-15 所有者截图：宠物花费那种明明一列放得下的占了整行）；整行都放不下时（窄窗口、omp 的长 key）标签自己折行（长 key 只在点后面断开），控件仍在右边。 */
 .st-cells {
   --st-label-min: 128px;
 }
 .st-cells .ui-row {
-  /* 标签 | 恢复默认 | 控件。控件列的下限写 min-content：.ui-row-control 的 min-width: 0 会让 auto 列在挤的时候缩到 0、控件越界，挤的时候宁可让标签折行 */
-  grid-template-columns: minmax(var(--st-label-min), 1fr) auto minmax(min-content, max-content);
+  /* 标签 | 恢复默认 | 控件。控件靠右，标签不用定宽对齐：标签列吃掉余下的宽，挤的时候标签折行。
+     控件列的下限写 min-content：.ui-row-control 的 min-width: 0 会让 auto 列在挤的时候缩到 0、控件越界 */
+  grid-template-columns: 1fr auto minmax(min-content, max-content);
   min-height: var(--control-h-sm);
   padding: 0;
   border-bottom: 0;
@@ -283,7 +288,6 @@
 }
 .st-cells[data-measuring] .ui-row-label {
   flex: none;
-  min-width: var(--st-label-min);
 }
 .st-cells[data-measuring] .ui-row-control:has(> .st-tags) {
   width: 360px;
@@ -514,11 +518,12 @@
 
 /* ───────── 通用 → 外观：主题画廊（ThemeGallery.tsx） ───────── */
 
-/* 卡片定宽 112、靠左，不随内容宽拉伸（2026-11-14 所有者批准的界面体检方案：拉伸的大卡一屏占半页），窄窗口自己少几张。
+/* 卡片约 112 宽，不按内容宽拉成大卡（2026-11-14 所有者批准的界面体检方案：拉伸的大卡一屏占半页），窄窗口自己少几张；
+   一行几张平分整行的宽（每张最多多出几像素），右边线和下面格子里的控件对齐（2026-11-15 所有者截图：没有右对齐）。
    预览块挂 data-theme，下面的颜色都是那个主题自己的变量。 */
 .st-theme-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 112px);
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: var(--space-2);
   margin: var(--space-2) 0 var(--space-4);
 }

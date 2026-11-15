@@ -33,6 +33,8 @@ async function convertImageFiles(files: Iterable<File>, t: TFunction): Promise<D
 
 export interface Attach {
   addFiles(files: Iterable<File>): Promise<void>;
+  /** 当前模型不收图片时 toast 并返回 true（粘贴回带图片的复制片段前问一下）。 */
+  refuseImages(): boolean;
   onDragOver(event: DragEvent): void;
   onDrop(event: DragEvent): void;
 }
@@ -54,14 +56,17 @@ export function useAttach(
       : null;
   }, [fieldRef, key, labels]);
 
+  const refuseImages = useCallback(() => {
+    if (acceptsImages !== false) return false;
+    pushToast({ level: "warning", message: t("composer.attach.unsupported") });
+    return true;
+  }, [acceptsImages, t]);
+
   const addFiles = useCallback(
     async (files: Iterable<File>) => {
       const list = [...files];
       if (!list.some((file) => file.type.startsWith("image/"))) return;
-      if (acceptsImages === false) {
-        pushToast({ level: "warning", message: t("composer.attach.unsupported") });
-        return;
-      }
+      if (refuseImages()) return;
       // 插在粘贴那一刻的光标处（转换图片是异步的，期间光标可能动了）。
       const caret = caretNow();
       const converted = await convertImageFiles(list, t);
@@ -72,7 +77,7 @@ export function useAttach(
       requestCaret(key, inserted.caret);
       fieldRef.current?.focus();
     },
-    [acceptsImages, caretNow, key, fieldRef, t],
+    [refuseImages, caretNow, key, fieldRef, t],
   );
 
   // 文件附件：主进程登记好的文件（拖入 / 粘贴时 preload 取路径、主进程校验；选择器的结果也走这里）。
@@ -91,6 +96,7 @@ export function useAttach(
 
   return {
     addFiles,
+    refuseImages,
     onDragOver: (event) => {
       if ([...event.dataTransfer.items].some((item) => item.kind === "file")) event.preventDefault();
     },

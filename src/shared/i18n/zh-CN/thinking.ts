@@ -8,6 +8,6 @@ export const thinking = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  xhigh: "X-High",
+  xhigh: "XHigh",
   max: "Max",
 } satisfies Record<string, MessageEntry>;

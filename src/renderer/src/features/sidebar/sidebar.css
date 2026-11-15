@@ -271,21 +271,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 行数和 ⋯ 叠在 ＋ 左边同一格：折叠显示行数，展开显示 ⋯，交叉淡入淡出（一个缩小淡出，一个放大淡入） */
+/* 折叠时的行数在最右一格（＋ 的位置），右边不留空；指针移上来或键盘焦点在里面时行数让位给 ＋ 和 ⋯（2026-11-15 所有者截图：数字右边空着难看） */
 .sb-group-count {
   position: absolute;
   top: 0;
-  right: calc(var(--control-h-sm) + var(--space-0-5));
+  right: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1-5);
   min-width: var(--control-h-sm);
   height: var(--control-h-sm);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-.sb-group-count .sb-waiting-diamond {
+/* 折叠时"有任务等你确认"的菱形、"跑完没看"的绿点跟在箭头后面，不和行数一起让位：指针停在头上（刚点过折叠）也看得到
+   （2026-11-15 所有者定：悬停把这两个状态一起藏掉是回归） */
+.sb-group-marks {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.sb-group-marks .sb-waiting-diamond {
   width: 7px;
   height: 7px;
 }
@@ -323,11 +330,21 @@
     transform var(--dur-base) var(--ease-out),
     visibility 0s;
 }
-/* ＋ 和 ⋯ 平时不显示，指针移到文件夹头上或焦点在里面才出现，和任务行的"更多"一样；侧栏扫一眼只有文件夹名
-   （2026-11-15 所有者定）。折叠时的行数照常显示。 */
-.sb-group-head:not(:hover, :focus-within) .sb-group-new,
-.sb-group-head:not(:hover, :focus-within) .sb-group-more[data-shown] {
+/* ＋ 和 ⋯ 平时不显示，指针移到文件夹头上或键盘焦点在文件夹名上才出现，这时行数让位；侧栏扫一眼只有文件夹名
+   （2026-11-15 所有者定）。看的是键盘焦点（:focus-visible），不是 :focus-within：点过 ＋ 或文件夹名后焦点留在头上，
+   指针移开 ＋ 还挂着（2026-11-15 所有者截图：残留）。＋ 和 ⋯ 排在文件夹名按钮后面，用兄弟选择器（侧栏不用 :has）。 */
+.sb-group-head:not(:hover) .sb-group-new,
+.sb-group-head:not(:hover) .sb-group-more[data-shown] {
   opacity: 0;
+}
+.sb-group-toggle:focus-visible ~ .sb-group-new,
+.sb-group-toggle:focus-visible ~ .sb-group-more[data-shown] {
+  opacity: 1;
+}
+.sb-group-head:hover .sb-group-count,
+.sb-group-toggle:focus-visible .sb-group-count {
+  opacity: 0;
+  visibility: hidden;
 }
 .sb-group-head .sb-group-new {
   transition: opacity var(--dur-fast) var(--ease-out);

@@ -138,16 +138,20 @@ export function FolderGroup(props: FolderGroupProps) {
           <span className="sb-chevron">
             <ChevronIcon />
           </span>
+          {!open && (hasWaiting || hasUnread) && (
+            <span className="sb-group-marks">
+              {hasWaiting && <span className="sb-waiting-diamond" role="img" aria-label={t("sidebar.waitingHere")} />}
+              {hasUnread && (
+                <span
+                  className="sb-unread-dot"
+                  role="img"
+                  aria-label={t("sidebar.unreadHere")}
+                  data-testid="sidebar-folder-unread"
+                />
+              )}
+            </span>
+          )}
           <span className="sb-group-count" data-shown={!open || undefined}>
-            {hasWaiting && <span className="sb-waiting-diamond" role="img" aria-label={t("sidebar.waitingHere")} />}
-            {hasUnread && (
-              <span
-                className="sb-unread-dot"
-                role="img"
-                aria-label={t("sidebar.unreadHere")}
-                data-testid="sidebar-folder-unread"
-              />
-            )}
             {folder.items.length}
           </span>
         </button>

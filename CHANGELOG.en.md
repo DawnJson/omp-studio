@@ -10,6 +10,19 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Copying content with an image in the input box now copies the image too: pasting back into an input box brings the image along, and other apps get the image as well.
+- After clicking a sidebar folder, the + on its header no longer stays visible once the pointer moves away.
+- Model picker: long thinking level names such as Medium and XHigh no longer stick out of the selected segment.
+
+### Changed
+
+- Sidebar: a collapsed folder's item count now sits at the far right instead of leaving a gap; it turns into + when you hover. The "waiting for you" diamond and "new result" dot move next to the folder name's arrow, so they stay visible while the pointer is on the header.
+- Destructive buttons such as Cancel job and Discard now have a light red background and red border, so they stand out from ordinary buttons.
+- The X-High thinking level is now written XHigh, without the hyphen.
+- Settings: settings that fit in one column (such as the pet's spending today and in total) no longer take a whole row; theme cards fill the row and line up with the controls below; untitled settings get spacing from the block above.
+
 ## [0.9.1] - 2026-11-14
 
 ### Changed

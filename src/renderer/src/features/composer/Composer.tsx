@@ -424,6 +424,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
                 : undefined
           }
           addFiles={attach.addFiles}
+          refuseImages={attach.refuseImages}
           onEdit={(caret) => {
             fileMenu.trackCaret(caret);
             setSlashIndex(0);
