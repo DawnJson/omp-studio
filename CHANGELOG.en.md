@@ -10,6 +10,25 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Notifications at the top no longer cover menus that reach the top of the window, such as the task menu and session toggles; while such a menu is open they move to the bottom.
+- When the default model in your config names only the model (no provider), new tasks recognize it and the model picker checks it.
+- The model picker no longer says "No models available" when every provider group is collapsed.
+- Truncated session titles now end with "…".
+- Windows: when viewing an image full size, its close button is no longer hidden behind the window's own close button.
+- In narrow windows, short Chinese words in answer tables no longer wrap one character per line.
+
+### Changed
+
+- The omp studio logo no longer sits at the top of every conversation; your message comes first.
+- Grouped tool-call headers now show which files were read or written and what ran, not just icons and counts.
+- Tool cards, todos and background jobs no longer have a filled background and line up with the answer text; your message bubble is neutral gray; running cards no longer use purple, and shimmering status text now pulses instead.
+- The background jobs dialog (`/jobs`) no longer fills the job list, progress and chart with color or purple; only the command and output have a background. Red buttons such as Cancel job and Discard no longer have a red border.
+- The row under the input box (model, approval mode, folder, usage) uses one text size with more spacing, and the folder path is no longer monospace; the subagent / background job pill above the input box loses its trough; the card shown when hovering a job no longer has fills or dividers.
+- Model picker: model names stand out, number columns are small muted text, and missing values ("–") are fainter; the sidebar and role marks no longer have a filled background.
+- Settings: theme thumbnails are small cards instead of filling half the screen; toggles and dropdowns sit right after their labels instead of at the far right; sections and provider / plugin cards no longer have fills or borders and are separated by space; section titles and setting labels use body text size.
+
 ## [0.8.6] - 2026-11-13
 
 ### Fixed

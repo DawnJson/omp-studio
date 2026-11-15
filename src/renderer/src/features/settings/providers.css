@@ -19,8 +19,8 @@
 
 .pv-text {
   margin: 0;
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   color: var(--text);
   overflow-wrap: anywhere;
 }
@@ -74,7 +74,7 @@
   min-height: var(--control-h-md);
   padding: 0 var(--space-3);
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   color: var(--text);
   cursor: pointer;
   background: transparent;

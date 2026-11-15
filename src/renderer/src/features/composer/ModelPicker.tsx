@@ -447,14 +447,23 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             </>
           )}
         </span>
-        <span className="mp-num" data-testid="model-intelligence">
+        {/* 缺数据的 "–" 比数字再淡一档（data-missing）：一列里大多是 "–" 时不盖过有数的行 */}
+        <span
+          className="mp-num"
+          data-testid="model-intelligence"
+          data-missing={cells.intelligence === missing || undefined}
+        >
           {cells.intelligence}
         </span>
-        <span className="mp-num" data-testid="model-speed">
+        <span className="mp-num" data-testid="model-speed" data-missing={cells.speed === missing || undefined}>
           {cells.speed}
         </span>
-        <span className="mp-num">{cells.context}</span>
-        <span className="mp-num">{cells.price}</span>
+        <span className="mp-num" data-missing={cells.context === missing || undefined}>
+          {cells.context}
+        </span>
+        <span className="mp-num" data-missing={cells.price === missing || undefined}>
+          {cells.price}
+        </span>
         <span className="mp-tick">{isCurrent && <Check size={14} />}</span>
       </div>
     );
@@ -663,7 +672,8 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
                 testId="model-skeleton"
               />
             )}
-            {models !== null && items.length === 0 && (
+            {/* 全部模型里提供商都收着时行不画，但不是"没有模型" */}
+            {models !== null && items.length === 0 && !(collapsible && rows.flat.length > 0) && (
               <p className="mp-empty" data-testid="model-empty">
                 {atRoles ? t("model.noRoles") : searching ? t("model.noMatch") : t("model.empty")}
               </p>

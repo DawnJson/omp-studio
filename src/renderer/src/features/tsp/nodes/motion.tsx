@@ -61,6 +61,7 @@ export function Spinner(props: NodeProps) {
 }
 
 // ───────── shimmer ─────────
+// omp 的扫光文字画成呼吸的纯色字（不用渐变，2026-11-14 所有者批准的界面体检方案）；颜色取 palette.high，kitt 模式和其余色阶不用。
 
 function sweepColor(token: unknown, fallback: string): string {
   const semantic = typeof token === "string" ? semanticOf(token.split(/\s+/)[0] ?? "") : null;
@@ -74,14 +75,9 @@ export function Shimmer(props: NodeProps) {
     ? spans.map((span) => (typeof span.t === "string" ? span.t : "")).join("")
     : (asString(p.text) ?? "");
   const palette = isRecord(p.palette) ? p.palette : {};
-  const style = {
-    "--sh-lo": sweepColor(palette.low, "var(--text-3)"),
-    "--sh-mid": sweepColor(palette.mid, "var(--text-2)"),
-    "--sh-hi": sweepColor(palette.high, "var(--text)"),
-  } as CSSProperties;
-  const kitt = p.mode === "kitt";
+  const style = { "--sh-hi": sweepColor(palette.high, "var(--text-2)") } as CSSProperties;
   return (
-    <span {...nodeDomProps(props, "tsp-shimmer", { className: kitt ? "kitt" : undefined, style })}>
+    <span {...nodeDomProps(props, "tsp-shimmer", { style })}>
       <span className="tsp-shimmer-text">{cleanGlyphs(text)}</span>
     </span>
   );

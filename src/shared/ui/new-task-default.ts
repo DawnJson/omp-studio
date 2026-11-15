@@ -76,6 +76,17 @@ export interface NewTaskDefault {
 }
 
 /**
+ * 配置里不带提供商的模型 id（`modelRoles.default: deepseek-flash`）：omp 按 id 精确匹配（不分大小写，omp://models.md
+ * "Resolution precedence" 第 2 步）。只有一家提供商有这个 id 时才认；几家都有时 omp 按最近用过 / 提供商优先级挑，studio
+ * 推不出来，当成没认出。
+ */
+function bareIdMatch(models: readonly ModelOption[], id: string): ModelOption | null {
+  const wanted = id.toLowerCase();
+  const hits = models.filter((m) => m.key.modelId.toLowerCase() === wanted);
+  return hits.length === 1 ? hits[0]! : null;
+}
+
+/**
  * 显示以项目目录里读到的 omp 配置为准：服务进程在配置重载后不会切换自己当前会话的模型（omp://settings.md
  * "Reloading does not ... switch a healthy active session's model"），它的 get_state 只在 modelRoles.default
  * 没设置时用来显示 omp 自选的模型。配置里的档位模型不支持时显示 omp 会钳到的那一档。
@@ -93,7 +104,7 @@ export function resolveNewTaskDefault(
       const id = `${m.key.provider}/${m.key.modelId}`;
       if (role !== null) return role === id || role.startsWith(`${id}:`);
       return m.key.provider === omp?.key.provider && m.key.modelId === omp?.key.modelId;
-    }) ?? null;
+    }) ?? (role === null ? null : bareIdMatch(models, role.split(":")[0] ?? role));
   const levels = thinkingLevelOptions(model, null);
   // omp 的 defaultThinkingLevel 不接受 off（settings.md）；auto 照样认（omp 每轮按模型自选，胶囊显示 Auto）。
   const configured =

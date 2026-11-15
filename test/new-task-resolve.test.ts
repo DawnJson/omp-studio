@@ -75,4 +75,18 @@ describe("resolveNewTaskDefault", () => {
   it("什么都没配、omp 也没读到：没有强度", () => {
     expect(resolveNewTaskDefault(null, undefined, null).thinkingLevel).toBeNull();
   });
+
+  it("配置写不带提供商的 id（deepseek-flash）：只有一家有这个 id 时认出来（照 omp 的精确 id 匹配），不当成未知模型", () => {
+    const flash = model({ key: { provider: "deepseek", modelId: "deepseek-flash" } });
+    const result = resolveNewTaskDefault(defaults({ model: "Deepseek-Flash:high" }), null, [model(), flash]);
+    expect(result.model?.key).toEqual(flash.key);
+    expect(result.unknownModel).toBeNull();
+  });
+
+  it("不带提供商的 id 几家都有：omp 按偏好挑，studio 推不出来，仍当未知模型显示原名", () => {
+    const a = model({ key: { provider: "deepseek", modelId: "shared" } });
+    const b = model({ key: { provider: "openrouter", modelId: "shared" } });
+    const result = resolveNewTaskDefault(defaults({ model: "shared" }), null, [a, b]);
+    expect(result).toMatchObject({ model: null, unknownModel: "shared" });
+  });
 });

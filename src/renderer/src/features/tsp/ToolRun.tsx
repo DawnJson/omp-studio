@@ -99,7 +99,7 @@ export function ToolRunHead({ run, open, onToggle }: { run: ToolRun; open: boole
         {head.kinds.map((kind) => (
           <span key={kind.name} className="tsp-run-kind" data-tool={kind.name}>
             <TspIcon name={toolIconName(kind.name)} />
-            {kind.count}
+            {kind.label !== "" && <span className="tsp-run-label">{kind.label}</span>}
           </span>
         ))}
         {head.more > 0 && <span className="tsp-run-kind">+{head.more}</span>}

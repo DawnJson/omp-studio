@@ -538,9 +538,10 @@
   background: var(--bg-raised);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--tsp-tc) 16%, transparent);
 }
-/* 中性卡片和过程卡片一样：浅底，不描边（2026-10-24 质感改版：层级靠底色，不靠一圈圈的线） */
+/* 中性卡片（待办、后台作业）和过程卡片一样退到底层：不铺底色、不描边，只有字（2026-11-14 所有者批准的界面体检方案：
+   对话里铺底色的只有你的消息和代码，过程不和结论抢） */
 .tsp-card[data-tone="neutral"] {
-  background: var(--bg-tool);
+  background: none;
   box-shadow: none;
 }
 /* 错误卡（omp.error）：和出错的过程卡片一样只染底色、不描边（白底加一圈淡红线在浅色下几乎看不出边，2026-10-29 审计）。
@@ -862,12 +863,9 @@
   animation: tsp-pulse var(--dur-breathe) var(--tick-breathe) infinite;
   animation-play-state: var(--play-state);
 }
+/* omp 的 shimmer 效果画成呼吸（不用渐变，2026-11-14 所有者批准的界面体检方案） */
 .tsp-fx-shimmer {
-  background: linear-gradient(90deg, var(--text-3), var(--text), var(--text-3)) 0 0 / 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: tsp-sweep var(--dur-breathe) var(--tick-sweep) infinite;
+  animation: tsp-pulse var(--dur-breathe) var(--tick-breathe) infinite;
   animation-play-state: var(--play-state);
 }
 
@@ -1538,7 +1536,8 @@ button.tsp-sh-fold:focus-visible {
   /* 轨道写成 minmax(0, 1fr)：默认的 auto 行按图片原尺寸撑开，img 的 max-height: 100% 就失效，大图只露出上半张（2026-11-09 仓库所有者反馈）。 */
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
-  padding: var(--space-8);
+  /* 顶边让出顶栏：Windows 的系统三键（titleBarOverlay）是原生层，画在网页之上，图和关闭键放进顶栏那条会被它盖住、点不到（2026-11-14 所有者反馈） */
+  padding: calc(var(--titlebar-h) + var(--space-2)) var(--space-8) var(--space-8);
   background: var(--bg-scrim);
   cursor: zoom-out;
 }
@@ -1572,7 +1571,7 @@ button.tsp-sh-fold:focus-visible {
 /* 看大图的关闭键：图标按钮的样子（--text-2，悬停 --text + 叠一层 --bg-hover）；压在图上，底色保持不透明的浮层色 */
 .tsp-zoom-close {
   position: absolute;
-  top: var(--space-4);
+  top: calc(var(--titlebar-h) + var(--space-2));
   right: var(--space-4);
   display: grid;
   place-items: center;
@@ -1611,14 +1610,6 @@ button.tsp-sh-fold:focus-visible {
   }
   to {
     transform: rotate(360deg);
-  }
-}
-@keyframes tsp-sweep {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
   }
 }
 @keyframes tsp-dots {
@@ -1737,34 +1728,18 @@ button.tsp-sh-fold:focus-visible {
   white-space: pre;
 }
 .tsp-shimmer-text {
-  background: linear-gradient(
-      90deg,
-      var(--sh-lo, var(--text-3)) 0%,
-      var(--sh-hi, var(--text)) 50%,
-      var(--sh-lo, var(--text-3)) 100%
-    )
-    0 0 / 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: tsp-sweep var(--dur-breathe) var(--tick-sweep) infinite;
+  color: var(--sh-hi, var(--text-2));
+  animation: tsp-pulse var(--dur-breathe) var(--tick-breathe) infinite;
   animation-play-state: var(--play-state);
 }
-.tsp-shimmer.kitt .tsp-shimmer-text {
-  animation-direction: alternate;
-}
-/* 减少动效：静止的文字（规范：shimmer 变成继承色的纯文字） */
+/* 减少动效：静止的文字 */
 :root[data-motion="reduced"] .tsp-shimmer-text,
 :root[data-motion="reduced"] .tsp-fx-shimmer {
-  background: none;
-  -webkit-text-fill-color: currentColor;
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .tsp-shimmer-text,
   .tsp-fx-shimmer {
-    background: none;
-    -webkit-text-fill-color: currentColor;
     animation: none;
   }
 }
@@ -1873,11 +1848,7 @@ button.tsp-sh-fold:focus-visible {
   border-radius: var(--radius-pill) 0 0 var(--radius-pill);
 }
 .tsp-mt-part.hatch {
-  background-image: repeating-linear-gradient(
-    45deg,
-    transparent 0 2px,
-    color-mix(in srgb, var(--bg-app) 55%, transparent) 2px 4px
-  );
+  opacity: 0.5;
 }
 .tsp-mt-mark {
   position: absolute;
@@ -2125,21 +2096,23 @@ button.tsp-sh-fold:focus-visible {
   min-width: 0;
   --tsp-tool-c: var(--text-3);
 }
-.tsp-tool.st-running {
-  --tsp-tool-c: var(--accent);
+/* 进行中不用强调色：强调色只留给要你动手的地方（审批、选中）；跑没跑完看右边的转圈 */
+.tsp-tool.card.st-running {
+  --tsp-tool-c: var(--text-3);
 }
 .tsp-tool.st-error {
   --tsp-tool-c: var(--st-error);
 }
-/* 过程卡片：浅底，不描边；运行中 / 出错只染底色，左侧竖条标状态（2026-10-24 质感改版） */
+/* 过程卡片：不铺底色、不描边，退在结论下面一层；出错只染底色，左侧竖条标状态（2026-11-14 所有者批准的界面体检方案） */
 .tsp-tool.card {
   border-radius: var(--radius-lg);
-  background: var(--bg-tool);
-  /* 跑完时运行中的淡紫底褪掉（只在已挂载的卡片状态变化时发生，打开历史任务不放） */
-  transition: background-color var(--dur-base) var(--ease-out);
+  background: none;
 }
-.tsp-tool.card.st-running {
-  background: color-mix(in srgb, var(--accent) 5%, var(--bg-tool));
+/* 不铺底色的卡片和组头往外挪出自己的左右内边距：图标和字跟正文、行内工具的左边对齐，悬停底色伸到两侧 */
+.tsp-tool.card,
+.tsp-run-head,
+.tsp-card[data-tone="neutral"] {
+  margin-inline: calc(-1 * var(--space-3));
 }
 .tsp-tool.card.st-error {
   background: var(--st-error-soft);
@@ -2147,7 +2120,6 @@ button.tsp-sh-fold:focus-visible {
 .tsp-tool-bar {
   display: none;
 }
-.tsp-tool.card.st-running > .tsp-tool-bar,
 .tsp-tool.card.st-error > .tsp-tool-bar {
   display: block;
   position: absolute;
@@ -2229,8 +2201,8 @@ button.tsp-sh-fold:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: -3px;
 }
-/* 连续工具调用的组头（ToolRun.tsx，2026-11-09 起，issue #9）：长得像一张收起的工具卡——浅底、一行；
-   左边每种工具一个小图标 + 调用次数（2026-11-10 起），` · ` 整组用时，有失败时红字，右边状态和箭头。展开时下面照常是每张卡。 */
+/* 连续工具调用的组头（ToolRun.tsx，issue #9）：和过程卡片一样不铺底色，一行；
+   左边每种工具一个小图标 + 它做了什么（目标摘要，太长省略），` · ` 整组用时，有失败时红字，右边状态和箭头。展开时下面照常是每张卡。 */
 .tsp-run-head {
   display: flex;
   align-items: center;
@@ -2238,8 +2210,7 @@ button.tsp-sh-fold:focus-visible {
   min-height: var(--row-tool);
   padding: 0 var(--space-3);
   border-radius: var(--radius-lg);
-  background: var(--bg-tool);
-  color: var(--text);
+  color: var(--text-2);
   cursor: pointer;
   --tsp-tool-c: var(--text-3);
 }
@@ -2252,17 +2223,28 @@ button.tsp-sh-fold:focus-visible {
 }
 .tsp-run-kinds {
   display: inline-flex;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   align-items: center;
-  gap: var(--space-2);
-  color: var(--text-3);
+  gap: var(--space-3);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 .tsp-run-kind {
   display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
   align-items: center;
   gap: var(--space-1);
+  color: var(--text-3);
+}
+.tsp-run-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tsp-run-took {
   flex: none;
@@ -2917,11 +2899,13 @@ button.tsp-sh-fold:focus-visible {
   box-shadow: inset 0 0 0 var(--tsp-stroke) currentColor;
 }
 .tsp-ck-g .dot {
+  box-sizing: border-box;
   width: var(--space-2-5);
   height: var(--space-2-5);
+  padding: 2px;
   border-radius: var(--radius-pill);
-  box-shadow: inset 0 0 0 var(--tsp-stroke) var(--accent);
-  background: radial-gradient(circle, var(--accent) 35%, transparent 40%);
+  box-shadow: inset 0 0 0 var(--tsp-stroke) var(--text-2);
+  background: var(--text-2) content-box;
   animation: tsp-pulse var(--dur-breathe) var(--tick-breathe) infinite;
   animation-play-state: var(--play-state);
 }
@@ -3021,7 +3005,7 @@ button.tsp-sh-fold:focus-visible {
   align-self: flex-end;
   max-width: 85%;
   margin-top: var(--space-2);
-  background: var(--bg-bubble);
+  background: var(--bg-tool);
   box-shadow: none;
   border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-sm) var(--radius-bubble);
 }
@@ -3237,9 +3221,9 @@ button.tsp-sh-fold:focus-visible {
   min-width: 8ch;
 }
 
-/* /jobs 弹窗（omp.overlay.jobs）照 studio 自己的对话框排（2026-10-25）：标题栏、左边作业列表（侧栏底色、整列高）、
+/* /jobs 弹窗（omp.overlay.jobs）照 studio 自己的对话框排（2026-10-25）：标题栏、左边作业列表（整列高，一道竖线分开）、
    右边详情自己滚动、底栏（摘要 + Close）钉在最下面；卡片高度固定，切作业时不跳。详情里命令 / 事实 / 进度 / 输出
-   各成一段，段间 --space-4；进度小部件放在浅底块里，输出放在下沉底的终端块里。 */
+   各成一段，段间 --space-6；铺底色的只有命令和输出（代码），列表、进度不铺底（2026-11-14 所有者批准的界面体检方案）。 */
 .tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-card {
   width: min(880px, 100%);
   height: min(640px, 100%);
@@ -3247,7 +3231,7 @@ button.tsp-sh-fold:focus-visible {
   overflow: hidden;
 }
 .tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-head {
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-6);
   font-size: var(--fs-base);
 }
 .tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-body {
@@ -3274,7 +3258,6 @@ button.tsp-sh-fold:focus-visible {
   max-width: 33%;
   padding: var(--space-2);
   overflow: hidden auto;
-  background: var(--bg-sidebar);
   box-shadow: inset -1px 0 0 var(--border-subtle);
 }
 .tsp-col[data-role="omp.jobs.master"] .tspi-list-scroll {
@@ -3291,8 +3274,8 @@ button.tsp-sh-fold:focus-visible {
 .tsp-col[data-role="omp.jobs.detail"] {
   flex: 1 1 0;
   min-width: 0;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6) var(--space-6);
   overflow-y: auto;
 }
 /* 详情自己滚动：子块不许被压扁（overflow:hidden 的代码块会被压成 0 高） */
@@ -3300,14 +3283,16 @@ button.tsp-sh-fold:focus-visible {
   flex-shrink: 0;
 }
 .tsp-text[data-role="omp.jobs.state"][data-tone="pending"] {
-  color: var(--accent);
+  color: var(--text);
 }
 .tsp-row[data-role="omp.jobs.status"] {
   gap: var(--space-2);
   min-height: var(--control-h-sm);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
 }
 .tsp-text[data-role="omp.jobs.state"] {
+  font-size: var(--fs-base);
   font-weight: var(--fw-strong);
 }
 .tsp-text[data-role="omp.jobs.id"] {
@@ -3315,19 +3300,20 @@ button.tsp-sh-fold:focus-visible {
 }
 .tsp-kv[data-role="omp.jobs.facts"] {
   row-gap: var(--space-1);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
 }
+/* 进度小部件不铺底：一道细线和上面的事实分开 */
 .tsp-col[data-role="omp.job.widget"] {
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-3-5);
-  border-radius: var(--radius-md);
-  background: var(--bg-tool);
-  font-size: var(--fs-sm);
+  padding-top: var(--space-4);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+  font-size: var(--fs-base);
 }
 /* 标题 + 计数一行，当前阶段（正在跑的测试名）另起一行：窄的时候三段不再互相挤成省略号。 */
 .tsp-row[data-role="omp.job.widget.head"] {
   flex-wrap: wrap;
-  row-gap: var(--space-0-5);
+  row-gap: var(--space-1);
 }
 .tsp-text[data-role="omp.job.widget.headline"] {
   margin-left: auto;
@@ -3343,11 +3329,12 @@ button.tsp-sh-fold:focus-visible {
 .tsp-row[data-role="omp.job.widget.spark"] {
   align-items: flex-end;
   gap: var(--space-3);
+  --tsp-c-accent: var(--text-3);
 }
-/* 作业卡片只留一个强调色：柱子是数据，压到六成浓度不压过文字；数字（omp 的 num 样式，代码高亮的橙色）用正文色等宽，
- * 不和紫色的柱子、进度条撞成两种强调色（2026-10-29 审计）。 */
+/* 柱子是数据，不用强调色：omp 给柱子写的是内联 `var(--tsp-c-accent)`，这一行里把它换成中性灰；
+ * 数字（omp 的 num 样式，代码高亮的橙色）用正文色等宽（2026-10-29 审计）。 */
 .tsp-row[data-role="omp.job.widget.spark"] .tsp-chart-bars i {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 [data-role^="omp.job."] .tsp-t-num {
   color: var(--text);
@@ -3356,28 +3343,28 @@ button.tsp-sh-fold:focus-visible {
   gap: var(--space-2);
 }
 .tsp-text[data-role="omp.jobs.label"] {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   font-weight: var(--fw-strong);
 }
 .tsp-ansi[data-role="omp.jobs.output"] {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3);
   border-radius: var(--radius-md);
-  background: var(--bg-sunken);
-  font-size: var(--fs-code-sm);
+  background: var(--bg-tool);
+  font-size: var(--fs-xs);
 }
 .tsp-text[data-role="omp.jobs.nooutput"] {
   color: var(--text-3);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
 }
 .tspi-overlay[data-role="omp.overlay.jobs"] .tsp-row[data-role="omp.actions"] {
   flex: none;
   gap: var(--space-2);
-  padding: var(--space-2-5) var(--space-5);
+  padding: var(--space-2) var(--space-6);
   box-shadow: inset 0 1px 0 var(--border-subtle);
 }
 .tsp-text[data-role="omp.jobs.summary"] {
   color: var(--text-3);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
 }
 
 /* 子代理 / 后台作业的磁贴（Task、wait 的 body） */

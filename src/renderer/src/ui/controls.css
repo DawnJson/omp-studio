@@ -88,12 +88,17 @@
   background: var(--bg-hover);
 }
 
+/* 危险操作（取消作业、删除）：红字、无框，和 quiet 一样安静；真要确认的走 danger-solid 的确认框（2026-11-14 所有者批准的界面体检方案） */
 .ui-btn[data-variant="danger"] {
   color: var(--st-error);
-  border-color: color-mix(in srgb, var(--st-error) 45%, transparent);
+  border-color: transparent;
+  box-shadow: none;
 }
 .ui-btn[data-variant="danger"]:hover {
   background: var(--st-error-soft);
+}
+.ui-btn[data-variant="danger"]:disabled {
+  border-color: transparent;
 }
 
 /* 只用在破坏性确认对话框的确认按钮 */
@@ -1003,7 +1008,7 @@
 }
 .ui-section-title {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   font-weight: var(--fw-strong);
   color: var(--text);
 }
@@ -1042,7 +1047,7 @@
 /* 标签是普通文字块：英文折两行时 ⓘ 跟在最后一个词后面，不漂到列尾 */
 .ui-row-label {
   min-width: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   color: var(--text);
 }
 /* ⓘ（InfoTip.tsx）：跟在文字后面，和文字同一行基线下移 0.125em。紧挨着 ⓘ 的文字元素由调用处加 .ui-info-lead（Row、ModelsSection 的角色行）。
@@ -1188,12 +1193,12 @@
 }
 /* 卡片排法（.ui-cards 包 ListRow，2026-10-29 仓库所有者定）：两行。第一行名称、动作；
    第二行从名称下面开始，徽标 + 元信息，可以伸到动作下面。同一行卡片等高。
-   2026-10-30 仓库所有者嫌难看：每格最小 260 → 320（3 列时名称和变量名都被截断），内边距加大，名称 14px，
-   图标块 36 方、描边不填底，跨两行放在左侧。 */
+   每格最小 320（3 列时名称和变量名不被截断），名称 14px，图标块 36 方、描边不填底，跨两行放在左侧。
+   卡片不铺底、不描边：上下靠留白和一条淡分隔线分开，左右靠列间距（2026-11-14 所有者批准的界面体检方案）。 */
 .ui-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-3);
+  column-gap: var(--space-6);
 }
 .ui-cards > .ui-list-row {
   grid-template-rows: var(--control-h-sm) auto;
@@ -1202,10 +1207,8 @@
   row-gap: var(--space-0-5);
   height: 100%;
   min-height: 0;
-  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .ui-cards > .ui-list-row > .ui-list-main {
   display: contents;
@@ -1446,10 +1449,8 @@
   gap: var(--space-3);
   align-items: center;
   height: var(--skeleton-h, 74px);
-  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .ui-skeleton-card > .ui-skeleton[data-shape="icon"] {
   width: 36px;

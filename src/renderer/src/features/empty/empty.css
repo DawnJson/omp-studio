@@ -31,15 +31,6 @@
   padding: var(--space-8) 0 var(--space-6);
 }
 
-/* 标志（omp 式像素 π + 字）居中，下面是"最近更新"（TSP 过程区顶部的 StudioHeader） */
-.empty-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
 .pixel-logo {
   display: block;
   max-width: 100%;

@@ -9,9 +9,9 @@
   gap: 1px;
   height: 100%;
   min-height: 0;
-  padding: var(--space-0-5) var(--space-2) var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-2);
   overflow-y: auto;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   color: var(--text);
   user-select: none;
   scrollbar-width: none;
@@ -45,10 +45,10 @@
   flex: none;
   align-items: center;
   height: var(--row-task);
-  padding: 0 var(--space-2-5);
+  padding: 0 var(--space-2);
   overflow: hidden;
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   color: var(--text-2);
   text-align: left;
   text-overflow: ellipsis;
@@ -71,10 +71,10 @@
 /* 版本号：和关于页里的版本一样用等宽（2026-10-29 审计 SET-16） */
 .snav-foot {
   margin-top: auto;
-  padding: var(--space-2) var(--space-2-5) 0;
+  padding: var(--space-2) var(--space-2) 0;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   color: var(--text-3);
 }
 
@@ -117,7 +117,7 @@
 
 .settings-content {
   /* 不设宽度上限：内容随窗口变宽，格子靠下面的 container query 加列（不靠留白），右侧不再空着。 */
-  padding: var(--space-6) var(--space-10) var(--space-12);
+  padding: var(--space-6) var(--space-10) var(--space-10);
   container-type: inline-size; /* 格子（.st-cells、快捷键）按内容宽度增减列 */
 }
 
@@ -151,9 +151,14 @@
   margin-left: auto;
 }
 
-/* 一节里的分组：分组标题自带上边距，但包在 section 里时它是第一个孩子（上边距被清掉），所以由 section 给 */
+/* 分区之间靠留白分开（--space-10），不铺底、不描边（2026-11-14 所有者批准的界面体检方案）。
+   分组标题自带上边距，但包在 section 里时它是第一个孩子（上边距被清掉），所以由 section 给 */
 .st-section {
-  margin-top: var(--space-6);
+  margin-top: var(--space-10);
+}
+/* 插件详情里的小标题（功能 / 设置）在展开的一行里面，不算分区，保持 ui/controls.css 的间距 */
+.settings-section .ui-section-head:not(:first-child, .pl-details > *) {
+  margin-top: var(--space-10);
 }
 
 .settings-section > :first-child {
@@ -164,21 +169,33 @@
   margin-top: var(--space-3);
 }
 
-/* 行：标签列 200，控件紧跟（ui/Row；关于页的 omp 路径、记忆卡片的项目） */
+/* 行：标签列 200，控件紧跟（ui/Row；关于页的 omp 路径、记忆卡片的项目）。行之间靠留白，不画分隔线（同 .st-cells 的行） */
 .st-rows {
   --row-label-w: 200px;
+  display: grid;
+  row-gap: var(--space-4);
+}
+.st-rows > .ui-row {
+  min-height: var(--control-h-sm);
+  padding: 0;
+  border-bottom: 0;
+}
+.st-cells + .st-rows {
+  margin-top: var(--space-4);
 }
 
 /* 格子（Cells.tsx，spec §4.19；2026-11-09 仓库所有者定）：列宽至少 --cell-min，能放几列放几列（不再按窗口宽度分档）；
    每格是一条 ui/Row（或快捷键的一行），按不折行时的宽占一列或几列（Cells.tsx 设 grid-column: span N），
-   按原顺序往前面行的空位里填，宽的放不下才往后挪，行里不留空位。
-   标签和控件放得下一行就并排（标签靠左、控件靠右），比整行还宽时控件换到标签下面（仍靠右）。"恢复默认"夹在标签和控件之间，出现时控件不动。 */
+   按原顺序往前面行的空位里填，宽的放不下才往后挪，行里不留空位。行之间 --space-4 的留白，不画分隔线。 */
 .st-cells,
 .st-groups {
   --cell-min: 280px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(var(--cell-min), 100%), 1fr));
   column-gap: var(--space-6);
+}
+.st-cells {
+  row-gap: var(--space-4);
 }
 /* 分组（Groups / Group）：整页共用一套列，分组和它的格子是 subgrid，上下各组的列边界对齐（快捷键表也是）。
    只占一行、没填满的小组只占用到的列（Cells.tsx 设在 .st-group 上），相邻的小组排进同一行，各自带小标题。 */
@@ -200,20 +217,31 @@
 }
 /* 小标题是组里的第一个孩子，ui-section-head 的 :first-child 会清掉上边距：在组里补回来；整页第一行的组由容器往上收回同样的距离 */
 .st-group > .ui-section-head:first-child {
-  margin-top: var(--space-6);
+  margin-top: var(--space-10);
 }
 .settings-section > .st-groups:first-child {
-  margin-top: calc(-1 * var(--space-6));
+  margin-top: calc(-1 * var(--space-10));
 }
 .settings-section > .st-groups:first-child > .st-group:first-child > .st-cells:first-child {
-  margin-top: calc(var(--space-6) + var(--space-3));
+  margin-top: calc(var(--space-10) + var(--space-3));
 }
-/* 换不换行按"标签不折行的宽 + 控件的宽"放不放得下来定（2026-10-23 仓库所有者：原来三段以上的分段、文本框、标签输入一律另起一行）。
-   标签不收缩、占满余下的宽，控件被推到右边；标签比整格还长时自己折行（omp 的长 key 只在点后面断开），控件换到下一行。 */
+/* 格子里的行（2026-11-14 所有者批准的界面体检方案）：标签在左，控件紧跟在标签列右边，不推到格子最右；"恢复默认"跟在控件后面，出现时控件不动。
+   标签列至少 --st-label-min：标签短的几行控件左边线对齐；标签更长时按标签不折行的宽，Cells.tsx 按这个宽给格子分列，
+   所以格子放得下时标签不折行；整行都放不下时（窄窗口、omp 的长 key）标签自己折行（长 key 只在点后面断开），控件仍在右边。 */
+.st-cells {
+  --st-label-min: 128px;
+}
 .st-cells .ui-row {
-  display: flex;
-  flex-wrap: wrap;
-  row-gap: var(--space-1);
+  /* 控件列的下限写 min-content：.ui-row-control 的 min-width: 0 会让 auto 列在挤的时候缩到 0、控件越界，挤的时候宁可让标签折行 */
+  grid-template-columns: minmax(var(--st-label-min), max-content) minmax(min-content, max-content) auto;
+  justify-content: start;
+  min-height: var(--control-h-sm);
+  padding: 0;
+  border-bottom: 0;
+}
+.st-cells .ui-row[data-modified]::before {
+  top: var(--space-1);
+  bottom: var(--space-1);
 }
 /* 关于 → 版本：omp-studio 名字右边紧跟 GitHub 图标按钮（打开项目仓库） */
 .st-about-name {
@@ -222,34 +250,26 @@
   gap: var(--space-1);
 }
 .st-cells .ui-row-label {
-  flex: 1 0 auto;
-  max-width: 100%;
   overflow-wrap: anywhere;
-}
-.st-cells .ui-row > :last-child:not(.ui-row-control) {
-  flex: none;
 }
 /* 没改过时恢复默认的位置是个空 span：不占位，免得多一道间距 */
 .st-cells .ui-row > span:empty {
   display: none;
 }
-.st-cells .ui-row-control {
-  order: 1;
-  flex: 0 1 auto;
-  max-width: 100%;
-  margin-left: auto; /* 换到标签下面时也靠右，和同一列别的控件对齐 */
+/* 文本框、标签输入：控件列占满标签后面余下的宽（至少原来的宽，Cells.tsx 按原宽分列），同一列上下几个框右边线一致 */
+.st-cells .ui-row:has(> .ui-row-control > .st-tags, > .ui-row-control > .ui-field:not(.ui-number, .ui-select)) {
+  grid-template-columns: minmax(var(--st-label-min), max-content) minmax(0, 1fr) auto;
+  justify-content: stretch;
 }
-/* 文本框、标签输入：放得下就和标签并排（至少原来的宽），换到标签下面时占满整格（高级页），右边不再参差 */
-.st-cells .ui-row-control:has(> .st-tags) {
-  flex: 1 1 360px;
-}
-.st-cells .ui-row-control:has(> .ui-field:not(.ui-number, .ui-select)) {
-  flex: 1 1 260px;
-}
-/* Cells.tsx 量每格"不折行的宽"时（data-measuring，同一帧里量完就去掉）：标签和控件排成一行，文本框、标签输入按上面的原宽算。
-   不这样量的话 flex-basis 不算进内容宽，格子少占一列，框被挤到标签下面（2026-11-09）。 */
+/* Cells.tsx 量每格"不折行的宽"时（data-measuring，同一帧里量完就去掉）：标签和控件排成一行，标签按至少 --st-label-min 算，文本框、标签输入按原宽算。
+   不这样量的话控件列的 1fr 不算进内容宽，格子少占一列，框被挤窄（2026-11-09）。 */
 .st-cells[data-measuring] .ui-row {
+  display: flex;
   flex-wrap: nowrap;
+}
+.st-cells[data-measuring] .ui-row-label {
+  flex: none;
+  min-width: var(--st-label-min);
 }
 .st-cells[data-measuring] .ui-row-control:has(> .st-tags) {
   width: 360px;
@@ -261,8 +281,10 @@
 .st-cells .ui-row-control > .ui-field:not(.ui-number, .ui-select) {
   width: 100%;
 }
-/* 关于页的版本（omp-studio、omp 各一格）：最多两列（每列至少半宽）；内容宽（版本 + 徽标 + 说明 + 按钮），放不下时照通则换到标签下面。 */
+/* 关于页的版本（omp-studio、omp 各一格）：最多两列（每列至少半宽）；内容宽（版本 + 徽标 + 说明 + 按钮），放不下时在控件列里折行。
+   两格左右并排、不上下叠，标签列不用对齐，按标签自己的宽。 */
 .st-cells.st-pair {
+  --st-label-min: 0px;
   grid-template-columns: repeat(auto-fill, minmax(max(min(var(--cell-min), 100%), calc(50% - var(--space-6))), 1fr));
 }
 
@@ -342,7 +364,7 @@
 /* 没有人话标签的行显示 key：等宽，不截断；长 key 只在点后面折行（ConfigRow 在每个点后面放 <wbr>），不从单词中间断开 */
 .st-key {
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-code);
   overflow-wrap: break-word;
 }
 
@@ -374,8 +396,8 @@
 
 .st-mono {
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  line-height: var(--lh-code-sm);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
 }
 
 .st-muted {
@@ -386,8 +408,8 @@
 
 .st-error-text {
   color: var(--st-error);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
 }
 
 .st-raw {
@@ -402,8 +424,8 @@
   overflow: auto;
   color: var(--text-2);
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  line-height: var(--lh-code-sm);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -427,21 +449,24 @@
 .st-result {
   margin-top: var(--space-2);
   padding: 0 var(--space-1);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
 }
 
 /* ───────── 通用：快捷键表（列数同 .st-cells，见上） ───────── */
 
-/* 名字放不下时折成两行，不省略（2026-10-24 溢出检查：英文的 omp 快捷键名在 900 宽被截断）；同一行几格等高。 */
+/* 只读的一张表：比设置行排得密一点（行间 --space-2），同样不画分隔线。
+   名字放不下时折成两行，不省略（2026-10-24 溢出检查：英文的 omp 快捷键名在 900 宽被截断）；同一行几格等高。 */
+.st-kb-grid {
+  row-gap: var(--space-2);
+}
+
 .st-kb-row {
   display: flex;
   gap: var(--space-1);
   align-items: center;
-  min-height: var(--control-h-md);
-  padding-block: var(--space-1);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-  border-bottom: 1px solid var(--border-subtle);
+  min-height: var(--control-h-sm);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
 }
 
 .st-kb-row > span:first-child {
@@ -456,30 +481,32 @@
 
 /* ───────── 通用 → 外观：主题画廊（ThemeGallery.tsx） ───────── */
 
-/* 卡片按宽度自动排列（每张至少 120 宽），窄窗口自己少几列。预览块挂 data-theme，下面的颜色都是那个主题自己的变量。 */
+/* 卡片定宽 112、靠左，不随内容宽拉伸（2026-11-14 所有者批准的界面体检方案：拉伸的大卡一屏占半页），窄窗口自己少几张。
+   预览块挂 data-theme，下面的颜色都是那个主题自己的变量。 */
 .st-theme-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, 112px);
   gap: var(--space-2);
-  margin: var(--space-2) 0 var(--space-3);
+  margin: var(--space-2) 0 var(--space-4);
 }
 
 .st-theme-card {
-  /* 选中环用页面自己的 --primary：在这里先算好再继承下去，预览块挂了 data-theme，在它身上写 var(--primary) 会取到被预览主题的颜色 */
-  --st-theme-ring: var(--primary);
+  /* 选中环用页面自己的 --accent：在这里先算好再继承下去，预览块挂了 data-theme，在它身上写 var(--accent) 会取到被预览主题的颜色 */
+  --st-theme-ring: var(--accent);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1-5);
+  gap: var(--space-1);
   min-width: 0;
-  padding: var(--space-1) var(--space-1) var(--space-1-5);
+  padding: var(--space-1);
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   color: var(--text-2);
   text-align: center;
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 
@@ -496,13 +523,14 @@
   color: var(--text);
 }
 
-/* 迷你界面：底色 = 侧栏 / 顶栏，主区面板在右下（主区底 + 主题插图），右上一个你的消息气泡，左下一个强调色点 */
+/* 迷你界面：底色 = 侧栏 / 顶栏，主区面板在右下（主区底 + 主题插图），右上一个你的消息气泡，左下一个强调色点。
+   边上一道淡线只为看清预览块的边缘；选中只换成 2px 的强调色外圈，不加别的 */
 .st-theme-preview {
   display: flex;
   aspect-ratio: 16 / 10;
   overflow: hidden;
   border-radius: var(--radius-md);
-  box-shadow: 0 0 0 1px var(--border);
+  box-shadow: 0 0 0 1px var(--border-subtle);
 }
 
 .st-theme-card[aria-pressed="true"] .st-theme-preview {
@@ -558,12 +586,12 @@
   overflow-wrap: anywhere;
 }
 
-/* ───────── 工具与权限：工具网格，每格一样 ───────── */
+/* ───────── 工具与权限：工具网格，每格一样；格子之间靠留白，不描边（同 .st-cells） ───────── */
 
 .st-tools {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-2);
+  gap: var(--space-4) var(--space-6);
 }
 
 .st-tool {
@@ -571,10 +599,7 @@
   gap: var(--space-2);
   align-items: center;
   min-width: 0;
-  min-height: 40px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  min-height: var(--control-h-sm);
 }
 
 .st-tool-name {
@@ -633,7 +658,7 @@
 .st-changelog .ui-disclosure:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: -3px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .st-changelog-name {
@@ -642,7 +667,7 @@
 
 .st-changelog-version {
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-code);
   color: var(--text-2);
 }
 
@@ -658,7 +683,7 @@
   --st-adv-top: calc(var(--space-6) + 36px + var(--space-3));
   display: grid;
   grid-template-columns: 196px minmax(0, 1fr);
-  gap: 28px;
+  gap: var(--space-6);
 }
 
 .st-toc {
@@ -676,7 +701,7 @@
 
 /* 小标题的上边距在分组里面（.st-group > .ui-section-head），跳到小组时扣掉它，标题落在原来的位置 */
 .st-adv-sub {
-  scroll-margin-top: calc(var(--st-adv-top) - var(--space-6));
+  scroll-margin-top: calc(var(--st-adv-top) - var(--space-10));
 }
 
 .st-toc::-webkit-scrollbar {
@@ -701,9 +726,9 @@
 .st-toc-group {
   height: var(--control-h-sm);
   padding: 0 var(--space-2);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   color: var(--text-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .st-toc-group:hover {
@@ -733,14 +758,14 @@
   color: var(--text);
   background: var(--bg-active);
   border-left-color: var(--text);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 /* 高级的右栏是自己的一套列（Groups）：格子按右栏的宽增减列，目录占的那块不算。
-   标签是 omp 的英文 key（等宽、很长）：和其它格子一样，key 和控件放得下一行才并排，否则控件换到 key 下面，key 不会被挤成一字一行。
+   标签是 omp 的英文 key（等宽、很长）：和其它格子一样按"key 不折行 + 控件"的宽分列，整行都放不下时 key 只在点后面折行，控件仍在右边。
    各小组的上边距在组里的小标题上，第一行收回去，和目录顶端对齐。 */
 .st-adv-rows {
-  margin-top: calc(-1 * var(--space-6));
+  margin-top: calc(-1 * var(--space-10));
 }
 
 .st-adv-sub .ui-section-head .ui-count {

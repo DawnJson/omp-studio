@@ -77,15 +77,22 @@
   }
 }
 
-/* 工具行的胶囊比别处的 .ui-chip 紧凑：左右内边距 4px（--chip-pad，controls.css 的 .ui-chip 读它），胶囊之间 2px，
-   相邻两颗的文字 / 图标之间共 10px（2026-10-27 仓库所有者：间隔再缩小，原来 6px / 14px）。 */
+/* 工具行：一行里的胶囊、文件夹标签、圆环、费用、优化键都是 28 高（--control-h-sm），相互间距 --space-2，左右内边距 4px（--chip-pad，
+   controls.css 的 .ui-chip 读它）。字号统一 --fs-xs：工具行是给这句话的设置和状态，比上面正在写的字（--fs-prose）低一档，
+   和输入框上方的药丸、状态行同档；窄窗口时也能多放一点再折行（2026-11-14 所有者批准的界面体检方案）。
+   胶囊的悬停底和其它控件一样用 --radius-md。 */
 .composer-tools {
   --chip-pad: var(--space-1);
   display: flex;
   align-items: center;
-  gap: var(--space-0-5);
+  gap: var(--space-2);
   min-height: 36px;
   padding: 0;
+}
+/* 只管工具行上的胶囊，不管它们浮层里的 */
+.composer-tools .ui-chip:not(.ui-popover .ui-chip) {
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-md);
 }
 .composer-spacer {
   flex: 1;
@@ -94,10 +101,16 @@
 .composer-tools > .ui-popover-anchor.approval-anchor {
   flex: none;
 }
-/* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。 */
+/* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。
+   路径用界面字体、同工具行字号（它是一个位置，不是要复制的代码）；开头省略的做法在 empty.css。 */
 .composer-tools > .empty-project {
   height: var(--control-h-sm);
   padding: 0 var(--chip-pad);
+  font-size: var(--fs-xs);
+}
+.composer-tools > .empty-project > .empty-project-name {
+  font-family: inherit;
+  font-size: inherit;
 }
 .composer-note {
   min-width: 0;
@@ -107,7 +120,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 发送键左边：上下文圆环 + 本会话费用（等宽小字）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
+/* 发送键左边：上下文圆环 + 本会话费用（等宽数字的小字）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
 .usage-context-anchor,
 .session-cost-anchor {
   flex: none;
@@ -119,7 +132,7 @@
   height: var(--control-h-sm);
   padding: 0;
   border: 0;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
 }
@@ -132,15 +145,15 @@ button.usage-context:hover,
 .usage-context[data-pending] {
   cursor: default;
 }
-/* 费用：等宽小字的文字按钮，悬停 / 打开同图标按钮（--text + --bg-hover）；键盘焦点走全局 :focus-visible */
+/* 费用：工具行字号的文字按钮，数字等宽对齐；悬停 / 打开同图标按钮（--text + --bg-hover）；键盘焦点走全局 :focus-visible */
 .session-cost {
   height: var(--control-h-sm);
-  padding: 0 var(--space-1-5);
+  padding: 0 var(--chip-pad);
   border: 0;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-2);
-  font-family: var(--font-mono);
+  font-family: inherit;
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   font-variant-numeric: tabular-nums;
@@ -205,7 +218,7 @@ button.usage-context:hover,
   flex: none;
   align-items: center;
   height: calc(var(--control-h-xs) - var(--space-1));
-  padding: 0 var(--space-1-5);
+  padding: 0 var(--space-1);
   border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
@@ -230,10 +243,10 @@ button.usage-context:hover,
   height: 12px;
   fill: currentColor;
 }
-/* top 随刻度上提的 2px 一起上移（见下面 .effort-bars），角标和竖条之间的间距不变。 */
+/* 角标贴在刻度顶上：刻度顶 = 胶囊中心 - 5px（高 10）- 1px（上提），角标随它定位，和竖条之间的间距不变。 */
 .chip-effort .chip-fast {
   position: absolute;
-  top: 2px;
+  top: 4px;
   left: var(--space-1);
 }
 .ui-chip.chip-effort .chip-fast svg {
@@ -246,12 +259,12 @@ button.usage-context:hover,
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 12px;
+  height: 10px;
 }
-/* 刻度是 12px 高的盒子，居中在 28px 的胶囊里，底边比文字基线低 2px（行盒里基线在中心线下方约 1px，字母在基线上方）——
-   看上去刻度整体偏下。上提 2px，让竖条的底边落在模型名的基线上。 */
+/* 刻度高 10px，约等于工具行 --fs-xs 文字的大写字母高，中心对齐大写字母中心（e2e model-chip「刻度和文字垂直中心」）。
+   盒子居中在 28px 的胶囊里时底边比文字基线低 1px（行盒里基线在中心线下方），上提 1px 落到基线上。 */
 .ui-chip.chip-effort > .effort-bars {
-  translate: 0 -2px;
+  translate: 0 -1px;
 }
 .effort-bar {
   width: 2px;
@@ -308,9 +321,12 @@ button.usage-context:hover,
 .chip-mode {
   white-space: nowrap;
 }
-/* 还没读到审批模式：模式名的位置放一条骨架（共用 .ui-skeleton 的扫光），宽约一个两字模式名，不写"审批…"假省略（2026-10-29） */
-.chip-mode-skeleton {
-  width: 3em;
+/* 还没读到审批模式：模式名的位置放一条骨架（共用 .ui-skeleton 的扫光），宽约一个四字模式名（数据到了胶囊不跳宽），
+   比字矮、用更淡的 --bg-hover，不比旁边的字显眼；不写"审批…"假省略（2026-10-29） */
+.ui-skeleton.chip-mode-skeleton {
+  width: 4em;
+  height: var(--space-2);
+  background: var(--bg-hover);
 }
 @container (max-width: 520px) {
   .chip-text {
@@ -1108,9 +1124,11 @@ button.usage-context:hover,
    高度取左栏、右栏里较高的那个（正文最低 360、整框最高 84vh，表和左栏各自滚），打开以后只长不缩（ModelPicker 记下见过的
    最大高度写进 min-height）：换到模型少的提供商、打字过滤时对话框不跟着变矮，左栏不被切掉。贴着上方 8vh 放。
    窗口矮到 84vh 放不下 360 的正文加头尾（136）时正文最低跟着降，页脚按钮不掉出窗口（2026-11-09）。
-   数字列按 px 定宽：表头和行字体不同，按 ch 算出来的列宽对不齐。 */
+   层级（2026-11-14 所有者批准的界面体检方案）：模型名 --fs-base 正文色是主信息，数字、计数、组头都是 --fs-xs 淡色、界面字体等宽数字；
+   不铺底色，只有悬停 / 选中的行和范围项有底。数字列按 px 定宽，表头和行共用 --mp-cols，右缘对齐。
+   左缘：搜索框、左栏文字、页脚按钮都在 --space-6。 */
 .mp-dialog {
-  --mp-cols: minmax(0, 1fr) 36px 40px 48px 88px var(--space-5);
+  --mp-cols: minmax(0, 1fr) 36px 40px 48px 88px var(--space-4);
   align-self: flex-start;
   margin-top: 8vh;
   max-height: min(84vh, var(--content-w-min));
@@ -1122,7 +1140,7 @@ button.usage-context:hover,
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-5) var(--space-3);
+  padding: var(--space-4) var(--space-6) var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
 }
 .mp-head > .ui-field {
@@ -1137,7 +1155,6 @@ button.usage-context:hover,
 }
 .mp-count {
   flex: none;
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -1151,11 +1168,12 @@ button.usage-context:hover,
   padding: 0;
   overflow: hidden;
 }
+/* 左栏不铺底：选中的范围 --bg-active + 正文色，其余 --text-2 */
 .mp-side {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-3);
   overflow-y: auto;
   border-right: 1px solid var(--border-subtle);
 }
@@ -1165,9 +1183,9 @@ button.usage-context:hover,
   align-items: center;
   gap: var(--space-2);
   height: var(--row-task);
-  padding: 0 var(--space-2-5);
+  padding: 0 var(--space-3);
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   color: var(--text-2);
   text-align: left;
   cursor: default;
@@ -1203,16 +1221,17 @@ button.usage-context:hover,
 }
 .mp-scope-count {
   flex: none;
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
+/* 左栏"提供商"小标题和表里的组头一个样子 */
 .mp-scopes-head {
-  margin: var(--space-3) 0 var(--space-1);
-  padding: 0 var(--space-2-5);
+  margin: var(--space-4) 0 var(--space-1);
+  padding: 0 var(--space-3);
   font-size: var(--fs-xs);
-  color: var(--text-3);
+  font-weight: var(--fw-strong);
+  color: var(--text-2);
 }
 /* 角色图标：角色行的行首、参数行的角色胶囊、"为 X 选模型"标记里 */
 .mp-role-icon {
@@ -1226,18 +1245,16 @@ button.usage-context:hover,
   gap: var(--space-3);
   min-width: 0;
   min-height: 0;
-  padding: var(--space-2) var(--space-5) var(--space-3);
+  padding: var(--space-2) var(--space-6) var(--space-3);
 }
-/* 模型行上它被分配到的角色：只画图标，名字在悬停提示里 */
+/* 模型行上它被分配到的角色：只画淡色图标、不铺底，名字在悬停提示里 */
 .mp-role-badge {
   display: inline-grid;
   flex: none;
   place-items: center;
   width: 20px;
   height: 18px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
-  color: var(--text-2);
+  color: var(--text-3);
 }
 /* 表：表头粘在顶部，行是 grid（模型 | 智能 | 速度 | 上下文 | 价格 | 勾）。 */
 .mp-table {
@@ -1264,30 +1281,32 @@ button.usage-context:hover,
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
+/* 组头（常用 / 匹配 / 提供商）：--fs-xs 加粗 --text-2，计数 --text-3 */
 .mp-group {
   margin: var(--space-1) 0 0;
-  padding: var(--space-1-5) var(--space-2);
+  padding: var(--space-2);
   color: var(--text-2);
   font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
 }
 .mp-group-count {
   margin-left: var(--space-1);
-  font-family: var(--font-mono);
   color: var(--text-3);
+  font-weight: var(--fw-regular);
+  font-variant-numeric: tabular-nums;
 }
 /* 全部模型里的提供商组标题：整行可点，点开 / 收起这一组 */
 .mp-group-toggle {
   display: flex;
   align-items: center;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   width: 100%;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .mp-group-toggle:hover {
   background: var(--bg-hover);
@@ -1309,12 +1328,12 @@ button.usage-context:hover,
 }
 /* 和可折叠的提供商组同列时，"常用"这类不可折叠的组标题留出 chevron 的位置，组名同一条左边线 */
 .mp-list:has(.mp-group-toggle) .mp-group:not(.mp-group-toggle) {
-  padding-left: calc(var(--space-2) + var(--icon-sm) + var(--space-1-5));
+  padding-left: calc(var(--space-2) + var(--icon-sm) + var(--space-2));
 }
 .mp-empty {
-  margin: var(--space-1-5) var(--space-2-5);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
+  margin: var(--space-2);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   color: var(--text-3);
 }
 .mp-row {
@@ -1337,17 +1356,23 @@ button.usage-context:hover,
   gap: var(--space-2);
   min-width: 0;
 }
+/* 模型名是行里的主信息：--fs-base 正文色，provider/ 前缀 --text-3；角色行里绑定的模型是辅助信息 --fs-xs */
 .mp-id {
   min-width: 0;
   overflow: hidden;
+  font-size: var(--fs-base);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mp-id,
-.mp-cell-model > .mp-id-name,
+.mp-cell-model > .mp-id-name {
+  font-size: var(--fs-base);
+}
 .mp-cell-model > .mp-id-dim {
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mp-id-dim {
   color: var(--text-3);
@@ -1356,54 +1381,49 @@ button.usage-context:hover,
   color: var(--text);
 }
 .mp-num {
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
-  color: var(--text-2);
+  color: var(--text-3);
   text-align: right;
   white-space: nowrap;
 }
-.mp-cols .mp-num {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
+/* 缺数据的 "–" 再淡一档：一列里大多是 "–" 时不盖过有数的行 */
+.mp-num[data-missing] {
+  opacity: 0.5;
 }
 .mp-tick {
   display: flex;
   justify-content: flex-end;
   color: var(--accent);
 }
-/* 底部：参数行 + 三行控件（思考强度 / Prewalk / 预设）。操作按钮在对话框页脚。 */
+/* 底部：参数行 + 三行控件（思考强度 / Prewalk / 预设），段间 --space-4。操作按钮在对话框页脚，只有主按钮是 primary。 */
 .mp-foot {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--space-2-5);
-  padding-top: var(--space-3);
+  gap: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }
 /* 没有高亮行（搜不到）时底部什么都没有：不留一条孤零零的分隔线 */
 .mp-foot:empty {
   display: none;
 }
+/* 参数行：辅助信息，--fs-xs 界面字体等宽数字；数值 --text-2，标签 --text-3 */
 .mp-params {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-3);
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  color: var(--text);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
-/* 标签用正文字体（"Context""输出""价格"一套字），只有数值用等宽 */
 .mp-param-label {
   color: var(--text-3);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
 }
-/* "推理""识图"标签：同 Badge（20 高、--fs-xs 中粗、--radius-md、实底无框）；所在的参数行是等宽字，这里换回正文字体 */
+/* "推理""识图"标签：同 Badge（20 高、--fs-xs 中粗、--radius-md、实底无框） */
 .mp-pill {
   display: inline-flex;
   align-items: center;
@@ -1412,8 +1432,6 @@ button.usage-context:hover,
   border-radius: var(--radius-md);
   background: var(--bg-active);
   color: var(--text-2);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
   line-height: 1;
 }
@@ -1450,7 +1468,12 @@ button.usage-context:hover,
 .mp-speed {
   gap: var(--space-4);
 }
-.mp-ctl-label,
+/* 控件标签（思考强度、Prewalk、预设、快速 / 慢速）是界面正文 --text-2；运行中的"下一次请求生效"之类提示是 --fs-xs --text-3 */
+.mp-ctl-label {
+  margin: 0;
+  font-size: var(--fs-base);
+  color: var(--text-2);
+}
 .mp-hint {
   margin: 0;
   font-size: var(--fs-xs);
@@ -1459,33 +1482,29 @@ button.usage-context:hover,
 
 /* 后台任务：输入框右上方的看板胶囊 + 看板浮层（状态行下不再另列 job 小卡，免得同一个 job 显示两遍）。 */
 
-/* 输入框上方的药丸 `[👥 N | ⚡ N]`（StatusPills.tsx）：外观同 Segmented（.ui-seg：--bg-active 的槽，块 --radius-md 内缩 2px），
-   两个半段各自是按钮（不是单选），中间一条细分隔线；子代理面板开着时左半段是"选中块"（--control-on + --shadow-1）。个数为 0 的半段不画。
+/* 输入框上方的药丸 `[👥 N | ⚡ N]`（StatusPills.tsx）：两个半段各自是按钮（不是单选），没有槽底，和工具行胶囊一样平时只有字、
+   悬停才出 --bg-hover，中间一条细分隔线；子代理面板开着时左半段留着 --bg-active（层级靠字色和留白，不靠底色堆叠，
+   2026-11-14 所有者批准的界面体检方案）。个数为 0 的半段不画。
    高 --control-h-xs，和同一行的扩展状态标签、取消 / 重试按钮同一档（spec 4.14）。
    两段都没有时（只剩看板的锚点，作业都结束后 `/jobs` 打开的看板）药丸收成 0 高，看板仍从它的位置弹出。 */
 .status-pills {
   display: inline-flex;
   flex: none;
-  gap: var(--space-0-5);
+  gap: var(--space-1);
   align-items: center;
   height: var(--control-h-xs);
-  padding: var(--space-0-5);
-  border-radius: var(--radius-md);
-  background: var(--bg-active);
 }
 .status-pills[data-empty] {
   height: 0;
-  padding: 0;
-  background: none;
 }
 .status-pill-seg {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1-5);
+  gap: var(--space-1);
   height: 100%;
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-2);
   font: inherit;
@@ -1498,11 +1517,11 @@ button.usage-context:hover,
 }
 .status-pill-seg:hover {
   color: var(--text);
+  background: var(--bg-hover);
 }
 .status-pill-seg[aria-expanded="true"] {
   color: var(--text);
-  background: var(--control-on);
-  box-shadow: var(--shadow-1);
+  background: var(--bg-active);
 }
 .status-pill-count {
   font-weight: var(--fw-medium);
@@ -1515,25 +1534,26 @@ button.usage-context:hover,
 }
 
 /* 悬停后台作业那一段时的作业卡片（StatusPills 的 JobsCard，代替悬停提示）：挂在 body 上，位置由 JobsCard 写（right / bottom），
-   层级同悬停提示，盖得住开着的 omp 弹窗；只是看，不接指针；每个作业一块（JobsCard 只在有运行中作业时渲染），块之间一条细线。 */
+   层级同悬停提示，盖得住开着的 omp 弹窗；只是看，不接指针；每个作业一块（JobsCard 只在有运行中作业时渲染）。
+   卡片里不再铺底、不画分隔线：块之间靠 --space-3 的留白分开，块内靠字号和字色分层——作业名 --fs-base 正文色，
+   类型 / id / 进度数字 / omp 的说明行 --fs-xs --text-3；进度条用中性色，不用强调色（2026-11-14 所有者批准的界面体检方案）。 */
 .ui-popover.jobs-card {
   position: fixed;
   left: auto;
   z-index: var(--z-tooltip);
   width: 320px;
-  gap: var(--space-2);
-  padding: var(--space-2-5) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3);
   pointer-events: none;
+}
+.jobs-card > .ui-pop-title {
+  font-size: var(--fs-base);
 }
 .jobs-card-tile {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
-}
-.jobs-card-tile + .jobs-card-tile {
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border-subtle);
 }
 .jobs-card-head {
   display: flex;
@@ -1545,34 +1565,19 @@ button.usage-context:hover,
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-base);
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 类型（bash / eval / task，omp 的叫法原样写）、id、进度数字：同一档辅助字 */
+.jobs-card-type,
 .jobs-card-id,
 .jobs-card-figure {
   flex: none;
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-3);
-}
-/* 作业类型（bash / eval / task）：名字右边一个小标签，omp 的叫法原样写 */
-.jobs-card-type {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  height: calc(var(--control-h-xs) - var(--space-1));
-  padding: 0 var(--space-1-5);
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  font-weight: var(--fw-medium);
-  line-height: 1;
-  color: var(--text-2);
-  background: var(--bg-active);
-  border-radius: var(--radius-md);
 }
 .jobs-card-progress {
   display: flex;
@@ -1581,15 +1586,17 @@ button.usage-context:hover,
   min-width: 0;
 }
 .jobs-card-progress .tsp-meter-in {
+  --tsp-fill: var(--text-3);
   flex: 1 1 auto;
 }
+/* omp 的说明行（最近一行输出或阶段）：输出原样用等宽 */
 .jobs-card-note {
   margin: 0;
   overflow: hidden;
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
-  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

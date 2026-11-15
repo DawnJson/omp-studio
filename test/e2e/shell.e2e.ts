@@ -16,10 +16,9 @@ test("顶栏是任务条：标志+字标、切换侧栏按钮（没有关于按�
   try {
     const { page } = launched;
     await expect(page.getByTestId("topbar-sidebar")).toBeVisible();
-    // 左上角的标志和新任务页同一个像素标志（π + 像素字 omp studio），不带版本号。
+    // 左上角的标志和新任务页同一个像素标志（π + 像素字 omp studio）。
     const brand = page.getByTestId("topbar-brand");
     await expect(brand.getByTestId("pixel-logo")).toBeVisible();
-    await expect(brand.getByTestId("pixel-logo-version")).toHaveCount(0);
     await expect(page.getByTestId("topbar-crumb")).toHaveText(/^(新任务|New task)$/);
     for (const id of ["topbar-back", "topbar-forward"]) await expect(page.getByTestId(id)).toHaveCount(0);
     // 两样横排在同一行：标志在最左，后面是切换侧栏。顶栏左侧没有"关于与反馈"按钮。

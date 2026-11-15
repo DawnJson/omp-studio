@@ -393,6 +393,41 @@ test("备用模型链的结构化编辑器：带后缀的值显示档位，改�
   }
 });
 
+// 2026-11-13 截图巡检：config.yml 写不带提供商的 `default: deepseek-flash`（omp 按 id 认），草稿把它当"目录里没有的模型"，
+// 选择对话框里提供商全收着、又写"没有可用模型"。
+test("模型选择对话框：配置写不带提供商的 id 时认出当前模型；配置指向目录里没有的模型时提供商收着，但不写“没有可用模型”", async () => {
+  test.setTimeout(150_000);
+  for (const role of ["table-two", "nowhere/missing"]) {
+    const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-bare-"));
+    await writeFile(path.join(agentDir, "models.yml"), tableModelsYml, "utf8");
+    await writeFile(path.join(agentDir, "config.yml"), `modelRoles:\n  default: ${role}\n`, "utf8");
+    const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+    try {
+      const { page } = launched;
+      await expect
+        .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+          timeout: 30_000,
+        })
+        .toBe("ready");
+      await expect(page.getByTestId("model-chip")).not.toHaveText(/…/, { timeout: 30_000 });
+      await openPicker(page);
+      if (role === "table-two") {
+        await expect(page.locator('[data-testid="model-option"][aria-selected="true"]')).toContainText("table-two", {
+          timeout: 30_000,
+        });
+      } else {
+        await expect(page.getByTestId("model-provider-group")).toHaveAttribute("aria-expanded", "false", {
+          timeout: 30_000,
+        });
+      }
+      await expect(page.getByTestId("model-empty")).toHaveCount(0);
+    } finally {
+      await launched.close();
+      await rm(agentDir, { recursive: true, force: true });
+    }
+  }
+});
+
 const tableModelsYml =
   "providers:\n  table-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: table-one\n        contextWindow: 1000000\n      - id: table-two\n        reasoning: true\n        contextWindow: 400000\n";
 

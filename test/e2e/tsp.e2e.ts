@@ -256,12 +256,13 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(role(page, "omp.tool.todo").first()).toBeVisible();
     await expect(role(page, "omp.tool.bash").first()).toContainText("pytest");
     await expect(role(page, "omp.assistant").last()).toBeVisible();
-    // 回答正文和过程卡片、本轮用量同一条左边线：markdown 的块没有内边距（别处同名的 class 曾把每段正文往里推 10px）。
+    // 回答正文和过程卡片的图标同一条左边线：markdown 的块没有内边距（别处同名的 class 曾把每段正文往里推 10px）；
+    // 过程卡片不铺底色，整张往外挪出自己的内边距，图标落在正文左边线上。
     const block = role(page, "omp.assistant").locator(".md-block").last();
     await expect(block).toHaveCSS("padding", "0px");
     const textLeft = (await block.locator("> *").first().boundingBox())!.x;
-    const cardLeft = (await role(page, "omp.tool.bash").first().boundingBox())!.x;
-    expect(Math.round(textLeft)).toBe(Math.round(cardLeft));
+    const iconLeft = (await role(page, "omp.tool.bash").first().locator(".tsp-tool-ic").first().boundingBox())!.x;
+    expect(Math.round(textLeft)).toBe(Math.round(iconLeft));
     // omp 收到的提交就是草稿原文,发给它的是 send 事件(不是逐字按键)。
     expect(await received()).toEqual([expect.objectContaining({ ev: "send", id: "j.line/input", text: TASK_PROMPT })]);
     // 混合形态:过程区是 omp 的节点,输入框是 studio 的 Composer(模型胶囊、思考强度、发送在它上面),omp 自己的输入框卡片不画。
@@ -270,13 +271,9 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(page.getByTestId("send-button")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
     await expect(page.locator('[data-testid="tsp-view"] .tspi-editor')).toHaveCount(0);
-    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部是 studio 的标题块(像素标志),随对话滚动。
-    // 标题块不写文件夹路径:输入框工具行的文件夹标签已经写着(2026-10-29 仓库所有者:删掉重复的)。
+    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部也不画 studio 的标志,第一眼是你的消息(2026-11-14 所有者批准的界面体检方案)。
     await expect(role(page, "omp.welcome")).toHaveCount(0);
-    await expect(
-      page.locator('[data-testid="tsp-view"] [data-testid="studio-header"] [data-testid="pixel-logo"]'),
-    ).toBeVisible();
-    await expect(page.locator('[data-testid="tsp-view"] [data-testid="studio-header"]')).not.toContainText("项目 目录");
+    await expect(page.locator('[data-testid="tsp-view"] [data-testid="pixel-logo"]')).toHaveCount(0);
     await expect(page.getByTestId("composer-folder")).toHaveText(/项目 目录$/);
     // TSP 任务没有改动摘要：过程区里没有改动卡片，输入框上方也没有改动条（评审从顶栏按钮 / Ctrl Shift D / 提交对话框进）。
     await expect(page.locator('.tsp-scroller [data-testid="change-card"]')).toHaveCount(0);
@@ -294,15 +291,11 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
       `(() => { const el = document.querySelector(".tsp-scroller"); return el.scrollHeight - el.clientHeight - el.scrollTop; })()`,
     );
     expect(distance).toBeLessThanOrEqual(2);
-    // 工具卡跑完：转圈的弧形变成 ✓，之后常驻（issue #9，照 ompweb）；淡紫的运行底用 background-color 过渡褪掉。
+    // 工具卡跑完：转圈的弧形变成 ✓，之后常驻（issue #9，照 ompweb）。
     expect(
       await page.evaluate(() => (globalThis as unknown as { morphedChecks: number }).morphedChecks),
     ).toBeGreaterThan(0);
     await expect(role(page, "omp.tool.bash").first().getByTestId("tsp-tool-check")).toBeVisible();
-    await expect(page.locator('[data-testid="tsp-view"] .tsp-tool.card.st-done').first()).toHaveCSS(
-      "transition-property",
-      "background-color",
-    );
     // 切到另一个 TSP 任务：显示着的只有一个过程区，画的是新任务（过程区和输入框同 key 时，React 会把上一个任务的过程区留在页面上）。
     // 上一个任务的过程区藏着留在 DOM 里（App.tsx 的 KEPT_VIEWS），所以只数显示着的。
     const second = await page.evaluate(async () => {
@@ -1352,7 +1345,7 @@ test("设置「工具调用只显示标题」：折叠着的工具卡不画输�
   }
 });
 
-test("连续的工具调用合成一组：跑完收成一行组头（每种工具的图标和次数、整组用时、✓，悬停每张卡一行）；点开 / 收起；Ctrl+O 跟着 omp 报的展开状态全部展开 / 收起；设置关掉照 omp 一张张画", async () => {
+test("连续的工具调用合成一组：跑完收成一行组头（每种工具的图标和目标、整组用时、✓，悬停每张卡一行）；点开 / 收起；Ctrl+O 跟着 omp 报的展开状态全部展开 / 收起；设置关掉照 omp 一张张画", async () => {
   // cards-expand：cards 录制（同一条消息里 bash（要批准）、edit、eval 三张卡连着，后面是回答），跑完后每次 Ctrl+O
   // omp 回 "Tool output expansion: enabled / disabled" 状态行、把卡片的 collapsed 翻过来（omp 18.18.1 实测的样子）。
   const { launched, cleanup } = await start("cards-expand");
@@ -1366,8 +1359,12 @@ test("连续的工具调用合成一组：跑完收成一行组头（每种工�
     const head = page.getByTestId("tsp-tool-run");
     await expect(head).toHaveCount(1);
     await expect(head).toHaveAttribute("data-count", "3");
-    // 每种工具一个图标 + 次数，后面是三张卡 omp 报的 took 之和（10399 + 420 + 113000 ms）；`3 tool calls` 只给读屏。
-    await expect(head.locator(".tsp-run-kind")).toHaveText(["1", "1", "1"]);
+    // 每种工具一个图标 + 它的目标（没有目标、只调用一次的不写字），后面是三张卡 omp 报的 took 之和（10399 + 420 + 113000 ms）；`3 tool calls` 只给读屏。
+    await expect(head.locator(".tsp-run-kind")).toHaveText([
+      "",
+      "docs\\content\\docs\\progress\\pending-test.zh-CN.mdx",
+      "",
+    ]);
     await expect(head.locator(".tsp-run-kind .tsp-ico")).toHaveCount(3);
     await expect(head.locator(".tsp-run-took")).toHaveText("· 2m3s");
     await expect(head).not.toContainText("tool calls");
@@ -1381,10 +1378,11 @@ test("连续的工具调用合成一组：跑完收成一行组头（每种工�
     await expect(role(page, "omp.tool.bash")).toHaveCount(0);
     await expect(role(page, "omp.tool.eval")).toHaveCount(0);
     await expect(role(page, "omp.assistant").last()).toBeVisible();
-    // 组头是浅底的一行，在回答左边线上。
+    // 组头不铺底色，第一个工具图标在回答左边线上。
     const headBox = (await head.boundingBox())!;
+    const kindLeft = (await head.locator(".tsp-run-kind").first().boundingBox())!.x;
     const answerLeft = (await role(page, "omp.assistant").locator(".md-block").last().boundingBox())!.x;
-    expect(Math.round(headBox.x)).toBe(Math.round(answerLeft));
+    expect(Math.round(kindLeft)).toBe(Math.round(answerLeft));
     expect(headBox.height).toBeLessThan(40);
     // 点开：三张卡都在组头下面，每张完成的卡都有常驻的 ✓。
     await head.click();
@@ -4101,6 +4099,18 @@ for (const reduced of [false, true]) {
       await thumbs.first().click();
       const zoom = page.getByTestId("tsp-zoom");
       await expect(zoom).toBeVisible();
+      // 关闭键和大图都在顶栏下面：Windows 的系统三键是原生层，压在顶栏右边，截图和 DOM 里都看不到（2026-11-14 所有者反馈）。
+      const titlebar = await page.evaluate(() => {
+        const g = globalThis as unknown as {
+          document: { documentElement: unknown };
+          getComputedStyle(el: unknown): { getPropertyValue(name: string): string };
+        };
+        return parseFloat(g.getComputedStyle(g.document.documentElement).getPropertyValue("--titlebar-h"));
+      });
+      for (const target of [zoom.locator(".tsp-zoom-close"), page.getByTestId("tsp-zoom-image")]) {
+        const box = await target.boundingBox();
+        expect(box!.y).toBeGreaterThanOrEqual(titlebar);
+      }
       await expect.poll(async () => (await recorded(page))[0]?.length ?? 0).toBeGreaterThan(0);
       const opened = (await recorded(page))[0]!;
       const groups = opened.filter((a) => a.pseudo.includes("(tsp-zoom)"));

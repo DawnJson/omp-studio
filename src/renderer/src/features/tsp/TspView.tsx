@@ -31,7 +31,6 @@ import type { TspContext } from "./node-props.ts";
 import { TspHosts } from "./TspHosts.tsx";
 import { TspChildren } from "./TspChildren.tsx";
 import { MainFlow } from "./MainFlow.tsx";
-import { StudioHeader } from "../empty/StudioHeader.tsx";
 import { useTaskValue } from "../../store/index.ts";
 import { GoalStrip } from "../goal/GoalStrip.tsx";
 import { TspCtx, TspEndedAtCtx, TspParkedCtx } from "./tsp-context.ts";
@@ -154,8 +153,6 @@ interface SurfaceParts {
   line?: ReactNode;
   /** 对话列右缘的宽度拖拽条（只有 inline 有）。 */
   resizer?: ReactNode;
-  /** 对话列最上面、随对话滚动的内容（inline 的 studio 标题块）。 */
-  header?: ReactNode;
   /** main 后面、对话列末尾的内容（首发气泡，omp 回显前占位）。 */
   tail?: ReactNode;
   mode: "inline" | "screen";
@@ -182,20 +179,7 @@ function Dock({ taskId, sf, ctx }: { taskId: TaskId; sf: string; ctx: TspContext
   );
 }
 
-function SurfaceBody({
-  taskId,
-  sf,
-  ctx,
-  scroller,
-  column,
-  surface,
-  jump,
-  line,
-  resizer,
-  header,
-  tail,
-  mode,
-}: SurfaceParts) {
+function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, resizer, tail, mode }: SurfaceParts) {
   const t = useT();
   const main = useTspNode(taskId, sf, "main");
   // 子代理面板在后台驱动 omp 的 Agent Hub（插话 / 结束 / 恢复）：期间过程区压暗（聚焦模式里它暂时显示那个子代理的记录）。
@@ -214,7 +198,6 @@ function SurfaceBody({
       >
         <div ref={scroller} className="tsp-scroller" role="log" aria-label={t("tsp.layoutRegion")} tabIndex={0}>
           <div ref={column} className="tsp-column tsp-main" data-role={role}>
-            {header}
             <MainFlow taskId={taskId} sf={sf} ctx={ctx} />
             {tail}
             <div className="tsp-column-end" />
@@ -254,7 +237,7 @@ function PendingUser({ text }: { text: string }) {
   );
 }
 
-/** `sf` 为 null：omp 还没建 surface，只画标题块和刚发出的那句话（版式和有 surface 时一致）。 */
+/** `sf` 为 null：omp 还没建 surface，只画刚发出的那句话（版式和有 surface 时一致）。 */
 function InlineSurface({
   taskId,
   sf,
@@ -291,7 +274,6 @@ function InlineSurface({
       column={column}
       surface={surface}
       mode="inline"
-      header={<StudioHeader compact />}
       tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
       line={<ConversationLine taskId={taskId} scroller={scroller} />}
       resizer={<ColumnResizer column={column} scroller={scroller} />}

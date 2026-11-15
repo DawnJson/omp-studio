@@ -57,7 +57,7 @@
 
 | 用途 | token | 规则 |
 |---|---|---|
-| 表面 | `--bg-sidebar` < `--bg-app` < `--bg-raised` < `--bg-overlay`；`--bg-sunken` 是凹进去的代码/展开区；`--bg-tool` 是过程卡片、中性卡片的底 | 用层级而不是颜色分区 |
+| 表面 | `--bg-sidebar` < `--bg-app` < `--bg-raised` < `--bg-overlay`；`--bg-sunken` 是凹进去的代码/展开区；`--bg-tool` 是你的消息气泡和 Markdown 代码块的底（过程卡片不铺底色，§4.11） | 用层级而不是颜色分区 |
 | 交互态 | `--bg-hover`、`--bg-active`、`--bg-scrim` | `:active` 无位移、无缩放 |
 | 线 | `--border-subtle`（分隔）/ `--border`（外框）/ `--border-strong`（hover）/ `--input-border`（输入框、勾选框、关着的开关） | — |
 | 文本 | `--text` / `--text-2` / `--text-3` / `--text-disabled` / `--text-on-accent` | `--text-3` 只用于次要元信息，不用于可操作文字；在较亮的底上对比度较低，见下方例外 |
@@ -66,7 +66,7 @@
 | 主按钮 | `--primary` / `--primary-hover` / `--text-on-primary` | 浅色近黑底白字，深色近白底深字；每个视图最多一个；开关、勾选框、单选的选中也用它 |
 | 状态 | `--st-running`（=强调色）、`--st-waiting`（点）+ `--st-waiting-text`（字）+ `--st-waiting-soft`、`--st-done`、`--st-error` + `--st-error-soft` | 四个语义色之外界面是灰的 |
 | 代码 | `--syn-*`（7 色）；`--diff-add-fg` / `--diff-del-fg`（改动卡片的 +N/−N 文字和行数条） | 评审里的行背景 `--diff-add-bg` / `--diff-del-bg` |
-| 气泡 | `--bg-bubble` | 只给"你的消息"气泡（§4.8） |
+| 气泡 | `--bg-bubble` | 只给设置里主题缩略图上的气泡色块；对话里的气泡用 `--bg-tool`（§4.8）。按每套主题 5 个语义色重做 token 时删掉 |
 
 色板（颜色值在 `tokens.css`）：
 
