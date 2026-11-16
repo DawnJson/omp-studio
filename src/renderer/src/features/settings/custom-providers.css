@@ -2,8 +2,8 @@
 
 .cp-text {
   margin: 0 0 var(--space-2);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   color: var(--text-3);
 }
 
@@ -110,7 +110,7 @@
   flex-direction: column;
   gap: var(--space-2);
   min-height: 0;
-  padding: var(--space-1-5);
+  padding: var(--space-2);
 }
 
 .cp-picker-list {
@@ -122,7 +122,7 @@
 
 .cp-picker-list .ui-choice {
   min-width: 0;
-  padding: var(--space-1) var(--space-1-5);
+  padding: var(--space-1) var(--space-2);
 }
 
 /*
@@ -223,7 +223,7 @@
   min-width: 0;
   overflow: hidden;
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-code);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -261,11 +261,11 @@
 }
 .cp-chip {
   flex: none;
-  padding: 0 var(--space-1-5);
-  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
   background: var(--bg-active);
   color: var(--text-2);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   line-height: 18px;
   white-space: nowrap;
 }

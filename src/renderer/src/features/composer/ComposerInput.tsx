@@ -15,13 +15,17 @@ import {
 } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { reportError } from "../../ui/errors.ts";
 import { Attachments } from "./Attachments.tsx";
 import { takeCaretRequest, requestCaret } from "./caret-request.ts";
+import { copiedFragment, rememberCopy } from "./composer-clipboard.ts";
 import {
   buildView,
   chipTouching,
   expandPaste,
+  insertDraft,
   insertPaste,
+  reconcileDraft,
   removeAttachment,
   snapSelection,
   textToViewOffset,
@@ -46,6 +50,8 @@ export interface ComposerInputProps {
   controls?: string | undefined;
   activeDescendant?: string | undefined;
   addFiles(files: Iterable<File>): Promise<void>;
+  /** 当前模型不收图片时 toast 并返回 true。 */
+  refuseImages(): boolean;
   /** 用户改了文字（view 里的光标位置）：菜单跟踪光标、历史游标复位。 */
   onEdit(caret: number): void;
   /** 光标移动（view 里的位置）。 */
@@ -86,7 +92,7 @@ export function keepFieldFocus(event: ReactMouseEvent<HTMLElement>, field: HTMLT
 }
 
 export function ComposerInput(props: ComposerInputProps) {
-  const { draftKey, draft, view, fieldRef, addFiles } = props;
+  const { draftKey, draft, view, fieldRef, addFiles, refuseImages } = props;
   const t = useT();
   const labels = useChipLabels();
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -188,19 +194,30 @@ export function ComposerInput(props: ComposerInputProps) {
     rawPaste.current = false;
     // 资源管理器里复制的文件路径由 preload 处理（已经 preventDefault）。
     if (event.defaultPrevented || raw) return;
+    const pasted = event.clipboardData.getData("text/plain");
+    const field = event.currentTarget;
+    const current = getDraft(draftKey);
+    const start = viewToTextOffset(view, field.selectionStart);
+    const end = viewToTextOffset(view, field.selectionEnd);
+    const without = { ...current, text: current.text.slice(0, start) + current.text.slice(end) };
+    // 刚从输入框复制的那段（带附件）：连同图片、文件、大段粘贴一起插回来。先于图片判断：复制时剪贴板里也放了那张图。
+    const fragment = pasted === "" ? null : copiedFragment(pasted);
+    if (fragment !== null) {
+      event.preventDefault();
+      if (fragment.images.length > 0 && refuseImages()) return;
+      const inserted = insertDraft(reconcileDraft(without), fragment, start);
+      setDraft(draftKey, inserted.draft);
+      requestCaret(draftKey, inserted.caret);
+      props.onEdit(textToViewOffset(buildView(inserted.draft, labels), inserted.caret));
+      return;
+    }
     const images = [...event.clipboardData.files].filter((file) => file.type.startsWith("image/"));
     if (images.length > 0) {
       event.preventDefault();
       void addFiles(images);
       return;
     }
-    const pasted = event.clipboardData.getData("text/plain");
     if (pasted === "") return;
-    const field = event.currentTarget;
-    const current = getDraft(draftKey);
-    const start = viewToTextOffset(view, field.selectionStart);
-    const end = viewToTextOffset(view, field.selectionEnd);
-    const without = { ...current, text: current.text.slice(0, start) + current.text.slice(end) };
     const inserted = insertPaste(without, pasted, start);
     // 不算大：交给文本框按原样粘贴。Ctrl+Shift+V 永远走这条（omp 的 pasteTextRaw）。
     if (inserted === null) return;
@@ -210,7 +227,8 @@ export function ComposerInput(props: ComposerInputProps) {
     props.onEdit(textToViewOffset(buildView(inserted.draft, labels), inserted.caret));
   };
 
-  // 复制 / 剪切选中的芯片：剪贴板里放占位符文字（view 里的零宽字符不外泄）。
+  // 复制 / 剪切选中的芯片：剪贴板里放占位符文字（view 里的零宽字符不外泄），图片另外写进剪贴板（composer-clipboard.ts），
+  // 并记下这段草稿，粘贴回输入框时附件跟着回来。
   const onCopyCut = (event: ClipboardEvent<HTMLTextAreaElement>, cut: boolean) => {
     const field = event.currentTarget;
     const { selectionStart: start, selectionEnd: end } = field;
@@ -218,7 +236,10 @@ export function ComposerInput(props: ComposerInputProps) {
     const selected = view.text.slice(start, end);
     if (!view.spans.some((span) => span.viewStart >= start && span.viewEnd <= end)) return;
     event.preventDefault();
-    event.clipboardData.setData("text/plain", viewToText(selected, getDraft(draftKey)));
+    const current = getDraft(draftKey);
+    const plain = viewToText(selected, current);
+    event.clipboardData.setData("text/plain", plain);
+    rememberCopy(current, plain).catch((error: unknown) => reportError(t, error));
     if (cut) replaceView(view.text.slice(0, start) + view.text.slice(end), viewToTextOffset(view, start));
   };
 

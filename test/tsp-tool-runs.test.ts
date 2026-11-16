@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { applyMessage, createDocument, type DocSurface } from "../src/shared/tsp/document.ts";
 import { runOpen, sameToolRuns, toolRuns, type RunTool, type ToolRun } from "../src/shared/tsp/tool-runs.ts";
-import { MAX_RUN_KINDS, toolRunHead } from "../src/renderer/src/features/tsp/tool-run-head.ts";
+import { MAX_KIND_TARGETS, MAX_RUN_KINDS, toolRunHead } from "../src/renderer/src/features/tsp/tool-run-head.ts";
 import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
 
 function replay(name: string): DocSurface {
@@ -54,15 +54,16 @@ describe("toolRuns", () => {
   });
 });
 
-describe("toolRunHead：组头每种工具的次数、整组用时、悬停每张卡一行", () => {
+describe("toolRunHead：组头每种工具做了什么、整组用时、悬停每张卡一行", () => {
   it("实录 cards：bash、edit、eval 各一次，用时是三张卡 took 之和；悬停按卡片标题、目标、用时", () => {
     const [run] = toolRuns(replay("cards"));
     expect(run!.tools.map((tool) => tool.took)).toEqual([10399, 420, 113000]);
     const head = toolRunHead(run!);
+    // 有目标的写目标；没有目标、只调用一次的不写字。
     expect(head.kinds).toEqual([
-      { name: "bash", count: 1 },
-      { name: "edit", count: 1 },
-      { name: "eval", count: 1 },
+      { name: "bash", count: 1, label: "" },
+      { name: "edit", count: 1, label: "docs\\content\\docs\\progress\\pending-test.zh-CN.mdx" },
+      { name: "eval", count: 1, label: "" },
     ]);
     expect(head.more).toBe(0);
     expect(head.took).toBe("2m3s");
@@ -77,9 +78,9 @@ describe("toolRunHead：组头每种工具的次数、整组用时、悬停每�
   it("实录 task：同一种工具合起来数，按第一次出现的顺序；没报 took 的卡（read）不写用时、不算进总数", () => {
     const [first, second] = toolRuns(replay("task")).map(toolRunHead);
     expect(first!.kinds).toEqual([
-      { name: "glob", count: 1 },
-      { name: "read", count: 2 },
-      { name: "task", count: 1 },
+      { name: "glob", count: 1, label: "**/*.py" },
+      { name: "read", count: 2, label: "2 files" },
+      { name: "task", count: 1, label: "2 agents" },
     ]);
     // 18ms + 5399ms。
     expect(first!.took).toBe("5.4s");
@@ -111,12 +112,18 @@ describe("toolRunHead：组头每种工具的次数、整组用时、悬停每�
     expect(toolRunHead(runOf([tool("bash", null, "running"), tool("read", null, "pending")])).took).toBeNull();
   });
 
-  it(`超过 ${MAX_RUN_KINDS} 种：前 ${MAX_RUN_KINDS} 种照画，其余几种的调用次数合成 +N`, () => {
+  it(`超过 ${MAX_RUN_KINDS} 种：前 ${MAX_RUN_KINDS} 种照画，其余几种的调用次数合成 +N；没有目标的多次调用写 ×N`, () => {
     const names = ["a", "b", "c", "d", "e", "f", "g", "h"];
     const head = toolRunHead(runOf([...names.map((name) => tool(name, 1)), tool("h", 1), tool("a", 1)]));
     expect(head.kinds.map((kind) => kind.name)).toEqual(names.slice(0, MAX_RUN_KINDS));
-    expect(head.kinds[0]).toEqual({ name: "a", count: 2 });
+    expect(head.kinds[0]).toEqual({ name: "a", count: 2, label: "×2" });
     expect(head.more).toBe(3);
+  });
+
+  it(`同一种工具的目标去重，最多列 ${MAX_KIND_TARGETS} 个，其余写 +N`, () => {
+    const read = (target: string): RunTool => ({ ...tool("read", 1), target });
+    const head = toolRunHead(runOf([read("a.py"), read("b.py"), read("a.py"), read("c.py"), read("d.py")]));
+    expect(head.kinds).toEqual([{ name: "read", count: 5, label: "a.py, b.py +2" }]);
   });
 
   it("卡片的 took、标题、目标变了，sameToolRuns 认为不同（组头要重画）", () => {

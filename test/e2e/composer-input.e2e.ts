@@ -251,7 +251,11 @@ test("窗口很矮时斜杠、@ 文件、Ctrl+R 菜单缩到主区顶边以内�
     await launched.page.evaluate(async () => {
       const [first] = await globalThis.studio.listProjects();
       for (let index = 1; index <= 15; index++)
-        await globalThis.studio.recordInputHistory(first!.id, `history entry ${index}`);
+        // 最后一条很长：行按内容宽时会撑出浮层、右边被裁掉（2026-11-15 体检截图）
+        await globalThis.studio.recordInputHistory(
+          first!.id,
+          index === 15 ? "history entry 15 ".repeat(30) : `history entry ${index}`,
+        );
       await globalThis.studio.createTask({ projectId: first!.id });
     });
     await launched.app.close();
@@ -292,6 +296,9 @@ test("窗口很矮时斜杠、@ 文件、Ctrl+R 菜单缩到主区顶边以内�
     await input.press("Control+r");
     await expect(page.getByTestId("history-row")).toHaveCount(15);
     await expectFits(page.getByTestId("history-search"));
+    const historyBox = (await page.getByTestId("history-search").boundingBox())!;
+    const longRow = (await page.getByTestId("history-row").first().boundingBox())!;
+    expect(longRow.x + longRow.width).toBeLessThanOrEqual(historyBox.x + historyBox.width);
   } finally {
     await second?.close().catch(() => {});
     await launched.close().catch(() => {});

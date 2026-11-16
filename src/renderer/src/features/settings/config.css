@@ -15,12 +15,19 @@
 }
 
 /* 控件列按内容定宽（开关只有 36px），小字跟着它的宽就被挤成一词一行（2026-10-29 SET-01）：
-   有小字的行控件列占满余下的宽，恢复默认挪到行尾；格子（flex 排法）里控件格占满一行。 */
+   有小字的行控件列占满余下的宽，恢复默认挪到行尾。格子里一格只有一两列宽，标签后面余下的宽也不够小字用：
+   控件连同小字换到标签下面占满整格，恢复默认留在标签那一行（格子的列见 settings.css 的 .st-cells .ui-row）。 */
 .ui-row:has(> .ui-row-control > .cfg-note) {
   grid-template-columns: var(--row-label-w, 200px) minmax(0, 1fr) 28px;
 }
-.st-cells .ui-row-control:has(> .cfg-note) {
-  flex-basis: 100%;
+.st-cells .ui-row:has(> .ui-row-control > .cfg-note) {
+  grid-template-columns: minmax(var(--st-label-min), max-content) auto;
+  row-gap: var(--space-1);
+}
+.st-cells .ui-row:has(> .ui-row-control > .cfg-note) > .ui-row-control {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  justify-self: stretch;
 }
 
 .cfg-error {
@@ -35,7 +42,7 @@
 }
 
 /* ───────── 标签输入（字符串数组） ─────────
-   外框同 .ui-field（md 高、边框、阴影、聚焦灰环）；标签同 Badge 的高、圆角、字号，值是配置原文所以用等宽 */
+   外框同 .ui-field（md 高、边框、阴影、聚焦灰环、字号、圆角）；标签同 Badge 的高、圆角，值是配置原文所以用等宽、代码字号 */
 
 .st-tags {
   display: flex;
@@ -45,7 +52,7 @@
   width: 360px;
   max-width: 100%;
   min-height: var(--control-h-md);
-  padding: var(--space-1) var(--space-1-5);
+  padding: var(--space-1);
   font-size: var(--fs-sm);
   background: var(--bg-raised);
   border: 1px solid var(--border);
@@ -65,13 +72,13 @@
 
 .st-tag {
   display: inline-flex;
-  gap: var(--space-0-5);
+  gap: var(--space-1);
   align-items: center;
   max-width: 100%;
   height: 20px;
-  padding: 0 var(--space-0-5) 0 var(--space-1-5);
+  padding: 0 0 0 var(--space-2);
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-code);
   line-height: 1;
   background: var(--bg-active);
   border-radius: var(--radius-md);
@@ -94,7 +101,7 @@
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .st-tag-remove:hover {
@@ -147,7 +154,7 @@
   justify-items: center;
   gap: var(--space-2);
   margin: 0;
-  padding-block: var(--space-12);
+  padding-block: var(--space-10);
   text-align: center;
 }
 .cfg-empty-title {
@@ -175,7 +182,7 @@
 .se-name {
   min-width: 0;
   overflow: hidden;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -183,7 +190,7 @@
 .se-chain {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--bg-sunken);
   border-radius: var(--radius-md);
@@ -205,14 +212,14 @@
 
 .se-index {
   color: var(--text-3);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
 .se-empty {
   color: var(--text-3);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-base);
 }
 
 .se-up {

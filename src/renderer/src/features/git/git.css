@@ -8,25 +8,23 @@
   -webkit-app-region: no-drag;
 }
 
+/* 分支胶囊和 PR 徽标：同顶栏其它按钮一样不描边、界面字体（2026-11-15 所有者批准的界面体检方案：顶栏只有它带框、等宽字，像嵌进来的另一套控件） */
 .topbar-branch {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1-5);
+  gap: var(--space-1);
   min-width: 0;
   max-width: 32ch;
   height: var(--control-h-sm);
   margin-right: var(--space-1);
-  padding: 0 var(--space-2) 0 var(--space-2-5);
+  padding: 0 var(--space-2);
   color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-xs);
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
+  border: 0;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition:
-    background-color var(--dur-instant) var(--ease-out),
-    border-color var(--dur-instant) var(--ease-out);
+  transition: background-color var(--dur-instant) var(--ease-out);
 }
 .topbar-branch:hover,
 .topbar-branch[aria-expanded="true"] {
@@ -59,22 +57,19 @@
 /* 改动数（omp 的 `*N ?N`）：比分支名弱一档，不抢领先数的强调色 */
 .topbar-branch-count {
   color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
 }
-/* 分支胶囊旁的 PR 号徽标（omp 标题后缀 ` · #12`）：同一高度、同一描边，点击在系统浏览器打开 PR */
+/* 分支胶囊旁的 PR 号徽标（omp 标题后缀 ` · #12`）：同分支胶囊的样子，点击在系统浏览器打开 PR */
 .topbar-pr {
   flex: none;
   height: var(--control-h-sm);
   margin-right: var(--space-1);
   padding: 0 var(--space-2);
   color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
+  border: 0;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background-color var(--dur-instant) var(--ease-out);
 }

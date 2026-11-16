@@ -215,13 +215,12 @@ export function expandPaste(draft: Draft, n: number): Inserted {
   return { draft: reconcileDraft({ ...draft, text }), caret };
 }
 
-/** 把 added 接在 current 后面（空行分隔）：added 里的占位符编号顺延，免得和 current 的重号。 */
-export function appendDraft(current: Draft, added: Draft): Draft {
-  if (added.text === "" && added.images.length === 0 && added.files.length === 0) return current;
+/** added 的占位符编号顺延到 current 后面，免得和 current 的重号；返回改写后的文字和合并后的附件。 */
+function shiftDraft(current: Draft, added: Draft): { text: string; merged: Omit<Draft, "text"> } {
   const imageShift = current.images.length;
   const fileShift = current.files.length;
   const pasteShift = current.pasteCounter;
-  const shifted = added.text.replace(new RegExp(tokenSource, "g"), (whole, kind: string, n: string) => {
+  const text = added.text.replace(new RegExp(tokenSource, "g"), (whole, kind: string, n: string) => {
     const old = Number(n);
     if (kind === "Image") {
       return old <= added.images.length ? imageMarker(old + imageShift, added.images[old - 1]) : whole;
@@ -234,11 +233,37 @@ export function appendDraft(current: Draft, added: Draft): Draft {
   const pastes: Record<number, string> = { ...current.pastes };
   for (const [n, content] of Object.entries(added.pastes)) pastes[Number(n) + pasteShift] = content;
   return {
-    text: [current.text, shifted].filter((part) => part !== "").join("\n\n"),
-    images: [...current.images, ...added.images],
-    files: [...current.files, ...added.files],
-    pastes,
-    pasteCounter: current.pasteCounter + added.pasteCounter,
+    text,
+    merged: {
+      images: [...current.images, ...added.images],
+      files: [...current.files, ...added.files],
+      pastes,
+      pasteCounter: current.pasteCounter + added.pasteCounter,
+    },
+  };
+}
+
+/** 把 added 接在 current 后面（空行分隔）：added 里的占位符编号顺延，免得和 current 的重号。 */
+export function appendDraft(current: Draft, added: Draft): Draft {
+  if (added.text === "" && added.images.length === 0 && added.files.length === 0) return current;
+  const { text, merged } = shiftDraft(current, added);
+  return { ...merged, text: [current.text, text].filter((part) => part !== "").join("\n\n") };
+}
+
+/** 草稿里选中的一段（文字里的占位符是草稿自己的编号）连同它引用的附件：图片、文件重新编号 1..k，粘贴只留引用到的。 */
+export function draftFragment(draft: Draft, text: string): Draft {
+  const fragment = reconcileDraft({ ...draft, text });
+  const kept = Object.keys(fragment.pastes).map(Number);
+  return { ...fragment, pasteCounter: kept.length === 0 ? 0 : Math.max(...kept) };
+}
+
+/** 在 offset 处原样插入一段草稿（复制来的片段）：编号顺延，不补空格；光标放在插入的文字后面。 */
+export function insertDraft(current: Draft, added: Draft, offset: number): Inserted {
+  const at = Math.min(Math.max(offsetOutsideTokens(current, offset), 0), current.text.length);
+  const { text, merged } = shiftDraft(current, added);
+  return {
+    draft: { ...merged, text: current.text.slice(0, at) + text + current.text.slice(at) },
+    caret: at + text.length,
   };
 }
 

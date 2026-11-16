@@ -1,10 +1,20 @@
 // 气泡 toast 列表：悬浮在主区面板上沿正中，向下叠放；有遮罩的弹窗（对话框、命令面板、看大图）开着时挪到窗口底部正中、向上叠放，
-// 不压住弹窗（2026-10-29 仓库所有者定）。不抢焦点；错误用 role=alert，其余 role=status。
+// 不压住弹窗（2026-10-29 仓库所有者定）；浮层（Popover、菜单、斜杠菜单）压到上沿那叠气泡的位置时同样挪到底部。
+// 不抢焦点；错误用 role=alert，其余 role=status。
 // 消失（点关闭 / 到时间 / 被挤掉）时先放退出动画：已移出 store 的 toast 在这里留一份"幽灵"，放完再卸载。
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { Button, IconButton } from "../../ui/controls.tsx";
+import { floatingRects, subscribeFloating } from "../../ui/floating.ts";
 import { usePresence } from "../../ui/presence.ts";
 import { scrimsOpen, subscribeScrims } from "../../ui/title-bar-dim.ts";
 import { useFlip } from "../../ui/flip.ts";
@@ -74,6 +84,47 @@ function usePanelBounds(): CSSProperties {
     : ({ "--toasts-left": `${bounds.left}px`, "--toasts-width": `${bounds.width}px` } as CSSProperties);
 }
 
+/**
+ * 浮层（Popover、菜单、斜杠菜单）压到主区上沿那叠气泡的位置时为 true：气泡改放窗口底部，和有遮罩的弹窗一样不盖住它。
+ * 浮层出现 / 挪动 / 消失（ui/floating.ts 的通知）、这叠气泡变高变矮（studio 的和 omp portal 进来的都算）、窗口变化时下一帧重量。
+ * 气泡在底部时量不到它在上沿的位置，用上次在上沿时量到的顶边，高度取现在这叠的高度。
+ */
+function useAvoidFloating(list: RefObject<HTMLElement | null>): boolean {
+  const [avoid, setAvoid] = useState(false);
+  const topEdge = useRef<number | null>(null);
+  useEffect(() => {
+    const el = list.current;
+    if (el === null) return;
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const rect = el.getBoundingClientRect();
+        if (el.dataset["place"] === undefined) topEdge.current = rect.top;
+        const top = topEdge.current ?? rect.top;
+        const hit =
+          rect.height > 0 &&
+          floatingRects().some(
+            (r) => r.left < rect.right && r.right > rect.left && r.top < top + rect.height && r.bottom > top,
+          );
+        setAvoid(hit);
+      });
+    };
+    measure();
+    const unsubscribe = subscribeFloating(measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(frame);
+      unsubscribe();
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [list]);
+  return avoid;
+}
+
 export function Toasts() {
   const t = useT();
   const panel = usePanelBounds();
@@ -94,13 +145,15 @@ export function Toasts() {
   const shown = [...live, ...ghosts.filter((ghost) => !live.some((toast) => toast.id === ghost.id))].sort(
     (a, b) => a.id - b.id,
   );
+  const avoid = useAvoidFloating(list);
+  const bottom = overModal || avoid;
   return (
     <section
       className="toasts"
       aria-label={t("dialogs.toastRegion")}
       data-testid="toasts"
-      data-place={overModal ? "bottom" : undefined}
-      style={overModal ? undefined : panel}
+      data-place={bottom ? "bottom" : undefined}
+      style={bottom ? undefined : panel}
       ref={list}
     >
       {shown.map((toast) => (

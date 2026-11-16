@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "../icons.tsx";
+import { floatingChanged } from "./floating.ts";
 import { usePresence } from "./presence.ts";
 
 export interface MenuAction {
@@ -184,6 +185,7 @@ export function Menu({
     const update = () => {
       const next = place(anchor, node.offsetWidth, node.offsetHeight);
       setPosition((prev) => (prev.left === next.left && prev.top === next.top ? prev : next));
+      floatingChanged();
     };
     update();
     const observer = new ResizeObserver(update);
@@ -192,6 +194,7 @@ export function Menu({
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", update);
+      floatingChanged();
     };
   }, [anchor, presence.mounted]);
 

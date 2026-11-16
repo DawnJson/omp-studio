@@ -85,26 +85,39 @@ function alignStyle(token: Token): CSSProperties | undefined {
 }
 
 /**
- * 表格单元格里的标识符（文件名、路径、snake_case）在分隔符后加 <wbr>：表格整词不拆（overflow-wrap: break-word），
+ * 表格单元格里的长标识符（文件名、路径、snake_case）在分隔符后加 <wbr>：表格整词不拆（overflow-wrap: break-word），
  * 一个不带空格的长文件名的最小宽度就是整串，会把整张表撑出可视区，别的列被挤成一个词一行（2026-11-10 所有者截图）。
- * <wbr> 不进复制的文字；`.` 后面跟数字时不加（"3.14"、"v1.2" 不在小数点处断开）。
+ * 只拆 BREAK_MIN 个字符起的词：短的（`calc.py`、`test_calc.py`）拆了只会在宽窗口里也折成 `calc.` / `py`，
+ * 它们本来就撑不开表格（2026-11-15 体检截图）。<wbr> 不进复制的文字；`.` 后面跟数字时不加（"3.14"、"v1.2" 不在小数点处断开）。
  */
+const BREAK_MIN = 14;
 const idSeparator = /([_/\\]|\.(?=\D))/;
+
+function breakWord(word: string, key: number): ReactNode {
+  if (word.length < BREAK_MIN) return word;
+  const parts = word.split(idSeparator);
+  if (parts.length === 1) return word;
+  const out: ReactNode[] = [];
+  // split 带捕获组：偶数位是文字，奇数位是分隔符；分隔符后面放 <wbr>。
+  parts.forEach((part, index) => {
+    if (part === "") return;
+    out.push(part);
+    if (index % 2 === 1) out.push(h("wbr", { key: `${key}.${index}` }));
+  });
+  return out;
+}
 
 function breakIdentifiers(node: ReactNode): ReactNode {
   if (typeof node === "string") {
-    const parts = node.split(idSeparator);
-    if (parts.length === 1) return node;
-    const out: ReactNode[] = [];
-    // split 带捕获组：偶数位是文字，奇数位是分隔符；分隔符后面放 <wbr>。
-    parts.forEach((part, index) => {
-      if (part === "") return;
-      out.push(part);
-      if (index % 2 === 1) out.push(h("wbr", { key: index }));
-    });
-    return out;
+    const words = node.split(/(\s+)/);
+    return words.length === 1 ? breakWord(node, 0) : words.map(breakWord);
   }
   return Array.isArray(node) ? node.map(breakIdentifiers) : node;
+}
+
+/** 表格里不带空格的短行内代码（`3-5=-2`、`calc.py`）整段不折：连字符、点也不当断点。 */
+function shortCode(content: string): boolean {
+  return content.length < BREAK_MIN && !/\s/.test(content);
 }
 
 function renderInlineChildren(nodes: TreeNode[], ctx: RenderContext, inCell: boolean): ReactNode[] {
@@ -125,7 +138,11 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext, inCell: b
     case "hardbreak":
       return h("br", { key });
     case "code_inline":
-      return h("code", { key, className: "md-code-inline" }, text(token.content));
+      return h(
+        "code",
+        { key, className: "md-code-inline", "data-nowrap": inCell && shortCode(token.content) ? "" : undefined },
+        text(token.content),
+      );
     case "math_inline":
       return renderMath(token, key, false, ctx);
     case "em_open":

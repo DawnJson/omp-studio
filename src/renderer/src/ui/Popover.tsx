@@ -3,6 +3,7 @@
 // Esc 在焦点于输入框、胶囊或浮层里时都管；焦点在 aria-modal 对话框或 TSP 过程区（那里的 Esc 是写给 omp 的按键）时不管。
 // 关闭时先放退出动画再卸载（presence.ts）。
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
+import { floatingChanged } from "./floating.ts";
 import { usePresence } from "./presence.ts";
 
 interface PopoverProps {
@@ -57,7 +58,11 @@ export function useFitInside(ref: RefObject<HTMLElement | null>, open: boolean):
   useLayoutEffect(() => {
     const el = ref.current;
     if (!open || el === null) return;
-    const fit = () => fitInside(el);
+    el.dataset["floating"] = "";
+    const fit = () => {
+      fitInside(el);
+      floatingChanged();
+    };
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(el);
@@ -66,6 +71,8 @@ export function useFitInside(ref: RefObject<HTMLElement | null>, open: boolean):
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", fit);
+      delete el.dataset["floating"];
+      floatingChanged();
     };
   }, [ref, open]);
 }

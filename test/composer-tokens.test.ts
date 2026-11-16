@@ -8,11 +8,13 @@ import {
   chipLabels,
   chipTouching,
   displayNumber,
+  draftFragment,
   draftFromRestored,
   EMPTY_DRAFT,
   historyText,
   formatFileSize,
   expandPaste,
+  insertDraft,
   insertFiles,
   insertImages,
   insertPaste,
@@ -191,6 +193,24 @@ describe("拼接草稿（发送失败放回、撤回排队消息）", () => {
     expect(merged.images.map((entry) => entry.data)).toEqual(["a", "b"]);
     expect(Object.keys(merged.pastes)).toEqual(["1", "2"]);
     expect(merged.pasteCounter).toBe(2);
+  });
+  it("复制的一段带着它引用的附件，粘回别的草稿时插在光标处、编号顺延（2026-11-15：复制不带图片）", () => {
+    const source = draftOf({
+      text: "[Image #1, 1x1] 甲 [Image #2, 2x2] [Paste #3, +12 lines] 乙",
+      images: [image(1, 1, "a"), image(2, 2, "b")],
+      pastes: { 3: lines(12) },
+      pasteCounter: 3,
+    });
+    const fragment = draftFragment(source, "[Image #2, 2x2] [Paste #3, +12 lines]");
+    expect(fragment.text).toBe("[Image #1, 2x2] [Paste #3, +12 lines]");
+    expect(fragment.images.map((entry) => entry.data)).toEqual(["b"]);
+    expect(fragment.pasteCounter).toBe(3);
+    const target = draftOf({ text: "前后", images: [image(5, 5, "c")], pastes: { 1: lines(11) }, pasteCounter: 1 });
+    const inserted = insertDraft({ ...target, text: "[Image #1, 5x5] 前后" }, fragment, "[Image #1, 5x5] 前".length);
+    expect(inserted.draft.text).toBe("[Image #1, 5x5] 前[Image #2, 2x2] [Paste #4, +12 lines]后");
+    expect(inserted.draft.images.map((entry) => entry.data)).toEqual(["c", "b"]);
+    expect(inserted.draft.pastes[4]).toBe(lines(12));
+    expect(inserted.draft.text.slice(inserted.caret)).toBe("后");
   });
   it("撤回的几条消息：各自的图片占位留在原位，编号接着前一条顺延", () => {
     const draft = draftFromRestored([

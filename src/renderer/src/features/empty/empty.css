@@ -31,15 +31,6 @@
   padding: var(--space-8) 0 var(--space-6);
 }
 
-/* 标志（omp 式像素 π + 字）居中，下面是"最近更新"（TSP 过程区顶部的 StudioHeader） */
-.empty-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
 .pixel-logo {
   display: block;
   max-width: 100%;
@@ -72,16 +63,12 @@
   overflow-wrap: anywhere;
 }
 
-/* ───────── 本周用量卡片：白底 + 1px 淡描边，不加阴影 ───────── */
+/* ───────── 本周用量：不铺底、不描边，标签淡色小字 + 大数字 + 点阵自己就是一块（2026-11-15 所有者批准的界面体检方案） ───────── */
 .eu {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-  padding: var(--space-5);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
 }
 
 .eu-head {
@@ -98,10 +85,10 @@
 
 .eu-label {
   margin: 0;
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   font-weight: 400;
-  color: var(--text-2);
+  color: var(--text-3);
 }
 
 .eu-figures {
@@ -142,8 +129,8 @@
 /* 没有统计库时只有"标题 + 一句说明"：说明比标题轻一档，两行贴在一起（2026-10-29：原来说明 --fs-base 比标题还重，卡片空出 100 高） */
 .eu-note {
   margin: 0;
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   color: var(--text-3);
   text-wrap: pretty;
 }

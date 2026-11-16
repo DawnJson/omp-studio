@@ -723,21 +723,26 @@ test("自定义提供商：认得出的生图模型类型自动填成生图（�
 
 test("自定义提供商：omp 认不出的模型按公开模型目录预填思考、图片输入、上下文（已保存留自动的和新拉取的）；omp 认识的不动", async () => {
   // kimi-k3 在 omp 的内置表里（能思考、1M 上下文），目录里故意写成别的值：不能拿来覆盖。
+  // 认不出的那个用虚构 id：真实模型名迟早进 omp 的内置表（omp 18.20.2 已认识 kimi-k3.1-pro），前提就不成立了。
   const catalog = {
     moonshotai: {
       models: {
-        "kimi-k3.1-pro": { reasoning: true, modalities: { input: ["text", "image"] }, limit: { context: 1_048_576 } },
+        "kimi-e2e-unlisted": {
+          reasoning: true,
+          modalities: { input: ["text", "image"] },
+          limit: { context: 1_048_576 },
+        },
         "kimi-k3": { reasoning: true, modalities: { input: ["text", "image"] }, limit: { context: 262_144 } },
       },
     },
   };
-  const fake = await startFakeOpenAi({ models: ["kimi-k3.1-pro", "house-plain"], catalog });
+  const fake = await startFakeOpenAi({ models: ["kimi-e2e-unlisted", "house-plain"], catalog });
   const { launched, agentDir } = await launchSettings({
     catalogUrl: fake.catalogUrl,
     prepare: (dir) =>
       writeFile(
         path.join(dir, "models.yml"),
-        `providers:\n  saved-relay:\n    baseUrl: ${fake.baseUrl}\n    apiKey: sk-test\n    api: openai-completions\n    models:\n      - id: kimi-k3.1-pro\n      - id: kimi-k3\n`,
+        `providers:\n  saved-relay:\n    baseUrl: ${fake.baseUrl}\n    apiKey: sk-test\n    api: openai-completions\n    models:\n      - id: kimi-e2e-unlisted\n      - id: kimi-k3\n`,
       ),
   });
   const file = path.join(agentDir, "models.yml");
@@ -748,13 +753,13 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
     const { page } = launched;
     await setLocaleTheme(page, "zh-CN", "light");
 
-    // 已保存、全是自动：omp 认不出的 kimi-k3.1-pro 预填，omp 认识的 kimi-k3 还是自动（后面是 omp 的值）。
+    // 已保存、全是自动：omp 认不出的 kimi-e2e-unlisted 预填，omp 认识的 kimi-k3 还是自动（后面是 omp 的值）。
     await page.getByTestId("custom-edit-saved-relay").click();
-    await expect(page.getByTestId("custom-model-contextWindow-kimi-k3.1-pro")).toHaveValue("1048576", {
+    await expect(page.getByTestId("custom-model-contextWindow-kimi-e2e-unlisted")).toHaveValue("1048576", {
       timeout: 30_000,
     });
     for (const column of ["reasoning", "images"]) {
-      const cell = page.getByTestId(`custom-model-${column}-kimi-k3.1-pro`);
+      const cell = page.getByTestId(`custom-model-${column}-kimi-e2e-unlisted`);
       await expect(cell).toContainText("支持");
       await expect(cell).not.toContainText("自动");
     }
@@ -763,7 +768,7 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
     await page.getByTestId("custom-save").click();
     await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
     expect(await modelsOf("saved-relay")).toEqual([
-      { id: "kimi-k3.1-pro", reasoning: true, input: ["text", "image"], contextWindow: 1_048_576 },
+      { id: "kimi-e2e-unlisted", reasoning: true, input: ["text", "image"], contextWindow: 1_048_576 },
       { id: "kimi-k3" },
     ]);
 
@@ -772,14 +777,14 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
     await page.getByTestId("custom-id").fill("new-relay");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key-mode-none").click();
-    await pickModels(page, ["kimi-k3.1-pro", "house-plain"]);
-    await expect(page.getByTestId("custom-model-contextWindow-kimi-k3.1-pro")).toHaveValue("1048576");
+    await pickModels(page, ["kimi-e2e-unlisted", "house-plain"]);
+    await expect(page.getByTestId("custom-model-contextWindow-kimi-e2e-unlisted")).toHaveValue("1048576");
     await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动");
     await expect(page.getByTestId("custom-model-contextWindow-house-plain")).toHaveValue("");
     await page.getByTestId("custom-save").click();
     await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
     expect(await modelsOf("new-relay")).toEqual([
-      { id: "kimi-k3.1-pro", reasoning: true, input: ["text", "image"], contextWindow: 1_048_576 },
+      { id: "kimi-e2e-unlisted", reasoning: true, input: ["text", "image"], contextWindow: 1_048_576 },
       { id: "house-plain" },
     ]);
   } finally {

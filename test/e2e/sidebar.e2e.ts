@@ -234,13 +234,16 @@ for (const [locale, colorScheme] of [
       // 只在历史里出现的文件夹：默认折叠、有 +、没有项目菜单；图标字形不进标题；+ 先把它加成项目再开草稿。
       const notes = sidebar.getByRole("region", { name: "notes" });
       await expect(notes.getByTestId("sidebar-session")).toHaveCount(0);
-      // 折叠：+ 左边是行数；纯历史文件夹没有 ⋯。展开的 studio 项目：同一格常驻 ⋯（不用悬停），行数隐去。
+      // 折叠：最右一格是行数；纯历史文件夹没有 ⋯。展开的 studio 项目：＋ 左边是 ⋯，行数隐去。
       await expect(notes.locator(".sb-group-count")).toBeVisible();
       await expect(notes.locator(".sb-group-count")).toContainText("1");
       await expect(notes.locator(".sb-group-more")).toHaveCount(0);
       await expect(myApp.locator(".sb-group-more")).toBeVisible();
       await expect(myApp.locator(".sb-group-count")).toBeHidden();
       await notes.locator(".sb-group-toggle").click();
+      // 点过文件夹名后焦点留在头上：指针移开，＋ 不留着（2026-11-15 所有者截图：残留）
+      await page.mouse.move(600, 400);
+      await expect(notes.getByTestId("sidebar-project-new")).toHaveCSS("opacity", "0");
       await expect(notes.getByTestId("sidebar-session")).toHaveText(/^写笔记/);
       await expect(notes.getByTestId("sidebar-session")).not.toContainText("\ue5fa");
       await expect(notes.getByTestId("sidebar-session").locator("svg")).toHaveCount(0);
@@ -355,7 +358,8 @@ for (const [locale, colorScheme] of [
       await page.keyboard.press("ArrowLeft");
       await expect(rows).toHaveCount(0);
       await expect(toggle.locator(".sb-group-count")).toContainText("8");
-      await expect(toggle.locator(".sb-group-count")).toBeVisible();
+      // 键盘焦点在文件夹名上：行数让位给 ＋（指针悬停同理）。
+      await expect(toggle.locator(".sb-group-count")).toBeHidden();
       await expect(sidebar.getByRole("region", { name: "my app" }).locator(".sb-group-more")).toBeHidden();
       await toggle.focus();
       await page.keyboard.press("ArrowRight");

@@ -30,8 +30,9 @@ export function toModelOption(info: ModelInfoWithMetrics): ModelOption {
   };
 }
 
-/** 会话标题：首条用户消息的第一行，截到 60 个字符。 */
+/** 会话标题：首条用户消息的第一行，超过 60 个字符时截到 59 个加"…"（不留半个词还看不出被截过）。 */
 export function titleFromPrompt(text: string): string {
   const firstLine = text.split(/\r?\n/).find((line) => line.trim() !== "") ?? "";
-  return Array.from(firstLine.trim()).slice(0, 60).join("");
+  const chars = Array.from(firstLine.trim());
+  return chars.length > 60 ? `${chars.slice(0, 59).join("").trimEnd()}…` : chars.join("");
 }

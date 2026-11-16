@@ -114,7 +114,6 @@
   --row-task: 32px;
   --row-tool: 28px;
   --row-menu: 32px;
-  --row-palette: 40px;
   --icon-sm: 14px;
   --icon-md: 16px;
   --icon-lg: 20px;
@@ -196,7 +195,6 @@
    * 跳到每秒约 30 帧后分别约 8% 和 10%（2026-10-28 实测）。时长改了这里一起改。 */
   --tick-spin: steps(33); /* --dur-spin 一整段 */
   --tick-breathe: steps(36); /* --dur-breathe 的半段（呼吸 0%→50%→100%） */
-  --tick-sweep: steps(72); /* --dur-breathe 一整段（扫光） */
   --tick-caret: steps(18); /* --dur-caret 的半段 */
   --tick-skeleton: steps(42); /* --dur-sweep 一整段 */
   /* 退出比进入快：时长的 60% */

@@ -29,6 +29,8 @@ onTspDocumentDropped((taskId) => {
 });
 
 const BUSY_TASK: ReadonlySet<string> = new Set(["running", "needs_you"]);
+/** 组头里超过这么多字的目标（命令说明这类）宽度不够时缩成省略号；短的（`4/4`、`README.md`）保持原宽，不被截成 `4/`。 */
+const LONG_LABEL = 16;
 
 export interface RunState {
   open: boolean;
@@ -97,9 +99,14 @@ export function ToolRunHead({ run, open, onToggle }: { run: ToolRun; open: boole
     >
       <span className="tsp-run-kinds" aria-hidden="true">
         {head.kinds.map((kind) => (
-          <span key={kind.name} className="tsp-run-kind" data-tool={kind.name}>
+          <span
+            key={kind.name}
+            className="tsp-run-kind"
+            data-tool={kind.name}
+            data-long={kind.label.length > LONG_LABEL ? "" : undefined}
+          >
             <TspIcon name={toolIconName(kind.name)} />
-            {kind.count}
+            {kind.label !== "" && <span className="tsp-run-label">{kind.label}</span>}
           </span>
         ))}
         {head.more > 0 && <span className="tsp-run-kind">+{head.more}</span>}

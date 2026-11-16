@@ -279,3 +279,39 @@ test("斜杠命令：/skillful 不带参数打开菜单，/computer on 先确认
     await cleanup();
   }
 });
+
+// 浮层伸到主区上沿时，omp 回的 toast 落在上沿会盖住浮层的头几行（2026-11-13 截图巡检：会话开关、顶栏任务菜单）。
+// 浮层压到气泡位置时气泡挪到窗口底部；浮层关掉后回到上沿。顶栏的任务菜单从上沿往下展开，一定压到那叠气泡。
+test("浮层压到主区上沿的 toast 时，toast 挪到底部、不压住浮层；关掉浮层后回到上沿", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    await expect(page.getByTestId("toggles-button")).toBeVisible({ timeout: 30_000 });
+    await page.setViewportSize({ width: 1200, height: 800 });
+    const toasts = page.getByTestId("toasts");
+    await page.getByTestId("composer-input").fill("/skillful off");
+    await page.keyboard.press("Enter");
+    const toast = toasts.getByText("Skill listing disabled for this session.");
+    await expect(toast).toBeVisible();
+    await expect(toasts).not.toHaveAttribute("data-place", /.*/);
+    await page.getByTestId("task-menu").click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await expect(toasts).toHaveAttribute("data-place", "bottom");
+    const menuBox = await menu.boundingBox();
+    const box = await toast.boundingBox();
+    expect(menuBox && box && (box.y >= menuBox.y + menuBox.height || box.y + box.height <= menuBox.y)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(toast).toBeVisible();
+    await expect(toasts).not.toHaveAttribute("data-place", /.*/);
+  } finally {
+    await cleanup();
+  }
+});

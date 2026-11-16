@@ -55,7 +55,7 @@ function pathOf(pixels: readonly Pixel[]): string {
   return pixels.map(({ x, y }) => `M${x} ${y}h1v1h-1z`).join("");
 }
 
-export function PixelLogo({ version, unit = 6 }: { version?: string | null; unit?: number }) {
+export function PixelLogo({ unit = 6 }: { unit?: number }) {
   return (
     <svg
       className="pixel-logo"
@@ -70,18 +70,6 @@ export function PixelLogo({ version, unit = 6 }: { version?: string | null; unit
       <PiMark />
       <path className="pixel-logo-text" d={pathOf(omp.pixels)} fill="var(--text)" />
       <path className="pixel-logo-text" d={pathOf(studio.pixels)} fill="var(--text-2)" />
-      {version && (
-        <text
-          x={textX}
-          y={10.4}
-          fontSize={1.9}
-          fill="var(--text-3)"
-          style={{ fontFamily: "var(--font-mono)" }}
-          data-testid="pixel-logo-version"
-        >
-          v{version}
-        </text>
-      )}
     </svg>
   );
 }

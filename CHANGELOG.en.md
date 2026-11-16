@@ -14,6 +14,56 @@ How to write it:
 
 - After sending during a run, press Enter with an empty input or click “Process now” to interrupt the current turn and process queued messages while keeping unsent drafts.
 
+## [0.9.2] - 2026-11-14
+
+### Fixed
+
+- Copying content with an image in the input box now copies the image too: pasting back into an input box brings the image along, and other apps get the image as well.
+- After clicking a sidebar folder, the + on its header no longer stays visible once the pointer moves away.
+- Model picker: long thinking level names such as Medium and XHigh no longer stick out of the selected segment.
+
+### Changed
+
+- Sidebar: a collapsed folder's item count now sits at the far right instead of leaving a gap; it turns into + when you hover. The "waiting for you" diamond and "new result" dot move next to the folder name's arrow, so they stay visible while the pointer is on the header.
+- Destructive buttons such as Cancel job and Discard now have a light red background and red border, so they stand out from ordinary buttons.
+- The X-High thinking level is now written XHigh, without the hyphen.
+- Settings: settings that fit in one column (such as the pet's spending today and in total) no longer take a whole row; theme cards fill the row and line up with the controls below; untitled settings get spacing from the block above.
+
+## [0.9.1] - 2026-11-14
+
+### Changed
+
+- Settings: toggles, dropdowns and segmented controls sit on the right again, so their right edges line up down each column like the shortcut keys; the "Default thinking level" dropdown lines up with each role's thinking level below it.
+
+## [0.9.0] - 2026-11-14
+
+### Fixed
+
+- Notifications at the top no longer cover menus that reach the top of the window, such as the task menu and session toggles; while such a menu is open they move to the bottom.
+- When the default model in your config names only the model (no provider), new tasks recognize it and the model picker checks it.
+- The model picker no longer says "No models available" when every provider group is collapsed.
+- Truncated session titles now end with "…".
+- Windows: when viewing an image full size, its close button is no longer hidden behind the window's own close button.
+- In narrow windows, short Chinese words in answer tables no longer wrap one character per line.
+- Very long messages in `Ctrl+R` history search no longer stretch past the popup and get cut off on the right; they end with "…".
+
+### Changed
+
+- The omp studio logo no longer sits at the top of every conversation; your message comes first.
+- Grouped tool-call headers now show which files were read or written and what ran, not just icons and counts.
+- Tool cards, todos and background jobs no longer have a filled background and line up with the answer text; your message bubble is neutral gray; running cards no longer use purple, and shimmering status text now pulses instead.
+- The background jobs dialog (`/jobs`) no longer fills the job list, progress and chart with color or purple; only the command and output have a background. Red buttons such as Cancel job and Discard no longer have a red border.
+- The row under the input box (model, approval mode, folder, usage) uses one text size with more spacing, and the folder path is no longer monospace; the subagent / background job pill above the input box loses its trough; the card shown when hovering a job no longer has fills or dividers.
+- Model picker: model names stand out, number columns are small muted text, and missing values ("–") are fainter; the sidebar and role marks no longer have a filled background.
+- Settings: theme thumbnails are small cards instead of filling half the screen; toggles and dropdowns sit right after their labels instead of at the far right; sections and provider / plugin cards no longer have fills or borders and are separated by space; section titles and setting labels use body text size.
+- Command palette: shortcuts are plain muted text instead of boxed keycaps (tooltips too); the current row no longer has a purple bar; rows are shorter, so more fit on screen.
+- Slash menu command names stand out more; the ＋ and ⋯ buttons on sidebar folder headers stay hidden until you hover.
+- Review view: text uses body size; hunks and comment cards no longer have borders and `@@` lines no longer have a fill; branch name, status letters and +/− counts are no longer monospace; with no comments, "Send to agent" shows as a faint disabled button.
+- Context popover and usage dialog: numbers use small interface text instead of monospace; the four stats at the top of the usage dialog no longer have a fill or dividers; this week's usage on the new-task page no longer sits in a card.
+- Tables in answers: short file names and code such as `calc.py` or `3-5=-2` no longer break across two lines in narrow columns; in narrow windows a tool-group header only shortens the long command description, so `4/4` and `README.md` are no longer cut off.
+- The branch button in the top bar no longer has a border or monospace text, matching the buttons next to it; small tags such as `+err` and `↓ last 5` in command output and the todo progress ring are no longer purple.
+- Items in the todo popup use body text size.
+
 ## [0.8.6] - 2026-11-13
 
 ### Fixed

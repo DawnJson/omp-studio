@@ -46,8 +46,8 @@
   overflow: auto;
   color: var(--text-2);
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  line-height: var(--lh-code-sm);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -85,15 +85,15 @@
   gap: var(--space-1);
   justify-self: stretch;
   padding: var(--space-2) var(--space-3);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   color: var(--text-2);
   background: var(--bg-sunken);
   border-radius: var(--radius-md);
 }
 .ig-picked-folder {
   font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
+  font-size: var(--fs-code);
   color: var(--text-3);
 }
 .ig-picked-name {

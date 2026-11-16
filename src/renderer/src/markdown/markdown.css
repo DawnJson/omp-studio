@@ -183,8 +183,14 @@
   text-align: left;
   vertical-align: top;
   /* `.md` 是 overflow-wrap: anywhere，会让自动表格布局的最小内容宽度变成 1 个字（/tools 的名字列被挤成竖排）；
-     break-word 不影响最小内容宽度，整词保持完整，实在放不下才折。不带空格的文件名、路径靠 render.ts 在 _ / \ . 后插的 <wbr> 折行。 */
+     break-word 不影响最小内容宽度，整词保持完整，实在放不下才折。不带空格的文件名、路径靠 render.ts 在 _ / \ . 后插的 <wbr> 折行。
+     中文没有词间空格，每个字都是断点：keep-all 让一串中文只在标点、空格处折（窄窗口里「只读」「新建」不再一字一行，2026-11-14 体检）。 */
   overflow-wrap: break-word;
+  word-break: keep-all;
+}
+/* 不带空格的短行内代码（render.ts 的 shortCode）整段不折：`3-5=-2` 不在连字符处断成 `3-` / `5=-2` */
+.md-table .md-code-inline[data-nowrap] {
+  white-space: nowrap;
 }
 .md-table th {
   font-size: var(--fs-xs);

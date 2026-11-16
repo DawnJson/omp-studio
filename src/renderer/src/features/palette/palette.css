@@ -1,4 +1,4 @@
-/* 命令面板样式（spec §4.18）：保持自己的外壳；出现只淡入（键盘高频，不弹簧、不位移、不缩放；动画在遮罩 .pl-root 上，面板跟着透明）；键帽用 ui/controls.css 的 .ui-kbd。 */
+/* 命令面板样式（spec §4.18）：保持自己的外壳；出现只淡入（键盘高频，不弹簧、不位移、不缩放；动画在遮罩 .pl-root 上，面板跟着透明）；快捷键提示用 ui/controls.css 的 .ui-kbd（淡色小字）。 */
 .pl-root .icon {
   flex: none;
 }
@@ -85,12 +85,13 @@
   line-height: var(--lh-xs);
   color: var(--text-3);
 }
+/* 行和菜单项同高（--row-menu）、当前行只铺 --bg-active，不画强调色竖条：和菜单、下拉的选中样子一致（2026-11-15 所有者定） */
 .pl-row {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  height: var(--row-palette);
+  height: var(--row-menu);
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -99,25 +100,6 @@
 }
 .pl-row[data-active="true"] {
   background: var(--bg-active);
-}
-/* 左侧高亮条一直在，只切透明度和缩放，选中项移动时渐变而不是跳。
-   内缩 --space-1 放在行的底色里面，不压在圆角上（2026-10-29：贴着左缘时像底色外面多出的一根线）。 */
-.pl-row::before {
-  content: "";
-  position: absolute;
-  left: var(--space-1);
-  top: 50%;
-  width: 2px;
-  height: var(--icon-md);
-  margin-top: calc(var(--icon-md) / -2);
-  background: var(--accent);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--accent-glow);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
-}
-.pl-row[data-active="true"]::before {
-  opacity: 1;
 }
 .pl-row .icon {
   color: var(--text-3);
