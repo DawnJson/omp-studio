@@ -2,11 +2,15 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
 
+/** 词法上在根内（根本身不算）；不碰磁盘，实际路径仍由 resolveInsideReal 校验。 */
+export function isInside(root: string, file: string): boolean {
+  const relative = path.relative(root, file);
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
 /** 根内的绝对路径换成相对路径；根外路径仍交给现有边界校验拒绝。 */
 export function toRelative(cwd: string, input: string): string {
-  if (!path.isAbsolute(input)) return input;
-  const relative = path.relative(cwd, input);
-  return relative === "" || relative.startsWith("..") || path.isAbsolute(relative) ? input : relative;
+  return path.isAbsolute(input) && isInside(cwd, input) ? path.relative(cwd, input) : input;
 }
 
 /** 文件预览不访问网络共享、设备或盘符相对路径。 */

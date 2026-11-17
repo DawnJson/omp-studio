@@ -8,14 +8,15 @@ import { readPreviewFile } from "../files/preview-file.ts";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import { registerPreview, releasePreview } from "../window/preview-protocol.ts";
+import { getTaskPool } from "../tasks/runtime.ts";
 import { fileHandlers, parseFilesTarget, targetCwd } from "./file-handlers.ts";
-import { assertLocalFilePath } from "./task-file-path.ts";
+import { assertLocalFilePath, isInside } from "./task-file-path.ts";
 import { parseString, parseTaskId } from "./validate.ts";
 
 function localPreviewPath(cwd: string, input: unknown): string {
   const requested = parseString(input, "path", 1024);
-  if (requested.includes("\0") || /^[\\/]{2}/.test(requested) || /^[a-z]:(?![\\/])/i.test(requested))
-    throw new Error("file preview only supports local absolute paths");
+  // 盘符相对路径（`C:foo`）会被 path.resolve 拼到该盘的当前目录上，先拒绝；网络、设备路径和 NUL 由 assertLocalFilePath 拒绝。
+  if (/^[a-z]:(?![\\/])/i.test(requested)) throw new Error("file preview only supports local absolute paths");
   const file = path.resolve(cwd, requested);
   assertLocalFilePath(file);
   return file;
@@ -56,20 +57,19 @@ export const previewHandlers: HandlerGroup<
     });
   },
   async readLinkedPreviewFile(taskId, input) {
-    const target = { kind: "task" as const, taskId: parseTaskId(taskId) };
-    const file = localPreviewPath(await targetCwd(target), input);
-    try {
-      return { ...(await fileHandlers.readPreviewFile(target, file)), path: file };
-    } catch (error) {
-      // 仅词法上位于工作区外的路径走只读预览；实际路径/符号链接错误仍拒绝。
-      if (!(error instanceof Error) || error.message !== "path must be relative to the task directory") throw error;
-      return {
-        ...(await readPreviewFile(path.dirname(file), path.basename(file))),
-        path: file,
-        external: true,
-        canOpen: false,
-      };
-    }
+    const id = parseTaskId(taskId);
+    const pool = await getTaskPool();
+    const cwd = pool.taskCwd(id);
+    const file = localPreviewPath(cwd, input);
+    // 在任务目录或已加入的工作区里：走工作区读取（符号链接越界照常拒绝，额外根带回 root）；否则只读这一个文件。
+    if ([cwd, ...pool.taskWorkspaceDirs(id)].some((root) => isInside(root, file)))
+      return { ...(await fileHandlers.readPreviewFile({ kind: "task", taskId: id }, file)), path: file };
+    return {
+      ...(await readPreviewFile(path.dirname(file), path.basename(file))),
+      path: file,
+      external: true,
+      canOpen: false,
+    };
   },
   async registerHtmlPreview(html) {
     return registerPreview(parseString(html, "html", limits.htmlPreviewMaxChars, { allowEmpty: true }));

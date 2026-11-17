@@ -11,6 +11,7 @@ import { chatsDir } from "../tasks/chats-dir.ts";
 import { readPreviewFile } from "../files/preview-file.ts";
 import { parseOneOf, parseProjectId, parseRecord, parseString, parseTaskId } from "./validate.ts";
 import { parseRootIndex, rootDir } from "../files/task-roots.ts";
+import { isInside } from "./task-file-path.ts";
 
 const index = new ProjectFileIndex();
 
@@ -46,10 +47,7 @@ export const fileHandlers: HandlerGroup<"listProjectFiles" | "readPreviewFile" |
     if (parsed.kind === "task" && parsed.root === undefined && path.isAbsolute(input)) {
       const pool = await getTaskPool();
       const dirs = pool.taskWorkspaceDirs(parsed.taskId);
-      const root = [cwd, ...dirs].findIndex((dir) => {
-        const relative = path.relative(dir, input);
-        return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
-      });
+      const root = [cwd, ...dirs].findIndex((dir) => isInside(dir, input));
       if (root > 0) return { ...(await readPreviewFile(rootDir(cwd, dirs, root), input)), root };
     }
     return readPreviewFile(cwd, input);
