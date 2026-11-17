@@ -33,7 +33,7 @@
 
 ### 立即处理现有队列
 
-运行中有队列、studio 和 omp 的输入框都是空的时候，Enter 经 `submitQueuedMessages` 向 omp 主输入框发 `action submit`，等同终端版空输入框再按一次 Enter：omp 中断当前轮，把队列交给下一次请求。空 `send` 会被 omp 忽略，所以用 `submit`；队列文字始终由 omp 持有，studio 不取回、不重发。主进程按任务合并连按，提交期间的 `sendPrompt` 等它结束；队列显示撤掉算确认，超时只报错、不重试。提问、审批、全屏面板、聚焦子代理、omp 输入框有字或图片时不提交（`shared/tsp/queue-submit.ts`）。omp 文档没写这个行为，依据是 omp 源码和实测：**18.22.0**（2026-11-17）+ 本地持有 SSE 的假模型，原请求被断开，排队消息在下一次主请求里只出现一次（`test/e2e/queue-submit.e2e.ts`）。
+运行中有队列、studio 和 omp 的输入框都是空的时候，Enter 经 `submitQueuedMessages` 向 omp 主输入框发 `action submit`，等同终端版空输入框再按一次 Enter：omp 中断当前轮，把队列交给下一次请求。空 `send` 会被 omp 忽略，所以用 `submit`；队列文字始终由 omp 持有，studio 不取回、不重发。主进程按任务合并连按，提交期间的 `sendPrompt` 等它结束；队列显示撤掉算确认，超时只报错、不重试。提问、审批、全屏面板、聚焦子代理、omp 输入框有字或图片时不提交（`shared/tsp/queue-submit.ts`）。omp 文档没写这个行为，依据是 omp 源码和实测：**18.22.0**（2026-11-16）+ 本地持有 SSE 的假模型，原请求被断开，排队消息在下一次主请求里只出现一次（`test/e2e/queue-submit.e2e.ts`）。
 
 ## 4. 输入历史
 
