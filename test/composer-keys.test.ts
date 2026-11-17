@@ -16,6 +16,7 @@ const ctx = (overrides: Partial<SendContext> = {}): SendContext => ({
   running: false,
   gate: false,
   hasContent: true,
+  queued: false,
   swapped: false,
   ...overrides,
 });
@@ -45,6 +46,28 @@ describe("发送行为表", () => {
     expect(decideEnter(key({ ctrlKey: true }), ctx({ running: true }))).toBe("followUp");
     expect(decideEnter(key(), ctx({ running: true, swapped: true }))).toBe("followUp");
     expect(decideEnter(key({ ctrlKey: true }), ctx({ running: true, swapped: true }))).toBe("steer");
+  });
+  it("运行中有排队消息：空输入框再次 Enter 立即处理队列，发送键对调不改变这个动作", () => {
+    const queued = ctx({ running: true, hasContent: false, queued: true });
+    expect(decideEnter(key(), queued)).toBe("submitQueue");
+    expect(decideEnter(key(), { ...queued, swapped: true })).toBe("submitQueue");
+    expect(decideEnter(key(), { ...queued, queued: false })).toBe("default");
+    expect(decideEnter(key(), { ...queued, running: false })).toBe("default");
+    expect(decideEnter(key(), { ...queued, hasContent: true })).toBe("steer");
+  });
+  it("队列不抢输入法、换行、组合键和审批门的 Enter", () => {
+    const queued = ctx({ running: true, hasContent: false, queued: true });
+    for (const input of [
+      key({ isComposing: true }),
+      key({ keyCode: 229 }),
+      key({ shiftKey: true }),
+      key({ altKey: true }),
+      key({ ctrlKey: true }),
+      key({ metaKey: true }),
+    ])
+      expect(decideEnter(input, queued)).toBe("default");
+    expect(decideEnter(key(), { ...queued, gate: true })).toBe("default");
+    expect(decideEnter(key({ ctrlKey: true }), { ...queued, gate: true })).toBe("gatePrimary");
   });
   it('审批门：Enter 有草稿才"拒绝并发送"，空草稿不会隐式批准；Ctrl+Enter 一律批准（有没有草稿都一样），不当成稍后发送', () => {
     const approval = { gate: true, running: true };

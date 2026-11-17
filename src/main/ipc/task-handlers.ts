@@ -50,6 +50,7 @@ export const taskHandlers: HandlerGroup<
   | "createTask"
   | "openTask"
   | "sendPrompt"
+  | "submitQueuedMessages"
   | "stopTask"
   | "renameTask"
   | "setTaskKeepAlive"
@@ -243,6 +244,7 @@ export const taskHandlers: HandlerGroup<
     (await getTaskPool()).resizeTsp(parseTaskId(taskId), parseInteger(cols, "cols", 20, 1000)),
 
   sendPrompt: async (taskId, input) => (await getTaskPool()).sendPrompt(parseTaskId(taskId), parsePromptInput(input)),
+  submitQueuedMessages: async (taskId) => (await getTaskPool()).submitQueuedMessages(parseTaskId(taskId)),
 
   stopTask: async (taskId) => (await getTaskPool()).stopTask(parseTaskId(taskId)),
 

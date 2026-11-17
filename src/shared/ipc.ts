@@ -1182,6 +1182,8 @@ export interface StudioInvokeApi {
   resizeTsp(taskId: TaskId, cols: number): Promise<void>;
   /** 应答到达（消息被 omp 接收）即 resolve，不等这一轮跑完。 */
   sendPrompt(taskId: TaskId, input: PromptInput): Promise<void>;
+  /** 中断当前轮并处理 omp 已有队列；不取回、不重新发送消息。 */
+  submitQueuedMessages(taskId: TaskId): Promise<void>;
   /** 停止：撤回排队消息并中止当前一轮。 */
   stopTask(taskId: TaskId): Promise<RestoredQueue>;
   renameTask(taskId: TaskId, title: string): Promise<void>;
@@ -1783,6 +1785,7 @@ export const invokeNames = {
   sendTspKeys: true,
   resizeTsp: true,
   sendPrompt: true,
+  submitQueuedMessages: true,
   stopTask: true,
   renameTask: true,
   setTaskKeepAlive: true,

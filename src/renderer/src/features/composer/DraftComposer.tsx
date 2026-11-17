@@ -170,7 +170,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
         isComposing: event.nativeEvent.isComposing,
         keyCode: event.keyCode,
       },
-      { running: false, gate: false, hasContent, swapped: false },
+      { running: false, gate: false, hasContent, swapped: false, queued: false },
     );
     if (action !== "send") return;
     event.preventDefault();

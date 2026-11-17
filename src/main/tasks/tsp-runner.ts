@@ -49,6 +49,7 @@ import {
 } from "../../shared/tsp/run-status.ts";
 import { findComposerEditor } from "../../shared/tsp/session-tree.ts";
 import { hasQueuedMessages } from "../../shared/tsp/queue-restore.ts";
+import { queuedSubmitTarget } from "../../shared/tsp/queue-submit.ts";
 import { clearEditorEvent, foreignEditorText } from "../../shared/tsp/editor-prefill.ts";
 import { followUpText } from "../../shared/tsp/queue-command.ts";
 import {
@@ -245,6 +246,7 @@ export class TspRunner {
   #editorClaims = 0;
   /** 通用回填正在取走 omp 输入框里的文字（取走 → 清空确认之间不重复触发）。 */
   #takingEditor = false;
+  #queueSubmit: Promise<void> | null = null;
   /** 上一次发布出去的 TaskState.restartable（#syncRestartable 只在它变了时补发）。 */
   #publishedRestartable = false;
   /** 后台驱动 Agent Hub（插话 / 结束 / 恢复）期间为真：#awaitComposer 等它结束，渲染进程这期间也不画 Hub。 */
@@ -1064,6 +1066,7 @@ export class TspRunner {
    * 括号粘贴图片的临时文件路径、等 omp 挂上图片，再 `action submit`。
    */
   async sendPrompt(input: PromptInput): Promise<void> {
+    if (this.#queueSubmit !== null) await this.#queueSubmit;
     // 文件附件：id → 路径，文字里的占位符换成 omp 的 `@"路径"` 提及（omp 自己读文件）。
     const body = fillFileSlots(input.text, input.fileIds ? await resolveComposerFiles(input.fileIds) : []);
     if (this.#machine.error?.kind === "session_missing") {
@@ -1159,6 +1162,29 @@ export class TspRunner {
         return file;
       }),
     );
+  }
+
+  /** 与 CLI 的空 Enter 同路：中断并消费现有队列，按任务合并连点，等待 omp 撤掉队列显示。 */
+  submitQueuedMessages(): Promise<void> {
+    if (this.#queueSubmit !== null) return this.#queueSubmit;
+    const run = this.#exclusive(async () => {
+      const session = this.#liveSession();
+      if (!this.#machine.working || !hasQueuedMessages(session.document)) return;
+      const target = queuedSubmitTarget(session.document);
+      if (target === null || this.#editorClaims > 1 || this.#takingEditor || this.#hubDriving || this.#btwDriving)
+        throw new Error(TSP_COMPOSER_UNAVAILABLE);
+      // 空 send 被 omp 忽略；submit 才是 CLI 再按一次 Enter 的路径，不复制队列内容。
+      session.sendEvent({ ev: "action", sf: target.sf, id: target.id, act: "submit" });
+      await this.#awaitDocument(
+        (document) => (!hasQueuedMessages(document) ? true : null),
+        CONFIRM_TIMEOUT_MS,
+        "omp has not confirmed delivery of the queued messages; check the task before sending again",
+      );
+    });
+    this.#queueSubmit = run.finally(() => {
+      this.#queueSubmit = null;
+    });
+    return this.#queueSubmit;
   }
 
   /**

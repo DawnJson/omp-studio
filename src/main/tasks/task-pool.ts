@@ -512,6 +512,10 @@ export class TaskPool {
     return this.#runner(id).getBtw();
   }
 
+  submitQueuedMessages(id: TaskId): Promise<void> {
+    return this.#runner(id).submitQueuedMessages();
+  }
+
   stopTask(id: TaskId): Promise<RestoredQueue> {
     return this.#runner(id).stop();
   }

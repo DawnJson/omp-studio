@@ -31,6 +31,10 @@
 - 文字像编号清单（`1. a` / `2. b`）时 omp 拆成多条；空 `/queue` 报 usage 错误。
 - 图片 / 文件的 `@"路径"` 提及放在 `/queue` 的文字里：是否被 omp 展开**没有实测**。
 
+### 立即处理现有队列
+
+运行中有队列时，空输入框再次按 Enter 或点击输入框上方的“立即处理”，经 `submitQueuedMessages` 向 omp 的主输入框发 `action submit`。这是 CLI 空 Enter 的中断并交付队列路径；空 `send` 被 omp 忽略。队列仍完全来自 omp 的文档，不取回或重发队列文字。主进程按任务合并并发请求，确认队列显示撤掉后结束操作；未收到确认则提示检查任务进度，不报告成功、不自动重试。已有草稿留在 studio；omp 输入框有预填或图片、正在驱动其他界面、提问/审批/全屏面板或聚焦子代理时不提交。官方 18.18.5 源码已核对；2026-11-14 用官方 **18.20.0** + 本地持有 SSE 的假模型实测：二次空 Enter 会断开原模型请求，排队消息在下一主请求里只出现一次；按钮连点和切任务保留两边草稿。回归测试：`test/e2e/queue-submit.e2e.ts`，无需真实服务或凭据。
+
 ## 4. 输入历史
 
 studio 自己持久化（`userData/input-history.json`，按项目，只存文字，条数和单条长度上限见 `shared/input-history.ts`；`main/tasks/input-history-store.ts`，IPC `getInputHistory` / `recordInputHistory`）。↑ 翻看和 Ctrl+R 浮层（`HistorySearch.tsx`）共用 `mergeEntries(会话里的用户消息, 项目历史)`。Ctrl+R 在 studio 输入框里归 studio（React 的 keydown 先 `preventDefault`，`use-forward-omp-keys` 看 `defaultPrevented` 不转发）；焦点在过程区时仍转发给 omp，omp 自己的 `History` 选择器照常。
