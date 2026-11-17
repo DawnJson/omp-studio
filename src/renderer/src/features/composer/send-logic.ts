@@ -27,6 +27,7 @@ export interface SendContext {
   gate: boolean;
   /** 文字或图片至少有一样。 */
   hasContent: boolean;
+  /** omp 有排队消息且主输入框可以空提交（shared/tsp/queue-submit.ts）。 */
   queued: boolean;
   /** 设置里对调 Enter 和 Ctrl+Enter 在运行中的含义。 */
   swapped: boolean;

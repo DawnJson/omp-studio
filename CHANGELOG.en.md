@@ -10,9 +10,9 @@ How to write it:
 
 ## [Unreleased]
 
-### Fixed
+### Added
 
-- After sending during a run, press Enter with an empty input or click “Process now” to interrupt the current turn and process queued messages while keeping unsent drafts.
+- While a task is running with queued messages, pressing Enter again in an empty input interrupts the current turn and processes the queue right away, as in the terminal.
 
 ## [0.9.2] - 2026-11-14
 

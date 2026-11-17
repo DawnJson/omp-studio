@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
-import { expectNoOverflow, launchApp, openTaskRow, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { launchApp, type LaunchedApp } from "./launch.ts";
 
 const FIRST = "QUEUE_FIRST_REQUEST";
 const QUEUED = "QUEUE_PRIORITY_REQUEST";
@@ -151,77 +151,6 @@ test("排队后空输入框再次 Enter：中断原请求，新请求只接收�
     const delivered = h.requests.filter((users) => users.some((text) => text.includes(QUEUED)));
     expect(delivered).toHaveLength(1);
     expect(delivered[0]!.filter((text) => text.includes(QUEUED))).toHaveLength(1);
-  } finally {
-    await h.cleanup();
-  }
-});
-
-test("立即处理按钮连点并切到新任务：只处理原任务队列，两个任务的草稿都保留", async () => {
-  test.skip((await findOmpOnPath().catch(() => null)) === null, "PATH 上没有 omp");
-  test.setTimeout(90_000);
-  const h = await start();
-  try {
-    const { page } = h.launched;
-    const input = page.getByTestId("composer-input");
-    await page.setViewportSize({ width: 900, height: 700 });
-    for (const locale of ["zh-CN", "en"] as const) {
-      await setLocaleTheme(page, locale, "light");
-      await expect(page.getByTestId("queue-submit")).toBeVisible();
-      await expectNoOverflow(page.getByTestId("composer-stack"));
-    }
-    await input.fill("原任务尚未发送的草稿");
-    await page.getByTestId("queue-submit").evaluate((element) => {
-      const button = element as unknown as { click(): void };
-      button.click();
-      button.click();
-    });
-    await expect.poll(h.queuedReady, { timeout: 15_000 }).toBe(true);
-    await expect(input).toHaveValue("原任务尚未发送的草稿");
-    await page.keyboard.press("Control+n");
-    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
-    await input.fill("新任务尚未发送的草稿");
-    h.finish();
-    await expect
-      .poll(() => page.evaluate(() => globalThis.studio.listTasks().then((tasks) => tasks[0]?.status)), {
-        timeout: 15_000,
-      })
-      .toBe("idle");
-    await expect(input).toHaveValue("新任务尚未发送的草稿");
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await openTaskRow(page);
-    await expect(input).toHaveValue("原任务尚未发送的草稿");
-    await expect(page.getByTestId("tsp-view")).toContainText(ANSWER);
-    expect(h.requests.filter((users) => users.some((text) => text.includes(QUEUED)))).toHaveLength(1);
-    expect(h.requests.flat().some((text) => text.includes("尚未发送的草稿"))).toBe(false);
-  } finally {
-    await h.cleanup();
-  }
-});
-
-test("立即处理失败：提示未确认结果，保留草稿和排队消息，按钮恢复可用且不向模型重发", async () => {
-  test.skip((await findOmpOnPath().catch(() => null)) === null, "PATH 上没有 omp");
-  test.setTimeout(90_000);
-  const h = await start();
-  try {
-    const { app, page } = h.launched;
-    await setLocaleTheme(page, "zh-CN", "light");
-    await app.evaluate(({ ipcMain }) => {
-      ipcMain.removeHandler("studio:submitQueuedMessages");
-      ipcMain.handle("studio:submitQueuedMessages", () => {
-        throw new Error("QUEUE_SUBMIT_TEST_FAILURE");
-      });
-    });
-    const input = page.getByTestId("composer-input");
-    await input.fill("处理失败时保留的草稿");
-    const requestsBefore = structuredClone(h.requests);
-    const button = page.getByTestId("queue-submit");
-    await button.click();
-    await expect(page.getByRole("alert")).toContainText("尚未确认队列处理结果，请查看任务进度");
-    await expect(input).toHaveValue("处理失败时保留的草稿");
-    await expect(page.locator('[data-role="omp.queue.item"]')).toContainText(QUEUED);
-    await expect(button).toBeEnabled();
-    expect(h.interrupted()).toBe(false);
-    expect(h.requests).toEqual(requestsBefore);
   } finally {
     await h.cleanup();
   }
