@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- In side questions, your questions and follow-ups now appear as bubbles on the right, like in the main conversation, so they stand apart from the answers on the left.
+
 ## [0.9.3] - 2026-11-16
 
 ### Added
@@ -20,10 +24,6 @@ How to write it:
 ### Fixed
 
 - File links directly preview local files, including files outside the workspace, without asking you to select them again; links still automatically match added workspace folders.
-
-### Changed
-
-- Side questions and follow-ups appear in tinted bubbles on the right, clearly separated from answers on the left.
 
 ## [0.9.2] - 2026-11-14
 
