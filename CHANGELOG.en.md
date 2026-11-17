@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-16
+
 ### Added
 
 - While a task is running with queued messages, pressing Enter again in an empty input interrupts the current turn and processes the queue right away, as in the terminal.
