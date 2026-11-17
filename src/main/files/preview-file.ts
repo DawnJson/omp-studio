@@ -2,7 +2,13 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { PreviewFile } from "../../shared/ipc.ts";
-import { canOpenDirectly, resolveInside, resolveInsideReal } from "../ipc/task-file-path.ts";
+import {
+  assertLocalFilePath,
+  canOpenDirectly,
+  resolveInside,
+  resolveInsideReal,
+  toRelative,
+} from "../ipc/task-file-path.ts";
 import { isMissing } from "./list-directory.ts";
 
 const previewTextMaxBytes = 2 * 1024 * 1024;
@@ -21,13 +27,6 @@ const imageMime: Record<string, string> = {
 
 const isHtml = (ext: string): boolean => ext === ".html" || ext === ".htm";
 
-/** 绝对路径落在 cwd 内时换算成相对路径（agent 的工具参数常是绝对路径）；其余原样交给 resolveInside 校验。 */
-function toRelative(cwd: string, input: string): string {
-  if (!path.isAbsolute(input)) return input;
-  const relative = path.relative(cwd, input);
-  return relative === "" || relative.startsWith("..") || path.isAbsolute(relative) ? input : relative;
-}
-
 export async function readPreviewFile(cwd: string, input: string): Promise<PreviewFile> {
   const relPath = toRelative(cwd, input);
   const normalized = path.normalize(relPath);
@@ -40,6 +39,7 @@ export async function readPreviewFile(cwd: string, input: string): Promise<Previ
     if (isMissing(error)) return { kind: "missing", path: normalized, size: 0, canOpen: false };
     throw error;
   }
+  assertLocalFilePath(file);
   const info = await stat(file);
   if (!info.isFile()) return { kind: "missing", path: normalized, size: 0, canOpen: false };
   const ext = path.extname(file).toLowerCase();

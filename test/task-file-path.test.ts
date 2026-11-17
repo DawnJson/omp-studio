@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { canOpenDirectly, resolveInside, resolveInsideReal } from "../src/main/ipc/task-file-path.ts";
+import { canOpenDirectly, resolveInside, resolveInsideReal, toRelative } from "../src/main/ipc/task-file-path.ts";
 
 let root = "";
 let cwd = "";
@@ -17,6 +17,15 @@ beforeAll(async () => {
 afterAll(() => rm(root, { recursive: true, force: true }));
 
 describe("路径必须落在任务目录内", () => {
+  it("根内绝对路径可安全换算；根下标重用时不能打开另一个目录的同名文件", async () => {
+    const original = path.join(cwd, "src", "a.ts");
+    expect(await resolveInsideReal(cwd, toRelative(cwd, original))).toBe(await resolveInsideReal(cwd, "src/a.ts"));
+    const replacement = path.join(root, "replacement");
+    await mkdir(path.join(replacement, "src"), { recursive: true });
+    await writeFile(path.join(replacement, "src", "a.ts"), "different file");
+    await expect(resolveInsideReal(replacement, toRelative(replacement, original))).rejects.toThrow();
+  });
+
   it("相对路径（含空格和中文的 cwd）解析到 cwd 之内", () => {
     expect(resolveInside(cwd, "src/a.ts")).toBe(path.join(cwd, "src", "a.ts"));
     // 反斜杠只在 Windows 上是分隔符;POSIX 上它是文件名里的普通字符。

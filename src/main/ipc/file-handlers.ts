@@ -2,6 +2,7 @@
 // 任务可以多选一个根：`root` 下标（0 / 缺省 = 任务 cwd，n = 第 n 个 `/add-dir` 额外工作区目录，路径取自主进程记的 omp 输出，见 task-roots.ts）。
 // `@` 补全只在任务 cwd 里找（目前不扫额外目录）。补全只返回相对路径，结果条数有上限；树一次只列一层。
 import { stat } from "node:fs/promises";
+import path from "node:path";
 import type { HandlerGroup, ProjectFilesTarget } from "../../shared/ipc.ts";
 import { listDirectory } from "../files/list-directory.ts";
 import { ProjectFileIndex, parseFileQuery } from "../files/project-files.ts";
@@ -39,8 +40,19 @@ export async function targetCwd(target: ProjectFilesTarget): Promise<string> {
 
 export const fileHandlers: HandlerGroup<"listProjectFiles" | "readPreviewFile" | "listDirectory"> = {
   async readPreviewFile(target, relPath) {
-    const cwd = await targetCwd(parseFilesTarget(target));
-    return readPreviewFile(cwd, parseString(relPath, "relPath", 1024));
+    const parsed = parseFilesTarget(target);
+    const cwd = await targetCwd(parsed);
+    const input = parseString(relPath, "relPath", 1024);
+    if (parsed.kind === "task" && parsed.root === undefined && path.isAbsolute(input)) {
+      const pool = await getTaskPool();
+      const dirs = pool.taskWorkspaceDirs(parsed.taskId);
+      const root = [cwd, ...dirs].findIndex((dir) => {
+        const relative = path.relative(dir, input);
+        return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+      });
+      if (root > 0) return { ...(await readPreviewFile(rootDir(cwd, dirs, root), input)), root };
+    }
+    return readPreviewFile(cwd, input);
   },
   async listDirectory(target, relDir) {
     const cwd = await targetCwd(parseFilesTarget(target));

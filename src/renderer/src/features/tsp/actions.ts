@@ -9,6 +9,7 @@ import { currentLocale } from "../../store/settings-store.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { openFilePreview } from "../file-preview/index.ts";
+import { showFileContextMenu } from "../file-preview/file-context-menu.ts";
 import { openSessionTree } from "../conversation/session-tree-store.ts";
 import { userCardFromEnd } from "../../../../shared/tsp/session-tree.ts";
 import type { TspContext } from "./node-props.ts";
@@ -69,6 +70,20 @@ function hrefToPath(href: string): string {
   return path.replace(/#L\d+(?:-L?\d+)?$/, "").replace(/:\d+(?:[:-]\d+)?$/, "");
 }
 
+/** 本地文件链接复用预览的路径解码；网页、内部 URI 和网络共享保留原右键行为。 */
+export function showHrefContextMenu(event: MouseEvent, href: string, ctx: Pick<TspContext, "taskId">): void {
+  if (/^file:\/\/(?!\/|[a-z]:)/i.test(href)) return;
+  let path: string;
+  try {
+    path = hrefToPath(href);
+  } catch (error) {
+    reportErrorNow(error);
+    return;
+  }
+  if (/^[\\/]{2}/.test(path) || (/^[a-z][a-z\d+.-]*:/i.test(path) && !/^[a-z]:[\\/]/i.test(path))) return;
+  showFileContextMenu(event, { kind: "task", taskId: ctx.taskId }, path);
+}
+
 /** 打开一个链接：http(s)/mailto 交给系统浏览器，文件路径在右侧预览。 */
 export function openHref(href: string, ctx: Pick<TspContext, "taskId">): void {
   if (/^(https?|mailto):/i.test(href)) {
@@ -79,8 +94,8 @@ export function openHref(href: string, ctx: Pick<TspContext, "taskId">): void {
 }
 
 /**
- * 回答里的本地图片（`![alt](路径)`）：经主进程读（和右侧预览同一条路，只读任务目录里的文件、有大小上限），是图片就返回 data URL，
- * 不是图片、不存在、太大返回 null；在任务目录外时主进程拒绝（Promise 失败）。不在这里拼路径去加载，绕不过主进程的校验。
+ * 回答里的本地图片（`![alt](路径)`）：经主进程读（和右侧预览同一条路，只读已授权工作区、有大小上限），是图片就返回 data URL，
+ * 不是图片、不存在、太大返回 null；目录外仍拒绝，不自动弹授权。不在这里拼路径去加载，绕不过主进程的校验。
  */
 export async function loadImageHref(href: string, ctx: Pick<TspContext, "taskId">): Promise<string | null> {
   const file = await window.studio.readPreviewFile({ kind: "task", taskId: ctx.taskId }, hrefToPath(href));

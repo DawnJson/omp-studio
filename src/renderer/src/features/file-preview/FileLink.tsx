@@ -2,6 +2,7 @@
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { baseName } from "./PreviewContent.tsx";
 import { openFilePreview } from "./preview-store.ts";
+import { showFileContextMenu } from "./file-context-menu.ts";
 import "./file-preview.css";
 
 export function FileLink({ taskId, path }: { taskId: TaskId; path: string }) {
@@ -12,6 +13,7 @@ export function FileLink({ taskId, path }: { taskId: TaskId; path: string }) {
       data-testid="file-link"
       title={path}
       onClick={() => openFilePreview(taskId, path)}
+      onContextMenu={(event) => showFileContextMenu(event, { kind: "task", taskId }, path)}
     >
       {baseName(path)}
     </button>

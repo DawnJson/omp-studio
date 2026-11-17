@@ -13,6 +13,11 @@ How to write it:
 ### Added
 
 - While a task is running with queued messages, pressing Enter again in an empty input interrupts the current turn and processes the queue right away, as in the terminal.
+- Context menus for file-tree entries and conversation file links can copy full paths or reveal files and folders in the file manager.
+
+### Fixed
+
+- File links directly preview local files, including files outside the workspace, without asking you to select them again; links still automatically match added workspace folders.
 
 ## [0.9.2] - 2026-11-14
 

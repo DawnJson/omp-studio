@@ -1,8 +1,9 @@
 // 文件面板的"预览"页：一条工具栏（文件名、路径、预览/源码、缩放、打开、在文件夹中显示）+ 正文。
-// 内容由主进程 readPreviewFile 读（校验落在根目录内）；这里不拼任何文件路径去加载，避免绕过主进程校验。
+// 文件链接直接只读预览本机文件，文件树按选定根读取；路径、类型和大小仍由主进程校验。
 // 回答里代码块的片段（snippet.ts）不读盘：直接换成同样的 PreviewFile，走同一条渲染路径。
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PreviewFile, ProjectFilesTarget } from "../../../../shared/ipc.ts";
+import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { External, Folder } from "../../icons.tsx";
 import { useFigurePalette } from "../../markdown/figure-palette.ts";
@@ -32,11 +33,13 @@ export function PreviewPage({
   target,
   path,
   snippet,
+  fromLink,
   hidden,
 }: {
   target: ProjectFilesTarget;
   path: string | null;
   snippet: Snippet | null;
+  fromLink: boolean;
   hidden: boolean;
 }) {
   const t = useT();
@@ -72,18 +75,22 @@ export function PreviewPage({
     setScripts(false);
     setZoom("fit");
     if (path === null) return;
-    window.studio.readPreviewFile(target, path).then(
+    const read =
+      fromLink && target.kind === "task"
+        ? window.studio.readLinkedPreviewFile(target.taskId, path)
+        : window.studio.readPreviewFile(target, path);
+    read.then(
       (file) => {
         if (!cancelled) setLoad({ state: "done", file });
       },
       (error: unknown) => {
-        if (!cancelled) setLoad({ state: "error", message: error instanceof Error ? error.message : String(error) });
+        if (!cancelled) setLoad({ state: "error", message: errorDetail(error) });
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [target, path, snippet]);
+  }, [target, path, snippet, fromLink]);
 
   const file = shownSnippet ?? (load.state === "done" ? load.file : null);
   const filePath = snippet === null ? (file?.path ?? path ?? "") : "";
@@ -150,12 +157,11 @@ export function PreviewPage({
   }, [zoom, textZoom]);
 
   // 系统打开 / 在文件夹中显示按任务 id 走（只有任务有）；草稿的项目目录里只能预览，片段没有文件，也只能预览。
-  const taskId = snippet === null && target.kind === "task" ? target.taskId : null;
+  const taskId = snippet === null && !file?.external && target.kind === "task" ? target.taskId : null;
   const run = (action: "openTaskFile" | "revealTaskFile") => {
     if (!file || taskId === null) return;
-    window.studio[action](taskId, file.path, target.kind === "task" ? target.root : undefined).catch((error: unknown) =>
-      reportError(t, error),
-    );
+    const root = file.root ?? (target.kind === "task" ? target.root : undefined);
+    window.studio[action](taskId, file.path, root).catch((error: unknown) => reportError(t, error));
   };
 
   return (

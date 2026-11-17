@@ -15,6 +15,8 @@ export const preview = {
   zoomOut: "Zoom out",
   zoomFit: "Fit to pane",
   loading: "Reading…",
+  copyPath: "Copy path",
+  openInFileManager: "Show in file manager",
   missing: "File not found",
   binary: "This is a binary file and can't be previewed.",
   tooLarge: "File is too large to preview ({size}).",

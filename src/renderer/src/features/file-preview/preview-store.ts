@@ -13,12 +13,14 @@ export interface PanelState {
   /** 面板属于谁：任务 id，或草稿的键（`new:<项目 id>`）。 */
   key: TerminalKey;
   page: PanelPage;
-  /** 预览页显示的文件：调用方给的路径（相对根目录，或落在根内的绝对路径）；还没打开过文件、或在看片段时为 null。 */
+  /** 预览页显示的文件：文件树给相对根目录的路径，链接也可以给本机绝对路径；看片段时为 null。 */
   path: string | null;
   /** 预览的文件在哪个根里：缺省 = 任务目录，n = 第 n 个额外工作区目录（roots-store.ts）。 */
   root?: number | undefined;
   /** 预览页显示的代码片段（回答里代码块的"在侧栏预览"）；和 path 二选一，打开文件时清掉。 */
   snippet?: Snippet | undefined;
+  /** 对话文件链接走直接只读预览；文件树仍按选定根读取。 */
+  fromLink?: boolean | undefined;
 }
 
 const store = createStore<PanelState | null>(null);
@@ -35,9 +37,9 @@ function rememberFocus(): void {
 /** 在预览页打开一个文件（工具卡上的文件链接）。 */
 export function openFilePreview(taskId: TaskId, path: string): void {
   const current = store.get();
-  if (current?.key === taskId && current.page === "preview" && current.path === path) return;
+  if (current?.key === taskId && current.page === "preview" && current.path === path && current.fromLink) return;
   rememberFocus();
-  store.set({ key: taskId, page: "preview", path });
+  store.set({ key: taskId, page: "preview", path, fromLink: true });
 }
 
 /** 片段编号：每打开一段加一，不按内容算，不会撞。 */
@@ -86,7 +88,14 @@ export function previewFileInPanel(path: string): void {
   const current = store.get();
   if (current === null) return;
   const root = selectedRoot(current.key);
-  store.set({ ...current, page: "preview", path, root: root > 0 ? root : undefined, snippet: undefined });
+  store.set({
+    ...current,
+    page: "preview",
+    path,
+    root: root > 0 ? root : undefined,
+    snippet: undefined,
+    fromLink: undefined,
+  });
 }
 
 export function closeFilePreview(): void {
