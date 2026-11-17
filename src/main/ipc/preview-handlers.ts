@@ -15,8 +15,9 @@ import { parseString, parseTaskId } from "./validate.ts";
 
 function localPreviewPath(cwd: string, input: unknown): string {
   const requested = parseString(input, "path", 1024);
-  // 盘符相对路径（`C:foo`）会被 path.resolve 拼到该盘的当前目录上，先拒绝；网络、设备路径和 NUL 由 assertLocalFilePath 拒绝。
-  if (/^[a-z]:(?![\\/])/i.test(requested)) throw new Error("file preview only supports local absolute paths");
+  // 先看原文：POSIX 上 path.resolve 会把 `//server` 收成 `/server`，盘符相对路径（`C:foo`）会拼到该盘的当前目录上。
+  if (/^[\\/]{2}/.test(requested) || /^[a-z]:(?![\\/])/i.test(requested))
+    throw new Error("file preview only supports local absolute paths");
   const file = path.resolve(cwd, requested);
   assertLocalFilePath(file);
   return file;

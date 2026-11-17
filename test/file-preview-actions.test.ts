@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -201,8 +201,9 @@ describe("原生文件右键菜单", () => {
     mocks.menuAction = "reveal";
     await previewHandlers.showFileContextMenu(target, selected);
     await previewHandlers.showFileContextMenu(target, path.dirname(selected));
-    expect(mocks.reveal).toHaveBeenCalledWith(selected);
-    expect(mocks.reveal).toHaveBeenCalledWith(path.dirname(selected));
+    // 定位的是实际路径：Windows 临时目录可能是 8.3 短名（RUNNER~1），macOS 的 /var 实际在 /private/var。
+    expect(mocks.reveal).toHaveBeenCalledWith(await realpath(selected));
+    expect(mocks.reveal).toHaveBeenCalledWith(await realpath(path.dirname(selected)));
     await expect(readPreviewFile(mocks.cwd, selected)).rejects.toThrow();
   });
 
