@@ -66,10 +66,15 @@
 .btw-turn {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
 }
 .btw-q {
+  align-self: flex-end;
+  max-width: 85%;
   margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-sm) var(--radius-bubble);
+  background: var(--bg-bubble);
   font-weight: var(--fw-medium);
   color: var(--text);
   white-space: pre-wrap;

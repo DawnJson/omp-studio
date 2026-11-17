@@ -3221,23 +3221,27 @@ test("作业磁贴入场(TSP,减少动效):不错开、不位移", async () => {
 test("旁路提问面板(TSP):长主对话中问答和追问可读,再问、取消的事件序列和录制一致", async () => {
   test.setTimeout(120_000);
   const events = recordedUserEvents(loadTspFixture("btw")).map((entry) => entry.event);
+  const originalQuestion = "Reply with exactly the word: pong";
+  const openingQuestion = `${"现在整体任务进展如何，已经完成哪些工作，还有哪些没有完成？请按任务说明。".repeat(3)} ${originalQuestion}`;
+  events.find((event) => event["text"] === `/btw ${originalQuestion}`)!["text"] = `/btw ${openingQuestion}`;
   const originalNote = String(events[0]!["text"]);
   const note = `${originalNote}\n\n`.repeat(300).trim();
   events[0]!["text"] = note;
   const scratch = await mkdtemp(path.join(os.tmpdir(), "omp btw e2e-"));
-  // 只加长主对话的首条消息，旁路问答和后续交互仍按原录制回放。
+  // 加长主对话、首问和追问答案，交互仍按原录制回放。
   const fixture = path.join(scratch, "btw-long.jsonl");
   await writeFile(
     fixture,
     (await readFile(path.join(root, "fixtures", "tsp", "btw.jsonl"), "utf8"))
       .replaceAll(JSON.stringify(originalNote), JSON.stringify(note))
+      .replaceAll(originalQuestion, openingQuestion)
       .replaceAll(JSON.stringify("gamma"), JSON.stringify("gamma\n\n".repeat(50).trim())),
   );
   const sessionFile = path.join(scratch, "session.jsonl");
   await writeFile(sessionFile, "{}\n");
   const { launched, received, cleanup } = await start(fixture, { FAKE_TSP_SESSION_FILE: sessionFile });
   const topics: Record<string, { id: string; answer: string; status: string }> = {
-    "/btw Reply with exactly the word: pong": { id: "15af3d5a2937f9fd", answer: "pong", status: "complete" },
+    [`/btw ${openingQuestion}`]: { id: "15af3d5a2937f9fd", answer: "pong", status: "complete" },
     "/btw Reply with exactly the word: ping": { id: "15af3d67d7b7f9ff", answer: "ping", status: "complete" },
     "/btw Write a 400 word essay about trees.": { id: "15af3d7a2c37fa00", answer: "# Trees", status: "cancelled" },
   };
@@ -3293,7 +3297,7 @@ test("旁路提问面板(TSP):长主对话中问答和追问可读,再问、取�
     const composer = page.getByTestId("composer-input");
     const turns = panel.getByTestId("btw-turn");
     // 1) 输入框里 /btw <问题>:studio 接管(tsp: studio),打开面板、问 omp;主轮还在输出时就能问。
-    await composer.fill("/btw Reply with exactly the word: pong");
+    await composer.fill(`/btw ${openingQuestion}`);
     // 斜杠菜单只在"正在输入命令名"（没有空格）时开；带了问题的整句 fill 进去后菜单是关的，Enter 才是发送而不是选菜单项。
     await expect(page.getByTestId("slash-menu")).toHaveCount(0);
     await page.keyboard.press("Enter");
@@ -3304,6 +3308,19 @@ test("旁路提问面板(TSP):长主对话中问答和追问可读,再问、取�
     await expectNoOverflow(panel);
     await expect(turns.first().locator(".btw-q")).toBeInViewport({ ratio: 1 });
     await expect(turns.first().locator(".md")).toBeInViewport({ ratio: 1 });
+    await expect(async () => {
+      const question = await turns.first().locator(".btw-q").boundingBox();
+      const answer = await turns.first().locator(".md").boundingBox();
+      expect(question).not.toBeNull();
+      expect(answer).not.toBeNull();
+      expect(question!.x).toBeGreaterThan(answer!.x + 20);
+      expect(Math.abs(question!.x + question!.width - answer!.x - answer!.width)).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 5_000 });
+    await expect(turns.first().locator(".btw-q")).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(turns.first().locator(".btw-q")).toHaveText(openingQuestion);
+    await page.setViewportSize({ width: 545, height: 560 });
+    await expectNoOverflow(panel);
+    await page.setViewportSize({ width: 900, height: 700 });
     // 2) 面板里"新话题"再问 ping:两个话题标签。
     await panel.getByTestId("btw-new-topic").click();
     await panel.getByTestId("btw-input").fill("Reply with exactly the word: ping");
@@ -3312,7 +3329,7 @@ test("旁路提问面板(TSP):长主对话中问答和追问可读,再问、取�
     await expect(turns.first()).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.first()).toContainText("ping");
     // 3) 选回 pong 话题追问:主进程在后台开历史 → select → follow-up → 填字 → send。
-    // 标签只截前 28 个字(两个话题的标签都是 "Reply with exactly the word:…"),完整问题在 title 上。
+    // 完整问题保存在 title 上，选回首问以 pong 结尾的话题。
     await panel.locator('[data-testid^="btw-topics-"][title$="pong"]').click();
     await expect(turns.first()).toContainText("pong");
     await panel.getByTestId("btw-input").fill("Say gamma");
@@ -3320,6 +3337,14 @@ test("旁路提问面板(TSP):长主对话中问答和追问可读,再问、取�
     await expect(turns).toHaveCount(2, { timeout: 30_000 });
     await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.nth(1)).toContainText("gamma");
+    for (const theme of ["dark", "light"] as const) {
+      await setLocaleTheme(page, "en", theme);
+      const followUp = (await turns.nth(1).locator(".btw-q").boundingBox())!;
+      const reply = (await turns.nth(1).locator(".md").boundingBox())!;
+      expect(followUp.x).toBeGreaterThan(reply.x + 20);
+      expect(Math.abs(followUp.x + followUp.width - reply.x - reply.width)).toBeLessThanOrEqual(1);
+      await expect(turns.nth(1).locator(".btw-q")).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    }
     await setLocaleTheme(page, "en", "light");
     await expectNoOverflow(panel);
     await turns.nth(1).locator(".btw-q").scrollIntoViewIfNeeded();
