@@ -21,6 +21,10 @@ How to write it:
 
 - File links directly preview local files, including files outside the workspace, without asking you to select them again; links still automatically match added workspace folders.
 
+### Changed
+
+- Side questions and follow-ups appear in tinted bubbles on the right, clearly separated from answers on the left.
+
 ## [0.9.2] - 2026-11-14
 
 ### Fixed
