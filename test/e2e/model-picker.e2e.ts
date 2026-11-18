@@ -579,42 +579,51 @@ test("窗口很矮时模型选择对话框的页脚按钮还在窗口里（窗�
   }
 });
 
-test("设置 → 模型角色：非对话模型读不出来时，提示写出原因，tiny / memory 仍能选对话模型，只用非对话模型的角色禁用（issue #22）", async () => {
-  test.setTimeout(90_000);
-  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-runner-fail-"));
-  await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
-  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
-  try {
-    const { app, page } = launched;
-    await expect
-      .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
-        timeout: 30_000,
-      })
-      .toBe("ready");
-    // 设置页第一次打开才读非对话模型：在那之前把这条 IPC 换成失败。
-    await app.evaluate(({ ipcMain }) => {
-      ipcMain.removeHandler("studio:listRunnerModels");
-      ipcMain.handle("studio:listRunnerModels", () => {
-        throw new Error("RUNNER_LIST_TEST_FAILURE");
-      });
-    });
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.setViewportSize({ width: 1200, height: 900 });
-    await setLocaleTheme(page, "zh-CN", "light");
-    await page.keyboard.press("Control+,");
-    await page.getByTestId("settings-nav-models").click();
-    await expect(page.getByTestId("setting-runners-error")).toContainText("RUNNER_LIST_TEST_FAILURE", {
-      timeout: 30_000,
-    });
-    for (const role of ["tiny", "memory", "judge"])
-      await expect(page.getByTestId(`setting-role-${role}`)).toBeEnabled();
-    await expect(page.getByTestId("setting-role-image")).toBeDisabled();
-    await page.getByTestId("setting-role-tiny").click();
-    await page.getByTestId("setting-role-tiny-search").fill("role-one");
-    await page.getByRole("option", { name: "role-one" }).click();
-    await expect.poll(async () => (await roles(page))["tiny"], { timeout: 30_000 }).toBe("role-local/role-one");
-  } finally {
-    await launched.close();
-    await rm(agentDir, { recursive: true, force: true });
-  }
-});
+// 读得慢：omp models --kind all 在有的机器上超过一分钟，报错出来之前 tiny 也不能点（issue #22，0.9.5 用户截图）。
+for (const mode of ["slow", "fail"] as const) {
+  test(`设置 → 模型角色：非对话模型${mode === "slow" ? "还在读" : "读不出来"}时，tiny / memory / judge 仍能选对话模型，只用非对话模型的角色禁用${mode === "fail" ? "；提示写出原因" : ""}（issue #22）`, async () => {
+    test.setTimeout(90_000);
+    const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-runner-fail-"));
+    await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
+    const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+    try {
+      const { app, page } = launched;
+      await expect
+        .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+          timeout: 30_000,
+        })
+        .toBe("ready");
+      // 设置页第一次打开才读非对话模型：在那之前把这条 IPC 换成一直不返回 / 失败。
+      await app.evaluate(({ ipcMain }, slow) => {
+        ipcMain.removeHandler("studio:listRunnerModels");
+        ipcMain.handle("studio:listRunnerModels", () => {
+          if (slow) return new Promise(() => {});
+          throw new Error("RUNNER_LIST_TEST_FAILURE");
+        });
+      }, mode === "slow");
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.setViewportSize({ width: 1200, height: 900 });
+      await setLocaleTheme(page, "zh-CN", "light");
+      await page.keyboard.press("Control+,");
+      await page.getByTestId("settings-nav-models").click();
+      if (mode === "fail")
+        await expect(page.getByTestId("setting-runners-error")).toContainText("RUNNER_LIST_TEST_FAILURE", {
+          timeout: 30_000,
+        });
+      // 还在读时不等它：5 秒内就能点（读不出来时要等报错出来）。
+      for (const role of ["tiny", "memory", "judge"])
+        await expect(page.getByTestId(`setting-role-${role}`)).toBeEnabled({
+          timeout: mode === "slow" ? 5_000 : 30_000,
+        });
+      await expect(page.getByTestId("setting-role-image")).toBeDisabled();
+      if (mode === "slow") await expect(page.getByTestId("setting-runners-error")).toHaveCount(0);
+      await page.getByTestId("setting-role-tiny").click();
+      await page.getByTestId("setting-role-tiny-search").fill("role-one");
+      await page.getByRole("option", { name: "role-one" }).click();
+      await expect.poll(async () => (await roles(page))["tiny"], { timeout: 30_000 }).toBe("role-local/role-one");
+    } finally {
+      await launched.close();
+      await rm(agentDir, { recursive: true, force: true });
+    }
+  });
+}

@@ -27,13 +27,12 @@ export interface ModelSources {
 }
 
 /**
- * 这些类别的模型都读到了才算齐（没读到时下拉不让选，免得列表不全）。
- * 非对话模型读失败（`runnersFailed`）不再等它：也能用对话模型的角色（tiny、memory、judge）照样从对话模型里选，
- * 只用非对话模型的角色（生图、搜索、语音）仍不让选，免得在空列表里误把配置清掉。
+ * 这个角色的下拉能不能选。也能用对话模型的角色（default、tiny、memory、judge）只等对话模型：非对话模型读得慢（omp 要逐个查 provider，
+ * 有的机器超过一分钟，issue #22）或读失败时照样能选，读到了再补进下拉。只用非对话模型的角色（生图、搜索、语音）要等非对话模型读到，
+ * 免得在空列表里误把配置清掉。
  */
-export function sourcesReady(kinds: readonly string[], sources: ModelSources, runnersFailed = false): boolean {
-  if (runnersFailed && kinds.includes("chat")) return sources.chat !== null;
-  return kinds.every((kind) => (kind === "chat" ? sources.chat !== null : sources.runners !== null));
+export function sourcesReady(kinds: readonly string[], sources: ModelSources): boolean {
+  return kinds.includes("chat") ? sources.chat !== null : sources.runners !== null;
 }
 
 /** `modelRoles` 的形状：角色 → 选择器。 */

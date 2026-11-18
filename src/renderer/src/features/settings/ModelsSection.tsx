@@ -60,14 +60,12 @@ interface RoleTableProps {
   /** modelRoles；undefined = omp 设置还没读到。 */
   values: Record<string, string> | undefined;
   chains: Record<string, string[]>;
-  /** 非对话模型读不出来（sourcesReady 的 runnersFailed）。 */
-  runnersFailed: boolean;
   /** 没设置时 omp 怎么办："未指定"（对话角色）或"由 omp 自动选择"。 */
   unsetLabel(role: string): string;
 }
 
 /** 一组角色：每个角色一格（主模型 + 思考强度，每个备用模型各一行，"添加备用…"在最后）。 */
-function RoleTable({ roles, sources, values, chains, runnersFailed, unsetLabel }: RoleTableProps) {
+function RoleTable({ roles, sources, values, chains, unsetLabel }: RoleTableProps) {
   return (
     <div className="st-roles">
       {roles.map((role) => (
@@ -79,7 +77,6 @@ function RoleTable({ roles, sources, values, chains, runnersFailed, unsetLabel }
           disabled={values === undefined}
           chain={chains[role] ?? []}
           chains={chains}
-          runnersFailed={runnersFailed}
           unsetLabel={unsetLabel(role)}
         />
       ))}
@@ -94,7 +91,6 @@ function RoleRow({
   disabled,
   chain,
   chains,
-  runnersFailed,
   unsetLabel,
 }: {
   role: string;
@@ -103,14 +99,13 @@ function RoleRow({
   disabled: boolean;
   chain: readonly string[];
   chains: Record<string, string[]>;
-  runnersFailed: boolean;
   unsetLabel: string;
 }) {
   const t = useT();
   const labelId = useId();
   const kinds = roleKinds(role);
   const candidates = candidatesOfKinds(kinds, sources);
-  const ready = sourcesReady(kinds, sources, runnersFailed);
+  const ready = sourcesReady(kinds, sources);
   const fallbackCandidates = candidatesOfKinds(chainKinds(role, sources), sources);
   const nameOf = (selector: string) =>
     fallbackCandidates.find((candidate) => candidate.value === selector)?.label ?? selector;
@@ -450,7 +445,6 @@ export function ModelsSection() {
         sources={sources}
         values={values}
         chains={chains}
-        runnersFailed={runnerError !== null}
         unsetLabel={(role) => (role === "default" ? t("settings.ompPicksModel") : t("model.roleUnset"))}
       />
       <div className="st-roles-foot">
@@ -486,7 +480,6 @@ export function ModelsSection() {
         sources={sources}
         values={values}
         chains={chains}
-        runnersFailed={runnerError !== null}
         unsetLabel={() => t("settings.ompPicksModel")}
       />
     </>

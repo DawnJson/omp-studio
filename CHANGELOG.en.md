@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Settings → Model roles: when search, image and speech models are slow to load, Tiny, Memory and Judge can be set to chat models right away instead of waiting for the list or an error.
+
 ## [0.9.5] - 2026-11-18
 
 ### Fixed

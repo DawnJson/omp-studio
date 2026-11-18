@@ -61,20 +61,13 @@ describe("角色的候选模型", () => {
     ]);
   });
 
-  it("非对话模型还没读到时，用得到它的角色不算齐，只用对话模型的角色不受影响", () => {
+  it("也能用对话模型的角色只等对话模型：非对话模型没读到（读得慢或读失败）照样能选；只用非对话模型的角色要等它（issue #22）", () => {
     const partial: ModelSources = { chat: sources.chat, runners: null };
-    expect(sourcesReady(roleKinds("default"), partial)).toBe(true);
-    expect(sourcesReady(roleKinds("tiny"), partial)).toBe(false);
+    for (const role of ["default", "tiny", "memory", "judge"])
+      expect(sourcesReady(roleKinds(role), partial)).toBe(true);
     expect(sourcesReady(roleKinds("web"), partial)).toBe(false);
-  });
-
-  it("非对话模型读失败：也能用对话模型的角色照样能选，只用非对话模型的角色仍不让选（issue #22）", () => {
-    const failed: ModelSources = { chat: sources.chat, runners: null };
-    expect(sourcesReady(roleKinds("tiny"), failed, true)).toBe(true);
-    expect(sourcesReady(roleKinds("memory"), failed, true)).toBe(true);
-    expect(sourcesReady(roleKinds("judge"), failed, true)).toBe(true);
-    expect(sourcesReady(roleKinds("web"), failed, true)).toBe(false);
-    expect(sourcesReady(roleKinds("tiny"), { chat: null, runners: null }, true)).toBe(false);
+    expect(sourcesReady(roleKinds("tiny"), { chat: null, runners: sources.runners })).toBe(false);
+    expect(sourcesReady(roleKinds("web"), { chat: null, runners: sources.runners })).toBe(true);
   });
 
   it("备用链的 key：角色按角色；具体模型按它的类别；provider/* 按那个 provider 有的全部类别；认不出来的当对话模型", () => {
