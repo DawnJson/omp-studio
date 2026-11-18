@@ -321,6 +321,32 @@
 .tspi-item-mark {
   pointer-events: none;
 }
+/* 提问、审批的选项名可能是一整句：在标记和序号右边换行，不截成省略号（2026-11-18 所有者截图：长选项被截掉一半）。
+ * 多行时标记、序号对齐第一行（顶对齐 + 按行高居中），不再上下居中到整段中间。 */
+.tspi-item[data-role^="omp.ask."],
+.tspi-item[data-role^="omp.approval."] {
+  align-items: flex-start;
+}
+/* flex-wrap 按“不缩的宽度”分行：长名字会整个掉到下一行。max-width 扣掉前面的标记（和序号），它就留在第一行、在里面换行；
+ * 推荐值徽标仍紧跟名字（basis 不设 0，不被推到行尾）。 */
+.tspi-item[data-role^="omp.ask."] .tspi-item-label,
+.tspi-item[data-role^="omp.approval."] .tspi-item-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 16px - var(--space-2));
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.tspi-item.num[data-role^="omp.ask."] .tspi-item-label {
+  max-width: calc(100% - 16px - 8px - 2 * var(--space-2));
+}
+.tspi-item[data-role^="omp.ask."] .tspi-item-mark,
+.tspi-item[data-role^="omp.approval."] .tspi-item-mark {
+  margin-top: calc((var(--lh-sm) - 16px) / 2);
+}
+.tspi-item[data-role^="omp.ask."] .tspi-item-n {
+  line-height: var(--lh-sm);
+}
 .tspi-item[data-role^="omp.ask."] .tspi-item-detail {
   flex: 1 1 100%;
   padding-left: calc(16px + var(--space-2));

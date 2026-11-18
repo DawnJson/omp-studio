@@ -929,6 +929,43 @@ test('输入框附件：粘贴资源管理器复制的文件 = 文件卡片（�
   }
 });
 
+// 提问的选项是一整句时被截成省略号，后半句看不到（2026-11-18 所有者截图）：选项名在单选圈和序号右边换行，圈和序号对齐第一行。
+test("提问的长选项换行显示全文，不截断；单选圈和序号对齐第一行", async () => {
+  test.setTimeout(90_000);
+  const long =
+    "从下一个 run 开始，让 PyTorch 显存按需分段分配（expandable_segments），预计能降到 17–18 GB。只改显存的分配方式，不改训练逻辑和超参数。";
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp ask long "));
+  const fixture = path.join(work, "ask-long.jsonl");
+  const recorded = await readFile(path.join(root, "fixtures", "tsp", "ask.jsonl"), "utf8");
+  await writeFile(fixture, recorded.replaceAll(JSON.stringify("B 稳"), JSON.stringify(long)));
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 900, height: 800 });
+    await sendFirst(page, "请用 ask 工具问我一个问题:三个选项 A 快 / B 稳 / C 省钱,只问这一个,然后等我回答。");
+    const option = page.locator('[data-testid="tsp-view"] [data-id="t.q0/option:1"]');
+    const label = option.locator(".tspi-item-label");
+    await expect(label).toHaveText(long, { timeout: 30_000 });
+    const fits = await label.evaluate((el) => {
+      const box = el as unknown as { scrollWidth: number; clientWidth: number };
+      return box.scrollWidth <= box.clientWidth;
+    });
+    expect(fits).toBe(true);
+    const [labelBox, markBox] = [
+      (await label.boundingBox())!,
+      (await option.getByTestId("tspi-item-mark").boundingBox())!,
+    ];
+    // 换了行（高于一行），单选圈在第一行里、在名字左边。
+    expect(labelBox.height).toBeGreaterThan(markBox.height * 2);
+    expect(markBox.x + markBox.width).toBeLessThanOrEqual(labelBox.x);
+    expect(markBox.y).toBeLessThan(labelBox.y + markBox.height);
+    await expectNoOverflow(role(page, "omp.editor.ask"));
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("提问放不下时:dock 最多占满过程区,自己滚动,滚轮能滚到最后一个选项", async () => {
   test.setTimeout(90_000);
   const { launched, cleanup } = await start("ask");

@@ -21,6 +21,7 @@ How to write it:
 ### Fixed
 
 - Settings → Model roles: when search, image and speech models can't be loaded, Tiny, Memory and Judge can still be set to chat models, and the notice shows why loading failed.
+- Long options in a question now wrap and show in full instead of being cut off with an ellipsis.
 
 ## [0.9.3] - 2026-11-16
 
