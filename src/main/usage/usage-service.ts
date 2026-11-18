@@ -184,17 +184,37 @@ class OmpCommandError extends Error {
 
 /**
  * `omp <args>` 取全部 stdout；用参数数组，不走 shell。
- * 超时（runCommand 杀进程后抛错）和输出过大照原样抛出，不吞。
+ * 超时（runCommand 杀进程后抛错）和输出过大照原样抛出，不吞。`stdoutComplete` 见 runCommand。
  */
-export function runOmpCommand(exePath: string, cwd: string, timeoutMs: number): RunOmp {
+export function runOmpCommand(
+  exePath: string,
+  cwd: string,
+  timeoutMs: number,
+  stdoutComplete?: (last: Buffer, all: () => Buffer) => boolean,
+): RunOmp {
   return async (args) => {
     const result = await runCommand(exePath, args, {
       cwd,
       env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
       timeoutMs,
+      ...(stdoutComplete !== undefined && { stdoutComplete }),
     });
     return { code: result.code, stdout: result.stdout.toString("utf8"), stderr: result.stderr };
   };
+}
+
+/**
+ * `--json` 命令的 stdout 已经是一份完整的 JSON 对象。这一块的末尾（去掉空白）是 `}` 时才拼起来解析，大输出不每块都解析；
+ * 顶层是对象，前缀不可能自己就是合法 JSON，所以解析成功就是整份收齐了。
+ */
+export function isCompleteJsonObject(last: Buffer, all: () => Buffer): boolean {
+  if (!/\}\s*$/.test(last.subarray(-64).toString("latin1"))) return false;
+  try {
+    const parsed: unknown = JSON.parse(all().toString("utf8"));
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
 }
 
 /** stderr 最后几行有内容的行：空行和 Node 崩溃末尾的 `Node.js vX` 不算（2026-10-29 起，不然界面上是 "} | | Node.js v24"）。 */

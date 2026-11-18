@@ -17,7 +17,7 @@ import { terminalLogin } from "../login/terminal-login-instance.ts";
 import { listModelOptions, reloadServiceModels } from "../service/default-model.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
-import { requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
+import { isCompleteJsonObject, requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
 import { parseApiKey, parseBoolean, parseInteger, parseString } from "./validate.ts";
 
 /** `omp models` 会先刷新没缓存的 provider 目录（联网），给足时间。 */
@@ -44,7 +44,8 @@ export const accountHandlers: HandlerGroup<
 > = {
   listModels: (refresh) => listModelOptions(parseBoolean(refresh, "refresh")),
   listRunnerModels: async () => {
-    const run = runOmpCommand(readyOmp().path, await serviceCwd(), MODELS_TIMEOUT_MS);
+    // 有的机器上 omp 打印完整份列表后进程不退出（issue #22，omp 18.22.2）：收齐 JSON 就算完，不等退出。
+    const run = runOmpCommand(readyOmp().path, await serviceCwd(), MODELS_TIMEOUT_MS, isCompleteJsonObject);
     const result = await run(["models", "--kind", "all", "--json"]);
     requireSuccess("omp models", result);
     return parseRunnerModels(result.stdout);

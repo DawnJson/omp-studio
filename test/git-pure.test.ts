@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatReviewComments, type ReviewComment } from "../src/shared/git.ts";
 import { runCommand } from "../src/main/git/exec.ts";
+import { isCompleteJsonObject } from "../src/main/usage/usage-service.ts";
 import { parseStatusV2 } from "../src/main/git/status.ts";
 
 const c = (
@@ -86,5 +87,22 @@ describe("runCommand keepTailBytes", () => {
     expect(result.stdout.toString()).toMatch(/END-OUT$/);
     expect(result.stdout.length).toBeLessThanOrEqual(1000);
     expect(result.stderr).toMatch(/END-ERR$/);
+  });
+});
+
+describe("runCommand stdoutComplete（issue #22：omp 打印完结果不退出）", () => {
+  it("stdout 收齐一份完整 JSON 就返回、结束进程，不等它自己退出；中途以 } 结尾的半份不算", async () => {
+    // 第一块是对象的一半（末尾正好是 }），隔一会儿写完，然后进程一直不退出。定时器在子进程里（模拟真实进程挂住），用不了假时钟。
+    const code =
+      'process.stdout.write(\'{"models":[{"id":"a"}\');setTimeout(()=>process.stdout.write(\',{"id":"b"}]}\\n\'),300);setInterval(()=>{},1000)';
+    const started = Date.now();
+    const result = await runCommand(process.execPath, ["-e", code], {
+      cwd: process.cwd(),
+      timeoutMs: 20_000,
+      stdoutComplete: isCompleteJsonObject,
+    });
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout.toString())).toEqual({ models: [{ id: "a" }, { id: "b" }] });
   });
 });

@@ -19,6 +19,12 @@ export interface RunOptions {
   windowsVerbatimArguments?: boolean;
   /** 取消：杀掉子进程并以 AbortError 拒绝。 */
   signal?: AbortSignal;
+  /**
+   * stdout 到这一步已经是完整结果时返回 true：结束进程树，按退出码 0 返回已收到的输出，不再等进程自己退出
+   * （有的机器上 omp 打印完结果不退出，issue #22）。每块输出到达时调用：`last` 是这一块，`all()` 拼出目前的全部输出
+   * （有拼接开销，先看 `last` 能不能排除）。只在没设 keepTailBytes 时检查。
+   */
+  stdoutComplete?: (last: Buffer, all: () => Buffer) => boolean;
 }
 
 export interface RunResult {
@@ -132,6 +138,10 @@ function spawnCommand(command: string, args: readonly string[], options: RunOpti
       return;
     }
     out.push(chunk);
+    if (options.stdoutComplete?.(chunk, () => Buffer.concat(out)) === true) {
+      killTree(child);
+      finish(() => resolve({ code: 0, stdout: Buffer.concat(out), stderr: errTail.toBuffer().toString("utf8") }));
+    }
   });
   child.stderr.on("data", (chunk: Buffer) => errTail.push(chunk));
   child.on("error", (error: NodeJS.ErrnoException) => {

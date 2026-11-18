@@ -13,6 +13,7 @@ How to write it:
 ### Fixed
 
 - Settings → Model roles: when search, image and speech models are slow to load, Tiny, Memory and Judge can be set to chat models right away instead of waiting for the list or an error.
+- Settings → Model roles: on machines where omp doesn't exit after listing search, image and speech models, those models now show up right away instead of failing with "timed out" after a minute.
 
 ## [0.9.5] - 2026-11-18
 
