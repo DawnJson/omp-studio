@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-18
+
 ### Added
 
 - A standalone `<img src="…">` line in an answer now shows as an image (like `![](…)`) instead of the raw tag.
