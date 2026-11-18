@@ -26,8 +26,13 @@ export interface ModelSources {
   runners: readonly RunnerModel[] | null;
 }
 
-/** 这些类别的模型都读到了才算齐（没读到时下拉不让选，免得列表不全）。 */
-export function sourcesReady(kinds: readonly string[], sources: ModelSources): boolean {
+/**
+ * 这些类别的模型都读到了才算齐（没读到时下拉不让选，免得列表不全）。
+ * 非对话模型读失败（`runnersFailed`）不再等它：也能用对话模型的角色（tiny、memory、judge）照样从对话模型里选，
+ * 只用非对话模型的角色（生图、搜索、语音）仍不让选，免得在空列表里误把配置清掉。
+ */
+export function sourcesReady(kinds: readonly string[], sources: ModelSources, runnersFailed = false): boolean {
+  if (runnersFailed && kinds.includes("chat")) return sources.chat !== null;
   return kinds.every((kind) => (kind === "chat" ? sources.chat !== null : sources.runners !== null));
 }
 

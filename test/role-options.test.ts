@@ -68,6 +68,15 @@ describe("角色的候选模型", () => {
     expect(sourcesReady(roleKinds("web"), partial)).toBe(false);
   });
 
+  it("非对话模型读失败：也能用对话模型的角色照样能选，只用非对话模型的角色仍不让选（issue #22）", () => {
+    const failed: ModelSources = { chat: sources.chat, runners: null };
+    expect(sourcesReady(roleKinds("tiny"), failed, true)).toBe(true);
+    expect(sourcesReady(roleKinds("memory"), failed, true)).toBe(true);
+    expect(sourcesReady(roleKinds("judge"), failed, true)).toBe(true);
+    expect(sourcesReady(roleKinds("web"), failed, true)).toBe(false);
+    expect(sourcesReady(roleKinds("tiny"), { chat: null, runners: null }, true)).toBe(false);
+  });
+
   it("备用链的 key：角色按角色；具体模型按它的类别；provider/* 按那个 provider 有的全部类别；认不出来的当对话模型", () => {
     expect(chainKinds("web", sources)).toEqual(["search"]);
     expect(chainKinds("web/tavily", sources)).toEqual(["search"]);

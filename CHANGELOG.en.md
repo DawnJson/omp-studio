@@ -14,6 +14,10 @@ How to write it:
 
 - In side questions, your questions and follow-ups now appear as bubbles on the right, like in the main conversation, so they stand apart from the answers on the left.
 
+### Fixed
+
+- Settings → Model roles: when search, image and speech models can't be loaded, Tiny, Memory and Judge can still be set to chat models, and the notice shows why loading failed.
+
 ## [0.9.3] - 2026-11-16
 
 ### Added
