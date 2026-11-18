@@ -488,31 +488,33 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
     // 全是"自动"的模型只写 id。
     expect(written).toMatch(/- id: house-plain\s*$/);
 
-    // omp 采用了写进去的值；house-plain 用 omp 的兜底（omp 18.22.2：认不出的模型当思考模型，18.13 是不思考）。
-    await expect
-      .poll(
-        () =>
-          page.evaluate(() =>
-            globalThis.studio
-              .listModels(true)
-              .then((models) =>
-                models
-                  .filter((model) => model.key.provider === "meta-proxy")
-                  .map((model) => [
-                    model.key.modelId,
-                    model.reasoning,
-                    model.acceptsImages,
-                    model.contextWindow,
-                    model.maxTokens,
-                  ]),
-              ),
+    // omp 采用了写进去的值；house-plain 用 omp 的兜底。兜底的思考随 omp 版本变（18.13 不思考，18.22.2 思考），按 omp 报的值比。
+    const metaModels = () =>
+      page.evaluate(() =>
+        globalThis.studio
+          .listModels(true)
+          .then((models) =>
+            models
+              .filter((model) => model.key.provider === "meta-proxy")
+              .map((model) => [
+                model.key.modelId,
+                model.reasoning,
+                model.acceptsImages,
+                model.contextWindow,
+                model.maxTokens,
+              ]),
           ),
-        { timeout: 30_000 },
-      )
+      );
+    // house-plain 的思考不在这里比（见上），后面按 omp 报的值核对"自动"后面的提示。
+    const withoutPlainReasoning = (rows: unknown[][]) =>
+      rows.map(([id, reasoning, ...rest]) => (id === "house-plain" ? [id, ...rest] : [id, reasoning, ...rest]));
+    await expect
+      .poll(async () => withoutPlainReasoning(await metaModels()), { timeout: 30_000 })
       .toEqual([
         ["house-model", true, true, 272000, 32000],
-        ["house-plain", true, false, 128000, 16384],
+        ["house-plain", false, 128000, 16384],
       ]);
+    const plainReasoning = (await metaModels()).find((row) => row[0] === "house-plain")?.[1];
 
     // 再打开：写过的显示原值；自动的格子后面是 omp 现在用的值。
     await page.getByTestId("custom-edit-meta-proxy").click();
@@ -522,7 +524,9 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
       "placeholder",
       "自动 · 128K",
     );
-    await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动 · 支持");
+    await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText(
+      plainReasoning === true ? "自动 · 支持" : "自动 · 不支持",
+    );
     await expectNoOverflow(page.getByTestId("custom-provider-form"));
 
     // 换回自动 → 这一项从文件里去掉。

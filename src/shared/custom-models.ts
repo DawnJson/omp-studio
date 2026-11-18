@@ -122,8 +122,8 @@ export interface FetchedModel extends CustomModelEntry {
 
 /**
  * 模型条目上的能力参数（models.yml 的 `reasoning`、`input`、`contextWindow`、`maxTokens`，omp://models.md）。
- * null = 文件里没写：omp 按模型 id 从它的内置目录补，目录里没有就用默认（不思考、只收文字、上下文 128000、输出 16384；
- * omp 18.12.6 实测）。
+ * null = 文件里没写：omp 按模型 id 从它的内置目录补，目录里没有就用兜底（只收文字、上下文 128000、输出 16384；思考随 omp 版本变：
+ * 18.12.6 不思考，18.22.2 思考、全档位；docs/architecture/custom-models.md「模型的能力参数」）。
  */
 export interface CustomModelMeta {
   reasoning: boolean | null;
@@ -135,7 +135,7 @@ export interface CustomModelMeta {
 
 /**
  * 公开模型目录（models.dev）里查到的能力：自定义提供商表单拿它预填 omp 认不出的模型（omp 只按内置表给自定义 provider 补参数，
- * 新模型查不到就当成不思考、128K）。只给"支持"和上下文，最大输出各家差别太大不填。认生图模型用（`catalogSaysImage`）：
+ * 查不到的用兜底）。思考按目录填支持或不支持，图片输入只填支持，上下文填目录的值；最大输出各家差别太大不填。认生图模型用（`catalogSaysImage`）：
  * `outputsImage` = 输出里有图片；`imageOnly` = 生图专用、不是对话模型：输出只有图片，或者目录标了 `type: image` 又没有上下文窗口
  * （OpenAI 自己的 gpt-image-1.5 写的输出是文字加图片）。
  */
