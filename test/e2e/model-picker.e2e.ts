@@ -8,8 +8,9 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { expectInfoTipsOnLabelLine, expectNoOverflow, launchApp, setLocaleTheme } from "./launch.ts";
 
+// role-three 是"不支持思考"的模型：要明确写 reasoning: false，omp 18.22.2 起认不出的模型默认当思考模型。
 const modelsYml =
-  "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n        reasoning: true\n      - id: role-two\n        reasoning: true\n      - id: role-three\n";
+  "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n        reasoning: true\n      - id: role-two\n        reasoning: true\n      - id: role-three\n        reasoning: false\n";
 
 async function openPicker(page: Page): Promise<void> {
   await page.getByTestId("model-chip").click();

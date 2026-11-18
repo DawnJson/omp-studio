@@ -229,14 +229,20 @@ function savedMetaOf(provider: CustomProviderInfo | undefined, modelId: string):
   );
 }
 
-/** omp 给认不出的模型补的兜底值（omp 18.12.6 / 18.13.1 实测，custom-models.md「模型的能力参数」）。 */
-const ompFallback = { reasoning: false, images: false, contextWindow: 128_000 };
+/**
+ * omp 给认不出的模型补的兜底值里，用来判断"omp 认不认识"的两项（omp 18.12.6 – 18.22.2 实测，custom-models.md「模型的能力参数」）。
+ * 思考不参与：兜底随 omp 版本变（18.13 不思考，18.22.2 全档位思考），认不出的模型也可能是"思考"。
+ */
+const ompFallback = { images: false, contextWindow: 128_000 };
 
-/** 用公开模型目录查到的能力填还是"自动"的格子：只填"支持"和上下文，目录说不支持的留自动（omp 默认就是不支持）。 */
+/**
+ * 用公开模型目录查到的能力填还是"自动"的格子。思考按目录填"支持"或"不支持"：omp 的兜底会变（18.22.2 把认不出的模型当思考模型），
+ * 留自动不等于不支持。图片输入只填"支持"（兜底只收文字，目录说不支持的留自动）；上下文填目录的值。
+ */
 function prefillRow(row: ModelRow, caps: ModelCapabilities): ModelRow {
   return {
     ...row,
-    reasoning: row.reasoning === null && caps.reasoning ? true : row.reasoning,
+    reasoning: row.reasoning === null ? caps.reasoning : row.reasoning,
     images: row.images === null && caps.images ? true : row.images,
     contextWindow:
       row.contextWindow === "" && caps.contextWindow !== null ? String(caps.contextWindow) : row.contextWindow,
@@ -316,12 +322,12 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   };
   // 已保存的模型里，omp 给"自动"的项补出了不是兜底的值 = omp 认识它（内置表里有），不拿公开目录的值覆盖。
   // 不看最大输出：开了自动发现时 omp 会用中转站 /models 给的 max_completion_tokens，认不出的模型也可能不是 16384。
+  // 不看思考：见 ompFallback。只收文字、128K 的已知模型因此会被当成认不出、按公开目录预填，值和 omp 的同源，只是写进了文件。
   const ompKnows = (modelId: string): boolean => {
     const live = loaded.get(modelId);
     if (live === undefined) return false;
     const file = savedMetaOf(provider, modelId);
     return (
-      (file.reasoning === null && live.reasoning !== ompFallback.reasoning) ||
       (file.images === null && live.acceptsImages !== ompFallback.images) ||
       (file.contextWindow === null && live.contextWindow !== ompFallback.contextWindow)
     );

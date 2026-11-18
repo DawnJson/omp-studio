@@ -122,12 +122,12 @@ omp 启动时按顺序读 `.env`：进程环境变量优先，然后 `<项目>/.
 
 模型表每行：思考（`reasoning`）、图片输入（`input: [text, image]` / `[text]`）、上下文窗口（`contextWindow`）、最大输出（`maxTokens`）。
 
-- **"自动" = 不写这一项**，由 omp 补：按模型 `id` 查内置目录，查不到用兜底（不思考、只收文字、上下文 128K、输出 16K；`CustomProviderForm.tsx` 的 `ompFallback`；实测 + 源码 `config/model-registry.ts` 一致）。所以中转站原样转发官方模型名时可以全留自动；改了名或本地模型才需要手填。
+- **"自动" = 不写这一项**，由 omp 补：按模型 `id` 查内置目录，查不到用兜底（只收文字、上下文 128K、输出 16K；思考随 omp 版本变：18.13 不思考，**18.22.2 当思考模型、全档位**，实测 2026-11-18 `omp models --json`；`CustomProviderForm.tsx` 的 `ompFallback`）。所以中转站原样转发官方模型名时可以全留自动；改了名或本地模型才需要手填，不思考的模型要明确写不支持。
 - **id 带 `kimi` 的模型思考留"自动"会让 omp 崩**（实测 omp 18.13.1、18.13.2，2026-10-28；假 OpenAI 服务，`--mode rpc --thinking off`）：内置目录里没有的 kimi 新模型被补成不思考；思考档位 off 时，带强制工具调用的那一轮（`/force:todo` 复现）omp 抛 `ConfigurationError: Model <provider>/<id> has no supported reasoning efforts`，未捕获，进程以 1 退出。写 `reasoning: true` 不崩。源码：catalog 的 compat 对 id 含 kimi、非 Moonshot 官方地址的模型开 `disableReasoningOnForcedToolChoice`，取最低档时档位列表为空就抛错。所以中转站的 kimi 新模型要把思考设成支持；表单按公开模型目录自动预填（见下）。
 - **上下文窗口只改 omp 自己的预算**（什么时候自动压缩、上下文圆环的分母），不改服务端上限；典型用法是中转站只收 272K 的 `gpt-5.5`。输入框接受 `272000`、`272k`、`1m`（`parseTokenCount`）；写不成正整数的标红，不能保存。
 - **只改和文件里不同的项**（`applyMeta`，`models-file.ts`）：值没变不碰节点，原来的写法和行内注释不被重排；换回"自动"就删掉这一项。文件里的值是 omp 不认的形状时读成"自动"，保存时也不动它。
 - **"自动"后面显示 omp 现在用的值**（`hintOf`，`CustomProviderForm.tsx`）：来自 `listModels`，只对"文件里没写这一项、omp 已经加载过"的模型显示（自动发现的模型看 `modelOverrides` 里写没写）；新拉取、还没保存的只显示"自动"，因为 omp 还没算过它。
-- **omp 认不出的模型按公开模型目录预填**（仓库所有者定，2026-10-28：数据来源 models.dev，思考、图片输入、上下文都填，新模型和已保存留"自动"的都填）：表单里每个模型 id 查 `https://models.dev/api.json`（omp 的联网模型表也来自它；整份约 6 MB，主进程一次运行只下一次，失败记日志、下次再下；`model-catalog.ts`，IPC `lookupModelCapabilities`；测试用 `STUDIO_MODELS_DEV_URL` 指到假服务）。按 id 最后一段、不分大小写匹配；同一模型有多家条目时用厂商自己的那条，没有就按多数。只把"支持"的思考 / 图片输入和上下文窗口填进还是"自动"的格子（目录说不支持的留自动，omp 默认就是不支持）；最大输出各家差别太大不填；保存才写进文件。已保存的模型，omp 给"自动"项补出了不是兜底的值就算 omp 认识它，不覆盖；最大输出不参与判断（开了自动发现时 omp 会用中转站 `/models` 给的值）。编辑时等 omp 的模型列表读完再查。
+- **omp 认不出的模型按公开模型目录预填**（仓库所有者定，2026-10-28：数据来源 models.dev，思考、图片输入、上下文都填，新模型和已保存留"自动"的都填）：表单里每个模型 id 查 `https://models.dev/api.json`（omp 的联网模型表也来自它；整份约 6 MB，主进程一次运行只下一次，失败记日志、下次再下；`model-catalog.ts`，IPC `lookupModelCapabilities`；测试用 `STUDIO_MODELS_DEV_URL` 指到假服务）。按 id 最后一段、不分大小写匹配；同一模型有多家条目时用厂商自己的那条，没有就按多数。思考按目录填"支持"或"不支持"（omp 的兜底不再是不思考）；图片输入只填"支持"（兜底只收文字）；上下文填目录的值；最大输出各家差别太大不填；保存才写进文件。已保存的模型，omp 给"自动"的图片输入或上下文补出了不是兜底的值就算 omp 认识它，不覆盖；思考和最大输出不参与判断（思考的兜底随版本变；开了自动发现时 omp 会用中转站 `/models` 给的最大输出）。编辑时等 omp 的模型列表读完再查。
 - **输入**：`CustomProviderInput.models[]` 每项 `{ id, name?, reasoning, images, contextWindow, maxTokens }`，四项都可以是 null（自动）。
 
 ## 生图模型（omp 18.14.0）

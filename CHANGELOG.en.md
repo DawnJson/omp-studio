@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Custom providers: with newer omp, models omp doesn't recognize are again prefilled from the public model catalog (thinking, image input, context); models the catalog lists as non-thinking are explicitly set to unsupported instead of being treated as thinking models by omp.
+
 ## [0.9.4] - 2026-11-18
 
 ### Added

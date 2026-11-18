@@ -488,7 +488,7 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
     // 全是"自动"的模型只写 id。
     expect(written).toMatch(/- id: house-plain\s*$/);
 
-    // omp 采用了写进去的值；house-plain 用 omp 的默认。
+    // omp 采用了写进去的值；house-plain 用 omp 的兜底（omp 18.22.2：认不出的模型当思考模型，18.13 是不思考）。
     await expect
       .poll(
         () =>
@@ -511,7 +511,7 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
       )
       .toEqual([
         ["house-model", true, true, 272000, 32000],
-        ["house-plain", false, false, 128000, 16384],
+        ["house-plain", true, false, 128000, 16384],
       ]);
 
     // 再打开：写过的显示原值；自动的格子后面是 omp 现在用的值。
@@ -522,7 +522,7 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
       "placeholder",
       "自动 · 128K",
     );
-    await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动 · 不支持");
+    await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动 · 支持");
     await expectNoOverflow(page.getByTestId("custom-provider-form"));
 
     // 换回自动 → 这一项从文件里去掉。
@@ -704,8 +704,8 @@ test("自定义提供商：认得出的生图模型类型自动填成生图（�
       { id: "chat-b" },
       { id: "relay-img", api: "openai-images" },
       { id: "dall-e-x" },
-      // 当对话模型照常预填（图片输入）。
-      { id: "gem-image-x", input: ["text", "image"] },
+      // 当对话模型照常预填（图片输入；目录没说思考 = 不思考，明确写上）。
+      { id: "gem-image-x", reasoning: false, input: ["text", "image"] },
       { id: "seedream-x", api: "openai-images" },
       { id: "flux-x", api: "openai-images" },
     ]);
@@ -733,10 +733,12 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
           limit: { context: 1_048_576 },
         },
         "kimi-k3": { reasoning: true, modalities: { input: ["text", "image"] }, limit: { context: 262_144 } },
+        // 目录说不思考：要明确填成不支持，留自动的话 omp 18.22.2 会把它当思考模型。
+        "plain-e2e-unlisted": { reasoning: false, modalities: { input: ["text"] }, limit: { context: 32_000 } },
       },
     },
   };
-  const fake = await startFakeOpenAi({ models: ["kimi-e2e-unlisted", "house-plain"], catalog });
+  const fake = await startFakeOpenAi({ models: ["kimi-e2e-unlisted", "plain-e2e-unlisted", "house-plain"], catalog });
   const { launched, agentDir } = await launchSettings({
     catalogUrl: fake.catalogUrl,
     prepare: (dir) =>
@@ -777,14 +779,18 @@ test("自定义提供商：omp 认不出的模型按公开模型目录预填思�
     await page.getByTestId("custom-id").fill("new-relay");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key-mode-none").click();
-    await pickModels(page, ["kimi-e2e-unlisted", "house-plain"]);
+    await pickModels(page, ["kimi-e2e-unlisted", "plain-e2e-unlisted", "house-plain"]);
     await expect(page.getByTestId("custom-model-contextWindow-kimi-e2e-unlisted")).toHaveValue("1048576");
+    await expect(page.getByTestId("custom-model-contextWindow-plain-e2e-unlisted")).toHaveValue("32000");
+    await expect(page.getByTestId("custom-model-reasoning-plain-e2e-unlisted")).toContainText("不支持");
+    await expect(page.getByTestId("custom-model-reasoning-plain-e2e-unlisted")).not.toContainText("自动");
     await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动");
     await expect(page.getByTestId("custom-model-contextWindow-house-plain")).toHaveValue("");
     await page.getByTestId("custom-save").click();
     await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
     expect(await modelsOf("new-relay")).toEqual([
       { id: "kimi-e2e-unlisted", reasoning: true, input: ["text", "image"], contextWindow: 1_048_576 },
+      { id: "plain-e2e-unlisted", reasoning: false, contextWindow: 32_000 },
       { id: "house-plain" },
     ]);
   } finally {
