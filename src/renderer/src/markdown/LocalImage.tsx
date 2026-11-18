@@ -21,11 +21,14 @@ function baseName(path: string): string {
 export function LocalImage({
   href,
   alt,
+  width,
   load,
   open,
 }: {
   href: string;
   alt: string;
+  /** 单独一行的 `<img width="…">` 给的宽度；显示时仍不超过列宽（markdown.css 的 .md-image）。 */
+  width?: number | undefined;
   load: (href: string) => Promise<string | null>;
   open: (href: string) => void;
 }) {
@@ -54,7 +57,7 @@ export function LocalImage({
   if (src !== null) {
     return (
       <a href={href} title={shown} className="md-image-frame" onClick={onClick} data-testid="md-local-image">
-        <img src={src} alt={alt} className="md-image" />
+        <img src={src} alt={alt} width={width} className="md-image" />
       </a>
     );
   }

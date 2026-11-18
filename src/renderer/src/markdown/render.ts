@@ -9,8 +9,9 @@ export interface RenderContext {
   openLink(href: string): void;
   /** 本地文件链接（`file:` 或不带协议的路径）交给它；没给时这类链接按纯文字显示。 */
   openFile?: ((href: string) => void) | undefined;
-  /** 本地图片（`file:` 或不带协议的路径，网络路径除外）怎么显示由调用方决定（经主进程读、只读任务目录里的）；没给时按文件链接显示。 */
-  renderImage?: ((props: { href: string; alt: string }) => ReactNode) | undefined;
+  /** 本地图片（`file:` 或不带协议的路径，网络路径除外）怎么显示由调用方决定（经主进程读、只读任务目录里的）；没给时按文件链接显示。
+   * `width` 只来自单独一行的 `<img width="…">`（html-image.ts），是 CSS 像素，显示时仍不超过列宽。 */
+  renderImage?: ((props: { href: string; alt: string; width: number | undefined }) => ReactNode) | undefined;
   /** 代码块的渲染由调用方决定（高亮、复制按钮）；缺省是纯文本 <pre>。 */
   renderCode?(props: { code: string; lang: string; closed: boolean }): ReactNode;
   /** 文字片段的渲染（TSP md.marks 在这里把字面标记包成 span）；缺省是原文。 */
@@ -164,7 +165,9 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext, inCell: b
     case "image": {
       const src = attr(token, "src") ?? "";
       const alt = token.content;
-      if (dataImage.test(src)) return h("img", { key, src, alt, className: "md-image" });
+      const widthAttr = attr(token, "width");
+      const width = widthAttr === null ? undefined : Number(widthAttr);
+      if (dataImage.test(src)) return h("img", { key, src, alt, width, className: "md-image" });
       // 远程图片不加载：显示成链接（或纯文本）。
       if (isOpenableHref(src)) {
         const onClick = (event: MouseEvent) => {
@@ -178,7 +181,7 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext, inCell: b
         );
       }
       if (isFileHref(src) && !isNetworkPath(src)) {
-        if (ctx.renderImage) return h(Fragment, { key }, ctx.renderImage({ href: src, alt }));
+        if (ctx.renderImage) return h(Fragment, { key }, ctx.renderImage({ href: src, alt, width }));
         const open = ctx.openFile;
         if (open) {
           const onClick = (event: MouseEvent) => {

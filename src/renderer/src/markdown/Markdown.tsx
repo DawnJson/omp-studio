@@ -82,7 +82,7 @@ function createContext(
     renderImage:
       loadImage === undefined || openFile === undefined
         ? undefined
-        : ({ href, alt }) => <LocalImage href={href} alt={alt} load={loadImage} open={openFile} />,
+        : ({ href, alt, width }) => <LocalImage href={href} alt={alt} width={width} load={loadImage} open={openFile} />,
   };
 }
 

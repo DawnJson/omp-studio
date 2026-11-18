@@ -106,6 +106,49 @@ describe("危险链接协议被拒", () => {
     expect(linkOnly).toContain("浅色");
   });
 
+  // 回答里单独一行的 `<img src="…">` 以前原样显示成标签文字（2026-11-17 所有者截图）。
+  it("单独一行、属性带引号的 <img> 当成图片：本地路径交给 renderImage（带 width），远程是链接，别的属性和行内的 <img> 不生效", () => {
+    const seen: { href: string; alt: string; width: number | undefined }[] = [];
+    const withImage = (source: string) =>
+      renderToStaticMarkup(
+        renderMarkdown(source, {
+          openLink: () => {},
+          openFile: () => {},
+          renderImage: (props) => {
+            seen.push(props);
+            return `[本地图 ${props.alt}]`;
+          },
+          katex,
+        }),
+      );
+    const out = withImage(
+      '前文\n<img src="C:\\Users\\me\\图 1.png" alt="浅色" width="320" onerror="alert(1)">\n\n<img src=\'tmp/b.png\' />',
+    );
+    expect(out).toContain("前文");
+    expect(out).toContain("[本地图 浅色]");
+    expect(out).not.toMatch(/onerror|&lt;img/i);
+    expect(seen.map(({ href, alt, width }) => [decodeURIComponent(href), alt, width])).toEqual([
+      ["C:\\Users\\me\\图 1.png", "浅色", 320],
+      ["tmp/b.png", "", undefined],
+    ]);
+    seen.length = 0;
+    const remote = withImage('<img src="https://example.com/a.png" alt="远程">');
+    expect(remote).toContain('href="https://example.com/a.png"');
+    expect(remote).not.toMatch(/<img/i);
+    // 不认的：夹在文字里、属性不带引号、src 是 javascript: 或网络路径、width 不是数字（图片照显示，不带宽度）。
+    for (const source of [
+      '看图 <img src="a.png"> 这里',
+      "<img src=a.png>",
+      '<img src="javascript:alert(1)">',
+      '<img alt="没有 src">',
+    ])
+      expect(withImage(source)).not.toContain("[本地图");
+    expect(withImage('<img src="//server/share/a.png">')).not.toContain("[本地图");
+    withImage('<img src="a.png" width="50%">');
+    expect(seen.at(-1)?.width).toBeUndefined();
+    expect(seen.map((entry) => entry.href)).toEqual(["a.png"]);
+  });
+
   it("文字里写全的 http(s) 网址可点，不吞句末的中文句号；不带协议的域名、邮箱、行内代码里的网址不变成链接", () => {
     const out = html(
       "或者直接打开 https://doi.org/10.1007/978-3-031-94223-5_25 。见https://a.com/x。\n\nexample.com a@b.com `https://in.code`",
@@ -150,6 +193,8 @@ describe("流式渲染", () => {
     expect(stabilizeStreaming("前文\n\n| a | b |\n")).toBe("前文\n\n");
     expect(stabilizeStreaming("前文\n\n| a | b |\n| --- | --- |\n")).toBe("前文\n\n| a | b |\n| --- | --- |\n");
     expect(stabilizeStreaming("普通文字写到一半")).toBe("普通文字写到一半");
+    // 还没写完的 `<img …>` 行先不出现，免得先显示标签原文再变成图。
+    expect(stabilizeStreaming('前文\n<img src="a.p')).toBe("前文\n");
   });
 
   it("围栏内以 # 开头的代码行不会被当成标题延迟", () => {

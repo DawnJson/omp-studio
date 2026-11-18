@@ -26,6 +26,7 @@
     "src/shared",
     "src/renderer/src/markdown/parse.ts",
     "src/renderer/src/markdown/math.ts",
+    "src/renderer/src/markdown/html-image.ts",
     "src/renderer/src/markdown/render.ts",
     "src/renderer/src/markdown/svg-figure.ts",
     "src/renderer/src/markdown/code-preview.ts",

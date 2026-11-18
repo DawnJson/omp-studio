@@ -739,7 +739,8 @@ test("回答里的本地图片：任务目录里的直接显示、点开在右�
   const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp local image "));
   const outside = path.join(work, "outside.png").replaceAll("\\", "/");
   await writeFile(outside, solidPng(20, 10));
-  const answer = `看图：\n\n![本地图](shot.png)\n\n![外面的图](<${outside}>)`;
+  // 单独一行的 `<img …>`（模型常这样写）和 `![](…)` 一样显示，width 生效。
+  const answer = `看图：\n\n![本地图](shot.png)\n\n![外面的图](<${outside}>)\n\n<img src="wide.png" alt="宽图" width="16">`;
   const fixture = path.join(work, "local-image.jsonl");
   const source = await readFile(path.join(root, "fixtures", "tsp", "compact.jsonl"), "utf8");
   await writeFile(fixture, source.replace('"text":"second answer"', `"text":${JSON.stringify(answer)}`));
@@ -752,8 +753,14 @@ test("回答里的本地图片：任务目录里的直接显示、点开在右�
       return project!.path;
     });
     await writeFile(path.join(projectPath, "shot.png"), solidPng(40, 30));
+    await writeFile(path.join(projectPath, "wide.png"), solidPng(40, 30));
     await openTaskRow(page);
-    const image = page.getByTestId("md-local-image").locator("img");
+    const htmlImage = page.locator('[data-testid="md-local-image"] img[alt="宽图"]');
+    await expect(htmlImage).toHaveAttribute("width", "16", { timeout: 30_000 });
+    await expect
+      .poll(() => htmlImage.evaluate((img) => (img as unknown as { clientWidth: number }).clientWidth))
+      .toBe(16);
+    const image = page.locator('[data-testid="md-local-image"] img[alt="本地图"]');
     await expect(image).toHaveCount(1, { timeout: 30_000 });
     await expect
       .poll(() => image.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
@@ -768,7 +775,7 @@ test("回答里的本地图片：任务目录里的直接显示、点开在右�
     try {
       await launched.app.evaluate(({ clipboard }) => clipboard.writeText("file-menu-probe"));
       for (const [entry, file] of [
-        [page.getByTestId("md-local-image"), path.join(projectPath, "shot.png")],
+        [page.getByTestId("md-local-image").first(), path.join(projectPath, "shot.png")],
         [link, path.normalize(outside)],
       ] as const) {
         await entry.click({ button: "right" });
@@ -779,9 +786,9 @@ test("回答里的本地图片：任务目录里的直接显示、点开在右�
       await unlock();
     }
     await menus.nextAction("reveal");
-    await page.getByTestId("md-local-image").click({ button: "right" });
+    await page.getByTestId("md-local-image").first().click({ button: "right" });
     await expect.poll(menus.revealed).toEqual([path.join(projectPath, "shot.png")]);
-    await page.getByTestId("md-local-image").click();
+    await page.getByTestId("md-local-image").first().click();
     await expect(page.getByTestId("file-preview-image")).toBeVisible();
   } finally {
     await cleanup();

@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- A standalone `<img src="…">` line in an answer now shows as an image (like `![](…)`) instead of the raw tag.
+
 ### Changed
 
 - In side questions, your questions and follow-ups now appear as bubbles on the right, like in the main conversation, so they stand apart from the answers on the left.

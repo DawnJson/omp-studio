@@ -1,12 +1,13 @@
 // Markdown 解析：markdown-it（html:false，原始 HTML 当文本）→ 顶层块列表。
 // 纯 TS，不碰 DOM：渲染进程和 vitest（test/markdown.test.ts）共用。
+import { htmlImagePlugin } from "./html-image.ts";
 import { mathPlugin } from "./math.ts";
 import MarkdownIt, { type Env } from "markdown-it";
 
 export type Token = ReturnType<InstanceType<typeof MarkdownIt>["parse"]>[number];
 
 /**
- * html:false 让 <script>、<img onerror> 这类原始 HTML 变成普通文本。
+ * html:false 让 <script>、<img onerror> 这类原始 HTML 变成普通文本；唯一例外是单独一行、属性带引号的 `<img>`（html-image.ts），当成图片。
  * linkify 只认写全的 http(s) 网址（模型常直接输出裸网址，2026-10-25 起可点）：不猜 `example.com`、邮箱、IP，
  * 去掉 ftp: / mailto: / 协议相对的 `//`，和 render.ts 只放行 http/https 一致。
  */
@@ -17,6 +18,7 @@ md.linkify
   .add("//", null)
   .add("mailto:", null);
 md.use(mathPlugin);
+md.use(htmlImagePlugin);
 // file: 链接也放行（模型常给 `[报告](file:///C:/…)`，默认规则把它当原文）；只有调用方给了 openFile 时 render.ts 才画成链接。
 // javascript: / vbscript: / 非图片的 data: 仍由默认规则挡掉。
 const defaultValidateLink = md.validateLink;
@@ -193,7 +195,8 @@ export function parseStreaming(prev: BlockParse | null, source: string): BlockPa
 }
 
 const tableDelimiter = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;
-const ambiguousStart = /^\s{0,3}([|#>*+-]|\d+[.)]|`{1,3}|~{1,3})/;
+// `<` 开头：可能是单独一行的 `<img …>`（html-image.ts），写完之前先不显示，免得先出一行标签原文再变成图。
+const ambiguousStart = /^\s{0,3}([|#>*+<-]|\d+[.)]|`{1,3}|~{1,3})/;
 const fenceLine = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
