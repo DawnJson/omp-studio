@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-19
+
 ### Changed
 
 - While a task runs, the desktop pet shows three dots lighting up in turn instead of a sweat drop; its speech bubble, hearts, level-up badge and head marks now sit right by its head, so they no longer float far above an egg or baby.
