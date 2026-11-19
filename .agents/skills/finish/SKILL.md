@@ -24,7 +24,7 @@ description: 一轮改动做完、检查通过之后的收尾：写 CHANGELOG「
 
 ## 3. 推送
 
-- `git push origin main`。不 `--force`，不改写已推送的历史（要做先问仓库所有者）。
+- `(unset GITHUB_TOKEN; git push origin main)`：环境变量里的 `GITHUB_TOKEN` 不是所有者的账号，带着它 push 报 403（v0.10.0）。不 `--force`，不改写已推送的历史（要做先问仓库所有者）。
 - 推送后看一眼这次 push 触发的 CI（`.github/workflows/`，三个平台都跑 `npm run check`、单测和打包冒烟）：`env -u GITHUB_TOKEN gh run list --limit 3`。
 - 不发版。只有仓库所有者说"发版"时才用 skill `release`。
 

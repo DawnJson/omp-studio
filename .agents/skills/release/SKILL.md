@@ -43,11 +43,10 @@ npm run release -- <版本>
 
 ## 4. 推送和上传
 
-本机环境变量里的 `GITHUB_TOKEN` 不是仓库所有者的账号、写不了这个仓库：`gh` 前面加 `env -u GITHUB_TOKEN`，发布脚本放进子 shell 里 `unset GITHUB_TOKEN` 再跑（`env -u GITHUB_TOKEN node ...` 在 Git Bash 里报 `exec: D:\Nodejs\node: not found`，v0.7.0），都用 `gh auth` 登录的账号。
+本机环境变量里的 `GITHUB_TOKEN` 不是仓库所有者的账号、写不了这个仓库：`gh` 前面加 `env -u GITHUB_TOKEN`，`git push` 和发布脚本放进子 shell 里 `unset GITHUB_TOKEN` 再跑（git 的凭据助手也会用它，带着它 push 报 403，v0.10.0；`env -u GITHUB_TOKEN node ...` 在 Git Bash 里报 `exec: D:\Nodejs\node: not found`，v0.7.0），都用 `gh auth` 登录的账号。
 
 ```bash
-git push origin main
-git push origin v<版本>
+(unset GITHUB_TOKEN; git push origin main && git push origin v<版本>)
 (unset GITHUB_TOKEN; node scripts/publish-release.ts <版本> release/latest.yml release/omp-studio-<版本>-setup.exe release/omp-studio-<版本>-setup.exe.blockmap)
 ```
 
