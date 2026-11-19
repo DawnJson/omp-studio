@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-19
+
 ### Fixed
 
 - A long line from the pet no longer pushes its speech bubble past the window's left edge; when the pet sits at the top of the screen, the bubble no longer covers the level-up badge and the hearts no longer float out of the window; clicking a bubble next to the pet's head dismisses it instead of petting the pet behind it.
