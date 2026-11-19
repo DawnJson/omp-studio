@@ -12,7 +12,6 @@ import {
 import type { TspDiffHunk, TspSpan } from "../../../../../shared/tsp/tsp.generated.ts";
 import { labels } from "../labels.ts";
 import { Markdown } from "../../../markdown/index.ts";
-import type { TextMark } from "../../../markdown/marks.ts";
 import { useHighlighted } from "../../../markdown/highlight.ts";
 import { tokenProps, type HighlightToken } from "../../../markdown/highlight-tokens.ts";
 import { codeLanguage, Tokens } from "../use-highlighted.tsx";
@@ -33,7 +32,8 @@ import { useFoldState } from "../fold-context.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
-import { plainText, cleanGlyphs, spanClass, spansHaveLink, TspSpans } from "../spans.tsx";
+import { plainText, cleanGlyphs, spansHaveLink, TspSpans } from "../spans.tsx";
+import { mdMarks } from "../span-tokens.ts";
 import { asArray, previewToLines } from "../props-util.ts";
 import { codeLineNumbers, codeRows } from "../../../../../shared/tsp/code-rows.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
@@ -119,7 +119,7 @@ export function Text(props: NodeProps) {
 export function Md(props: NodeProps) {
   const p = props.node.p;
   const text = typeof p.text === "string" ? cleanGlyphs(p.text) : "";
-  const marks = useMemo(() => textMarks(p.marks), [p.marks]);
+  const marks = useMemo(() => mdMarks(p.marks), [p.marks]);
   const { taskId } = props.ctx;
   // 文件链接（`file://`、相对路径）和工具卡上的路径一样在右侧预览打开；终端版 omp 也只把这两种画成可点的链接。
   // 本地图片（`![alt](路径)`）任务目录里的经主进程读出来直接显示（终端版 omp 只印说明文字），读不到的显示成文件链接。
@@ -130,17 +130,6 @@ export function Md(props: NodeProps) {
       <Markdown source={text} streaming={p.stream === true} marks={marks} openFile={openFile} loadImage={loadImage} />
     </div>
   );
-}
-
-/** md.marks（`{t, s}`）→ 带类名的字面标记；没有可着色样式的标记丢掉。undefined = 没有标记。 */
-function textMarks(value: unknown): TextMark[] | undefined {
-  const marks = asArray(value)
-    .filter(isRecord)
-    .flatMap((mark): TextMark[] => {
-      const className = spanClass(typeof mark.s === "string" ? mark.s : undefined);
-      return typeof mark.t === "string" && className !== undefined ? [{ t: cleanGlyphs(mark.t), className }] : [];
-    });
-  return marks.length === 0 ? undefined : marks;
 }
 
 /** 公式走 Markdown 同一条 KaTeX 路径（不另开 innerHTML）：块级 `$$`，行内 `\( \)`。 */

@@ -11,7 +11,14 @@ import {
   keycapLabel,
 } from "../src/renderer/src/features/tsp/fmt.ts";
 import { tokenizeCommand } from "../src/renderer/src/features/tsp/shell-tokens.ts";
-import { semanticOf, spanClass, spanTokens, cleanGlyphs } from "../src/renderer/src/features/tsp/span-tokens.ts";
+import {
+  semanticOf,
+  spanClass,
+  spanTokens,
+  cleanGlyphs,
+  mdMarks,
+} from "../src/renderer/src/features/tsp/span-tokens.ts";
+import { splitMarks } from "../src/renderer/src/markdown/marks.ts";
 import { planTspBatch } from "../src/renderer/src/features/tsp/tsp-sync.ts";
 
 const batch = (firstSeq: number, count: number) => ({
@@ -108,6 +115,17 @@ describe("span 样式 token", () => {
   it("私有区图标字符不画", () => {
     expect(cleanGlyphs("a\uF00Eb\u{F0001}c")).toBe("abc");
     expect(cleanGlyphs("\u{F12B7} suspends")).toBe("Esc suspends");
+  });
+
+  it("图片引用标记（图标 + 空格 + #N）在消息开头和中间都着色", () => {
+    const marks = mdMarks([
+      { t: "\uF03E #1", s: "accent strong" },
+      { t: "\uF03E #2", s: "accent strong" },
+    ])!;
+    // Markdown 段落吃掉了开头去图标后剩下的空格。
+    const text = cleanGlyphs("\uF03E #1 还有bug， \uF03E #2 以及").trimStart();
+    const marked = splitMarks(text, marks).filter((piece) => piece.className !== undefined);
+    expect(marked.map((piece) => piece.text)).toEqual(["#1", "#2"]);
   });
 });
 

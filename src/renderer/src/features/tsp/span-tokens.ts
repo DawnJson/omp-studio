@@ -1,6 +1,9 @@
 // 样式片段的 token 解析（纯函数，不依赖 React / window）：`s` 里的语义 token 和 omp 主题 token → 语义 token / tsp-t-* 类。
 // omp 的主题 token 按规范 Text 那张映射表落到最近的语义 token；调色板（t 消息）不参与着色，原因见 tsp.css 顶部注释。
 
+import type { TextMark } from "../../markdown/marks.ts";
+import { isRecord } from "../../../../shared/type-guards.ts";
+
 const SEMANTIC = new Set([
   "muted",
   "dim",
@@ -112,4 +115,17 @@ const KEYBOARD_GLYPHS: Readonly<Record<number, string>> = {
 
 export function cleanGlyphs(text: string): string {
   return text.replace(ICON_GLYPHS, (glyph) => KEYBOARD_GLYPHS[glyph.codePointAt(0) ?? 0] ?? "");
+}
+
+/**
+ * md.marks（`{t, s}`）→ 带类名的字面标记；没有可着色样式的标记丢掉。undefined = 没有标记。
+ * 标记文字和正文一样去掉图标码位，再去首尾空白：omp 的图片引用标记是"图标 + 空格 + #N"，图标去掉后剩 " #N"，
+ * 而消息开头那处空格被 Markdown 段落吃掉，带空格的标记就对不上开头的引用（#1 不着色、#2 着色）。
+ */
+export function mdMarks(value: unknown): TextMark[] | undefined {
+  const marks = (Array.isArray(value) ? value : []).filter(isRecord).flatMap((mark): TextMark[] => {
+    const className = spanClass(typeof mark.s === "string" ? mark.s : undefined);
+    return typeof mark.t === "string" && className !== undefined ? [{ t: cleanGlyphs(mark.t).trim(), className }] : [];
+  });
+  return marks.length === 0 ? undefined : marks;
 }
