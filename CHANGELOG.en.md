@@ -10,10 +10,15 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Two new desktop pet species: Ember Dragon and Mecha. Newly hatched (or re-hatched) pets can roll them.
+
 ### Changed
 
 - The desktop pet levels up faster: every event gives about 2.35× the XP, so regular daily use reaches max level in about a year. Existing pets keep their level and grow faster from now on.
 - The desktop pet now only talks when petted, on level-up and on evolving; it no longer comments on finished turns, errors or approval requests.
+- The pet's lines no longer start with its own name.
 
 ## [0.10.0] - 2026-11-19
 

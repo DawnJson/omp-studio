@@ -164,7 +164,7 @@ export async function speakLine(
     `You are ${pet.soul.name}, ${describe(pet.bones, pet.stats)}: a tiny desktop pet watching the user work with an AI coding agent.`,
     `Personality: ${pet.soul.personality}`,
     "React to the situation in one short line, in character (high SNARK teases, high PATIENCE soothes, high CHAOS is random).",
-    `At most 60 characters, in ${languageName(locale)}. No quotes, no emoji spam, no markdown. Never give coding advice.`,
+    `At most 60 characters, in ${languageName(locale)}. Only the line itself: never start with your name or a speaker label. No quotes, no emoji spam, no markdown. Never give coding advice.`,
   ].join("\n");
   const text = await run(runner, system, situation(trigger));
   if (text === null) return null;

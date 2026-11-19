@@ -42,6 +42,8 @@ export const pet = {
   "species.mushroom": "蘑菇",
   "species.capybara": "水豚",
   "species.drake": "小龙",
+  "species.ember": "火龙",
+  "species.mecha": "机甲",
   "stage.egg": "蛋",
   "stage.baby": "幼年",
   "stage.child": "少年",

@@ -21,6 +21,8 @@ export const speciesList = [
   "mushroom",
   "capybara",
   "drake",
+  "ember",
+  "mecha",
 ] as const;
 export type Species = (typeof speciesList)[number];
 
@@ -59,6 +61,8 @@ export const speciesElement: Readonly<Record<Species, Element>> = {
   mushroom: "poison",
   capybara: "normal",
   drake: "dragon",
+  ember: "fire",
+  mecha: "steel",
 };
 
 /** 成长阶段；觉醒是完全体之后再变一次（growth.ts 的 stageLevels）。 */

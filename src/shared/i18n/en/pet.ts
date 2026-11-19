@@ -45,6 +45,8 @@ export const pet = {
   "species.mushroom": "Mushroom",
   "species.capybara": "Capybara",
   "species.drake": "Drake",
+  "species.ember": "Ember Dragon",
+  "species.mecha": "Mecha",
   "stage.egg": "Egg",
   "stage.baby": "Baby",
   "stage.child": "Child",
