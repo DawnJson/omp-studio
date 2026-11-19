@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-19
+
 ### Added
 
 - Two new desktop pet species: Ember Dragon and Mecha. Newly hatched (or re-hatched) pets can roll them.
