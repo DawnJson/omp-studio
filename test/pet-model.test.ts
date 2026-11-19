@@ -76,7 +76,7 @@ describe("成长", () => {
   test("每天第一次事件先签到；同一天的同种事件超过上限不再给经验", () => {
     let growth: Growth = emptyGrowth();
     const first = applyEvent(growth, "gate", day("2026-11-10"));
-    expect(first.gained).toBe(30 + 5);
+    expect(first.gained).toBe(70 + 12);
     growth = first.growth;
     for (let index = 1; index < 20; index += 1) growth = applyEvent(growth, "gate", day("2026-11-10")).growth;
     expect(growth.today.gate).toBe(20);
@@ -86,7 +86,7 @@ describe("成长", () => {
     // 第二天上限重置，连续签到经验变多
     const next = applyEvent(capped.growth, "gate", day("2026-11-11"));
     expect(next.growth.streak).toBe(2);
-    expect(next.gained).toBe(35 + 5);
+    expect(next.gained).toBe(82 + 12);
   });
 
   test("输出 token 按当天累计取对数：分几次给和一次给的经验一样；第二天从头算", () => {
@@ -106,12 +106,12 @@ describe("成长", () => {
     expect(applyEvent(split, "turn", day("2026-11-10")).gained).toBe(0);
     const nextDay = applyOutput(split, 200_000, day("2026-11-11"));
     expect(nextDay.growth.today.output).toBe(200_000);
-    expect(nextDay.gained).toBe(35 + outputXp(200_000));
+    expect(nextDay.gained).toBe(82 + outputXp(200_000));
   });
 
   test("成就同一个 key 只算一次；超过当天上限也记下 key", () => {
     const first = applyAchievement(emptyGrowth(), "pr", "pr:/repo#12", day("2026-11-10"));
-    expect(first?.gained).toBe(30 + 100);
+    expect(first?.gained).toBe(70 + 235);
     expect(applyAchievement(first!.growth, "pr", "pr:/repo#12", day("2026-11-10"))).toBeNull();
     let growth = first!.growth;
     for (let index = 13; index < 17; index += 1)

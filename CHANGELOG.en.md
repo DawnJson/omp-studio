@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- The desktop pet levels up faster: every event gives about 2.35× the XP, so regular daily use reaches max level in about a year. Existing pets keep their level and grow faster from now on.
+
 ## [0.10.0] - 2026-11-19
 
 ### Changed

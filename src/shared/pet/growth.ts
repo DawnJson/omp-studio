@@ -24,29 +24,30 @@ export type CountedSource = Exclude<XpSource, "output" | "daily">;
  * recovered = 出过错的任务又跑完一轮；error = 任务出错（不给经验，只涨 CHAOS）；pet = 摸一下；
  * todoPhase = 一个待办阶段全部完成；goal = 目标完成；pr = 任务开了 PR；
  * daily = 每天第一次有动静时的签到（经验另算，见 dailyXp）。
+ * 经验数值按"正常每天用约一年满级"定（2026-11-19 所有者定，比原来整体约 ×2.35；升级曲线不变，已有宠物的等级不跳）。
  */
 const rules: Readonly<
   Record<Exclude<XpSource, "output">, { xp: number; perDay: number; stat: StatName | null; every: number }>
 > = {
   turn: { xp: 0, perDay: 30, stat: "wisdom", every: 10 },
-  gate: { xp: 5, perDay: 20, stat: "patience", every: 3 },
-  recovered: { xp: 25, perDay: 4, stat: "debugging", every: 1 },
+  gate: { xp: 12, perDay: 20, stat: "patience", every: 3 },
+  recovered: { xp: 59, perDay: 4, stat: "debugging", every: 1 },
   error: { xp: 0, perDay: 3, stat: "chaos", every: 1 },
-  pet: { xp: 1, perDay: 10, stat: "snark", every: 5 },
+  pet: { xp: 2, perDay: 10, stat: "snark", every: 5 },
   daily: { xp: 0, perDay: 1, stat: null, every: 1 },
-  todoPhase: { xp: 30, perDay: 10, stat: "patience", every: 2 },
-  goal: { xp: 120, perDay: 3, stat: "wisdom", every: 1 },
-  pr: { xp: 100, perDay: 5, stat: "debugging", every: 1 },
+  todoPhase: { xp: 70, perDay: 10, stat: "patience", every: 2 },
+  goal: { xp: 282, perDay: 3, stat: "wisdom", every: 1 },
+  pr: { xp: 235, perDay: 5, stat: "debugging", every: 1 },
 };
 
 /**
- * 输出 token 换经验：按当天累计取对数，40 × log2(1 + 当天输出 ÷ 5 万)。
- * 一天写 20 万约 90、100 万约 175、350 万约 245：多干有回报，但刷不起来；换贵的模型不多给（只看 token）。
+ * 输出 token 换经验：按当天累计取对数，94 × log2(1 + 当天输出 ÷ 5 万)。
+ * 一天写 20 万约 218、100 万约 412、350 万约 577：多干有回报，但刷不起来；换贵的模型不多给（只看 token）。
  */
-export const outputXp = (tokens: number) => Math.floor(40 * Math.log2(1 + tokens / 50_000));
+export const outputXp = (tokens: number) => Math.floor(94 * Math.log2(1 + tokens / 50_000));
 
 /** 签到经验：连续天数越多越多，封顶在连续 11 天。 */
-const dailyXp = (streak: number) => 30 + 5 * Math.min(streak - 1, 10);
+const dailyXp = (streak: number) => 70 + 12 * Math.min(streak - 1, 10);
 
 export interface Growth {
   xp: number;
@@ -92,7 +93,7 @@ export function emptyGrowth(): Growth {
 
 /**
  * 进化的等级：蛋 Lv1、幼年 Lv5、少年 Lv12、青年 Lv25、成年 Lv45（分路线）、完全体 Lv70、觉醒 Lv85。
- * 按每天约 225 经验：约 2 天破壳、11 天少年、7 周青年、半年成年、14 个月完全体、21 个月觉醒（所有者定，2026-11-19）。
+ * 按每天约 530 经验：第一天破壳、5 天少年、3 周青年、2 个半月成年、半年完全体、9 个月觉醒、一年满级（所有者定，2026-11-19）。
  */
 const stageLevels: readonly (readonly [Stage, number])[] = [
   ["egg", 1],
