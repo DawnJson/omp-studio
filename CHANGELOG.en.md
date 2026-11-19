@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-19
+
 ### Changed
 
 - Desktop pet redrawn: 16 species (new: fox, sprout, moth, penguin, hamster, turtle, mushroom, capybara, drake), each with 7 stages (egg → baby → child → teen → adult → final → awakened), and at adulthood the pet takes a steady or mischief path based on its stats, with different forms. Pets that already hatched keep their species.
