@@ -27,7 +27,7 @@ import {
   type PetSpend,
   type PetView,
 } from "../../shared/pet/model.ts";
-import { eventToVoice, PetTaskTracker, summarizeMood, type PetTaskEvent } from "../../shared/pet/mood.ts";
+import { PetTaskTracker, summarizeMood, type PetTaskEvent } from "../../shared/pet/mood.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { listOmpConfig } from "../ipc/omp-handlers.ts";
 import { log } from "../log/log.ts";
@@ -45,8 +45,7 @@ import { closePetWindow, getPetWindow, openPetWindow, sendPetReaction, sendPetVi
 const DONE_MS = 4000;
 /** 这么久没有任务动静、也没人摸，空闲的宠物就睡着。 */
 const SLEEP_MS = 10 * 60_000;
-/** 自己开口（任务事件）至少隔多久；被摸时至少隔多久才再说一句（之间只冒爱心）。升级、进化不受限。 */
-const AUTO_TALK_GAP_MS = 45_000;
+/** 被摸时至少隔多久才再说一句（之间只冒爱心）。升级、进化不受限。 */
 const PET_TALK_GAP_MS = 20_000;
 
 let store: PetStore | null = null;
@@ -57,7 +56,6 @@ let doneUntil = 0;
 let doneTimer: NodeJS.Timeout | undefined;
 let lastActivityAt = Date.now();
 let sleepTimer: NodeJS.Timeout | undefined;
-let lastMood: Mood = "idle";
 let lastSpokeAt = 0;
 /** 进行中的 omp 调用（孵化、说话）；重新孵化、关掉宠物、退出时全部取消。 */
 const voices = new Set<AbortController>();
@@ -124,7 +122,6 @@ function view(): PetView {
 
 function push(): void {
   if (store === null || getPetWindow() === null) return;
-  lastMood = mood();
   sendPetView(view());
 }
 
@@ -219,63 +216,43 @@ function growBy(source: CountedSource, mayTalk = true): boolean {
 }
 
 /**
- * 记一件任务事件；返回它要不要庆祝 / 说话。成就同一项已经算过、或这类成就今天已到上限的不要
- * （免得一口气做完很多阶段时每个都调一次模型）。
+ * 记一件任务事件。成就同一项已经算过、或这类成就今天已到上限的不撒彩纸
+ * （免得一口气做完很多阶段时撒个不停）。
  */
-function onTaskEvent(event: PetTaskEvent, mayTalk: boolean): boolean {
+function onTaskEvent(event: PetTaskEvent, mayTalk: boolean): void {
   const now = new Date();
   const growth = store!.get().growth;
   switch (event.kind) {
     case "output":
       grow(applyOutput(growth, event.tokens, now), mayTalk);
-      return true;
+      return;
     case "todoPhase":
     case "pr": {
       const step = applyAchievement(growth, event.kind, event.key, now);
-      if (step === null) return false;
+      if (step === null) return;
       grow(step, mayTalk);
-      if (step.growth.totals[event.kind] === growth.totals[event.kind]) return false;
-      sendPetReaction({ kind: "celebrate" });
-      return true;
+      if (step.growth.totals[event.kind] !== growth.totals[event.kind]) sendPetReaction({ kind: "celebrate" });
+      return;
     }
     case "turn":
       doneUntil = Date.now() + DONE_MS;
       clearTimeout(doneTimer);
       doneTimer = setTimeout(push, DONE_MS + 50);
       growBy(event.kind, mayTalk);
-      return true;
+      return;
     default:
       growBy(event.kind, mayTalk);
-      return true;
   }
 }
 
-function voiceOf(event: PetTaskEvent): VoiceTrigger | null {
-  switch (event.kind) {
-    case "output":
-      return null;
-    case "pr":
-      return { kind: "pr", title: event.title, number: event.detail };
-    default:
-      return { kind: event.kind, title: event.title };
-  }
-}
-
-/** runtime.ts 的 state 事件：记成长、换表情。 */
+/** runtime.ts 的 state 事件：记成长、换表情。一次状态变化里连升几级只说第一句。 */
 export function petOnTaskState(state: TaskState, all: readonly TaskState[]): void {
   tasks = all;
   if (store === null) return;
   wake();
   const spokeBefore = lastSpokeAt;
-  const events = tracker.update(state).filter((event) => onTaskEvent(event, lastSpokeAt === spokeBefore));
-  // 一次变化最多说一句：升级 / 进化已经开口就不再说事件；成就和出错后修好的那句不看间隔（优先于同时到来的"跑完一轮"）。
-  const voiced = eventToVoice(events);
-  const trigger = voiced === null || lastSpokeAt !== spokeBefore ? null : voiceOf(voiced);
-  if (trigger !== null) say(trigger, trigger.kind === "turn" || trigger.kind === "error" ? AUTO_TALK_GAP_MS : 0);
-  const before = lastMood;
+  for (const event of tracker.update(state)) onTaskEvent(event, lastSpokeAt === spokeBefore);
   push();
-  if (before !== "waiting" && lastMood === "waiting" && state.status === "needs_you")
-    say({ kind: "waiting", title: state.title }, AUTO_TALK_GAP_MS);
 }
 
 export function petOnTaskRemoved(id: TaskId, all: readonly TaskState[]): void {
@@ -288,12 +265,7 @@ export function petOnTaskRemoved(id: TaskId, all: readonly TaskState[]): void {
 export function petOnTaskNotice(notice: TaskNotice): void {
   if (store === null || notice.kind !== "goal_complete") return;
   wake();
-  const task = tasks.find((candidate) => candidate.id === notice.taskId);
-  const spokeBefore = lastSpokeAt;
-  if (growBy("goal")) {
-    sendPetReaction({ kind: "celebrate" });
-    if (lastSpokeAt === spokeBefore) say({ kind: "goal", title: task?.title ?? "" }, 0);
-  }
+  if (growBy("goal")) sendPetReaction({ kind: "celebrate" });
   push();
 }
 

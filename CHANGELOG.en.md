@@ -13,6 +13,7 @@ How to write it:
 ### Changed
 
 - The desktop pet levels up faster: every event gives about 2.35× the XP, so regular daily use reaches max level in about a year. Existing pets keep their level and grow faster from now on.
+- The desktop pet now only talks when petted, on level-up and on evolving; it no longer comments on finished turns, errors or approval requests.
 
 ## [0.10.0] - 2026-11-19
 

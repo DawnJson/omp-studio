@@ -15,7 +15,7 @@ import {
   type Growth,
 } from "../src/shared/pet/growth.ts";
 import { hatMinRarity, rarities, rarityInfo, type Rarity } from "../src/shared/pet/model.ts";
-import { eventToVoice, PetTaskTracker, summarizeMood } from "../src/shared/pet/mood.ts";
+import { PetTaskTracker, summarizeMood } from "../src/shared/pet/mood.ts";
 import { addSpend, emptySpend, parsePetRecord, rehatched, spendOn } from "../src/main/pet/pet-store.ts";
 import { chooseVoiceModel, parseJsonOutput } from "../src/main/pet/pet-voice.ts";
 
@@ -24,11 +24,10 @@ const seed = (index: number) => `00000000-0000-4000-8000-${index.toString(16).pa
 /** 任务状态里宠物看的那几项；默认是个还没用量、没待办、没 PR 的任务。 */
 const tracked = (
   status: TaskState["status"],
-  extra: Partial<Pick<TaskState, "sessionUsage" | "todoPhases" | "prNumber" | "title">> = {},
+  extra: Partial<Pick<TaskState, "sessionUsage" | "todoPhases" | "prNumber">> = {},
 ) => ({
   id: "t1" as TaskState["id"],
   status,
-  title: "修 bug",
   cwd: "/repo",
   sessionUsage: null,
   todoPhases: [],
@@ -298,32 +297,6 @@ describe("说话用的模型", () => {
     expect(chooseVoiceModel({ smol: "a/c" })).toBe("@smol");
     expect(chooseVoiceModel({ default: "a/d" })).toBe("@smol");
     expect(chooseVoiceModel(null)).toBe("@smol");
-  });
-});
-
-describe("一次状态变化说哪句", () => {
-  test("出错后又跑完一轮：同一批里有 turn 和 recovered，只说 recovered；只处理确认门、只写了 token 不说话", () => {
-    const tracker = new PetTaskTracker();
-    tracker.update(tracked("running"));
-    tracker.update(tracked("error"));
-    tracker.update(tracked("running"));
-    const events = tracker.update(tracked("idle"));
-    expect(events.map((event) => event.kind)).toEqual(["turn", "recovered"]);
-    expect(eventToVoice(events)?.kind).toBe("recovered");
-    tracker.update(tracked("running"));
-    expect(eventToVoice(tracker.update(tracked("idle")))?.kind).toBe("turn");
-    tracker.update(tracked("needs_you"));
-    expect(eventToVoice(tracker.update(tracked("running")))).toBeNull();
-    tracker.update(tracked("running", { sessionUsage: usage(10) }));
-    expect(eventToVoice(tracker.update(tracked("running", { sessionUsage: usage(20) })))).toBeNull();
-  });
-
-  test("成就优先：同一批里开了 PR 又跑完一轮，说 PR", () => {
-    const tracker = new PetTaskTracker();
-    tracker.update(tracked("running"));
-    const events = tracker.update(tracked("idle", { prNumber: 9 }));
-    expect(events.map((event) => event.kind)).toEqual(["pr", "turn"]);
-    expect(eventToVoice(events)?.kind).toBe("pr");
   });
 });
 

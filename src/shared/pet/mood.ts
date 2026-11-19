@@ -15,21 +15,21 @@ export function summarizeMood(tasks: readonly Pick<TaskState, "status">[]): Excl
   return mood;
 }
 
-/** 从一次状态变化里认出的事件；title 给说话用（只发状态和标题，不发对话内容，仓库所有者 2026-11-11 定）。 */
+/** 从一次状态变化里认出的成长事件。 */
 export type PetTaskEvent =
-  | { kind: "turn" | "gate" | "recovered" | "error"; taskId: TaskId; title: string }
+  | { kind: "turn" | "gate" | "recovered" | "error"; taskId: TaskId }
   /** 新写出的输出 token（会话累计输出涨出来的部分）。 */
-  | { kind: "output"; taskId: TaskId; title: string; tokens: number }
-  /** 成就：一个待办阶段全部完成（detail = 阶段名）、任务开了 PR（detail = PR 号）。key 用来去重（同一项只算一次，跨重启）。 */
-  | { kind: "todoPhase" | "pr"; taskId: TaskId; title: string; detail: string; key: string };
+  | { kind: "output"; taskId: TaskId; tokens: number }
+  /** 成就：一个待办阶段全部完成、任务开了 PR。key 用来去重（同一项只算一次，跨重启）。 */
+  | { kind: "todoPhase" | "pr"; taskId: TaskId; key: string };
 
-type TrackedState = Pick<TaskState, "id" | "status" | "title" | "sessionUsage" | "todoPhases" | "prNumber" | "cwd">;
+type TrackedState = Pick<TaskState, "id" | "status" | "sessionUsage" | "todoPhases" | "prNumber" | "cwd">;
 
 /**
  * 全部条目都完成的待办阶段（放弃的算完成，至少一条真完成）。key = 阶段名 + 条目内容的哈希：
  * 同一任务后来又写了一份同名阶段（"实现""验证"）、内容不同的待办，做完还能再算一次。
  */
-function finishedPhases(state: TrackedState): { name: string; key: string }[] {
+function finishedPhases(state: TrackedState): { key: string }[] {
   return state.todoPhases
     .filter(
       (phase) =>
@@ -37,7 +37,6 @@ function finishedPhases(state: TrackedState): { name: string; key: string }[] {
         phase.tasks.every((task) => task.status === "completed" || task.status === "abandoned"),
     )
     .map((phase) => ({
-      name: phase.name,
       key: fnv1a([phase.name, ...phase.tasks.map((task) => task.content)].join("\n")).toString(16),
     }));
 }
@@ -61,7 +60,7 @@ export class PetTaskTracker {
 
   update(state: TrackedState): PetTaskEvent[] {
     const events: PetTaskEvent[] = [];
-    const base = { taskId: state.id, title: state.title };
+    const base = { taskId: state.id };
     this.#trackOutput(state, events);
     const previous = this.#last.get(state.id);
     const working = state.status === "running" || previous === "running";
@@ -70,10 +69,10 @@ export class PetTaskTracker {
     if (working)
       for (const phase of phases)
         if (!knownPhases.has(phase.key))
-          events.push({ kind: "todoPhase", ...base, detail: phase.name, key: `todo:${state.id}:${phase.key}` });
+          events.push({ kind: "todoPhase", ...base, key: `todo:${state.id}:${phase.key}` });
     this.#phases.set(state.id, new Set(phases.map((phase) => phase.key)));
     if (working && state.prNumber !== null && this.#pr.get(state.id) !== state.prNumber)
-      events.push({ kind: "pr", ...base, detail: String(state.prNumber), key: `pr:${state.cwd}#${state.prNumber}` });
+      events.push({ kind: "pr", ...base, key: `pr:${state.cwd}#${state.prNumber}` });
     this.#pr.set(state.id, state.prNumber);
 
     this.#last.set(state.id, state.status);
@@ -97,7 +96,7 @@ export class PetTaskTracker {
     const seen = this.#output.get(state.id);
     this.#output.set(state.id, tokens.output);
     if (seen !== undefined && tokens.output > seen)
-      events.push({ kind: "output", taskId: state.id, title: state.title, tokens: tokens.output - seen });
+      events.push({ kind: "output", taskId: state.id, tokens: tokens.output - seen });
   }
 
   forget(id: TaskId): void {
@@ -107,19 +106,4 @@ export class PetTaskTracker {
     this.#phases.delete(id);
     this.#pr.delete(id);
   }
-}
-
-/** 会说话的事件，按优先级：成就（PR、待办阶段）> 修好了 > 其余。 */
-const voicePriority: readonly PetTaskEvent["kind"][] = ["pr", "todoPhase", "recovered"];
-
-/**
- * 一次状态变化最多说一句：有成就或 recovered 按上面的优先级挑（同一批里的 turn 不说），否则说最后一件 turn / error；
- * 处理掉确认门（gate）和新写出的 token（output）不说话。没有可说的返回 null。
- */
-export function eventToVoice(events: readonly PetTaskEvent[]): PetTaskEvent | null {
-  for (const kind of voicePriority) {
-    const found = events.find((event) => event.kind === kind);
-    if (found !== undefined) return found;
-  }
-  return events.findLast((event) => event.kind === "turn" || event.kind === "error") ?? null;
 }

@@ -1,5 +1,5 @@
 // 宠物的"魂"和说话：都是一次性的 `omp -p`，模型是 omp 的 tiny 角色、没配就 smol（chooseVoiceModel，docs/architecture/pet.md「说话」）。
-// 发给模型的只有宠物自己的设定（物种、属性、名字、性格）和事件：任务状态 + 任务标题，不带对话内容（仓库所有者 2026-11-11 定）。
+// 只在被摸、升级、进化时说话（仓库所有者 2026-11-19 定）；发给模型的只有宠物自己的设定（物种、属性、名字、性格）和这件事本身，不带任务和对话。
 // 不带工具、会话、AGENTS.md（enhanceArgs）；文字走 stdin。失败只记日志、返回 null：宠物照样在，只是不说话 / 先没有名字。
 import type { Locale } from "../../shared/ipc.ts";
 import {
@@ -139,32 +139,11 @@ export async function hatchSoul(runner: VoiceRunner, bones: Bones, locale: Local
   }
 }
 
-/** 说话的起因：任务事件（带标题）、成就、被摸、升级、进化。待办阶段只说"做完了一个阶段"，不发阶段名（只发状态和标题）。 */
-export type VoiceTrigger =
-  | { kind: "turn" | "gate" | "recovered" | "error" | "waiting" | "todoPhase" | "goal"; title: string }
-  | { kind: "pr"; title: string; number: string }
-  | { kind: "pet" }
-  | { kind: "levelUp"; level: number }
-  | { kind: "evolve"; stage: Stage };
+/** 说话的起因：被摸、升级、进化（任务事件不说话，仓库所有者 2026-11-19 定）。 */
+export type VoiceTrigger = { kind: "pet" } | { kind: "levelUp"; level: number } | { kind: "evolve"; stage: Stage };
 
 function situation(trigger: VoiceTrigger): string {
   switch (trigger.kind) {
-    case "turn":
-      return `A coding task titled "${trigger.title}" just finished a turn.`;
-    case "recovered":
-      return `A coding task titled "${trigger.title}" that had failed earlier just ran fine again.`;
-    case "gate":
-      return `The user just answered an approval request in the task "${trigger.title}".`;
-    case "waiting":
-      return `The task "${trigger.title}" is waiting for the user to approve or answer something.`;
-    case "error":
-      return `The task "${trigger.title}" just crashed with an error.`;
-    case "todoPhase":
-      return `The task "${trigger.title}" just finished a whole phase of its todo list. Celebrate a little.`;
-    case "goal":
-      return `The task "${trigger.title}" just completed its goal. Celebrate!`;
-    case "pr":
-      return `The task "${trigger.title}" just opened pull request #${trigger.number}. Celebrate!`;
     case "pet":
       return "The user just petted you.";
     case "levelUp":
