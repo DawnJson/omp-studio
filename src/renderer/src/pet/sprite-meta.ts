@@ -1063,66 +1063,66 @@ export const spriteMeta: Readonly<Record<Species, Readonly<Record<SpriteName, Sp
     egg: { eyes: null, head: { x: 23, y: 30 } },
     baby: {
       eyes: [
-        { x: 17, y: 34, w: 3, h: 3 },
-        { x: 22, y: 34, w: 4, h: 3 },
+        { x: 15, y: 33, w: 4, h: 5 },
+        { x: 22, y: 33, w: 4, h: 5 },
       ],
-      head: { x: 21, y: 26 },
+      head: { x: 20, y: 26 },
     },
     child: {
       eyes: [
-        { x: 18, y: 28, w: 3, h: 3 },
-        { x: 23, y: 28, w: 4, h: 3 },
+        { x: 17, y: 26, w: 3, h: 4 },
+        { x: 23, y: 26, w: 3, h: 4 },
       ],
-      head: { x: 22, y: 20 },
+      head: { x: 21, y: 20 },
     },
     teen: {
       eyes: [
-        { x: 19, y: 23, w: 3, h: 3 },
-        { x: 24, y: 23, w: 3, h: 3 },
+        { x: 19, y: 24, w: 3, h: 4 },
+        { x: 24, y: 24, w: 4, h: 4 },
       ],
       head: { x: 23, y: 15 },
     },
     "adult-a": {
       eyes: [
-        { x: 20, y: 19, w: 3, h: 4 },
-        { x: 25, y: 19, w: 3, h: 4 },
+        { x: 19, y: 20, w: 4, h: 4 },
+        { x: 25, y: 20, w: 3, h: 4 },
       ],
-      head: { x: 24, y: 12 },
+      head: { x: 23, y: 10 },
     },
     "final-a": {
       eyes: [
-        { x: 20, y: 16, w: 3, h: 4 },
-        { x: 25, y: 16, w: 4, h: 4 },
+        { x: 20, y: 15, w: 3, h: 5 },
+        { x: 25, y: 16, w: 3, h: 4 },
       ],
-      head: { x: 24, y: 8 },
+      head: { x: 24, y: 5 },
     },
     "awakened-a": {
       eyes: [
-        { x: 19, y: 14, w: 4, h: 4 },
-        { x: 25, y: 14, w: 3, h: 4 },
+        { x: 19, y: 13, w: 4, h: 3 },
+        { x: 25, y: 12, w: 3, h: 4 },
       ],
-      head: { x: 23, y: 4 },
+      head: { x: 23, y: 1 },
     },
     "adult-b": {
       eyes: [
-        { x: 20, y: 19, w: 3, h: 4 },
-        { x: 25, y: 19, w: 3, h: 4 },
+        { x: 19, y: 19, w: 4, h: 3 },
+        { x: 24, y: 19, w: 4, h: 3 },
       ],
-      head: { x: 24, y: 12 },
+      head: { x: 23, y: 10 },
     },
     "final-b": {
       eyes: [
-        { x: 20, y: 17, w: 3, h: 4 },
-        { x: 25, y: 17, w: 3, h: 4 },
+        { x: 20, y: 17, w: 3, h: 3 },
+        { x: 24, y: 17, w: 4, h: 3 },
       ],
-      head: { x: 24, y: 9 },
+      head: { x: 24, y: 5 },
     },
     "awakened-b": {
       eyes: [
-        { x: 20, y: 17, w: 3, h: 3 },
-        { x: 25, y: 17, w: 3, h: 4 },
+        { x: 21, y: 20, w: 2, h: 3 },
+        { x: 25, y: 20, w: 2, h: 3 },
       ],
-      head: { x: 24, y: 8 },
+      head: { x: 24, y: 10 },
     },
   },
   mecha: {
