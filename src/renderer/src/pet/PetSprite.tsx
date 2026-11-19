@@ -12,11 +12,29 @@ import {
   type Stage,
 } from "../../../shared/pet/model.ts";
 import { auraOf, elementLooks } from "./elements.ts";
-import { hatSprites } from "./hats.ts";
+import { hatSprites, type HatDef } from "./hats.ts";
 import { SPRITE_SIZE, spriteOf, type EyeBox } from "./sprites.ts";
 
 /** viewBox：左右各留 6 格，上面留 14 格（帽子、标记），下面不留（站在底边）。宠物窗口里画成 3 像素一格。 */
 const VIEW = { x: -6, y: -14, width: SPRITE_SIZE + 12, height: SPRITE_SIZE + 14 } as const;
+
+/** 这一形态戴的帽子（蛋不戴）。 */
+function hatOf(bones: Bones, stage: Stage): HatDef | null {
+  return bones.hat === "none" || stage === "egg" ? null : hatSprites[bones.hat];
+}
+
+/** 帽子顶边的 y（格）：帽子每格画成 2×2，底边压在头顶那行（光环再往上浮 lift 格）。 */
+const hatTop = (headY: number, hat: HatDef) => headY - 2 * (hat.rows.length - 1 + hat.lift);
+
+/**
+ * 这一形态头顶（戴帽子时是帽子顶）在宠物框里的高度（0 = 框顶，1 = 框底）。气泡、爱心、彩纸、升级提示按它贴着放
+ * （PetApp 的 --pet-head）：蛋和幼年个子矮，按框顶放会离得很远。
+ */
+export function headRatio(bones: Bones, stage: Stage, branch: Branch | null): number {
+  const headY = spriteOf(bones.species, stage, branch).head.y;
+  const hat = hatOf(bones, stage);
+  return ((hat === null ? headY : hatTop(headY, hat)) - VIEW.y) / VIEW.height;
+}
 
 /** 宠物窗口自己加的一阵子表情：被摸（开心）、被拖着（><）。 */
 export type PetFace = "happy" | "dragged" | null;
@@ -183,9 +201,10 @@ function Mark({ mood }: { mood: Mood }) {
       );
     case "running":
       return (
-        <g className="pet-mark" fill="#6ec6ff">
-          <rect x={0} y={2} width={1} height={1} />
-          <rect x={0.25} y={1.4} width={0.5} height={0.6} />
+        <g className="pet-mark pet-mark-dots" fill="#6ec6ff">
+          {[0, 1, 2].map((index) => (
+            <rect key={index} x={index * 1.1 - 1} y={2.2} width={0.7} height={0.7} />
+          ))}
         </g>
       );
     case "error":
@@ -264,7 +283,7 @@ export const PetSprite = memo(function PetSprite({
   const shape = eyeShape(mood, face);
   const looking = shape === "open" && (gaze.x !== 0 || gaze.y !== 0);
   const blinks = shape === "open" && (mood === "idle" || mood === "running");
-  const hat = bones.hat === "none" || stage === "egg" ? null : hatSprites[bones.hat];
+  const hat = hatOf(bones, stage);
   const hatWidth = hat === null ? 0 : Math.max(...hat.rows.map((row) => row.length));
   const eyes =
     colors === null || sprite.eyes === null ? [] : sprite.eyes.map((box, index) => ({ box, colors: colors[index]! }));
@@ -320,9 +339,7 @@ export const PetSprite = memo(function PetSprite({
               </>
             ))}
           {hat !== null && (
-            <g
-              transform={`translate(${sprite.head.x - hatWidth} ${sprite.head.y - 2 * (hat.rows.length - 1 + hat.lift)}) scale(2)`}
-            >
+            <g transform={`translate(${sprite.head.x - hatWidth} ${hatTop(sprite.head.y, hat)}) scale(2)`}>
               {pixelArt(hat.rows, hat.palette)}
             </g>
           )}
@@ -344,8 +361,10 @@ export const PetSprite = memo(function PetSprite({
           <image href={sprite.url} width={SPRITE_SIZE} height={SPRITE_SIZE} className="pet-png pet-evolve-to" />
         </g>
       )}
-      {/* 头高的形态（觉醒）标记会出 viewBox：最高放到 -7，"!" 和 Z 的顶都还在画布里。 */}
-      <g transform={`translate(${sprite.head.x + 10} ${Math.max(sprite.head.y - 14, -7)}) scale(3)`}>
+      {/* 标记贴在头（戴帽子时是帽子）的右上方；头高的形态（觉醒）最高放到 -7，"!" 和 Z 的顶都还在画布里。 */}
+      <g
+        transform={`translate(${sprite.head.x + Math.max(8, hatWidth + 2)} ${Math.max((hat === null ? sprite.head.y : hatTop(sprite.head.y, hat)) - 6, -7)}) scale(3)`}
+      >
         <Mark mood={mood} />
       </g>
     </svg>

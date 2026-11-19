@@ -27,7 +27,7 @@ import {
   type Stage,
 } from "../../../shared/pet/model.ts";
 import { Button } from "../ui/controls.tsx";
-import { PetSprite, type PetFace } from "./PetSprite.tsx";
+import { headRatio, PetSprite, type PetFace } from "./PetSprite.tsx";
 
 /** 按下后挪动超过这么多像素就算拖动，不算单击。 */
 const DRAG_THRESHOLD = 4;
@@ -438,7 +438,13 @@ export function PetApp({ initial, initialLayout, subscribeReactions }: PetAppPro
       className="pet-root"
       data-card={cardOpen || confirmOpen || undefined}
       data-below={layout.below || undefined}
-      style={{ "--pet-x": `${layout.x}px`, "--pet-y": `${layout.y}px` } as CSSProperties}
+      style={
+        {
+          "--pet-x": `${layout.x}px`,
+          "--pet-y": `${layout.y}px`,
+          "--pet-head": headRatio(view.bones, view.stage, view.branch),
+        } as CSSProperties
+      }
     >
       {confirmOpen ? (
         <RehatchConfirm view={view} onClose={() => setConfirmOpen(false)} />
