@@ -248,6 +248,10 @@
   top: calc(var(--pet-y) + var(--pet-h) + var(--space-1));
   bottom: auto;
 }
+/* 气泡在脚下时同样给升级提示留出高度（提示在脚下紧贴宠物）。 */
+.pet-root[data-below] .pet-bubble {
+  top: calc(var(--pet-y) + var(--pet-h) + var(--space-6));
+}
 /* 浮层贴着头顶，会落进宠物框上方的透明区域：叠在 .pet-stage 上面，否则按钮点不到（宠物框接住了点击）。 */
 .pet-bubble,
 .pet-card,
@@ -281,6 +285,8 @@
 .pet-bubble {
   right: auto;
   width: max-content;
+  /* border-box：max-width 连内边距和边框一起算，长句子不会比窗口还宽（Bubble 按 offsetWidth 夹在窗口里）。 */
+  box-sizing: border-box;
   max-width: calc(100% - var(--space-4));
   padding: var(--space-1-5) var(--space-2-5);
   /* 和头顶之间留出爱心、升级提示的高度，免得叠在气泡上。 */
@@ -331,7 +337,8 @@
 .pet-hearts {
   position: absolute;
   left: calc(var(--pet-x) + var(--pet-w) / 2);
-  bottom: calc(100% - var(--pet-top) - var(--space-2));
+  /* 头顶贴着窗口顶边时（脚下摆放、觉醒戴高帽）不往窗口外放。 */
+  bottom: min(calc(100% - var(--pet-top) - var(--space-2)), calc(100% - var(--space-8)));
   display: flex;
   gap: var(--space-2);
   transform: translateX(-50%);

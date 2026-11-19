@@ -157,6 +157,22 @@ test("pet.json 里的位置在屏幕外：夹回屏幕左上角，窗口整个�
     expect(widths.content).toBeLessThanOrEqual(widths.card);
     await expect(pet.getByTestId("pet-card-close")).toBeInViewport({ ratio: 1 });
 
+    // 长句子的气泡不比窗口宽（曾因内边距不算进 max-width 被夹出左边），脚下摆放时也不压住升级提示。
+    await pet.getByTestId("pet-card-close").click();
+    await launched.app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows().find((item) => item.webContents.getURL().endsWith("/pet.html"))!;
+      window.webContents.send("pet:event:reaction", {
+        kind: "say",
+        text: "一句足够长的话，长到气泡要按窗口宽度换行才放得下，看它会不会出窗口",
+      });
+      window.webContents.send("pet:event:reaction", { kind: "levelUp", level: 3 });
+    });
+    const bubble = (await pet.getByTestId("pet-bubble").boundingBox())!;
+    const badge = (await pet.getByTestId("pet-badge").boundingBox())!;
+    expect(bubble.x).toBeGreaterThanOrEqual(0);
+    expect(bubble.x + bubble.width).toBeLessThanOrEqual(bounds.width);
+    expect(bubble.y).toBeGreaterThanOrEqual(badge.y + badge.height);
+
     const saved = await readPet(userData);
     expect(saved.seed).toBe(seed);
     expect(saved.soul?.name).toBe(name);
