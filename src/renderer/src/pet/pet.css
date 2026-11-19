@@ -20,8 +20,8 @@
   user-select: none;
 }
 
-/* --pet-top：这一形态的头顶（宠物框顶 + 框高 × --pet-head，PetApp 按形态给）。气泡、爱心、彩纸、升级提示贴着它放，
-   蛋和幼年个子矮，按框顶放会离得很远。属性卡、确认框是大面板，仍放在宠物框上方。 */
+/* --pet-top：这一形态的头顶（宠物框顶 + 框高 × --pet-head，PetApp 按形态给）。气泡、属性卡、确认框、爱心、彩纸、升级提示
+   都贴着它放：蛋和幼年个子矮，按框顶放会离得很远。 */
 .pet-root {
   position: fixed;
   inset: 0;
@@ -238,7 +238,7 @@
   position: absolute;
   left: var(--space-2);
   right: var(--space-2);
-  bottom: calc(100% - var(--pet-y) + var(--space-1));
+  bottom: calc(100% - var(--pet-top) + var(--space-2));
   background: var(--bg-overlay);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -248,6 +248,12 @@
   top: calc(var(--pet-y) + var(--pet-h) + var(--space-1));
   bottom: auto;
 }
+/* 浮层贴着头顶，会落进宠物框上方的透明区域：叠在 .pet-stage 上面，否则按钮点不到（宠物框接住了点击）。 */
+.pet-bubble,
+.pet-card,
+.pet-confirm {
+  z-index: 1;
+}
 
 /* 重新孵化的确认框：studio 的 .ui-dialog（controls.css）原样用，只改成贴着宠物、占满窗口宽度；窗口窄，左右内边距收一档。 */
 .pet-confirm {
@@ -256,7 +262,7 @@
   position: absolute;
   left: var(--space-2);
   right: var(--space-2);
-  bottom: calc(100% - var(--pet-y) + var(--space-1));
+  bottom: calc(100% - var(--pet-top) + var(--space-2));
   width: auto;
   max-width: none;
   cursor: default;
@@ -416,15 +422,18 @@
   }
 }
 
+/* 第一行名字和 ×，第二行稀有度、物种、闪光：名字太长时只缩它（省略号）。 */
 .pet-card-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-0-5) var(--space-1);
 }
-/* 名字、稀有度、物种同一行：名字按内容宽、太长时先缩它（省略号），× 靠右。 */
 .pet-card-name,
 .pet-card-name-input {
-  flex: 0 1 auto;
+  grid-row: 1;
+  justify-self: start;
+  max-width: 100%;
   min-width: 0;
   padding: 0 var(--space-1);
   border: 1px solid transparent;
@@ -443,7 +452,7 @@
   border-color: var(--border);
 }
 .pet-card-name-input {
-  flex: 1;
+  justify-self: stretch;
   border-color: var(--input-border);
   background: var(--bg-raised);
   outline: none;
@@ -453,8 +462,8 @@
   border-color: var(--st-error);
 }
 .pet-card-close {
-  flex: none;
-  margin-left: auto;
+  grid-row: 1;
+  grid-column: 2;
   width: var(--control-h-xs);
   height: var(--control-h-xs);
   padding: 0;
@@ -471,9 +480,12 @@
 }
 
 .pet-card-meta {
+  grid-row: 2;
+  grid-column: 1 / -1;
   display: flex;
-  flex: none;
   align-items: center;
+  /* 和名字的文字对齐（名字有 space-1 内边距 + 1px 边框）。 */
+  padding-left: calc(var(--space-1) + 1px);
   gap: var(--space-1);
   color: var(--text-2);
   font-size: var(--fs-xs);

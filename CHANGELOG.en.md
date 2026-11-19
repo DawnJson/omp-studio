@@ -10,6 +10,11 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- The desktop pet's hats are redrawn at the pet's own pixel size, with outlines and shading, so they no longer look like blown-up stickers.
+- The pet's stats card and re-hatch confirmation now sit right by its head, so they no longer float far above an egg or baby; the card shows the name and the rarity on separate lines.
+
 ## [0.10.2] - 2026-11-19
 
 ### Changed

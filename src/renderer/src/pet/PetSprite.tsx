@@ -23,8 +23,8 @@ function hatOf(bones: Bones, stage: Stage): HatDef | null {
   return bones.hat === "none" || stage === "egg" ? null : hatSprites[bones.hat];
 }
 
-/** 帽子顶边的 y（格）：帽子每格画成 2×2，底边压在头顶那行（光环再往上浮 lift 格）。 */
-const hatTop = (headY: number, hat: HatDef) => headY - 2 * (hat.rows.length - 1 + hat.lift);
+/** 帽子顶边的 y（格）：帽子和宠物同一种格子大小，底边压在头顶那行（光环再往上浮 lift 格）。 */
+const hatTop = (headY: number, hat: HatDef) => headY - (hat.rows.length - 1 + hat.lift);
 
 /**
  * 这一形态头顶（戴帽子时是帽子顶）在宠物框里的高度（0 = 框顶，1 = 框底）。气泡、爱心、彩纸、升级提示按它贴着放
@@ -284,7 +284,8 @@ export const PetSprite = memo(function PetSprite({
   const looking = shape === "open" && (gaze.x !== 0 || gaze.y !== 0);
   const blinks = shape === "open" && (mood === "idle" || mood === "running");
   const hat = hatOf(bones, stage);
-  const hatWidth = hat === null ? 0 : Math.max(...hat.rows.map((row) => row.length));
+  /** 帽子左半边的宽度（格）：帽子按头顶的 x 居中。 */
+  const hatHalf = hat === null ? 0 : Math.floor(Math.max(...hat.rows.map((row) => row.length)) / 2);
   const eyes =
     colors === null || sprite.eyes === null ? [] : sprite.eyes.map((box, index) => ({ box, colors: colors[index]! }));
   const from = evolvingFrom === null ? null : spriteOf(bones.species, evolvingFrom.stage, evolvingFrom.branch);
@@ -339,7 +340,7 @@ export const PetSprite = memo(function PetSprite({
               </>
             ))}
           {hat !== null && (
-            <g transform={`translate(${sprite.head.x - hatWidth} ${hatTop(sprite.head.y, hat)}) scale(2)`}>
+            <g transform={`translate(${sprite.head.x - hatHalf} ${hatTop(sprite.head.y, hat)})`}>
               {pixelArt(hat.rows, hat.palette)}
             </g>
           )}
@@ -363,7 +364,7 @@ export const PetSprite = memo(function PetSprite({
       )}
       {/* 标记贴在头（戴帽子时是帽子）的右上方；头高的形态（觉醒）最高放到 -7，"!" 和 Z 的顶都还在画布里。 */}
       <g
-        transform={`translate(${sprite.head.x + Math.max(8, hatWidth + 2)} ${Math.max((hat === null ? sprite.head.y : hatTop(sprite.head.y, hat)) - 6, -7)}) scale(3)`}
+        transform={`translate(${sprite.head.x + Math.max(8, hatHalf + 3)} ${Math.max((hat === null ? sprite.head.y : hatTop(sprite.head.y, hat)) - 6, -7)}) scale(3)`}
       >
         <Mark mood={mood} />
       </g>
