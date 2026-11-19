@@ -1,11 +1,16 @@
 // 宠物窗口和主进程之间的 IPC（docs/architecture/pet.md「窗口」）。宠物窗口用自己的 preload（src/preload/pet.ts），
 // 只拿到这里列的几个函数，拿不到主窗口的 StudioApi；主进程只认宠物窗口发来的这些通道（main/pet/pet-window.ts）。
-import type { PetReaction, PetView } from "./model.ts";
+import type { PetGaze, PetLayout, PetReaction, PetView } from "./model.ts";
 
 export interface PetApi {
   getView(): Promise<PetView>;
   onView(listener: (view: PetView) => void): () => void;
   onReaction(listener: (reaction: PetReaction) => void): () => void;
+  /** 宠物在窗口里的位置：拖完、改分辨率后主进程重新摆窗口时推过来。 */
+  getLayout(): Promise<PetLayout>;
+  onLayout(listener: (layout: PetLayout) => void): () => void;
+  /** 光标在宠物哪个方向（眼睛跟着看）：变了才推。 */
+  onGaze(listener: (gaze: PetGaze) => void): () => void;
   /** 指针按下在宠物身上：主进程跟着光标挪窗口，直到 dragEnd。 */
   dragStart(): void;
   dragEnd(): void;
@@ -26,4 +31,4 @@ export interface PetApi {
 
 /** 通道名：invoke 用 `pet:<名字>`，主进程推送用 `pet:event:<名字>`。 */
 export const petChannel = (name: keyof PetApi) => `pet:${name}` as const;
-export const petEventChannel = (name: "view" | "reaction") => `pet:event:${name}` as const;
+export const petEventChannel = (name: "view" | "reaction" | "layout" | "gaze") => `pet:event:${name}` as const;

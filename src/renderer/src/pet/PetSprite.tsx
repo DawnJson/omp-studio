@@ -1,158 +1,222 @@
-// 宠物的像素画（docs/design/spec/4.32-pet.md）：物种 × 阶段的底图（shared/pet/sprites.ts）+ 眼睛表情 + 帽子 + 状态小标记 + 等级装饰（decor.ts）。
-// 坐标单位是像素格；外层 viewBox 在 16×16 的画布四周留出帽子和标记的位置。动画全在 pet.css（按 data-mood 切换，3 帧 steps），
-// 减少动效时停在第一帧。颜色是物种自己的固定色，状态标记用主题的状态色。
-import { memo, type ReactNode } from "react";
-import { maxLevel } from "../../../shared/pet/growth.ts";
-import type { Bones, EyeStyle, Mood, Stage } from "../../../shared/pet/model.ts";
-import { SPRITE_SIZE, sprites, type SpriteDef } from "../../../shared/pet/sprites.ts";
-import { decorations, OUTLINE_COLOR, OUTLINE_LEVEL, type DecorDef } from "./decor.ts";
+// 宠物的像素画（docs/design/spec/4.32-pet.md）：物种 × 阶段 × 路线的 48×48 PNG（sprites.ts）+ 眼睛表情 + 帽子 + 状态小标记
+// + 属性气势（elements.ts：粒子、光圈）+ 进化动画。坐标单位是像素格；viewBox 在 48×48 的画布四周留出帽子、标记、粒子的位置。
+// 眼睛画在 PNG 里：表情、眨眼、看光标时先用眼睛旁边的脸色盖住眼睛方框（sprite-meta.ts），再在上面画出这一刻的眼睛。
+// 动画全在 pet.css，减少动效时停在第一帧。颜色是物种自己的固定色，状态标记用主题的状态色。
+import { memo, useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  speciesElement,
+  type Bones,
+  type Branch,
+  type Mood,
+  type PetGaze,
+  type Stage,
+} from "../../../shared/pet/model.ts";
+import { auraOf, elementLooks } from "./elements.ts";
 import { hatSprites } from "./hats.ts";
+import { SPRITE_SIZE, spriteOf, type EyeBox } from "./sprites.ts";
 
-/** viewBox：左右各留 3 格，上面留 7 格（帽子、标记），下面不留（站在底边）。 */
-const VIEW = { x: -3, y: -7, width: SPRITE_SIZE + 6, height: SPRITE_SIZE + 7 } as const;
-const EYE_COLOR = "#1b1424";
+/** viewBox：左右各留 6 格，上面留 14 格（帽子、标记），下面不留（站在底边）。宠物窗口里画成 3 像素一格。 */
+const VIEW = { x: -6, y: -14, width: SPRITE_SIZE + 12, height: SPRITE_SIZE + 14 } as const;
 
-interface Cell {
-  x: number;
-  y: number;
-  char: string;
+/** 宠物窗口自己加的一阵子表情：被摸（开心）、被拖着（><）。 */
+export type PetFace = "happy" | "dragged" | null;
+
+type EyeShape = "open" | "closed" | "happy" | "cross" | "squint";
+
+/** 眼睛方框盖什么颜色（眼睛周围最多的那种脸色）、用什么颜色画（眼睛里最深的那种）。 */
+interface EyeColors {
+  lid: string;
+  ink: string;
 }
 
-function cells(rows: readonly string[]): Cell[] {
-  return rows.flatMap((row, y) => [...row].map((char, x) => ({ x, y, char }))).filter((cell) => cell.char !== ".");
+const eyeColorCache = new Map<string, readonly EyeColors[]>();
+
+function hex(data: Uint8ClampedArray, index: number): string {
+  return `#${[data[index]!, data[index + 1]!, data[index + 2]!].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** 头顶：最上面一行有像素的行，以及那一行的水平中点。 */
-function headTop(sprite: SpriteDef): { y: number; centerX: number } {
-  const y = sprite.rows.findIndex((row) => /[^.]/.test(row));
-  const row = sprite.rows[y]!;
-  const first = row.search(/[^.]/);
-  const last = row.replace(/\.+$/, "").length - 1;
-  return { y, centerX: (first + last + 1) / 2 };
+/** 从 PNG 里取每只眼睛的脸色和墨色。 */
+function sampleEyeColors(image: HTMLImageElement, eyes: readonly EyeBox[]): EyeColors[] {
+  const canvas = document.createElement("canvas");
+  canvas.width = SPRITE_SIZE;
+  canvas.height = SPRITE_SIZE;
+  const context = canvas.getContext("2d", { willReadFrequently: true })!;
+  context.drawImage(image, 0, 0);
+  const { data } = context.getImageData(0, 0, SPRITE_SIZE, SPRITE_SIZE);
+  const at = (x: number, y: number) => (y * SPRITE_SIZE + x) * 4;
+  const luma = (index: number) => data[index]! * 0.3 + data[index + 1]! * 0.59 + data[index + 2]! * 0.11;
+  return eyes.map((box) => {
+    const counts = new Map<string, number>();
+    for (let y = box.y - 1; y <= box.y + box.h; y += 1)
+      for (let x = box.x - 1; x <= box.x + box.w; x += 1) {
+        const inside = x >= box.x && x < box.x + box.w && y >= box.y && y < box.y + box.h;
+        if (inside || x < 0 || y < 0 || x >= SPRITE_SIZE || y >= SPRITE_SIZE) continue;
+        const index = at(x, y);
+        if (data[index + 3]! < 128 || luma(index) < 60) continue;
+        const color = hex(data, index);
+        counts.set(color, (counts.get(color) ?? 0) + 1);
+      }
+    let ink = at(box.x, box.y);
+    for (let y = box.y; y < box.y + box.h; y += 1)
+      for (let x = box.x; x < box.x + box.w; x += 1) if (luma(at(x, y)) < luma(ink)) ink = at(x, y);
+    const lid = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "#ffffff";
+    return { lid, ink: hex(data, ink) };
+  });
 }
 
-function Pixels({
-  list,
-  palette,
-  dx = 0,
-  dy = 0,
+/** PNG 加载好后取眼睛颜色（同一张图只取一次）；取到之前返回 null，这时只显示 PNG 本身的眼睛。 */
+function useEyeColors(url: string, eyes: readonly EyeBox[] | null): readonly EyeColors[] | null {
+  // 记着是哪张图的颜色：换图后、新图取到之前不拿旧图的颜色去盖新图的眼睛。
+  const [loaded, setLoaded] = useState<{ url: string; colors: readonly EyeColors[] } | null>(null);
+  useEffect(() => {
+    if (eyes === null || eyeColorCache.has(url)) return;
+    let live = true;
+    const image = new Image();
+    image.addEventListener("load", () => {
+      const colors = sampleEyeColors(image, eyes);
+      eyeColorCache.set(url, colors);
+      if (live) setLoaded({ url, colors });
+    });
+    image.src = url;
+    return () => {
+      live = false;
+    };
+  }, [url, eyes]);
+  if (eyes === null) return null;
+  return eyeColorCache.get(url) ?? (loaded?.url === url ? loaded.colors : null);
+}
+
+/** 一只眼睛的某种形状，画在方框里（left = 画面左边那只，>< 的朝向不同）。 */
+function eyePixels(box: EyeBox, shape: Exclude<EyeShape, "open">, left: boolean): [number, number][] {
+  const { x, y, w, h } = box;
+  const mid = y + Math.floor(h / 2);
+  const cells: [number, number][] = [];
+  switch (shape) {
+    case "closed":
+      for (let i = 0; i < w; i += 1) cells.push([x + i, mid]);
+      break;
+    case "happy":
+      for (let i = 0; i < w; i += 1) cells.push([x + i, mid - Math.min(i, w - 1 - i)]);
+      break;
+    case "cross": {
+      const n = Math.min(w, h);
+      const top = y + Math.floor((h - n) / 2);
+      for (let i = 0; i < n; i += 1) cells.push([x + i, top + i], [x + n - 1 - i, top + i]);
+      break;
+    }
+    case "squint":
+      for (let r = 0; r < h; r += 1) {
+        const step = Math.min(r, h - 1 - r, w - 1);
+        cells.push([left ? x + step : x + w - 1 - step, y + r]);
+      }
+      break;
+  }
+  return cells;
+}
+
+/** 盖住原来的眼睛、画上新形状。 */
+function DrawnEye({
+  box,
+  colors,
+  shape,
+  left,
 }: {
-  list: Cell[];
-  palette: Readonly<Record<string, string>>;
-  dx?: number;
-  dy?: number;
+  box: EyeBox;
+  colors: EyeColors;
+  shape: Exclude<EyeShape, "open">;
+  left: boolean;
 }) {
-  return list.map((cell) => (
-    <rect key={`${cell.x}-${cell.y}`} x={cell.x + dx} y={cell.y + dy} width={1} height={1} fill={palette[cell.char]} />
-  ));
-}
-
-function Decor({ def }: { def: DecorDef }) {
   return (
-    <g className={def.className} data-decor={def.level}>
-      <Pixels list={cells(def.rows)} palette={def.palette} dx={def.x} dy={def.y} />
-    </g>
+    <>
+      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill={colors.lid} />
+      {eyePixels(box, shape, left).map(([cx, cy]) => (
+        <rect key={`${cx}-${cy}`} x={cx} y={cy} width={1} height={1} fill={colors.ink} />
+      ))}
+    </>
   );
 }
 
-/** 身体外面一圈：挨着身体（上下左右）的透明格。 */
-function outlineCells(sprite: SpriteDef): Cell[] {
-  const filled = (x: number, y: number) => (sprite.rows[y]?.[x] ?? ".") !== ".";
-  const ring: Cell[] = [];
-  for (let y = -1; y <= SPRITE_SIZE; y++)
-    for (let x = -1; x <= SPRITE_SIZE; x++)
-      if (!filled(x, y) && (filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1)))
-        ring.push({ x, y, char: "o" });
-  return ring;
-}
-
-/** 睁眼：按骨里的眼睛样式画在这一格里。 */
-function openEye(x: number, y: number, style: EyeStyle): ReactNode {
-  switch (style) {
-    case "dot":
-      return <rect x={x} y={y} width={1} height={1} fill={EYE_COLOR} />;
-    case "tall":
-      return <rect x={x + 0.15} y={y - 0.35} width={0.7} height={1.35} fill={EYE_COLOR} />;
-    case "sleepy":
-      return <rect x={x} y={y + 0.45} width={1} height={0.55} fill={EYE_COLOR} />;
-    case "spark":
-      return (
-        <>
-          <rect x={x} y={y} width={1} height={1} fill={EYE_COLOR} />
-          <rect x={x + 0.12} y={y + 0.12} width={0.36} height={0.36} fill="#ffffff" />
-        </>
-      );
-  }
-}
-
-/** 某个表情下一只眼睛的样子；blink = 闭眼帧（只在 idle / running 用，见 pet.css 的眨眼动画）。 */
-function eye(x: number, y: number, mood: Mood, style: EyeStyle, blink: boolean): ReactNode {
-  if (mood === "error")
-    return (
-      <g stroke={EYE_COLOR} strokeWidth={0.28} strokeLinecap="square">
-        <line x1={x + 0.1} y1={y + 0.1} x2={x + 0.9} y2={y + 0.9} />
-        <line x1={x + 0.9} y1={y + 0.1} x2={x + 0.1} y2={y + 0.9} />
+/** 看向光标：盖住原来的眼睛，把 PNG 里那块眼睛整块挪一格。 */
+function LookingEye({
+  box,
+  colors,
+  url,
+  gaze,
+  clipId,
+}: {
+  box: EyeBox;
+  colors: EyeColors;
+  url: string;
+  gaze: PetGaze;
+  clipId: string;
+}) {
+  return (
+    <>
+      <clipPath id={clipId}>
+        <rect x={box.x} y={box.y} width={box.w} height={box.h} />
+      </clipPath>
+      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill={colors.lid} />
+      <g transform={`translate(${gaze.x} ${gaze.y})`}>
+        <image href={url} width={SPRITE_SIZE} height={SPRITE_SIZE} clipPath={`url(#${clipId})`} className="pet-png" />
       </g>
-    );
-  if (mood === "done")
-    return (
-      <polyline
-        points={`${x},${y + 0.85} ${x + 0.5},${y + 0.25} ${x + 1},${y + 0.85}`}
-        fill="none"
-        stroke={EYE_COLOR}
-        strokeWidth={0.3}
-      />
-    );
-  if (blink) return <rect x={x} y={y + 0.4} width={1} height={0.25} fill={EYE_COLOR} />;
-  if (mood === "waiting")
-    return (
-      <>
-        <rect x={x + 0.1} y={y - 0.3} width={0.8} height={1.3} fill={EYE_COLOR} />
-        <rect x={x + 0.2} y={y - 0.15} width={0.3} height={0.3} fill="#ffffff" />
-      </>
-    );
-  return openEye(x, y, style);
+    </>
+  );
 }
 
-/** 头上的状态小标记：等你 = "!"，跑着 = 汗珠，出错 = 小乌云，刚跑完 = 两颗星。 */
-function Mark({ mood, top, right }: { mood: Mood; top: number; right: number }) {
-  const x = right + 1;
-  const y = top - 3;
+function pixelArt(rows: readonly string[], palette: Readonly<Record<string, string>>): ReactNode {
+  return rows.flatMap((row, y) =>
+    [...row].map((char, x) =>
+      char === "." ? null : <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={palette[char]} />,
+    ),
+  );
+}
+
+/** 头上的状态小标记（坐标按 3 格一点画）：等你 = "!"，跑着 = 汗珠，出错 = 小乌云，刚跑完 = 两颗星，睡着 = Z。 */
+function Mark({ mood }: { mood: Mood }) {
   switch (mood) {
     case "waiting":
       return (
         <g className="pet-mark" fill="var(--st-waiting)">
-          <rect x={x} y={y - 1} width={1} height={3} />
-          <rect x={x} y={y + 2.5} width={1} height={1} />
+          <rect x={0} y={-1} width={1} height={3} />
+          <rect x={0} y={2.5} width={1} height={1} />
         </g>
       );
     case "running":
       return (
         <g className="pet-mark" fill="#6ec6ff">
-          <rect x={x} y={y + 2} width={1} height={1} />
-          <rect x={x + 0.25} y={y + 1.4} width={0.5} height={0.6} />
+          <rect x={0} y={2} width={1} height={1} />
+          <rect x={0.25} y={1.4} width={0.5} height={0.6} />
         </g>
       );
     case "error":
       return (
         <g className="pet-mark">
-          <rect x={x - 1} y={y} width={3} height={1} fill="#8d8d99" />
-          <rect x={x - 1.5} y={y + 0.6} width={4} height={1} fill="#a9a9b4" />
-          <rect x={x + 0.3} y={y + 2} width={0.4} height={0.9} fill="var(--st-error)" />
+          <rect x={-1} y={0} width={3} height={1} fill="#8d8d99" />
+          <rect x={-1.5} y={0.6} width={4} height={1} fill="#a9a9b4" />
+          <rect x={0.3} y={2} width={0.4} height={0.9} fill="var(--st-error)" />
         </g>
       );
     case "done":
       return (
         <g className="pet-mark" fill="#ffd23f">
           {[
-            [x, y],
-            [x - SPRITE_SIZE / 2 - 2, y + 1],
+            [0, 0],
+            [-7, 1],
           ].map(([sx, sy]) => (
-            <g key={`${sx}`}>
+            <g key={sx}>
               <rect x={sx! + 0.33} y={sy!} width={0.34} height={1} />
               <rect x={sx!} y={sy! + 0.33} width={1} height={0.34} />
             </g>
           ))}
+        </g>
+      );
+    case "sleeping":
+      return (
+        <g className="pet-mark pet-mark-sleep">
+          <g transform="scale(0.67)">{pixelArt(["oooo", "..o.", ".o..", "oooo"], { o: "#c9d6ff" })}</g>
+          <g transform="translate(2.4 -2.2) scale(0.45)">
+            {pixelArt(["oooo", "..o.", ".o..", "oooo"], { o: "#c9d6ff" })}
+          </g>
         </g>
       );
     case "idle":
@@ -163,27 +227,48 @@ function Mark({ mood, top, right }: { mood: Mood; top: number; right: number }) 
 interface PetSpriteProps {
   bones: Bones;
   stage: Stage;
+  branch: Branch | null;
   mood: Mood;
   level: number;
   label: string;
+  gaze: PetGaze;
+  face: PetFace;
+  /** 正在进化：从哪个阶段、路线变过来（pet.css 的进化动画，约 2 秒）。 */
+  evolvingFrom: { stage: Stage; branch: Branch | null } | null;
 }
 
-export const PetSprite = memo(function PetSprite({ bones, stage, mood, level, label }: PetSpriteProps) {
-  const sprite = sprites[bones.species][stage];
-  const unlocked = decorations.filter((def) => level >= def.level);
-  const outline = level >= OUTLINE_LEVEL ? outlineCells(sprite) : null;
-  const all = cells(sprite.rows);
-  const body = all.filter((cell) => cell.char !== "e");
-  const eyes = all.filter((cell) => cell.char === "e");
-  const head = headTop(sprite);
-  const rightEdge = Math.max(...body.map((cell) => cell.x));
-  // 眼睛格本身没有底色：铺上左边那格的颜色（闭眼、半睁时露出来的是脸）。
-  const eyeBase = (cell: Cell) => {
-    const left = sprite.rows[cell.y]![cell.x - 1];
-    return sprite.palette[(left === undefined || left === "." || left === "e" ? "a" : left) as "a"];
-  };
+function eyeShape(mood: Mood, face: PetFace): EyeShape {
+  if (face === "dragged") return "squint";
+  if (face === "happy" || mood === "done") return "happy";
+  if (mood === "error") return "cross";
+  if (mood === "sleeping") return "closed";
+  return "open";
+}
+
+export const PetSprite = memo(function PetSprite({
+  bones,
+  stage,
+  branch,
+  mood,
+  level,
+  label,
+  gaze,
+  face,
+  evolvingFrom,
+}: PetSpriteProps) {
+  const id = useId();
+  const sprite = spriteOf(bones.species, stage, branch);
+  const colors = useEyeColors(sprite.url, sprite.eyes);
+  const element = elementLooks[speciesElement[bones.species]];
+  const aura = auraOf(level);
+  const shape = eyeShape(mood, face);
+  const looking = shape === "open" && (gaze.x !== 0 || gaze.y !== 0);
+  const blinks = shape === "open" && (mood === "idle" || mood === "running");
   const hat = bones.hat === "none" || stage === "egg" ? null : hatSprites[bones.hat];
-  const hatWidth = hat ? Math.max(...hat.rows.map((row) => row.length)) : 0;
+  const hatWidth = hat === null ? 0 : Math.max(...hat.rows.map((row) => row.length));
+  const eyes =
+    colors === null || sprite.eyes === null ? [] : sprite.eyes.map((box, index) => ({ box, colors: colors[index]! }));
+  const from = evolvingFrom === null ? null : spriteOf(bones.species, evolvingFrom.stage, evolvingFrom.branch);
   return (
     <svg
       className="pet-sprite"
@@ -193,52 +278,76 @@ export const PetSprite = memo(function PetSprite({ bones, stage, mood, level, la
       aria-label={label}
       data-mood={mood}
       data-stage={stage}
+      data-branch={branch ?? undefined}
       data-shiny={bones.shiny || undefined}
-      data-max={level >= maxLevel || undefined}
+      data-evolving={from !== null || undefined}
       data-testid="pet-sprite"
+      style={{ "--pet-glow": element.glow, "--pet-glow-strength": aura.glow } as CSSProperties}
     >
-      {unlocked
-        .filter((def) => def.behind === true)
-        .map((def) => (
-          <Decor key={def.level} def={def} />
-        ))}
-      <g className="pet-body">
-        {outline !== null && (
-          <g className="pet-outline">
-            <Pixels list={outline} palette={{ o: OUTLINE_COLOR }} />
-          </g>
-        )}
+      <g className="pet-art" data-glow={aura.glow > 0 || undefined}>
         <g className="pet-pixels">
-          <Pixels list={body} palette={sprite.palette} />
-          {eyes.map((cell) => (
-            <rect key={`b${cell.x}`} x={cell.x} y={cell.y} width={1} height={1} fill={eyeBase(cell)} />
-          ))}
-          {hat && (
-            <Pixels
-              list={cells(hat.rows)}
-              palette={hat.palette}
-              dx={Math.round(head.centerX - hatWidth / 2)}
-              dy={head.y - hat.rows.length + 1 - hat.lift}
-            />
+          <image href={sprite.url} width={SPRITE_SIZE} height={SPRITE_SIZE} className="pet-png" />
+          {eyes.length > 0 &&
+            (shape !== "open" ? (
+              <g data-eyes={shape}>
+                {eyes.map(({ box, colors: eyeColors }, index) => (
+                  <DrawnEye key={index} box={box} colors={eyeColors} shape={shape} left={index === 0} />
+                ))}
+              </g>
+            ) : (
+              <>
+                {looking && (
+                  <g className="pet-eyes-open" data-eyes="looking">
+                    {eyes.map(({ box, colors: eyeColors }, index) => (
+                      <LookingEye
+                        key={index}
+                        box={box}
+                        colors={eyeColors}
+                        url={sprite.url}
+                        gaze={gaze}
+                        clipId={`${id}-eye${index}`}
+                      />
+                    ))}
+                  </g>
+                )}
+                {blinks && (
+                  <g className="pet-eyes-blink">
+                    {eyes.map(({ box, colors: eyeColors }, index) => (
+                      <DrawnEye key={index} box={box} colors={eyeColors} shape="closed" left={index === 0} />
+                    ))}
+                  </g>
+                )}
+              </>
+            ))}
+          {hat !== null && (
+            <g
+              transform={`translate(${sprite.head.x - hatWidth} ${sprite.head.y - 2 * (hat.rows.length - 1 + hat.lift)}) scale(2)`}
+            >
+              {pixelArt(hat.rows, hat.palette)}
+            </g>
           )}
         </g>
-        <g className="pet-eyes-open">
-          {eyes.map((cell) => (
-            <g key={cell.x}>{eye(cell.x, cell.y, mood, bones.eye, false)}</g>
-          ))}
-        </g>
-        <g className="pet-eyes-blink">
-          {eyes.map((cell) => (
-            <g key={cell.x}>{eye(cell.x, cell.y, mood, bones.eye, true)}</g>
-          ))}
-        </g>
       </g>
-      {unlocked
-        .filter((def) => def.behind !== true)
-        .map((def) => (
-          <Decor key={def.level} def={def} />
-        ))}
-      <Mark mood={mood} top={head.y} right={rightEdge} />
+      {Array.from({ length: aura.particles }, (_, index) => (
+        <g
+          key={index}
+          className="pet-particle"
+          style={{ "--i": index } as CSSProperties}
+          transform={`translate(${6 + ((index * 29) % 36)} ${SPRITE_SIZE - 10 - ((index * 17) % 18)})`}
+        >
+          {pixelArt(element.particle.rows, element.particle.palette)}
+        </g>
+      ))}
+      {from !== null && (
+        <g className="pet-evolve" aria-hidden="true">
+          <image href={from.url} width={SPRITE_SIZE} height={SPRITE_SIZE} className="pet-png pet-evolve-from" />
+          <image href={sprite.url} width={SPRITE_SIZE} height={SPRITE_SIZE} className="pet-png pet-evolve-to" />
+        </g>
+      )}
+      {/* 头高的形态（觉醒）标记会出 viewBox：最高放到 -7，"!" 和 Z 的顶都还在画布里。 */}
+      <g transform={`translate(${sprite.head.x + 10} ${Math.max(sprite.head.y - 14, -7)}) scale(3)`}>
+        <Mark mood={mood} />
+      </g>
     </svg>
   );
 });

@@ -9,6 +9,7 @@ import {
   applyAchievement,
   applyEvent,
   applyOutput,
+  branchOf,
   currentStats,
   levelOf,
   maxLevel,
@@ -18,7 +19,14 @@ import {
   type CountedSource,
   type GrowthStep,
 } from "../../shared/pet/growth.ts";
-import { PET_NAME_MAX_CHARS, type Bones, type Mood, type PetSpend, type PetView } from "../../shared/pet/model.ts";
+import {
+  branchedStages,
+  PET_NAME_MAX_CHARS,
+  type Bones,
+  type Mood,
+  type PetSpend,
+  type PetView,
+} from "../../shared/pet/model.ts";
 import { eventToVoice, PetTaskTracker, summarizeMood, type PetTaskEvent } from "../../shared/pet/mood.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { listOmpConfig } from "../ipc/omp-handlers.ts";
@@ -35,6 +43,8 @@ import { closePetWindow, getPetWindow, openPetWindow, sendPetReaction, sendPetVi
 
 /** 跑完一轮后"开心"的样子保持多久。 */
 const DONE_MS = 4000;
+/** 这么久没有任务动静、也没人摸，空闲的宠物就睡着。 */
+const SLEEP_MS = 10 * 60_000;
 /** 自己开口（任务事件）至少隔多久；被摸时至少隔多久才再说一句（之间只冒爱心）。升级、进化不受限。 */
 const AUTO_TALK_GAP_MS = 45_000;
 const PET_TALK_GAP_MS = 20_000;
@@ -45,6 +55,8 @@ const tracker = new PetTaskTracker();
 let tasks: readonly TaskState[] = [];
 let doneUntil = 0;
 let doneTimer: NodeJS.Timeout | undefined;
+let lastActivityAt = Date.now();
+let sleepTimer: NodeJS.Timeout | undefined;
 let lastMood: Mood = "idle";
 let lastSpokeAt = 0;
 /** 进行中的 omp 调用（孵化、说话）；重新孵化、关掉宠物、退出时全部取消。 */
@@ -55,7 +67,28 @@ let hatchingGeneration: number | null = null;
 
 function mood(): Mood {
   const base = summarizeMood(tasks);
-  return (base === "idle" || base === "running") && Date.now() < doneUntil ? "done" : base;
+  if ((base === "idle" || base === "running") && Date.now() < doneUntil) return "done";
+  return base === "idle" && Date.now() - lastActivityAt >= SLEEP_MS ? "sleeping" : base;
+}
+
+/** 有动静（任务状态变化、被摸）：醒着，从现在起重新数到睡着。 */
+function wake(): void {
+  lastActivityAt = Date.now();
+  clearTimeout(sleepTimer);
+  sleepTimer = setTimeout(push, SLEEP_MS + 50);
+}
+
+/** 种子抽出的骨，物种换成 pet.json 里存的那只。 */
+function currentBones(): Bones {
+  const record = store!.get();
+  return { ...rollBones(record.seed), species: record.species };
+}
+
+/** 到了成年还没定路线：按此刻的属性定下来，以后不变。 */
+function settleBranch(): void {
+  const record = store!.get();
+  if (record.branch === null && branchedStages.has(stageOf(levelOf(record.growth.xp))))
+    store!.update({ branch: branchOf(currentStats(bones!, record.growth)) });
 }
 
 /** 连签只在昨天或今天还签过时算数（断了的连签存着旧值，下次签到才清）。 */
@@ -72,6 +105,7 @@ function view(): PetView {
   return {
     bones: bones!,
     stage: stageOf(level),
+    branch: current.branch,
     level,
     levelXp: current.growth.xp - xpForLevel(level),
     levelXpNeeded: level >= maxLevel ? 0 : xpForLevel(level + 1) - xpForLevel(level),
@@ -165,6 +199,7 @@ function say(trigger: VoiceTrigger, gapMs: number, force = false): void {
 /** 记一步成长；升级、进化时冒提示，mayTalk 时让它说一句（一次状态变化里只第一次升级说话）。 */
 function grow(step: GrowthStep, mayTalk: boolean): void {
   store!.update({ growth: step.growth });
+  settleBranch();
   if (step.evolved !== null) {
     sendPetReaction({ kind: "evolve", stage: step.evolved });
     if (mayTalk) say({ kind: "evolve", stage: step.evolved }, 0, true);
@@ -230,6 +265,7 @@ function voiceOf(event: PetTaskEvent): VoiceTrigger | null {
 export function petOnTaskState(state: TaskState, all: readonly TaskState[]): void {
   tasks = all;
   if (store === null) return;
+  wake();
   const spokeBefore = lastSpokeAt;
   const events = tracker.update(state).filter((event) => onTaskEvent(event, lastSpokeAt === spokeBefore));
   // 一次变化最多说一句：升级 / 进化已经开口就不再说事件；成就和出错后修好的那句不看间隔（优先于同时到来的"跑完一轮"）。
@@ -251,6 +287,7 @@ export function petOnTaskRemoved(id: TaskId, all: readonly TaskState[]): void {
 /** runtime.ts 的 notice 事件：目标完成是一件成就。 */
 export function petOnTaskNotice(notice: TaskNotice): void {
   if (store === null || notice.kind !== "goal_complete") return;
+  wake();
   const task = tasks.find((candidate) => candidate.id === notice.taskId);
   const spokeBefore = lastSpokeAt;
   if (growBy("goal")) {
@@ -262,6 +299,7 @@ export function petOnTaskNotice(notice: TaskNotice): void {
 
 function petIt(): void {
   if (store === null) return;
+  wake();
   sendPetReaction({ kind: "hearts" });
   growBy("pet");
   push();
@@ -293,8 +331,8 @@ export async function renamePet(raw: unknown): Promise<void> {
 function rehatch(): void {
   if (store === null) return;
   cancelVoices();
-  const next = store.update(rehatched(store.get()));
-  bones = rollBones(next.seed);
+  store.update(rehatched(store.get()));
+  bones = currentBones();
   log.info("pet rehatched");
   push();
   void hatch();
@@ -359,7 +397,9 @@ export function startPet(initialTasks: readonly TaskState[]): void {
   store = new PetStore(path.join(app.getPath("userData"), "pet.json"));
   // 文件里没有种子（第一次）或坏了时 parsePetRecord 换了新种子：马上写下来，下次启动还是这只。
   store.update({});
-  bones = rollBones(store.get().seed);
+  bones = currentBones();
+  settleBranch();
+  wake();
   tasks = initialTasks;
   for (const task of initialTasks) tracker.update(task);
   onSettingsChanged(syncSettings);

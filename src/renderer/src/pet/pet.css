@@ -1,9 +1,10 @@
 /* 桌面宠物窗口（docs/design/spec/4.32-pet.md）。窗口透明：页面不画底色，只有宠物、气泡、卡片、提示是实的。
- * 宠物尺寸和主进程 pet/pet-window.ts 的 SPRITE 一致（窗口底部正中那一块决定拖到屏幕边时夹在哪）。
+ * 宠物尺寸和主进程 pet/pet-window.ts 的 SPRITE 一致。宠物在窗口里的位置由主进程算（PetLayout），页面上是 .pet-root 的
+ * --pet-x / --pet-y；data-below 时气泡、属性卡、确认框放在宠物下方（宠物贴近屏幕上边）。
  * 动画都是 3 帧的 steps：像素画就该一跳一跳的，也省得合成器按屏幕刷新率每帧都画（tokens.css 动效说明）。 */
 :root.pet-page {
-  --pet-w: 110px;
-  --pet-h: 115px;
+  --pet-w: 180px;
+  --pet-h: 186px;
   background: transparent;
   color-scheme: light dark;
 }
@@ -26,11 +27,10 @@
 
 .pet-stage {
   position: absolute;
-  left: 50%;
-  bottom: 0;
+  left: var(--pet-x);
+  top: var(--pet-y);
   width: var(--pet-w);
   height: var(--pet-h);
-  transform: translateX(-50%);
   cursor: grab;
   touch-action: none;
 }
@@ -45,36 +45,22 @@
   overflow: visible;
 }
 
-/* ── 表情动画：data-mood 选节奏 ── */
-.pet-body {
-  animation: pet-bob 1.8s steps(1) infinite;
-}
-.pet-sprite[data-mood="running"] .pet-body {
-  animation-duration: 0.6s;
-}
-.pet-sprite[data-mood="waiting"] .pet-body {
-  animation: pet-hop 0.9s steps(1) infinite;
-}
-.pet-sprite[data-mood="done"] .pet-body {
-  animation: pet-hop 0.5s steps(1) infinite;
-}
-/* 只上下动、不左右晃（2026-11-11 所有者定）：出错是往下一沉，蛋和其他阶段一样跟着表情走。 */
-.pet-sprite[data-mood="error"] .pet-body {
-  animation: pet-slump 1.2s steps(1) infinite;
-}
+/* ── 表情：宠物本身不跳不晃（2026-11-19 所有者定），只靠眼睛和头上的标记 ── */
 .pet-mark {
   animation: pet-mark 1.2s steps(1) infinite;
+}
+.pet-mark-sleep {
+  animation-duration: 2.4s;
 }
 
 /* 眨眼：大部分时间睁眼，每 4 秒闭一下。只有 idle / running 眨（别的表情眼睛本身就在表达）。 */
 .pet-eyes-blink {
   visibility: hidden;
+  animation: pet-blink 4s steps(1) infinite;
 }
-.pet-sprite:is([data-mood="idle"], [data-mood="running"]) .pet-eyes-open {
-  animation: pet-blink-open 4s steps(1) infinite;
-}
-.pet-sprite:is([data-mood="idle"], [data-mood="running"]) .pet-eyes-blink {
-  animation: pet-blink-closed 4s steps(1) infinite;
+
+.pet-png {
+  image-rendering: pixelated;
 }
 
 /* 闪光：彩虹色相循环（约每秒 30 帧）。 */
@@ -82,53 +68,118 @@
   animation: pet-shiny 3s steps(90) infinite;
 }
 
-/* 等级装饰（decor.ts）：蝴蝶上下飘，星星一闪一闪；满级的金边换成流动的彩虹色。 */
-.pet-decor-float {
-  animation: pet-bob 2.4s steps(1) infinite;
+/* 属性气势（elements.ts）：Lv35 起身体外面一圈属性色的光，越往后越亮；粒子从身边慢慢往上飘、淡出，一颗接一颗。 */
+.pet-art[data-glow] {
+  filter: drop-shadow(
+    0 0 calc(1px + 2px * var(--pet-glow-strength))
+      color-mix(in srgb, var(--pet-glow) calc(35% + 50% * var(--pet-glow-strength)), transparent)
+  );
 }
-.pet-decor-twinkle {
-  animation: pet-twinkle 2s steps(1) infinite;
+/* 减少动效时动画停掉，粒子停在半透明的样子；延迟期间用第一帧（不先闪一下再从头开始）。 */
+.pet-particle {
+  opacity: 0.6;
+  animation: pet-particle 4.2s steps(14) infinite backwards;
+  animation-delay: calc(var(--i) * 0.7s);
 }
-.pet-sprite[data-max] .pet-outline {
-  animation: pet-shiny 3s steps(90) infinite;
-}
-@keyframes pet-twinkle {
-  0%,
-  60% {
-    opacity: 1;
+@keyframes pet-particle {
+  0% {
+    opacity: 0;
+    translate: 0 0;
   }
-  80% {
-    opacity: 0.35;
+  20% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 -10px;
   }
 }
 
-@keyframes pet-bob {
+/* 进化（约 2.4 秒）：新旧两种形态的白色剪影交替闪、越闪越快，停在新形态上亮一下，再淡出露出新样子。 */
+.pet-evolve image {
+  filter: brightness(0) invert(1);
+}
+.pet-sprite[data-evolving] .pet-art {
+  animation: pet-evolve-art 2.4s linear forwards;
+}
+.pet-evolve-from {
+  animation: pet-evolve-from 2.4s linear forwards;
+}
+.pet-evolve-to {
+  animation: pet-evolve-to 2.4s linear forwards;
+}
+@keyframes pet-evolve-art {
   0%,
-  66% {
-    transform: translateY(0);
+  84.9% {
+    opacity: 0;
   }
-  33% {
-    transform: translateY(-1px);
+  85%,
+  100% {
+    opacity: 1;
   }
 }
-@keyframes pet-hop {
+@keyframes pet-evolve-from {
   0%,
-  66% {
-    transform: translateY(0);
+  14.9%,
+  25%,
+  34.9%,
+  42%,
+  47.9%,
+  53%,
+  56.9%,
+  61%,
+  63.9%,
+  67%,
+  68.9% {
+    opacity: 1;
   }
-  33% {
-    transform: translateY(-2px);
+  15%,
+  24.9%,
+  35%,
+  41.9%,
+  48%,
+  52.9%,
+  57%,
+  60.9%,
+  64%,
+  66.9%,
+  69%,
+  100% {
+    opacity: 0;
   }
 }
-@keyframes pet-slump {
+@keyframes pet-evolve-to {
   0%,
-  66% {
-    transform: translateY(0);
+  14.9%,
+  25%,
+  34.9%,
+  42%,
+  47.9%,
+  53%,
+  56.9%,
+  61%,
+  63.9%,
+  67%,
+  68.9%,
+  100% {
+    opacity: 0;
   }
-  33% {
-    transform: translateY(1px);
+  15%,
+  24.9%,
+  35%,
+  41.9%,
+  48%,
+  52.9%,
+  57%,
+  60.9%,
+  64%,
+  66.9%,
+  69%,
+  85% {
+    opacity: 1;
   }
 }
+
 @keyframes pet-mark {
   0% {
     transform: translateY(0);
@@ -137,16 +188,7 @@
     transform: translateY(-0.5px);
   }
 }
-@keyframes pet-blink-open {
-  0%,
-  95% {
-    visibility: visible;
-  }
-  96% {
-    visibility: hidden;
-  }
-}
-@keyframes pet-blink-closed {
+@keyframes pet-blink {
   0%,
   95% {
     visibility: hidden;
@@ -169,11 +211,15 @@
   position: absolute;
   left: var(--space-2);
   right: var(--space-2);
-  bottom: calc(var(--pet-h) + var(--space-1));
+  bottom: calc(100% - var(--pet-y) + var(--space-1));
   background: var(--bg-overlay);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
+}
+.pet-root[data-below] :is(.pet-bubble, .pet-card, .pet-confirm) {
+  top: calc(var(--pet-y) + var(--pet-h) + var(--space-1));
+  bottom: auto;
 }
 
 /* 重新孵化的确认框：studio 的 .ui-dialog（controls.css）原样用，只改成贴着宠物、占满窗口宽度；窗口窄，左右内边距收一档。 */
@@ -183,7 +229,7 @@
   position: absolute;
   left: var(--space-2);
   right: var(--space-2);
-  bottom: calc(var(--pet-h) + var(--space-1));
+  bottom: calc(100% - var(--pet-y) + var(--space-1));
   width: auto;
   max-width: none;
   cursor: default;
@@ -198,21 +244,20 @@
   padding: var(--space-3) var(--space-5);
 }
 
+/* left 和尾巴的位置（--tail-x）由 PetApp 的 Bubble 按宠物中心算：尽量对着宠物，但不出窗口。 */
 .pet-bubble {
-  left: 50%;
   right: auto;
   width: max-content;
   max-width: calc(100% - var(--space-4));
-  transform: translateX(-50%);
   padding: var(--space-1-5) var(--space-2-5);
   cursor: default;
   animation: pet-pop var(--dur-base) var(--ease-out);
 }
-/* 尾巴：指向宠物头顶。 */
+/* 尾巴：指向宠物头顶；浮层在下方时在顶边、朝上。 */
 .pet-bubble::after {
   content: "";
   position: absolute;
-  left: 50%;
+  left: var(--tail-x, 50%);
   bottom: -5px;
   width: 8px;
   height: 8px;
@@ -221,11 +266,16 @@
   border-bottom: 1px solid var(--border);
   transform: translateX(-50%) rotate(45deg);
 }
+.pet-root[data-below] .pet-bubble::after {
+  top: -5px;
+  bottom: auto;
+  transform: translateX(-50%) rotate(225deg);
+}
 
 .pet-badge {
   position: absolute;
-  left: 50%;
-  bottom: calc(var(--pet-h) - var(--space-2));
+  left: calc(var(--pet-x) + var(--pet-w) / 2);
+  bottom: calc(100% - var(--pet-y) - var(--space-2));
   transform: translateX(-50%);
   padding: 0 var(--space-2);
   border-radius: var(--radius-pill);
@@ -237,11 +287,16 @@
   white-space: nowrap;
   animation: pet-rise 3s var(--ease-out) forwards;
 }
+/* 宠物贴着窗口顶边时头顶上没地方：提示放在脚下。 */
+.pet-root[data-below] .pet-badge {
+  top: calc(var(--pet-y) + var(--pet-h));
+  bottom: auto;
+}
 
 .pet-hearts {
   position: absolute;
-  left: 50%;
-  bottom: calc(var(--pet-h) - var(--space-4));
+  left: calc(var(--pet-x) + var(--pet-w) / 2);
+  bottom: calc(100% - var(--pet-y) - var(--space-4));
   display: flex;
   gap: var(--space-2);
   transform: translateX(-50%);
@@ -264,8 +319,8 @@
 /* 彩纸：从头顶抛到 --dx 再往下落，2 秒内淡出。 */
 .pet-confetti {
   position: absolute;
-  left: 50%;
-  bottom: calc(var(--pet-h) - var(--space-4));
+  left: calc(var(--pet-x) + var(--pet-w) / 2);
+  bottom: calc(100% - var(--pet-y) - var(--space-4));
   pointer-events: none;
 }
 .pet-confetti span {
@@ -293,7 +348,7 @@
 @keyframes pet-pop {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(var(--travel-sm, 4px));
+    transform: translateY(var(--travel-sm, 4px));
   }
 }
 @keyframes pet-rise {
@@ -309,6 +364,8 @@
 
 .pet-card {
   display: grid;
+  /* 单列不随内容撑宽：标题行（名字、稀有度、物种不换行）的最小宽度会把默认的 auto 列撑出卡片。 */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-3);
   cursor: default;
@@ -454,7 +511,8 @@
 }
 .pet-stat dd {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 2.5ch;
+  /* 属性最高 100，三位数。 */
+  grid-template-columns: minmax(0, 1fr) 3ch;
   align-items: center;
   gap: var(--space-2);
   margin: 0;

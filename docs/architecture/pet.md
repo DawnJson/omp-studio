@@ -8,7 +8,7 @@
 - 宠物在原地动，不会自己在屏幕上走。
 - 说话时只发任务状态和任务标题，不发对话内容。
 - 显示和说话两个开关都默认开。
-- 进化的每个阶段都画一套新的像素图。
+- 进化的每个阶段都画一套新的像素图（2026-11-19 起：48×48，7 个阶段，成年分两条路线，16 个物种）。
 - 不按历史用量补算经验，所有宠物都从蛋开始。
 - 保留"重新孵化"，执行前要二次确认。
 - 提供 `/pet` 命令。
@@ -20,11 +20,12 @@
 
 | 位置 | 作用 |
 |---|---|
-| `src/shared/pet/model.ts` | 类型：骨、魂、表情、`PetView`（宠物窗口每次重画用的全部数据）、`PetReaction`（一次性动作） |
-| `src/shared/pet/bones.ts` | `rollBones(seed)`：FNV-1a 加 Mulberry32，按固定顺序抽出稀有度、物种、眼睛、帽子、闪光、属性 |
+| `src/shared/pet/model.ts` | 物种表和属性（元素）、阶段、路线、表情，`PetView`、`PetReaction` 等类型 |
+| `src/shared/pet/bones.ts` | `rollBones(seed)`：FNV-1a 加 Mulberry32，按固定顺序抽出稀有度、物种、（空抽一次）、帽子、闪光、属性 |
 | `src/shared/pet/growth.ts` | 经验规则、每日上限、连续签到、等级、阶段、属性成长（纯函数） |
 | `src/shared/pet/mood.ts` | `summarizeMood`（汇总所有任务）和 `PetTaskTracker`（从状态变化里认出成长事件） |
-| `src/shared/pet/sprites.ts` | 7 个物种 × 4 个阶段的 16×16 像素图 |
+| `src/renderer/src/pet/sprites/`、`sprite-meta.ts`、`sprites.ts` | 16 个物种 × 10 张 48×48 PNG，每张的眼睛方框和头顶；`scripts/pet-sprites.ts` 从美术目录导入 |
+| `src/renderer/src/pet/elements.ts` | 每种属性的粒子和光圈颜色、按等级算气势 |
 | `src/shared/pet/pet-ipc.ts` | 宠物窗口的 `PetApi` 和通道名 |
 | `src/main/pet/pet-window.ts` | 窗口的创建、安全设置、拖动、鼠标穿透、把位置夹回屏幕、宠物窗口的 IPC |
 | `src/main/pet/pet-service.ts` | 开关窗口、接收任务状态、记成长、孵化、说话、右键菜单、改名、重新孵化 |
@@ -41,7 +42,7 @@
 - **置顶**：
   - mac 上是 `type: "panel"`（NSPanel）+ `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })`：所有桌面（Space）和别的应用的全屏里都能看到，应用照常有 Dock 图标、菜单栏、在强制退出列表里（#16）。实测（GitHub 的 macOS 15 机器，Electron 44，2026-11-13；临时探针分支用 `screencapture` 截图 + `CGWindowListCopyWindowInfo` 查屏上窗口 + `lsappinfo` 查应用类型，另起一个 Electron 进程全屏）：普通窗口不加 `skipTransformProcessType` 时 Electron 把整个进程改成 UIElement（没有 Dock 图标），而且照样浮不到别的应用的全屏上，`screen-saver` 层级也一样；加上它、不用 panel，Dock 回来了但全屏上看不到宠物；只有 panel 两样都有。
   - Windows 上置顶窗口之间按激活先后排：后激活的置顶窗口（如开了“总在最前”的编辑器）会盖住宠物，而宠物不可聚焦、自己不会被激活（#18）。所以主进程用 `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`（`platform/win32/ffi.ts` 的 `onForegroundChange`）监听前台窗口变化，每次变化都 `moveTop()` 把宠物提回置顶层最上面，不抢焦点、不轮询。实测（本机，2026-11-13）：另一个置顶窗口 `SetForegroundWindow` 之后，有监听时宠物在它上面，去掉监听时在它下面；宠物自己的确认框（临时可聚焦）、主窗口最小化再还原都不会丢掉置顶。没写成 e2e：要让别的窗口真的变成前台，会抢走正在用这台电脑的人的键盘焦点。
-- 窗口大小固定，宠物画在窗口底部正中，上方留给属性卡和气泡。拖到屏幕边缘时只保证宠物本身完整可见，窗口上方的透明部分可以伸出屏幕。窗口尺寸写在 `pet-window.ts` 的 `PET_WINDOW` / `SPRITE` 和 `pet.css` 的 `--pet-w` / `--pet-h`，两边要一致。
+- 窗口大小固定，整个留在屏幕工作区里（`pet-window.ts` 的 `arrange`）。宠物平时画在窗口底部正中，上方留给属性卡和气泡；宠物贴近屏幕上边、上方放不下时，窗口改成宠物在顶边、浮层在下方；贴近左右边时窗口夹在屏幕里，宠物偏到窗口一侧。宠物在窗口里的位置（`PetLayout`）由主进程算好推给页面（`getLayout` / `layout` 事件）。`pet.json` 存的位置始终是"宠物在底部正中时窗口的左上角"，夹回屏幕只保证宠物本身完整可见。拖动中不重新摆（宠物和窗口一起跟着光标），松开后再摆；靠边松手时窗口挪动和页面换位置不是同一帧，宠物可能闪一下（推测，未实测）。窗口尺寸写在 `pet-window.ts` 的 `PET_WINDOW` / `SPRITE` 和 `pet.css` 的 `--pet-w` / `--pet-h`，两边要一致。
 - 鼠标穿透：窗口默认 `setIgnoreMouseEvents(true, { forward: true })`。页面根据转发来的 mousemove 判断指针是否在带 `data-pet-hit` 的元素上，在的时候调 `setInteractive(true)`。拖动过程中不改穿透状态，否则松开鼠标的事件到不了页面。Linux 不支持 `forward`，那里透明区域的点击会被窗口挡住（推测，未实测）。
 - 拖动不用 `-webkit-app-region: drag`，因为 Windows 上拖动区会吃掉单击和右键。做法是：按下时调 `dragStart`，主进程每 10ms 按 `screen.getCursorScreenPoint()` 用 `setBounds` 移动窗口（不用 `setPosition`：在缩放比例不同的两块屏之间拖时，它会把窗口尺寸也改掉）。松开时调 `dragEnd`，主进程把位置夹回屏幕并写进 `pet.json`。按下后移动不到 4px 算单击，单击延迟 260ms 生效，以便和双击区分开。
 - 拔掉显示器、改分辨率（`display-removed` / `display-metrics-changed`）时重新夹回屏幕。还没摆过的宠物放在主屏工作区右下角。
@@ -88,16 +89,22 @@ preload 用单独的 `pet.cjs`，只暴露 `PetApi`；页面上没有 `window.st
 
 - 经验来自"干了多少活"（输出 token），不来自"跑了几轮"，也不按 token 总数或花费：总数 97–99% 是缓存读取，跟上下文长短走，不跟干了多少走；花费随模型价格变（仓库所有者 2026-11-11 定）。一天写 20 万 token 约 90 点，100 万约 175，350 万约 245。
 - 待办阶段和 PR 带 key（`todo:<任务>:<阶段名>`、`pr:<cwd>#<号>`），记在 `growth.achieved` 里（留最近 200 个），同一项只算一次，跨重启也不重复。成就时宠物窗口撒一阵彩纸（`celebrate` 动作）并说一句。
-- 第 L 级累计需要 `20 × (L − 1)²` 点经验，最高 Lv99。阶段划分：Lv1 是蛋，Lv5 破壳成幼年，Lv15 成年，Lv30 完全体；之后每 10 级多一件装饰（见 spec §4.32）。按每天 150–300 点经验估算：两天破壳，约三周成年，约三个月到完全体。
+- 第 L 级累计需要 `20 × (L − 1)²` 点经验，最高 Lv99。阶段：Lv1 蛋、Lv5 幼年、Lv12 少年、Lv25 青年、Lv45 成年、Lv70 完全体、Lv85 觉醒（`growth.ts` 的 `stageLevels`，注释里有按每天经验估的时间）。
+- 成年那一刻按属性定路线（`branchOf`）：混乱、毒舌里高的那项严格高过调试、耐心、智慧里最高的就走捣蛋（`-b` 那套图），否则稳健（`-a`）。定下后存进 `pet.json`，以后属性再变也不换。读到已经过了成年、还没定路线的记录（老文件）时，启动时按当时属性补定。
 - 属性 = 出生值 + 成长值，上限 100。属性只影响说话的语气，不影响 omp 干活。
 - 升级和进化时冒一个提示，并强制说一句话（不受下面的说话间隔限制）。每天第一次事件会给签到经验，所以 Lv1 的宠物第一次被摸就会升到 Lv2（e2e 依赖这一点）。
 
+## 像素画
+
+- 每个物种 10 张 48×48 透明 PNG：`egg`、`baby`、`child`、`teen`，`adult` / `final` / `awakened` 各有 `-a`（稳健）和 `-b`（捣蛋）。图是 AI 生成后缩成 48 格、每格一个颜色，再人工检查的；不用现成素材（许可证不干净），设计不照搬任何游戏的角色。
+- 导入：`node scripts/pet-sprites.ts <美术目录>`。目录下每个物种的 `48/` 里放 10 张 PNG 和 `meta.json`（每张两只眼睛的方框、头顶位置）；脚本复制 PNG、生成 `sprite-meta.ts`，缺图或眼睛不是恰好两只（蛋必须没有）就报错。生成用的提示词和缩图脚本不进仓库。
+- 眼睛的方框给表情用（spec §4.32）：脸色和墨色在宠物窗口里第一次加载这张图时从像素里取，不存。
+
 ## 存储
 
-- `userData/pet.json` 存种子、魂、成长、位置和花费；骨不存，每次启动从种子重新计算。经验写得频繁，所以不放进 `settings.json`。只有主进程写这个文件，串行原子写。
-- 文件损坏时逐字段回落：种子坏了就换一个新种子（等于重新孵化），其余字段坏了各自回到默认值，不会导致应用起不来。第一次启动时立即把新种子写盘。
-- 重新孵化：右键菜单 → 宠物窗口里弹 studio 样式的确认框（`confirmRehatch` 动作，确认后 `PetApi.rehatch`；不用系统对话框，仓库所有者 2026-11-11 定）→ 换新种子，清空魂和成长，位置和花费保留（花费是这台机器的钱，不属于某一只）。
-- 设置 `petEnabled` / `petTalk` 放在 `settings.json`，和其他设置一样推送给界面。
+- `userData/pet.json` 存种子、物种、路线、魂、成长、位置和花费；骨的其余部分不存，每次启动从种子重新计算。经验写得频繁，所以不放进 `settings.json`。只有主进程写这个文件，串行原子写。
+- 物种孵化时抽出来就存下：物种表以后再加物种，已经孵出来的那只也不变。没有 `species` 字段的老文件按最早的 7 种（`firstSpecies`）重抽，抽出的就是原来那只；抽物种之后的那一抽（原来抽眼睛样式）照抽不用，所以帽子、闪光、属性也不变。
+- 重新孵化：右键菜单 → 宠物窗口里弹 studio 样式的确认框（`confirmRehatch` 动作，确认后 `PetApi.rehatch`；不用系统对话框，仓库所有者 2026-11-11 定）→ 换新种子、按完整物种表抽物种，清空路线、魂和成长，位置和花费保留（花费是这台机器的钱，不属于某一只）。
 
 ## 说话
 
@@ -127,7 +134,7 @@ preload 用单独的 `pet.cjs`，只暴露 `PetApi`；页面上没有 `window.st
 
 ## 验证
 
-- `test/pet-model.test.ts`：骨的确定性和稀有度分布、帽子不越级、每日上限、连续签到、输出 token 的对数经验（分几次给和一次给一样、跨天重算）、成就 key 去重、属性成长、进化阈值、表情汇总、事件识别（输出 token 的基准和换会话、待办阶段、PR）、`pet.json` 的容错、说话用哪个模型和挑哪句、json 输出的解析、花费跨天清零和重新孵化不清。
+- `test/pet-model.test.ts`：骨的确定性和稀有度分布、帽子不越级、每日上限、连续签到、输出 token 的对数经验（分几次给和一次给一样、跨天重算）、成就 key 去重、属性成长、7 个阶段的阈值、成年路线、老文件补物种、表情汇总、事件识别（输出 token 的基准和换会话、待办阶段、PR）、`pet.json` 的容错、说话用哪个模型和挑哪句、json 输出的解析、花费跨天清零和重新孵化不清。
 - `test/e2e/pet.e2e.ts`：
   - 宠物窗口置顶、不可聚焦，页面上没有 `window.studio`。
   - 孵化后得到名字。
@@ -138,7 +145,7 @@ preload 用单独的 `pet.cjs`，只暴露 `PetApi`；页面上没有 `window.st
   - 任务停在等你确认时，表情变成 `waiting`。
   - 关掉再打开，窗口回到原来的位置。
   - 屏幕外的位置会被夹回屏幕，种子保持不变。
-  - 满级：五件装饰、彩虹边，属性卡名字前有 ★、显示陪伴天数。
+  - 满级的老文件（没有物种、路线）：补存物种和路线，觉醒形态带 6 颗粒子和光圈，属性卡名字前有 ★、显示陪伴天数。
 - e2e 默认不启动宠物（`launch.ts` 设 `STUDIO_E2E_NO_PET=1`），因为多出来的窗口会干扰按"第一个窗口""所有窗口"取窗口的用例。测宠物的用例传 `"0"`。
-- 没有自动测的部分：真实光标拖动（Playwright 移不动系统光标）、跨不同缩放比例的屏幕拖动、透明区域的鼠标穿透。这些要在真机上手动看。
+- 没有自动测的部分：真实光标拖动（Playwright 移不动系统光标）、跨不同缩放比例的屏幕拖动、透明区域的鼠标穿透、眼睛跟光标（主进程每 200ms 读一次 `screen.getCursorScreenPoint`）。这些要在真机上手动看。
 - 没有在真 omp 上测的：`sessionUsage.tokens.output` 是否包含子代理的 token（读代码推测只算主会话）；待办阶段和 PR 两个成就只在单测里用构造的状态测过，目标完成（`petOnTaskNotice`）没有自动测。

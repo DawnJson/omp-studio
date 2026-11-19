@@ -1,18 +1,33 @@
-// 宠物窗口的页面（docs/design/spec/4.32-pet.md）：底部正中是宠物，上面是气泡 / 属性卡 / 升级提示。
+// 宠物窗口的页面（docs/design/spec/4.32-pet.md）：宠物的位置由主进程给（PetLayout，平时在底部正中），气泡 / 属性卡 / 升级提示在它上方，
+// 宠物贴近屏幕上边时放到下方。
 // 透明的地方鼠标穿透：指针在带 data-pet-hit 的元素上时告诉主进程接住鼠标（setInteractive）。
 // 宠物身上：按下拖动（主进程跟着光标挪窗口），没挪动就算单击 = 摸一下；双击打开 studio；右键弹系统菜单。
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type RefObject,
+} from "react";
 import { createT } from "../../../shared/i18n/index.ts";
 import { maxLevel } from "../../../shared/pet/growth.ts";
 import {
   PET_NAME_MAX_CHARS,
   rarityInfo,
+  stages,
   statNames,
+  type Branch,
+  type PetGaze,
+  type PetLayout,
   type PetReaction,
   type PetView,
+  type Stage,
 } from "../../../shared/pet/model.ts";
 import { Button } from "../ui/controls.tsx";
-import { PetSprite } from "./PetSprite.tsx";
+import { PetSprite, type PetFace } from "./PetSprite.tsx";
 
 /** 按下后挪动超过这么多像素就算拖动，不算单击。 */
 const DRAG_THRESHOLD = 4;
@@ -31,6 +46,10 @@ const CONFETTI = [
 
 /** 单击等这么久看是不是双击（双击不摸）。 */
 const CLICK_DELAY_MS = 260;
+/** 被摸后眼睛笑成 ^ ^ 多久。 */
+const HAPPY_MS = 1000;
+/** 进化动画多长（同 pet.css 的 pet-evolve-*）。 */
+const EVOLVE_MS = 2400;
 
 /** 气泡停留：基础 5 秒，每个字多 60ms，最多 12 秒。 */
 const bubbleMs = (text: string) => Math.min(12_000, 5000 + text.length * 60);
@@ -63,6 +82,39 @@ function useHitTracking(dragging: () => boolean): void {
       document.documentElement.removeEventListener("mouseleave", onLeave);
     };
   }, [dragging]);
+}
+
+/** 气泡离窗口左右边的最小距离（同 pet.css 的 --space-2）。 */
+const BUBBLE_MARGIN = 8;
+
+/** 气泡：尽量以宠物为中心，靠窗口边时夹回窗口里，尾巴始终对着宠物中心。 */
+function Bubble({
+  text,
+  stage,
+  layout,
+  onClose,
+}: {
+  text: string;
+  stage: RefObject<HTMLDivElement | null>;
+  layout: PetLayout;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const bubble = ref.current;
+    const pet = stage.current;
+    if (bubble === null || pet === null) return;
+    const center = pet.offsetLeft + pet.offsetWidth / 2;
+    const width = bubble.offsetWidth;
+    const left = Math.min(Math.max(center - width / 2, BUBBLE_MARGIN), window.innerWidth - BUBBLE_MARGIN - width);
+    bubble.style.left = `${left}px`;
+    bubble.style.setProperty("--tail-x", `${center - left}px`);
+  }, [text, stage, layout]);
+  return (
+    <div ref={ref} className="pet-bubble" data-pet-hit role="status" onClick={onClose} data-testid="pet-bubble">
+      {text}
+    </div>
+  );
 }
 
 function Card({ view, onClose }: { view: PetView; onClose: () => void }) {
@@ -143,7 +195,10 @@ function Card({ view, onClose }: { view: PetView; onClose: () => void }) {
       </header>
       <div className="pet-card-level">
         <span>
-          {t(`pet.stage.${view.stage}`)} · {t("pet.level", { level: view.level })}
+          {[t(`pet.stage.${view.stage}`), ...(view.branch === null ? [] : [t(`pet.branch.${view.branch}`)])].join(
+            " · ",
+          )}{" "}
+          · {t("pet.level", { level: view.level })}
         </span>
         <span className="pet-bar" role="progressbar" aria-valuenow={Math.round(xpShare * 100)} data-testid="pet-xp">
           <span className="pet-bar-fill" style={{ width: `${xpShare * 100}%` }} />
@@ -236,12 +291,19 @@ function RehatchConfirm({ view, onClose }: { view: PetView; onClose: () => void 
 
 interface PetAppProps {
   initial: PetView;
+  initialLayout: PetLayout;
   /** 订阅主进程推来的动作（main.tsx 先攒着页面加载期间到的那些，订阅时补发）。 */
   subscribeReactions: (listener: (reaction: PetReaction) => void) => () => void;
 }
 
-export function PetApp({ initial, subscribeReactions }: PetAppProps) {
+export function PetApp({ initial, initialLayout, subscribeReactions }: PetAppProps) {
   const [view, setView] = useState(initial);
+  const [layout, setLayout] = useState(initialLayout);
+  const [gaze, setGaze] = useState<PetGaze>({ x: 0, y: 0 });
+  const [happy, setHappy] = useState(0);
+  const [dragged, setDragged] = useState(false);
+  const [evolvingFrom, setEvolvingFrom] = useState<{ stage: Stage; branch: Branch | null } | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const [bubble, setBubble] = useState<{ text: string; key: number } | null>(null);
   const [badge, setBadge] = useState<{ text: string; key: number } | null>(null);
   const [hearts, setHearts] = useState(0);
@@ -254,10 +316,38 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
   localeRef.current = view.locale;
   const dragging = useRef(() => dragRef.current !== null).current;
   useHitTracking(dragging);
+  const shown = useRef(initial);
+  const evolveTimer = useRef<number | undefined>(undefined);
+
+  // 同一只长到了后面的阶段：播一次进化动画（重新孵化换了一只、回到蛋不算；减少动效时不播）。
+  // 计时器不随 view 的下一次更新清掉（动画途中经验还在涨），只在卸载时清。
+  useEffect(() => {
+    const before = shown.current;
+    shown.current = view;
+    if (
+      view.reduceMotion ||
+      before.bones.species !== view.bones.species ||
+      stages.indexOf(view.stage) <= stages.indexOf(before.stage)
+    )
+      return;
+    setEvolvingFrom({ stage: before.stage, branch: before.branch });
+    window.clearTimeout(evolveTimer.current);
+    evolveTimer.current = window.setTimeout(() => setEvolvingFrom(null), EVOLVE_MS);
+  }, [view]);
+  useEffect(() => () => window.clearTimeout(evolveTimer.current), []);
+
+  useEffect(() => window.pet.onGaze(setGaze), []);
 
   useEffect(() => {
     applyPage(view);
   }, [view]);
+
+  useEffect(() => {
+    const off = window.pet.onLayout(setLayout);
+    // 拿初值和订阅之间主进程可能已经挪过一次窗口：订阅后再取一次。
+    void window.pet.getLayout().then(setLayout);
+    return off;
+  }, []);
 
   useEffect(() => {
     const offView = window.pet.onView(setView);
@@ -280,6 +370,8 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
           break;
         case "hearts":
           setHearts(current);
+          setHappy(current);
+          later(HAPPY_MS, () => setHappy((shown) => (shown === current ? 0 : shown)));
           later(2500, () => setHearts((shown) => (shown === current ? 0 : shown)));
           break;
         case "celebrate":
@@ -325,19 +417,29 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (drag === null || drag.moved) return;
-    if (Math.hypot(event.screenX - drag.x, event.screenY - drag.y) > DRAG_THRESHOLD) drag.moved = true;
+    if (Math.hypot(event.screenX - drag.x, event.screenY - drag.y) > DRAG_THRESHOLD) {
+      drag.moved = true;
+      setDragged(true);
+    }
   };
   const onPointerUp = () => {
     const drag = dragRef.current;
     dragRef.current = null;
+    setDragged(false);
     window.pet.dragEnd();
     if (drag === null || drag.moved) return;
     window.clearTimeout(clickTimer.current);
     clickTimer.current = window.setTimeout(() => window.pet.pet(), CLICK_DELAY_MS);
   };
+  const face: PetFace = dragged ? "dragged" : happy !== 0 ? "happy" : null;
 
   return (
-    <div className="pet-root" data-card={cardOpen || confirmOpen || undefined}>
+    <div
+      className="pet-root"
+      data-card={cardOpen || confirmOpen || undefined}
+      data-below={layout.below || undefined}
+      style={{ "--pet-x": `${layout.x}px`, "--pet-y": `${layout.y}px` } as CSSProperties}
+    >
       {confirmOpen ? (
         <RehatchConfirm view={view} onClose={() => setConfirmOpen(false)} />
       ) : cardOpen ? (
@@ -345,16 +447,13 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
       ) : (
         bubble !== null &&
         view.talk && (
-          <div
+          <Bubble
             key={bubble.key}
-            className="pet-bubble"
-            data-pet-hit
-            role="status"
-            onClick={() => setBubble(null)}
-            data-testid="pet-bubble"
-          >
-            {bubble.text}
-          </div>
+            text={bubble.text}
+            stage={stageRef}
+            layout={layout}
+            onClose={() => setBubble(null)}
+          />
         )
       )}
       {badge !== null && (
@@ -387,6 +486,7 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
         </div>
       )}
       <div
+        ref={stageRef}
         className="pet-stage"
         data-pet-hit
         onPointerDown={onPointerDown}
@@ -402,7 +502,17 @@ export function PetApp({ initial, subscribeReactions }: PetAppProps) {
           window.pet.menu();
         }}
       >
-        <PetSprite bones={view.bones} stage={view.stage} mood={view.mood} level={view.level} label={label} />
+        <PetSprite
+          bones={view.bones}
+          stage={view.stage}
+          branch={view.branch}
+          mood={view.mood}
+          level={view.level}
+          label={label}
+          gaze={gaze}
+          face={face}
+          evolvingFrom={evolvingFrom}
+        />
       </div>
     </div>
   );

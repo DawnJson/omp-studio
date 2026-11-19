@@ -25,10 +25,10 @@ function subscribeReactions(listener: (reaction: PetReaction) => void): () => vo
 const container = document.getElementById("root");
 if (!container) throw new Error("pet.html 里没有 #root");
 const root = createRoot(container);
-void window.pet.getView().then((view) =>
+void Promise.all([window.pet.getView(), window.pet.getLayout()]).then(([view, layout]) =>
   root.render(
     <StrictMode>
-      <PetApp initial={view} subscribeReactions={subscribeReactions} />
+      <PetApp initial={view} initialLayout={layout} subscribeReactions={subscribeReactions} />
     </StrictMode>,
   ),
 );

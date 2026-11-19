@@ -1,6 +1,6 @@
 // 宠物的成长：真实使用攒经验、升级，到阶段等级进化；属性在出生值之上按事件慢慢涨（docs/architecture/pet.md「成长」）。
 // 纯函数，主进程在任务状态变化时调用、把结果存进 userData/pet.json。每种事件每天有次数上限，刷不上去。
-import { statNames, type Bones, type Stage, type StatName, type Stats } from "./model.ts";
+import { statNames, type Bones, type Branch, type Stage, type StatName, type Stats } from "./model.ts";
 
 export const xpSources = [
   "turn",
@@ -90,17 +90,29 @@ export function emptyGrowth(): Growth {
   };
 }
 
-/** 进化的等级：蛋 Lv1 起，Lv5 破壳成幼年，Lv15 成年，Lv30 完全体。 */
+/**
+ * 进化的等级：蛋 Lv1、幼年 Lv5、少年 Lv12、青年 Lv25、成年 Lv45（分路线）、完全体 Lv70、觉醒 Lv85。
+ * 按每天约 225 经验：约 2 天破壳、11 天少年、7 周青年、半年成年、14 个月完全体、21 个月觉醒（所有者定，2026-11-19）。
+ */
 const stageLevels: readonly (readonly [Stage, number])[] = [
   ["egg", 1],
   ["baby", 5],
-  ["adult", 15],
-  ["final", 30],
+  ["child", 12],
+  ["teen", 25],
+  ["adult", 45],
+  ["final", 70],
+  ["awakened", 85],
 ];
 export const maxLevel = 99;
 
-/** 到 level 级累计要多少经验：20 × (level − 1)²。每天正常使用约 150–300 经验：两天破壳，约三周成年，约三个月完全体。 */
+/** 到 level 级累计要多少经验：20 × (level − 1)²。 */
 export const xpForLevel = (level: number) => 20 * (level - 1) ** 2;
+
+/** 成年时走哪条路线：混乱、毒舌里高的那项超过调试、耐心、智慧里最高的就捣蛋，否则稳健（打平算稳健）。 */
+export function branchOf(stats: Stats): Branch {
+  const mischief = Math.max(stats.chaos, stats.snark);
+  return mischief > Math.max(stats.debugging, stats.patience, stats.wisdom) ? "mischief" : "steady";
+}
 
 export function levelOf(xp: number): number {
   return Math.min(maxLevel, Math.floor(Math.sqrt(xp / 20)) + 1);

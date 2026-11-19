@@ -1,12 +1,13 @@
-// 宠物的"骨"：从本机种子确定性地抽出物种、稀有度、眼睛、帽子、闪光和出生属性（照 Claude Code 的 buddy）。
-// 种子 + 盐 → FNV-1a（32 位）→ Mulberry32 伪随机数，按固定顺序抽：稀有度 → 物种 → 眼睛 → 帽子 → 闪光 → 属性。
+// 宠物的"骨"：从本机种子确定性地抽出物种、稀有度、帽子、闪光和出生属性（照 Claude Code 的 buddy）。
+// 种子 + 盐 → FNV-1a（32 位）→ Mulberry32 伪随机数，按固定顺序抽：稀有度 → 物种 → （空抽一次）→ 帽子 → 闪光 → 属性。
 // 每次启动现算、不存盘：同一个种子永远是同一只。换盐等于给所有人换一只（"换季"），重新孵化 = 换种子。
+// 物种例外：孵化时抽出来就存进 pet.json（pet-store.ts），以后物种表加了新物种，已经孵出来的那只也不变。
 import {
-  eyeStyles,
   hatMinRarity,
   hats,
   rarities,
   rarityInfo,
+  speciesList,
   statNames,
   type Bones,
   type Hat,
@@ -14,7 +15,9 @@ import {
   type Species,
   type StatName,
 } from "./model.ts";
-import { speciesList } from "./sprites.ts";
+
+/** 最早只有前 7 种：那时孵出来、pet.json 里还没存物种的宠物，按这张老名单抽回原来那只。 */
+export const firstSpecies: readonly Species[] = speciesList.slice(0, 7);
 
 const SALT = "omp-studio-pet-2026";
 
@@ -77,13 +80,14 @@ function rollStats(random: () => number, rarity: Rarity): Record<StatName, numbe
   return stats;
 }
 
-export function rollBones(seed: string): Bones {
+export function rollBones(seed: string, pool: readonly Species[] = speciesList): Bones {
   const random = mulberry32(fnv1a(`${SALT}:${seed}`));
   const rarity = weighted(random, rarities, (item) => rarityInfo[item].weight);
-  // π 是 studio 自己的吉祥物，稀有一些（约 5%），其余物种均分。
-  const species = weighted(random, speciesList, (item: Species) => (item === "pi" ? 1 : 3));
-  const eye = pick(random, eyeStyles);
+  // π 是 studio 自己的吉祥物，稀有一些，其余物种均分。
+  const species = weighted(random, pool, (item: Species) => (item === "pi" ? 1 : 3));
+  // 这一抽原来抽眼睛样式（眼睛已经画进像素画）：照抽不用，老种子的帽子、闪光、属性才不变。
+  random();
   const hat = rollHat(random, rarity);
   const shiny = random() < 0.01;
-  return { species, rarity, eye, hat, shiny, stats: rollStats(random, rarity) };
+  return { species, rarity, hat, shiny, stats: rollStats(random, rarity) };
 }

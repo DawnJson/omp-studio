@@ -45,6 +45,8 @@ const petWindowInfo = (launched: LaunchedApp) =>
 const readPet = async (userDataDir: string) =>
   JSON.parse(await readFile(path.join(userDataDir, "pet.json"), "utf8")) as {
     seed: string;
+    species: string;
+    branch: string | null;
     soul: { name: string } | null;
     growth: { totals: { pet: number } };
     spend: { total: { calls: number } };
@@ -64,7 +66,7 @@ test("宠物窗口：置顶不抢焦点、拿不到主窗口的接口；孵化�
       studio: false,
       pet: true,
     });
-    expect(info.bounds).toMatchObject({ width: 260, height: 400 });
+    expect(info.bounds).toMatchObject({ width: 260, height: 470 });
 
     const sprite = pet.getByTestId("pet-sprite");
     await expect(sprite).toHaveAttribute("data-stage", "egg");
@@ -120,41 +122,58 @@ test("宠物窗口：置顶不抢焦点、拿不到主窗口的接口；孵化�
   }
 });
 
-test("pet.json 里的位置在屏幕外：夹回屏幕里；种子不变（还是同一只）", async () => {
+test("pet.json 里的位置在屏幕外：夹回屏幕左上角，窗口整个在屏幕里、属性卡放到宠物下方且不撑出卡片；种子不变", async () => {
   const userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-pet-"));
   const seed = "00000000-0000-4000-8000-000000000042";
+  // 名字够长：标题行（名字、稀有度、物种不换行）的最小宽度曾把属性卡撑出窗口。
+  const name = "一二三四五六七八九十一二三四五六七八九十";
   await writeFile(
     path.join(userData, "pet.json"),
-    JSON.stringify({ seed, soul: { name: "Old", personality: "", hatchedAt: 1 }, position: { x: -99999, y: -99999 } }),
+    JSON.stringify({ seed, soul: { name, personality: "", hatchedAt: 1 }, position: { x: -99999, y: -99999 } }),
   );
   const launched = await launchApp({ ...petEnv, STUDIO_USER_DATA: userData });
   try {
-    await petPage(launched);
+    const pet = await petPage(launched);
     const { bounds, area } = await petWindowInfo(launched);
-    // 宠物（窗口底部正中 110×115）整个在工作区里。
-    const spriteLeft = bounds.x + (bounds.width - 110) / 2;
-    const spriteTop = bounds.y + bounds.height - 115;
-    expect(spriteLeft).toBeGreaterThanOrEqual(area.x);
-    expect(spriteTop).toBeGreaterThanOrEqual(area.y);
-    expect(spriteLeft + 110).toBeLessThanOrEqual(area.x + area.width);
-    expect(spriteTop + 115).toBeLessThanOrEqual(area.y + area.height);
+    expect(bounds.x).toBe(area.x);
+    expect(bounds.y).toBe(area.y);
+    // 宠物贴着窗口左上角（工作区左上角），浮层在下方。
+    const stage = (await pet.locator(".pet-stage").boundingBox())!;
+    expect(stage).toMatchObject({ x: 0, y: 0 });
+    await expect(pet.locator(".pet-root")).toHaveAttribute("data-below", "true");
+
+    await launched.page.evaluate(() => globalThis.studio.petAction("card"));
+    const card = pet.getByTestId("pet-card");
+    await expect(pet.getByTestId("pet-name")).toHaveText(name);
+    const box = (await card.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(stage.y + stage.height);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(bounds.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(bounds.height);
+    const widths = await card.evaluate((element) => {
+      const sizes = element as unknown as { scrollWidth: number; clientWidth: number };
+      return { content: sizes.scrollWidth, card: sizes.clientWidth };
+    });
+    expect(widths.content).toBeLessThanOrEqual(widths.card);
+    await expect(pet.getByTestId("pet-card-close")).toBeInViewport({ ratio: 1 });
+
     const saved = await readPet(userData);
     expect(saved.seed).toBe(seed);
-    expect(saved.soul?.name).toBe("Old");
+    expect(saved.soul?.name).toBe(name);
   } finally {
     await launched.close();
     await rm(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
-test("满级：五件装饰、彩虹边；属性卡名字前有 ★，显示陪伴天数", async () => {
+test("满级的老宠物：补存物种、定下路线，觉醒形态带满档粒子和光圈；属性卡名字前有 ★，显示陪伴天数", async () => {
   const userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-pet-"));
   await writeFile(
     path.join(userData, "pet.json"),
     JSON.stringify({
       seed: "00000000-0000-4000-8000-000000000044",
       soul: { name: "Old", personality: "", hatchedAt: 1 },
-      // Lv99 = 20 × 98²
+      // Lv99 = 20 × 98²；没有 species、branch（物种表扩充之前的文件）
       growth: { xp: 192_080, totals: { daily: 123 } },
     }),
   );
@@ -162,9 +181,13 @@ test("满级：五件装饰、彩虹边；属性卡名字前有 ★，显示陪�
   try {
     const pet = await petPage(launched);
     const sprite = pet.getByTestId("pet-sprite");
-    await expect(sprite).toHaveAttribute("data-max", "true");
-    await expect(sprite.locator("[data-decor]")).toHaveCount(5);
-    await expect(sprite.locator(".pet-outline")).toHaveCount(1);
+    await expect(sprite).toHaveAttribute("data-stage", "awakened");
+    await expect.poll(async () => (await readPet(userData)).branch).not.toBeNull();
+    const saved = await readPet(userData);
+    expect(["pi", "duck", "cat", "owl", "ghost", "robot", "axolotl"]).toContain(saved.species);
+    await expect(sprite).toHaveAttribute("data-branch", saved.branch!);
+    await expect(sprite.locator(".pet-particle")).toHaveCount(6);
+    await expect(sprite.locator(".pet-art[data-glow]")).toHaveCount(1);
     await launched.page.evaluate(() => globalThis.studio.petAction("card"));
     await expect(pet.getByTestId("pet-name")).toHaveText("★ Old");
     await expect(pet.getByTestId("pet-together")).toContainText("123");

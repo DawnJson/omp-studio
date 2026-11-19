@@ -10,10 +10,18 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- Desktop pet redrawn: 16 species (new: fox, sprout, moth, penguin, hamster, turtle, mushroom, capybara, drake), each with 7 stages (egg → baby → child → teen → adult → final → awakened), and at adulthood the pet takes a steady or mischief path based on its stats, with different forms. Pets that already hatched keep their species.
+- The desktop pet feels more alive: its eyes follow the mouse, it smiles when petted, squints > < while dragged and falls asleep after a long quiet spell; every 5 levels adds a little more element sparkle, later a glow; evolving plays a flashing transformation. The pet no longer bobs up and down.
+
 ### Fixed
 
 - Settings → Model roles: when search, image and speech models are slow to load, Tiny, Memory and Judge can be set to chat models right away instead of waiting for the list or an error.
 - Settings → Model roles: on machines where omp doesn't exit after listing search, image and speech models, those models now show up right away instead of failing with "timed out" after a minute.
+- The first image referenced in a message (#1) is now highlighted like the later ones (#2…).
+- Long pet names or stats at 100 no longer overflow the pet's stats card.
+- Near a screen edge, the pet's speech bubble and stats card no longer go off screen.
 
 ## [0.9.5] - 2026-11-18
 

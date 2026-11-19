@@ -2,7 +2,18 @@
 // 骨不存（每次从种子现算）。经验写得勤，所以不放进 settings.json；只有主进程写，串行原子写，退出前等它写完。
 // 文件坏了逐字段回落：种子坏了换一个新的（等于重新孵化），成长坏了从头来，都不让应用起不来。
 import { randomUUID } from "node:crypto";
-import { PET_NAME_MAX_CHARS, statNames, type PetSpend, type Soul, type VoiceSpend } from "../../shared/pet/model.ts";
+import { firstSpecies, rollBones } from "../../shared/pet/bones.ts";
+import {
+  branches,
+  PET_NAME_MAX_CHARS,
+  speciesList,
+  statNames,
+  type Branch,
+  type PetSpend,
+  type Soul,
+  type Species,
+  type VoiceSpend,
+} from "../../shared/pet/model.ts";
 import { ACHIEVED_KEEP, emptyGrowth, xpSources, type Growth } from "../../shared/pet/growth.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
@@ -25,6 +36,10 @@ export interface StoredSpend {
 
 export interface PetRecord {
   seed: string;
+  /** 孵化时抽出的物种：存下来，物种表以后再加新物种也不换（bones.ts）。 */
+  species: Species;
+  /** 成年时定下的路线（pet-service.ts 按当时的属性定）；还没成年为 null。 */
+  branch: Branch | null;
   soul: Soul | null;
   growth: Growth;
   /** 窗口左上角（屏幕坐标，DIP）；还没摆过为 null（放到主屏右下角）。 */
@@ -117,20 +132,38 @@ function parsePosition(value: unknown): PetPosition | null {
     : null;
 }
 
-/** 逐字段校验 pet.json；没有文件或种子坏了 = 新孵化一只（花费照留）。 */
+/** 新孵化一只：新种子，物种按现在的物种表抽。 */
+function newborn(): Pick<PetRecord, "seed" | "species" | "branch" | "soul" | "growth"> {
+  const seed = randomUUID();
+  return { seed, species: rollBones(seed).species, branch: null, soul: null, growth: emptyGrowth() };
+}
+
+/**
+ * 逐字段校验 pet.json；没有文件或种子坏了 = 新孵化一只（花费照留）。
+ * 有种子没物种：物种表扩充之前孵出来的，按老名单抽回原来那只。
+ */
 export function parsePetRecord(raw: unknown): PetRecord {
   const record = isRecord(raw) ? raw : {};
   const seed = record["seed"];
   const position = parsePosition(record["position"]);
   const spend = parseSpend(record["spend"]);
-  if (typeof seed !== "string" || !seedPattern.test(seed))
-    return { seed: randomUUID(), soul: null, growth: emptyGrowth(), position, spend };
-  return { seed, soul: parseSoul(record["soul"]), growth: parseGrowth(record["growth"]), position, spend };
+  if (typeof seed !== "string" || !seedPattern.test(seed)) return { ...newborn(), position, spend };
+  const species = record["species"];
+  const branch = record["branch"];
+  return {
+    seed,
+    species: speciesList.includes(species as Species) ? (species as Species) : rollBones(seed, firstSpecies).species,
+    branch: branches.includes(branch as Branch) ? (branch as Branch) : null,
+    soul: parseSoul(record["soul"]),
+    growth: parseGrowth(record["growth"]),
+    position,
+    spend,
+  };
 }
 
-/** 重新孵化：新种子，魂和成长清空，位置和花费留着。 */
+/** 重新孵化：新种子、新物种，路线、魂和成长清空，位置和花费留着。 */
 export function rehatched(record: PetRecord): PetRecord {
-  return { ...record, seed: randomUUID(), soul: null, growth: emptyGrowth() };
+  return { ...record, ...newborn() };
 }
 
 export class PetStore {

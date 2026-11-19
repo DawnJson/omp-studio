@@ -1,7 +1,7 @@
 // 桌面宠物的纯逻辑：骨的确定性和稀有度分布、成长的每日上限 / 连续签到 / 进化阈值、任务状态汇总和事件识别、pet.json 的容错。
 import { describe, expect, test } from "vitest";
 import type { TaskState } from "../src/shared/ipc.ts";
-import { rollBones } from "../src/shared/pet/bones.ts";
+import { firstSpecies, rollBones } from "../src/shared/pet/bones.ts";
 import {
   applyAchievement,
   applyEvent,
@@ -10,6 +10,7 @@ import {
   levelOf,
   outputXp,
   stageOf,
+  branchOf,
   xpForLevel,
   type Growth,
 } from "../src/shared/pet/growth.ts";
@@ -137,15 +138,37 @@ describe("成长", () => {
     expect(growth.statGrowth.chaos).toBe(1);
   });
 
-  test("等级和阶段阈值：Lv5 破壳、Lv15 成年、Lv30 完全体，跨阶段时报告进化", () => {
+  test("等级和阶段阈值：Lv5 幼年、Lv12 少年、Lv25 青年、Lv45 成年、Lv70 完全体、Lv85 觉醒，跨阶段时报告进化", () => {
     expect(levelOf(xpForLevel(5) - 1)).toBe(4);
     expect(levelOf(xpForLevel(5))).toBe(5);
-    expect([1, 4, 5, 14, 15, 29, 30].map(stageOf)).toEqual(["egg", "egg", "baby", "baby", "adult", "adult", "final"]);
+    expect([1, 4, 5, 11, 12, 24, 25, 44, 45, 69, 70, 84, 85, 99].map(stageOf)).toEqual([
+      "egg",
+      "egg",
+      "baby",
+      "baby",
+      "child",
+      "child",
+      "teen",
+      "teen",
+      "adult",
+      "adult",
+      "final",
+      "final",
+      "awakened",
+      "awakened",
+    ]);
     const almost: Growth = { ...emptyGrowth(), xp: xpForLevel(5) - 5, day: "2026-11-10", streak: 1 };
     almost.today.daily = 1;
     const step = applyEvent(almost, "recovered", day("2026-11-10"));
     expect(step.levelUp).toBe(5);
     expect(step.evolved).toBe("baby");
+  });
+
+  test("成年路线：混乱或毒舌严格高过调试、耐心、智慧才走捣蛋，打平算稳健", () => {
+    const stats = { debugging: 40, patience: 30, chaos: 20, wisdom: 10, snark: 5 };
+    expect(branchOf(stats)).toBe("steady");
+    expect(branchOf({ ...stats, snark: 41 })).toBe("mischief");
+    expect(branchOf({ ...stats, chaos: 40 })).toBe("steady");
   });
 });
 
@@ -249,6 +272,23 @@ describe("pet.json", () => {
     expect(parsed.growth.statGrowth.wisdom).toBe(4);
     expect(parsed.position).toBeNull();
     expect(parsed.growth.achieved).toEqual(["pr:/repo#1"]);
+  });
+
+  test("物种存在 pet.json 里；老文件没有物种时按最早的 7 种抽回原来那只，新孵化按完整物种表", () => {
+    const seeds = Array.from({ length: 40 }, (_, index) => seed(index));
+    for (const value of seeds) {
+      expect(parsePetRecord({ seed: value }).species).toBe(rollBones(value, firstSpecies).species);
+      expect(parsePetRecord({ seed: value, species: "drake" }).species).toBe("drake");
+    }
+    // 名单不同确实会抽出不同的物种，上面的回落才有意义
+    expect(seeds.some((value) => rollBones(value).species !== rollBones(value, firstSpecies).species)).toBe(true);
+    // 换物种表不改帽子、闪光、属性（那一抽之后的顺序不变）
+    const { species: _old, ...rest } = rollBones(seed(3), firstSpecies);
+    const { species: _new, ...same } = rollBones(seed(3));
+    expect(same).toEqual(rest);
+    const reborn = rehatched(parsePetRecord({ seed: seed(1), branch: "mischief" }));
+    expect(reborn.branch).toBeNull();
+    expect(reborn.species).toBe(rollBones(reborn.seed).species);
   });
 });
 
