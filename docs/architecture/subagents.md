@@ -66,6 +66,25 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 - 面板按 `agent` 节点的 `status` + `stats.tools` 重读记录：每多一次工具调用读一次，结束时再读一次（拿 `.md` 里的最终输出）。实测 `sleep 20` 跑着时记录里那次调用显示转圈 + `Running`，结束后变成 `Done 20.0s`，不用点"重新读取"。
 - 正在跑的那一轮不拿最后一句叙述当结论：它还没有结论，`I'll execute the steps in order.` 这种话会被画到最下面当回答。
 
+### 实测：给已完成的子代理派新任务（issue #23；omp 19.0.1，2026-11-20，`deepseek-flash`，真实 omp、临时 agent 目录，一次性探针，未存为 fixture）
+
+主代理派后台子代理 Alpha（`sleep 5`），等它完成；下一轮让主代理给 Alpha 派新任务（`sleep 60`）。主代理用 `write` 工具给 Alpha 发 IRC（工具卡片显示 `IRC Alpha · woken`），omp 唤醒同一个 Alpha，最后 IRC 卡片（`omp.irc.incoming`）带回 Alpha 的第二次回复。
+
+- 复活后的 Alpha 在跑的约 60 秒里，原 task 卡片下的 `agent` 节点（`r.Alpha`）一直是 `status:"done"`，`stats.took` 停在第一轮的值，期间这个节点没有更新过，也没有出现新的 `agent` 节点；hud 里也没有 `agents.open`（"1 agent running"）。
+- 只有主代理 `wait` 卡片的磁贴显示它在跑：`omp.job.tile.title` 是 `Alpha-2`，状态点在跳。主代理不 `wait` 时，文档里找不到任何"Alpha 在跑"的痕迹。
+- 所以只看 `agent` 节点的话，面板（`listAgents`）、药丸（`countActiveAgents`）、`hasRunningWork` 都会把这段时间的 Alpha 当作已完成。这是 omp 没把唤醒反映到 TSP 上。
+- 子代理的记录文件照常边跑边写（第二次探针，同版本同模型，派的是 `sleep 40` + `sleep 5`）：第一轮以 `message`/assistant、`stopReason:"stop"`（"FIRST"）结束，`.md` 写出；被唤醒时先追加一条 `{"type":"custom_message","customType":"irc:incoming"}`（主代理发来的原文），1.6 秒后出现带 `toolCall` 的 assistant 消息，之后每次工具调用、结果照常落盘，最后又以 assistant `stopReason:"stop"`（"SECOND"）结束，`.md` 被重写。这期间 `agent` 节点一直是 `done`。
+- 所有者机器上约 2000 个子代理记录文件（只读统计条目类型）：一轮常以 `yield` 工具成功返回结束（有时和别的工具并行，`yield` 的结果不一定在最后），也常以 assistant `stop` 结束；一轮结束后还会追加 `advisor`、`async-result` 等 `custom_message`，不代表在跑；约 1/8 的文件有"停着时收到 `irc:incoming`"，即被唤醒过。
+
+### 被唤醒的子代理：studio 看记录文件（issue #23）
+
+- **判定**（`shared/tsp/subagent-revival.ts` 的 `stepRevival`）：按条目推进"停着 / 在跑"。assistant 的 `stopReason` 是 `toolUse` → 在跑，别的值 → 停着；`yield` 成功返回 → 停着；user 消息 → 在跑；其余条目（`custom_message`、`custom`、其他工具结果）不改变状态。`irc:incoming` 本身不算：omp 19.0.1 的 irc-bridge 在接收方开着 plan mode 时只记下这条、不唤醒（`deliver()` 返回 `injected`，读的是 omp 二进制里的源码，没实测），按它算会一直显示在跑；代价是收到 IRC 到第一次工具调用之间（实测约 1.6 秒）还显示已完成。
+- **主进程**（`main/tsp/subagent-revival-watch.ts`，`TspRunner` 持有）：文档里状态是 `done` 的子代理（`TspDocScans.doneAgents`）从它变成 done 时的文件末尾起看，每秒 stat 一次，只读新增部分；在跑的放进 `TaskState.revivedSubagents`（名字 → 已读字节数）。节点不再是 done、进程退出、换会话时丢掉。集合不空时 `recyclable` / `restartable` 为假、回溯和分叉拒绝，和有子代理节点在跑时一样。
+- **不用 `fs.watch`**：omp 一直开着记录文件的句柄往里追加，Windows 上目录监视收不到（2026-11-20 实测：Node 开着句柄追加 6 次，`fs.watch` 0 个事件，`stat` 的大小是对的；真实 omp 下用 `fs.watch` 一次也没认出来）。
+- **渲染进程**：`withRevived` 把这些 done 的子代理改成 `running`、填上 `revived`；列表行显示"运行中"、不显示用时（omp 给的还是上一轮的，`agentElapsed` 为 null），统计格照旧显示 omp 给的累计值；记录和 Activity 页的重读键带上 `revived`，每写一点就重读。👥 计数加上集合里的个数。进入对话、插话、结束、恢复按 omp 那边的状态（`hubStatus`，即 done）判断，不提供：这几样要经过 omp 的 Hub，它对被唤醒的子代理怎么处理没测过。
+- **限制**：被唤醒的这一轮中途停下、没写出结束的消息而进程还活着时，会一直显示运行中，直到进程退出。只对 `done` 的子代理看文件：`aborted` / `failed` 的不看（被结束的记录末尾常是没有结果的工具调用）；`--resume` 之后旧子代理是 `parked`，重开过的会话里再唤醒它们认不出来。每个 done 的子代理每秒 stat 一次，进程活着就一直看。
+- **测试**：`test/tsp-subagent-revival.test.ts`（判定）；`test/task-tsp.test.ts` "已完成的子代理被 IRC 唤醒"（回放 `task` 录制，开着句柄往 `FixOps.jsonl` 追加：进出集合、能否重开）；`test/agent-model.test.ts`（`withRevived`、用时）；e2e `test/e2e/tsp.e2e.ts` "子代理被 IRC 唤醒"（行状态、用时、👥、重开按钮、没有进入对话 / 结束 / 插话）。
+
 ### 实测：退出聚焦（真实 omp，一次性探针，未存为 fixture）
 
 `hub-steer` 的录制里用户用 Esc 键退出聚焦，键不进录制。另用真实 omp 跑了 `activate Beta` → 聚焦行出现 → `send` → omp 回显 → 对聚焦行里的退出按钮（`omp.composer.exit`）发 `{ev:"action", sf, id:"j.focus/exit", act:"focus:Main"}`：聚焦行消失，toast "Returned to main session"，两个子代理仍是 `running`，输入框恢复成 `sendable`（`findMessageTarget` 为 ready）。所以退出聚焦用这个 action（不是中断子代理的键）；它不灵时再退到 Esc。`send` 后回显：`omp.user` / `omp.queue` 节点个数增加（`hub-steer` 帧 168 / 170），等不到不算失败（软等待）。

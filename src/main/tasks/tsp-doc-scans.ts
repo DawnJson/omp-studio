@@ -1,8 +1,9 @@
-// TspRunner 每应用一条 TSP 消息都要推导的几项里，有四项要把活 surface 的全部节点扫一遍（待办 HUD、状态 toast 文字、
-// 旁路提问弹窗、还在跑的工具 / 子代理）。对话越长扫得越多，而流式输出的绝大多数消息只改正文节点、和这四项无关。
+// TspRunner 每应用一条 TSP 消息都要推导的几项里，有五项要把活 surface 的全部节点扫一遍（待办 HUD、状态 toast 文字、
+// 旁路提问弹窗、还在跑的工具 / 子代理、已完成的子代理）。对话越长扫得越多，而流式输出的绝大多数消息只改正文节点、和这几项无关。
 // 这里按消息的 ApplyResult.changed 判断相关节点有没有变（NodeWatch），没变就直接给上一次的结果，变了才重扫。
 // 各项只读：活 surface（o / x 才变）里某些 kind 的节点自己的记录；旁路弹窗另读整棵子树（答案流式追加在很深的 md 里），
 // 所以再从每个变了的节点往上找祖先 overlay。删子树时每个后代都进 changed、它的父节点也换了记录，删掉的部分照样能发现。
+import { listAgents } from "../../shared/tsp/agent-hub.ts";
 import { findBtwView, type BtwView } from "../../shared/tsp/btw.ts";
 import { statusToastTexts } from "../../shared/tsp/composer-state.ts";
 import type { ApplyResult, TspDocMessage, TspDocument } from "../../shared/tsp/document.ts";
@@ -22,6 +23,7 @@ export class TspDocScans {
   #toastTexts: string[] | undefined;
   #btwView: BtwView | null | undefined;
   #runningWork: boolean | undefined;
+  #doneAgents: ReadonlySet<string> | undefined;
 
   constructor(document: TspDocument) {
     this.document = document;
@@ -43,7 +45,10 @@ export class TspDocScans {
     const doc = this.document;
     if (this.#todoWatch.update(doc, changed, reset).size > 0) this.#todoPhases = undefined;
     if (this.#toastWatch.update(doc, changed, reset).size > 0) this.#toastTexts = undefined;
-    if (this.#workWatch.update(doc, changed, reset).size > 0) this.#runningWork = undefined;
+    if (this.#workWatch.update(doc, changed, reset).size > 0) {
+      this.#runningWork = undefined;
+      this.#doneAgents = undefined;
+    }
     if (this.#overlayWatch.update(doc, changed, reset).size > 0 || this.#insideOverlay(changed))
       this.#btwView = undefined;
   }
@@ -83,5 +88,14 @@ export class TspDocScans {
   /** hasRunningWork。 */
   get runningWork(): boolean {
     return (this.#runningWork ??= hasRunningWork(this.document));
+  }
+
+  /** 状态是 done 的子代理名（listAgents 去重之后；被唤醒的子代理在 omp 的节点上一直是 done，issue #23）。 */
+  get doneAgents(): ReadonlySet<string> {
+    return (this.#doneAgents ??= new Set(
+      listAgents(this.document)
+        .filter((agent) => agent.status === "done")
+        .map((agent) => agent.name),
+    ));
   }
 }

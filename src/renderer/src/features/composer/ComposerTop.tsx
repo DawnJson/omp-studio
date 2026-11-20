@@ -132,7 +132,9 @@ function TopContent({ view }: { view: View }) {
 export function ComposerTop({ task }: { task: TaskState }) {
   const taskId = task.id;
   const label = useTspDerived(taskId, deriveWorkingLabel, Object.is);
-  const agents = useTspDerived(taskId, countActiveAgents, Object.is, AGENT_NODES) ?? 0;
+  // 加上被 IRC 唤醒的子代理：它们的节点还写着 done，不在 countActiveAgents 里（主进程看记录文件，issue #23）。
+  const agents =
+    (useTspDerived(taskId, countActiveAgents, Object.is, AGENT_NODES) ?? 0) + Object.keys(task.revivedSubagents).length;
   const facts = useTspDerived(taskId, deriveComposerFacts, sameComposerFacts);
   const jobs = useTspJobs(taskId);
   // 药丸右半段 = 除子代理外所有运行中的作业（bash、eval、后台 task；shared/tsp/jobs.ts 的 runningJobs）。

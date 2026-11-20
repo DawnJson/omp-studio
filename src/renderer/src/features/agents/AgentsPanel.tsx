@@ -3,7 +3,14 @@
 // 期间面板顶部显示"正在发给 <名字>"，omp 的 Hub 不画出来。
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { AGENT_NODES, focusedAgentName, listAgents, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
+import {
+  AGENT_NODES,
+  focusedAgentName,
+  listAgents,
+  withRevived,
+  type HubAgent,
+} from "../../../../shared/tsp/agent-hub.ts";
+import { useTaskValue } from "../../store/tasks-store.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { IconButton, Tabs, tabPanelProps } from "../../ui/controls.tsx";
@@ -13,7 +20,7 @@ import { useTspDerived, useTspDrive } from "../tsp/tsp-store.ts";
 import { AgentDetail } from "./AgentDetail.tsx";
 import { AgentsActivity } from "./AgentsActivity.tsx";
 import { AgentRow } from "./AgentRow.tsx";
-import { canSteer, sameAgents, sortAgents } from "./agent-model.ts";
+import { canSteer, hubStatus, sameAgents, sortAgents } from "./agent-model.ts";
 import { closeAgentsPanel, selectAgent } from "./agents-store.ts";
 import { SteerBox } from "./SteerBox.tsx";
 import "../file-preview/file-preview.css";
@@ -46,9 +53,14 @@ export function AgentsPanel({
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
   const width = usePreviewWidth();
   const derived = useTspDerived(taskId, listAgents, sameAgents, AGENT_NODES) ?? NO_AGENTS;
+  // 被 IRC 唤醒的子代理（主进程看记录文件，issue #23）：选成字符串，任务状态事件很密、每次都是新对象。
+  const revived = useTaskValue(taskId, (task) => JSON.stringify(task?.revivedSubagents ?? {}));
   // omp 聚焦在某个子代理上时，主界面画的是它的会话，文档里没有 agent 节点，列表是空的（实测 hub-steer 录制）。
   const focusedAgent = useTspDerived(taskId, focusedAgentName, Object.is);
-  const agents = useMemo(() => sortAgents(derived), [derived]);
+  const agents = useMemo(
+    () => sortAgents(withRevived(derived, JSON.parse(revived) as Record<string, number>)),
+    [derived, revived],
+  );
   const driving = useTspDrive(taskId);
   const drive = driving?.kind === "hub" ? driving : null;
   // 没选过就看列表第一个（同 omp 的 Agent Hub：打开时总有一个选中项、详情直接显示）。
@@ -175,7 +187,7 @@ export function AgentsPanel({
           <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />
         )}
       </div>
-      {tab === "agents" && current !== null && canSteer(current.status) && (
+      {tab === "agents" && current !== null && canSteer(hubStatus(current)) && (
         <SteerBox key={current.name} taskId={taskId} name={current.name} busy={drive !== null} />
       )}
     </section>

@@ -84,6 +84,7 @@ import { sessionFileMissing } from "./session-file-missing.ts";
 import { looksLikeConsoleTitle, stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { holdSessionFile, readSessionFile, type SessionFileState } from "../tsp/session-files.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
+import { SubagentRevivalWatch } from "../tsp/subagent-revival-watch.ts";
 import { HubDriver } from "./tsp-hub-driver.ts";
 import type { AnswerTarget, RewindTarget } from "../tsp/session-tree-file.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
@@ -361,6 +362,12 @@ export class TspRunner {
   #fallbackModel: string | null = null;
   /** 会话文件里记的在用订阅账号（CredentialPinTracker，TaskState.credentialPins）。 */
   #credentialPins: Readonly<Record<string, string>> = {};
+  /** 被主代理用 IRC 唤醒、又在跑的子代理（omp 不更新它们的节点，看记录文件；TaskState.revivedSubagents，issue #23）。 */
+  readonly #revival = new SubagentRevivalWatch({
+    changed: () => {
+      this.#publish();
+    },
+  });
 
   constructor(record: TaskRecord, project: Project, host: TspRunnerHost) {
     this.id = record.id;
@@ -431,6 +438,7 @@ export class TspRunner {
       this.#machine.status === "idle" &&
       this.#machine.dialogs.length === 0 &&
       !this.#scansFor(session.document).runningWork &&
+      !this.#revival.active &&
       !isBtwRunning(this.#btw.records)
     );
   }
@@ -494,6 +502,7 @@ export class TspRunner {
       keepAlive: this.keepAlive,
       fallbackModel: this.#fallbackModel,
       credentialPins: this.#credentialPins,
+      revivedSubagents: this.#revival.running,
     };
   }
 
@@ -749,6 +758,7 @@ export class TspRunner {
             this.#observeFacts(document);
             this.#btw.sync(this.#scansFor(document).btwView);
             this.#notifyWaiters(document);
+            this.#revival.sync(this.#currentSessionFile(), this.#scansFor(document).doneAgents);
             this.#syncRestartable();
             this.#syncEditorText(document);
             // 新会话的文件在第一条回复之后才落盘，第一轮可能跑上几个小时：文件一出现就记进任务，不等这一轮结束。
@@ -795,6 +805,7 @@ export class TspRunner {
       this.#observeFacts(session.document);
       this.#btw.sync(this.#scansFor(session.document).btwView);
       this.#notifyWaiters(session.document);
+      this.#revival.sync(this.#currentSessionFile(), this.#scansFor(session.document).doneAgents);
       void this.#refreshCatalog(false);
     } catch (error) {
       if (this.#closing || this.#disposed) {
@@ -856,6 +867,7 @@ export class TspRunner {
     if (this.#session === session) {
       this.#session = null;
       this.#scans = null;
+      this.#revival.reset();
     }
     await session.close();
   }
@@ -871,6 +883,7 @@ export class TspRunner {
     this.#seqBase = this.#finalSnapshot.seq + 1;
     this.#session = null;
     this.#scans = null;
+    this.#revival.reset();
     this.#workspace.reset();
     this.#signal = NO_RUN_SIGNAL;
     this.#loaderText = null;
@@ -920,6 +933,7 @@ export class TspRunner {
     this.#disposed = true;
     await this.close();
     this.#failDocumentWaiters(new Error("task was removed"));
+    this.#revival.reset();
     this.#heldSessionFile?.release();
     this.#heldSessionFile = null;
     await rm(this.#imagesDir(), { recursive: true, force: true });
@@ -1565,7 +1579,8 @@ export class TspRunner {
     if (
       this.#machine.working ||
       this.#machine.dialogs.length > 0 ||
-      (session !== null && this.#scansFor(session.document).runningWork)
+      (session !== null && this.#scansFor(session.document).runningWork) ||
+      this.#revival.active
     )
       throw new Error("the session is busy; wait for the current turn to finish");
   }

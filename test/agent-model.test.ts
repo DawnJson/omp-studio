@@ -1,6 +1,6 @@
 // 子代理面板的展示规则（features/agents/agent-model.ts）：哪些状态能插话 / 结束 / 恢复、排序、状态点映射。
 import { describe, expect, it } from "vitest";
-import type { HubAgent } from "../src/shared/tsp/agent-hub.ts";
+import { withRevived, type HubAgent } from "../src/shared/tsp/agent-hub.ts";
 import {
   agentContextPercent,
   agentElapsed,
@@ -37,6 +37,7 @@ const agent = (name: string, status: HubAgent["status"], stats: Partial<HubAgent
   },
   background: true,
   depth: 0,
+  revived: null,
 });
 
 describe("子代理面板的操作规则", () => {
@@ -86,6 +87,22 @@ describe("子代理面板的操作规则", () => {
     expect(agentProgress(agent("A", "running"))).toBeNull();
     expect(agentProgress(agent("A", "done", { done: 0.9 }))).toBeNull();
     expect(agentProgress(agent("A", "parked", { done: 0.4 }))).toBeNull();
+  });
+
+  it("被 IRC 唤醒的子代理（issue #23）：节点还是 done 的显示成运行中、排前面，不显示上一轮的用时；别的状态不动", () => {
+    const list = withRevived([agent("A", "done", { took: 8713 }), agent("B", "done"), agent("C", "aborted")], {
+      A: 1200,
+      C: 300,
+    });
+    expect(list.map((entry) => `${entry.name}:${entry.status}:${entry.revived}`)).toEqual([
+      "A:running:1200",
+      "B:done:null",
+      "C:aborted:null",
+    ]);
+    expect(agentElapsed(list[0]!)).toBeNull();
+    expect(sortAgents([agent("B", "done"), ...withRevived([agent("A", "done")], { A: 1 })])[0]!.name).toBe("A");
+    const same = [agent("A", "done")];
+    expect(withRevived(same, {})).toBe(same);
   });
 
   it("Ctx 取整成百分比（结束后仍显示，占用是会话的属性）；omp 没给为 null", () => {

@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- When the main agent gives a finished subagent a new task, its row in the subagent panel shows Running and the 👥 count above the input box includes it, instead of staying Done; while it runs the session can't be restarted and isn't closed when idle (#23).
+
 ## [0.10.3] - 2026-11-19
 
 ### Fixed

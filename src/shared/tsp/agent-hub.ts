@@ -89,6 +89,11 @@ export interface HubAgent {
   };
   background: boolean;
   depth: number;
+  /**
+   * 被主代理用 IRC 唤醒、又在跑时记录文件已读到的字节数（TaskState.revivedSubagents，`withRevived` 填上）；没被唤醒为 null。
+   * omp 不更新这种子代理的节点（一直是 done，统计停在上一轮），issue #23。
+   */
+  revived: number | null;
 }
 
 const ASSIGNMENT_ROLE = "omp.task.assignment";
@@ -136,6 +141,7 @@ function toAgent(node: DocNode, nodes: ReadonlyMap<string, DocNode>): HubAgent |
     },
     background: badges.some((badge: unknown) => isRecord(badge) && badge["text"] === "background"),
     depth: finiteNumber(p["depth"]) ?? 0,
+    revived: null,
   };
 }
 
@@ -170,6 +176,18 @@ export function listAgents(doc: TspDocument): HubAgent[] {
     }
   }
   return [...byName.values()];
+}
+
+/** 叠上被唤醒的子代理（TaskState.revivedSubagents）：节点还写着 done 的当作运行中。没有唤醒的原样返回同一个数组。 */
+export function withRevived(
+  agents: readonly HubAgent[],
+  revived: Readonly<Record<string, number>>,
+): readonly HubAgent[] {
+  if (Object.keys(revived).length === 0) return agents;
+  return agents.map((agent) => {
+    const bytes = revived[agent.name];
+    return bytes === undefined || agent.status !== "done" ? agent : { ...agent, status: "running", revived: bytes };
+  });
 }
 
 /** 运行中（还没结束、也没被结束）。 */

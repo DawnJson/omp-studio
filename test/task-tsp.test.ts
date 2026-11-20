@@ -1,7 +1,7 @@
 // 任务池 + TSP 任务：TspRunner 的生命周期和状态推导、会话文件和标题、老 rpc 任务的迁移。
 // 进程是 test/fake-omp/fake-tsp-omp.ts（伪终端里回放 fixtures/tsp 的录制）。
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -614,6 +614,56 @@ describe("任务池：TSP 任务", () => {
     await h.pool.restartTask(created.id);
     expect(h.launches).toEqual([{ sessionFile: null }, { sessionFile }]);
     expect(h.events.statuses(created.id).slice(-3)).toEqual(["stopped", "starting", "idle"]);
+  }, 60_000);
+
+  it("已完成的子代理被 IRC 唤醒（issue #23）：节点还是 done，记录文件接着写时进 revivedSubagents、不能重开；又结束后退出", async () => {
+    const sessionFile = path.join(scratch, "sessions 唤醒", "w.jsonl");
+    const record = path.join(scratch, "sessions 唤醒", "w", "FixOps.jsonl");
+    await mkdir(path.dirname(record), { recursive: true });
+    await writeFile(sessionFile, "{}\n");
+    const line = (entry: object) => `${JSON.stringify(entry)}\n`;
+    const assistant = (stopReason: string) =>
+      line({ type: "message", message: { role: "assistant", stopReason, content: [] } });
+    await writeFile(record, line({ type: "message", message: { role: "user", content: "fix" } }) + assistant("stop"));
+    const send = recordedUserEvents(loadTspFixture("task")).find((entry) => entry.event["ev"] === "send");
+    if (typeof send?.event["text"] !== "string") throw new Error("unexpected task fixture");
+    const h = await harness();
+    h.next.fixture = "task";
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile };
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.pool.sendPrompt(created.id, { text: send.event["text"], whenBusy: "steer" });
+    await h.events.until(
+      created.id,
+      (state) => state.status === "idle" && state.lastTurn !== null && state.restartable,
+    );
+    const done = () =>
+      listAgents(restoreDocument(h.pool.getTspSnapshot(created.id).document)).find((a) => a.name === "FixOps")?.status;
+    await vi.waitFor(() => expect(done()).toBe("done"), { timeout: 10_000 });
+
+    // 和 omp 一样一直开着句柄往里追加（Windows 上这种写入目录监视收不到，只能靠 stat）。
+    const writer = await open(record, "a");
+    try {
+      const toolUse = line({ type: "message", message: { role: "assistant", stopReason: "toolUse", content: [] } });
+      await writer.appendFile(
+        line({ type: "custom_message", customType: "irc:incoming", content: "<irc>again</irc>" }) + toolUse,
+      );
+      const woken = await h.events.until(created.id, (state) => state.revivedSubagents["FixOps"] !== undefined);
+      expect(woken.restartable).toBe(false);
+      await expect(h.pool.restartTask(created.id)).rejects.toThrow("busy");
+      await writer.appendFile(toolUse);
+      await h.events.until(
+        created.id,
+        (state) => (state.revivedSubagents["FixOps"] ?? 0) > woken.revivedSubagents["FixOps"]!,
+      );
+
+      await writer.appendFile(assistant("stop"));
+      const after = await h.events.until(created.id, (state) => Object.keys(state.revivedSubagents).length === 0);
+      expect(after.restartable).toBe(true);
+      expect(done()).toBe("done");
+    } finally {
+      await writer.close();
+    }
   }, 60_000);
 
   it("没有会话文件的任务不能分叉；模型目录来自服务进程", async () => {

@@ -15,7 +15,15 @@ import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
 import { formatCost } from "../tsp/fmt.ts";
 import { formatTokens, shortModel } from "./format.ts";
-import { agentContextPercent, agentProgress, canFocus, canKill, canRevive, cleanTask } from "./agent-model.ts";
+import {
+  agentContextPercent,
+  agentProgress,
+  canFocus,
+  canKill,
+  canRevive,
+  cleanTask,
+  hubStatus,
+} from "./agent-model.ts";
 import { focusAgent, killAgent, reviveAgent } from "./agents-actions.ts";
 import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
 
@@ -136,7 +144,12 @@ function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRe
 export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: HubAgent; busy: boolean }) {
   const t = useT();
   // 运行中每多一次工具调用重读一次记录（omp 的 Hub 也是实时的"最近活动"）；结束时再读一次拿最终输出。
-  const recordState = useAgentRecord(taskId, agent.name, `${agent.status}:${agent.stats.tools ?? 0}`);
+  // 被唤醒的子代理节点不动（issue #23），按记录文件读到的字节数重读。
+  const recordState = useAgentRecord(
+    taskId,
+    agent.name,
+    `${agent.status}:${agent.stats.tools ?? 0}:${agent.revived ?? ""}`,
+  );
   const { record } = recordState;
   const thinkingKey = agent.thinking === null ? undefined : thinkingLabel[agent.thinking];
   const output = record?.output?.trim() ?? "";
@@ -168,7 +181,7 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
             </Badge>
           )}
         </span>
-        {canFocus(agent.status) && (
+        {canFocus(hubStatus(agent)) && (
           <Button
             size="sm"
             variant="primary"
@@ -179,8 +192,8 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
             {t("agents.focus")}
           </Button>
         )}
-        {canKill(agent.status) && <KillControl taskId={taskId} name={agent.name} busy={busy} />}
-        {canRevive(agent.status) && (
+        {canKill(hubStatus(agent)) && <KillControl taskId={taskId} name={agent.name} busy={busy} />}
+        {canRevive(hubStatus(agent)) && (
           <Button
             size="sm"
             testId="agents-revive"

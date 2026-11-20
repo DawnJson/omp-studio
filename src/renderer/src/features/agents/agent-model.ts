@@ -49,8 +49,17 @@ export function canRevive(status: AgentStatus): boolean {
   return status === "aborted" || status === "parked";
 }
 
-/** 运行中的已用时间 / 结束后的总时间（毫秒）；都没有为 null。 */
+/**
+ * 操作（进入对话、插话、结束、恢复）按 omp 那边的状态判断：被唤醒的子代理（`revived`）在 omp 的节点上还是 done，
+ * omp 的 Hub 能不能对它聚焦 / 插话 / 结束没测过（issue #23），按 done 处理，只是显示成运行中。
+ */
+export function hubStatus(agent: HubAgent): AgentStatus {
+  return agent.revived === null ? agent.status : "done";
+}
+
+/** 运行中的已用时间 / 结束后的总时间（毫秒）；都没有为 null。被唤醒的子代理也为 null：omp 给的还是上一轮的用时（issue #23）。 */
 export function agentElapsed(agent: HubAgent): number | null {
+  if (agent.revived !== null) return null;
   return agent.stats.took ?? agent.stats.age;
 }
 

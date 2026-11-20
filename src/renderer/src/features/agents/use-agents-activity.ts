@@ -18,7 +18,7 @@ export interface AgentsActivityState {
   loading: boolean;
 }
 
-const cacheKey = (agent: HubAgent): string => `${agent.status}:${agent.stats.tools ?? 0}`;
+const cacheKey = (agent: HubAgent): string => `${agent.status}:${agent.stats.tools ?? 0}:${agent.revived ?? ""}`;
 
 /** `enabled` 为假（不在 Activity 页）时不读。 */
 export function useAgentsActivity(taskId: TaskId, agents: readonly HubAgent[], enabled: boolean): AgentsActivityState {

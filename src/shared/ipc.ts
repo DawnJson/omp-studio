@@ -450,6 +450,11 @@ export interface TaskState {
    * 和 QuotaAccount.identityHash 对上的那个账号就是在用的；还没用过订阅账号是空表。
    */
   credentialPins: Readonly<Record<string, string>>;
+  /**
+   * 被主代理用 IRC 唤醒、又在跑的子代理：名字 → 记录文件已读到的字节数（每写一点就变，面板拿它当重读记录的键）。
+   * omp 不更新这些子代理的 `agent` 节点（一直是 done），主进程看记录文件判断（issue #23）；没有为空表。
+   */
+  revivedSubagents: Readonly<Record<string, number>>;
 }
 
 /** omp 的自动压缩（上下文圆环上的刻度和构成浮层里的说明）。百分数都是占上下文窗口的比例（0–100）。 */

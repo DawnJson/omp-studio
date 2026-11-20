@@ -125,6 +125,7 @@ function makeTask(status: TaskState["status"]): TaskState {
     keepAlive: false,
     fallbackModel: null,
     credentialPins: {},
+    revivedSubagents: {},
     restartable: false,
     loaderText: null,
     prNumber: null,

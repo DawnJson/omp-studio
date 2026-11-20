@@ -4,7 +4,7 @@
 // 渲染进程发对了事件;另外用 --log 断言它收到了什么。
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -2898,6 +2898,65 @@ test("目标条(TSP,omp 18.12.5 录制):/goal 由 studio 接管,目标条读输�
     ]);
   } finally {
     await cleanup();
+  }
+});
+
+// issue #23:已完成的子代理被主代理用 IRC 唤醒后,omp 的 agent 节点还写着 done(omp 19.0.1 实测),studio 看它的记录文件。
+// 回放 task 录制(FixOps 跑完),再往 FixOps.jsonl 里照 omp 的格式追加"收到 IRC"和"又结束"两条。
+test("子代理被 IRC 唤醒:节点还是 done,记录文件接着写时面板那一行是运行中、不显示上一轮用时,👥 计 1、不能重开;又结束后回到已完成", async () => {
+  test.setTimeout(120_000);
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp revive e2e-"));
+  const sessionFile = path.join(scratch, "会话 文件.jsonl");
+  const record = path.join(scratch, "会话 文件", "FixOps.jsonl");
+  const line = (entry: object) => `${JSON.stringify(entry)}\n`;
+  await writeFile(sessionFile, "{}\n");
+  await mkdir(path.dirname(record));
+  await writeFile(
+    record,
+    line({ type: "message", message: { role: "user", content: "fix" } }) +
+      line({ type: "message", message: { role: "assistant", stopReason: "stop", content: [] } }),
+  );
+  const { launched, cleanup } = await start("task", { FAKE_TSP_SESSION_FILE: sessionFile });
+  try {
+    const { page } = launched;
+    await sendFirst(page, TASK_PROMPT);
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 60_000 });
+    await page.getByTestId("topbar-agents").click();
+    const row = page.locator('[data-testid="agents-row"][data-name="FixOps"]');
+    const status = row.locator(".agents-row-status");
+    await expect(status).toHaveAttribute("data-status", "done");
+    await expect(row.getByTestId("agents-row-time")).toBeVisible();
+    const restart = page.getByTestId("topbar-restart");
+    await expect(restart).toBeEnabled();
+
+    // 收到 IRC 之后要等第一次工具调用才算在跑（plan mode 下 omp 只记下 IRC、不唤醒，见 subagent-revival.ts）。
+    await appendFile(record, line({ type: "custom_message", customType: "irc:incoming", content: "<irc>again</irc>" }));
+    await appendFile(
+      record,
+      line({ type: "message", message: { role: "assistant", stopReason: "toolUse", content: [] } }),
+    );
+    await expect(status).toHaveAttribute("data-status", "running", { timeout: 10_000 });
+    await expect(row.getByTestId("agents-row-time")).toHaveCount(0);
+    await expect(page.getByTestId("pill-agents")).toHaveAttribute("data-count", "1");
+    await expect(restart).toBeDisabled();
+    // 进入对话、结束、插话要经过 omp 的 Hub，omp 那边它还是 done：按 done 处理，不给。
+    await row.click();
+    await expect(page.getByTestId("agents-detail")).toHaveAttribute("data-name", "FixOps");
+    await expect(page.getByTestId("agents-focus")).toHaveCount(0);
+    await expect(page.getByTestId("agents-kill")).toHaveCount(0);
+    await expect(page.getByTestId("agents-steer")).toHaveCount(0);
+
+    await appendFile(
+      record,
+      line({ type: "message", message: { role: "assistant", stopReason: "stop", content: [] } }),
+    );
+    await expect(status).toHaveAttribute("data-status", "done", { timeout: 10_000 });
+    await expect(row.getByTestId("agents-row-time")).toBeVisible();
+    await expect(page.getByTestId("pill-agents")).toHaveCount(0);
+    await expect(restart).toBeEnabled();
+  } finally {
+    await cleanup();
+    await rm(scratch, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 
