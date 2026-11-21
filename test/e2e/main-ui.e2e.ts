@@ -317,10 +317,11 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
     await expect(page.getByTestId("sidebar")).not.toContainText("chats");
     await expect(page.getByTestId("sidebar-new-task")).not.toHaveAttribute("aria-current", "page");
 
-    // 之后 Ctrl N 还是默认文件夹（不沿用刚才的项目也一样是它）；项目标签直接写它的路径。
+    // 之后 Ctrl N 还是默认文件夹（不沿用刚才的项目也一样是它）；项目标签写最后两级，悬停提示完整路径。
     await page.keyboard.press("Control+n");
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
-    await expect(page.getByTestId("empty-project")).toHaveText(chats);
+    await expect(page.getByTestId("empty-project")).toHaveText(path.join(path.basename(userDataDir), "chats"));
+    await expect(page.getByTestId("empty-project")).toHaveAttribute("title", chats);
   } finally {
     await launched.close();
   }

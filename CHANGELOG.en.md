@@ -13,6 +13,7 @@ How to write it:
 ### Changed
 
 - Scrolling up in the conversation now shows "Jump to latest" right away instead of only after new content arrives; it goes away when you scroll back to the bottom or click it.
+- The folder below the input box shows only the parent and current folder (e.g. `code\omp-studio`); hover to see the full path.
 
 ### Fixed
 
