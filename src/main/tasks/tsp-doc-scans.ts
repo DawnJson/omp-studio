@@ -1,10 +1,18 @@
 // TspRunner 每应用一条 TSP 消息都要推导的几项里，有五项要把活 surface 的全部节点扫一遍（待办 HUD、状态 toast 文字、
 // 旁路提问弹窗、还在跑的工具 / 子代理、已完成的子代理）。对话越长扫得越多，而流式输出的绝大多数消息只改正文节点、和这几项无关。
 // 这里按消息的 ApplyResult.changed 判断相关节点有没有变（NodeWatch），没变就直接给上一次的结果，变了才重扫。
-// 各项只读：活 surface（o / x 才变）里某些 kind 的节点自己的记录；旁路弹窗另读整棵子树（答案流式追加在很深的 md 里），
-// 所以再从每个变了的节点往上找祖先 overlay。删子树时每个后代都进 changed、它的父节点也换了记录，删掉的部分照样能发现。
+// 各项只读：活 surface（o / x 才变）里某些 kind 的节点自己的记录；旁路提问的弹窗和便签另读整棵子树（答案流式追加在很深的 md 里），
+// 所以再从每个变了的节点往上找祖先 overlay / 便签。删子树时每个后代都进 changed、它的父节点也换了记录；弹窗和便签的根节点由
+// NodeWatch 记着，删掉的部分照样能发现。
 import { listAgents } from "../../shared/tsp/agent-hub.ts";
-import { findBtwView, type BtwView } from "../../shared/tsp/btw.ts";
+import {
+  BTW_NOTE_ROLES,
+  findBtwNotes,
+  findBtwView,
+  isBtwHiddenNode,
+  type BtwNote,
+  type BtwView,
+} from "../../shared/tsp/btw.ts";
 import { statusToastTexts } from "../../shared/tsp/composer-state.ts";
 import type { ApplyResult, TspDocMessage, TspDocument } from "../../shared/tsp/document.ts";
 import { NodeWatch } from "../../shared/tsp/node-watch.ts";
@@ -17,11 +25,12 @@ export class TspDocScans {
   readonly #todoWatch: NodeWatch;
   readonly #toastWatch: NodeWatch;
   readonly #workWatch: NodeWatch;
-  readonly #overlayWatch: NodeWatch;
+  readonly #btwWatch: NodeWatch;
   // undefined = 相关节点变过，下次读时重扫。
   #todoPhases: TodoPhase[] | undefined;
   #toastTexts: string[] | undefined;
   #btwView: BtwView | null | undefined;
+  #btwNotes: BtwNote[] | undefined;
   #runningWork: boolean | undefined;
   #doneAgents: ReadonlySet<string> | undefined;
 
@@ -30,7 +39,7 @@ export class TspDocScans {
     this.#todoWatch = new NodeWatch(document, { kinds: ["checklist"] });
     this.#toastWatch = new NodeWatch(document, { kinds: ["toast"] });
     this.#workWatch = new NodeWatch(document, { kinds: ["tool", "agent"] });
-    this.#overlayWatch = new NodeWatch(document, { kinds: ["overlay"] });
+    this.#btwWatch = new NodeWatch(document, { kinds: ["overlay"], roles: BTW_NOTE_ROLES });
   }
 
   /** 一条消息应用之后调用（TspSession 的 onChange）。 */
@@ -49,11 +58,14 @@ export class TspDocScans {
       this.#runningWork = undefined;
       this.#doneAgents = undefined;
     }
-    if (this.#overlayWatch.update(doc, changed, reset).size > 0 || this.#insideOverlay(changed))
+    if (this.#btwWatch.update(doc, changed, reset).size > 0 || this.#insideBtw(changed)) {
       this.#btwView = undefined;
+      this.#btwNotes = undefined;
+    }
   }
 
-  #insideOverlay(changed: ApplyResult["changed"]): boolean {
+  /** 变了的节点在不在 overlay（旁路提问弹窗）或旁路提问便签（omp 19，main 里）里。 */
+  #insideBtw(changed: ApplyResult["changed"]): boolean {
     for (const [sf, ids] of changed) {
       const nodes = this.document.surfaces.get(sf)?.nodes;
       if (!nodes) continue;
@@ -63,7 +75,7 @@ export class TspDocScans {
           node !== undefined;
           node = node.parent === null ? undefined : nodes.get(node.parent)
         )
-          if (node.k === "overlay") return true;
+          if (node.k === "overlay" || isBtwHiddenNode(node)) return true;
       }
     }
     return false;
@@ -83,6 +95,11 @@ export class TspDocScans {
   get btwView(): BtwView | null {
     if (this.#btwView === undefined) this.#btwView = findBtwView(this.document);
     return this.#btwView;
+  }
+
+  /** findBtwNotes；没变时是同一个数组。 */
+  get btwNotes(): BtwNote[] {
+    return (this.#btwNotes ??= findBtwNotes(this.document));
   }
 
   /** hasRunningWork。 */

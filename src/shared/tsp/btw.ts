@@ -12,6 +12,12 @@
 // - 弹窗底栏是 `omp.btn` 按钮，`actions.click` 是动作名：stop（回答中）/ close / follow-up / copy-answer；追问时多出
 //   `omp.btw.composer` 里的 `input`（`sendable` 为 false 时 `send` 事件是空操作，所以先发 `edit` 填字再点 `send` 按钮）和 discard / send。
 // - 弹窗不会自己消失：要发 `action close`（omp 回头把焦点还给主输入框）。主输入框的 `send` 在弹窗开着时照常提交（追问输入框打开时除外）。
+// - omp 19（实测 19.0.1，2026-11-21，录制 fixtures/tsp/btw-19.jsonl）：`/btw <问题>` 不再开弹窗，改在 main 末尾插一张**便签**
+//   （`col role="omp.btw.note"`，被点成输入框目标时 role 是 `omp.btw.note.active`，收起时整张换成一行 `omp.btw.note.folded`）：
+//   头上 `omp.btw.note.question` 是话题（record.title ?? 第一问），每一问一个 `omp.btw.note.turn`（第二问起开头是 `omp.btw.followup`
+//   的 md，答案 md 或 `omp.btw.pending`，失败时 `omp.btw.error`），最后 `omp.btw.note.status` 是**最新一问**的状态词（完成时没有这一行）。
+//   便签里没有话题 id；点击和右键菜单发 `action`，`act` 是 `btw-stop` / `btw-focus` / `btw-fold` 等（omp 的 btw-note.ts）。
+//   裸 `/btw` 仍开上面那个历史弹窗，追问照旧走弹窗。
 // role、动作名、状态词都是 omp 自己的、不在 TSP 规范里：omp 改名这里就失效，所以判断全部集中在这个文件（gate.ts 同理）。
 import type { BtwHistoryRecord, BtwHistoryTurn, BtwStatus } from "../omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../type-guards.ts";
@@ -27,6 +33,15 @@ import {
 } from "./document.ts";
 
 const BTW_OVERLAY_ROLE = "omp.overlay.btwHistory";
+/** 展开的便签根节点的 role（被点成输入框目标时是 `.active`）。 */
+export const BTW_NOTE_ROLES = ["omp.btw.note", "omp.btw.note.active"] as const;
+const NOTE_ROLES: ReadonlySet<string> = new Set(BTW_NOTE_ROLES);
+const FOLDED_NOTE_ROLE = "omp.btw.note.folded";
+const NOTE_QUESTION_ROLE = "omp.btw.note.question";
+const NOTE_TURN_ROLE = "omp.btw.note.turn";
+const NOTE_STATUS_ROLE = "omp.btw.note.status";
+/** 便签上"停止回答"的动作（右键菜单项的 id，发成 `action` 事件的 `act`）。 */
+const NOTE_STOP_ACT = "btw-stop";
 const THREAD_ROLE = "omp.btw.thread";
 const TURN_ROLE = "omp.btw.turn";
 const QUESTION_ROLE = "omp.btw.question";
@@ -52,9 +67,10 @@ export function isProvisionalBtwId(id: string): boolean {
   return id.startsWith(PROVISIONAL_BTW_PREFIX);
 }
 
-/** 渲染进程：这个节点是 omp 的旁路提问弹窗，studio 的面板已经显示了它，不画。 */
-export function isBtwOverlayNode(node: { readonly p: Readonly<Record<string, unknown>> }): boolean {
-  return node.p["role"] === BTW_OVERLAY_ROLE;
+/** 渲染进程：这个节点是 omp 的旁路提问弹窗或便签（含收起的一行），studio 的面板已经显示了它，不画。 */
+export function isBtwHiddenNode(node: { readonly p: Readonly<Record<string, unknown>> }): boolean {
+  const role = node.p["role"];
+  return role === BTW_OVERLAY_ROLE || role === FOLDED_NOTE_ROLE || (typeof role === "string" && NOTE_ROLES.has(role));
 }
 
 // ───────── 读弹窗 ─────────
@@ -166,7 +182,7 @@ export function findBtwView(doc: TspDocument): BtwView | null {
   let found: BtwView | null = null;
   for (const surface of liveSurfaces(doc)) {
     for (const overlay of treeNodes(surface)) {
-      if (overlay.k !== "overlay" || !isBtwOverlayNode(overlay)) continue;
+      if (overlay.k !== "overlay" || nodeRole(overlay) !== BTW_OVERLAY_ROLE) continue;
       const view: BtwView = {
         sf: surface.id,
         overlayId: overlay.id,
@@ -209,6 +225,76 @@ export function btwViewRunning(view: BtwView): boolean {
   return view.turns.some((turn) => turn.status === "running");
 }
 
+// ───────── omp 19 的便签 ─────────
+
+/** main 里一张展开的便签（收起的那一行没有内容，不读）。 */
+export interface BtwNote {
+  sf: string;
+  /** 便签节点 id（`action` 事件的目标）。 */
+  id: string;
+  turns: BtwViewTurn[];
+}
+
+function readNoteTurn(surface: DocSurface, turn: DocNode, question: string, status: BtwStatus): BtwViewTurn {
+  let kind: BtwViewTurn["kind"] = "question";
+  let error: string | undefined;
+  const answers: string[] = [];
+  for (const id of turn.c) {
+    const child = surface.nodes.get(id);
+    if (!child) continue;
+    const role = nodeRole(child);
+    if (role === FOLLOW_UP_ROLE) {
+      question = nodeText(child);
+      kind = "followUp";
+    } else if (role === ERROR_ROLE) {
+      error = nodeText(child);
+    } else if (role !== PENDING_ROLE) {
+      subtree(surface, child.id, (node) => {
+        if (node.k === "col" || nodeRole(node) === PENDING_ROLE) return;
+        const text = nodeText(node);
+        if (text !== "") answers.push(text);
+      });
+    }
+  }
+  return { kind, question, status, answer: answers.join("\n\n"), error };
+}
+
+/**
+ * main 里展开的旁路提问便签，按文档顺序。状态词只有最新一问的；更早的一问失败的有 `omp.btw.error`，其余按 complete 算
+ * （镜像里已有的状态由 viewToRecord 保留）。
+ */
+export function findBtwNotes(doc: TspDocument): BtwNote[] {
+  const notes: BtwNote[] = [];
+  for (const surface of liveSurfaces(doc)) {
+    for (const note of treeNodes(surface)) {
+      const role = nodeRole(note);
+      if (role === null || !NOTE_ROLES.has(role)) continue;
+      let topic = "";
+      let status = "";
+      const turnNodes: DocNode[] = [];
+      subtree(surface, note.id, (node) => {
+        const inner = nodeRole(node);
+        if (inner === NOTE_QUESTION_ROLE) topic = nodeText(node);
+        else if (inner === NOTE_STATUS_ROLE) status = nodeText(node);
+        else if (inner === NOTE_TURN_ROLE) turnNodes.push(node);
+      });
+      const latest = btwStatusFromMeta(status);
+      const turns = turnNodes.map((turn, index) => {
+        const last = index === turnNodes.length - 1;
+        const read = readNoteTurn(surface, turn, topic, last ? latest : "complete");
+        return !last && read.error !== undefined ? { ...read, status: "error" as const } : read;
+      });
+      notes.push({ sf: surface.id, id: note.id, turns });
+    }
+  }
+  return notes;
+}
+
+/** 便签上的"停止回答"。 */
+export function btwNoteStopEvent(note: BtwNote): { ev: "action"; sf: string; id: string; act: string } {
+  return { ev: "action", sf: note.sf, id: note.id, act: NOTE_STOP_ACT };
+}
+
 // ───────── 要发给 omp 的事件 ─────────
 
 type ButtonEvent = { ev: "action"; sf: string; id: string; act: BtwAct };
@@ -243,41 +329,49 @@ export function normalizeBtwQuestion(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
 
-// ───────── 弹窗 → 镜像里的记录 ─────────
+// ───────── 弹窗 / 便签 → 镜像里的记录 ─────────
 
-function turnOf(view: BtwViewTurn, base: BtwHistoryTurn | undefined, now: number): BtwHistoryTurn {
+/** 弹窗或便签里的一个话题（便签没有 list）。 */
+export type BtwTopicView = { readonly turns: readonly BtwViewTurn[]; readonly list?: BtwViewList | null };
+
+function turnOf(view: BtwViewTurn, base: BtwHistoryTurn | undefined, now: number, last: boolean): BtwHistoryTurn {
+  // 便签只画最新一问的状态词：更早的一问以镜像里已经收尾的状态为准（比如被取消的那一问）。
+  const status =
+    !last && base !== undefined && base.question === view.question && base.status !== "running"
+      ? base.status
+      : view.status;
   const same =
     base !== undefined &&
     base.question === view.question &&
     base.answer === view.answer &&
-    base.status === view.status &&
+    base.status === status &&
     base.error === view.error;
   return {
     question: view.question,
     answer: view.answer,
-    status: view.status,
+    status,
     createdAt: base?.createdAt ?? now,
     updatedAt: same ? base.updatedAt : now,
     ...(view.error !== undefined ? { error: view.error } : {}),
   };
 }
 
-/** 弹窗里的这个话题 → BtwHistoryRecord；`base` 是镜像里已有的同 id 记录（保留创建时间、leafId）。 */
+/** 弹窗或便签里的这个话题 → BtwHistoryRecord；`base` 是镜像里已有的同 id 记录（保留创建时间、leafId）。 */
 export function viewToRecord(
-  view: BtwView,
+  view: BtwTopicView,
   id: string,
   base: BtwHistoryRecord | undefined,
   now: number,
 ): BtwHistoryRecord | null {
   const [first, ...rest] = view.turns;
   if (!first) return null;
-  const head = turnOf(first, base, now);
-  const followUps = rest.map((turn, index) => turnOf(turn, base?.followUps?.[index], now));
+  const head = turnOf(first, base, now, rest.length === 0);
+  const followUps = rest.map((turn, index) => turnOf(turn, base?.followUps?.[index], now, index === rest.length - 1));
   return { id, leafId: base?.leafId ?? null, ...head, ...(followUps.length > 0 ? { followUps } : {}) };
 }
 
-/** 弹窗里的话题对应镜像里的哪条：list 选中项的 id；只有一个话题（没有 list）时按第一问的文字找，最新的优先。 */
-export function resolveViewRecordId(view: BtwView, records: readonly BtwHistoryRecord[]): string | null {
+/** 弹窗里的话题对应镜像里的哪条：list 选中项的 id；只有一个话题（没有 list）或便签时按第一问的文字找，最新的优先。 */
+export function resolveViewRecordId(view: BtwTopicView, records: readonly BtwHistoryRecord[]): string | null {
   if (view.list?.selected) return view.list.selected;
   const first = view.turns[0];
   if (!first) return null;

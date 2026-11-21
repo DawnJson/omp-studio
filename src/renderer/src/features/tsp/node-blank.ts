@@ -3,7 +3,7 @@
 import type { DocNode } from "../../../../shared/tsp/document.ts";
 import { ASK_BUTTON_ROLE } from "../../../../shared/tsp/ask-gate.ts";
 import { ERROR_BANNER_ROLE, isOmpErrorDuplicate } from "../../../../shared/tsp/error-turn.ts";
-import { isBtwOverlayNode } from "../../../../shared/tsp/btw.ts";
+import { isBtwHiddenNode } from "../../../../shared/tsp/btw.ts";
 import { isApprovalDuplicateButton } from "../../../../shared/tsp/gate.ts";
 import { TODO_HUD_ROLE } from "../../../../shared/tsp/todos.ts";
 import { HIDDEN_HUD_ROLES } from "../../../../shared/tsp/working.ts";
@@ -20,7 +20,7 @@ const OMP_WELCOME_ROLE = "omp.welcome";
 export const RECAP_ROLE = "omp.recap";
 // omp 的 HUD（`omp.hud` 作业 / 子代理胶囊、`omp.hud.activity` 运行状态行 + 待办药丸，HIDDEN_HUD_ROLES）不画：输入框上方是 studio 自己的 ComposerTop（composer/ComposerTop.tsx，药丸 + 状态行 + 待办板），数据同源（shared/tsp/{working,jobs,agent-hub,todos}.ts）。
 // omp 错误卡的"Retry F5"和 dock 里的错误横幅（isOmpErrorDuplicate；横幅只在有错误卡时不画）也不画：错误文字以卡片为准，重试只留 studio 的按钮（session-info/RetryButton.tsx）；F5 照常转发。
-// omp 的旁路提问弹窗（role omp.overlay.btwHistory，isBtwOverlayNode）也不画：旁路提问是 studio 的 BtwPanel（features/btw），数据同源（shared/tsp/btw.ts）。
+// omp 的旁路提问弹窗和便签（role omp.overlay.btwHistory、omp 19 起 main 里的 omp.btw.note*，isBtwHiddenNode）也不画：旁路提问是 studio 的 BtwPanel（features/btw），数据同源（shared/tsp/btw.ts）。
 // 审批卡底栏的 Deny / Approve 按钮（isApprovalDuplicateButton）不画：和选项列表重复；批准键 Ctrl+Enter 在输入框占位符里说明。
 
 /** 只看记录就知道 studio 不画的节点（TspNode 直接返回 null）。 */
@@ -28,7 +28,7 @@ export function neverDrawn(node: DocNode): boolean {
   const role = node.p["role"];
   if (role === OMP_COMPOSER_ROLE || role === OMP_WELCOME_ROLE || role === TODO_HUD_ROLE) return true;
   if (typeof role === "string" && HIDDEN_HUD_ROLES.has(role)) return true;
-  return isBtwOverlayNode(node) || isOmpErrorDuplicate(node, false) || isApprovalDuplicateButton(node);
+  return isBtwHiddenNode(node) || isOmpErrorDuplicate(node, false) || isApprovalDuplicateButton(node);
 }
 
 /** 画不画还要看对话整体的两个节点：错误横幅（有没有收尾的错误卡）和回顾行（是不是最新的一条）；用到时才读。 */

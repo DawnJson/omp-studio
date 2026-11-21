@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- With omp 19, side questions (`/btw`) no longer fail after about 8 seconds with "omp did not open the side question"; asking, following up and cancelling work again, and omp's side-question notes no longer show in the conversation next to the panel.
+
 ## [0.10.4] - 2026-11-20
 
 ### Fixed

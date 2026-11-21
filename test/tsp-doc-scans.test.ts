@@ -1,9 +1,9 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { TspDocScans } from "../src/main/tasks/tsp-doc-scans.ts";
-import { findBtwView } from "../src/shared/tsp/btw.ts";
+import { findBtwNotes, findBtwView } from "../src/shared/tsp/btw.ts";
 import { statusToastTexts } from "../src/shared/tsp/composer-state.ts";
-import { applyMessage, createDocument } from "../src/shared/tsp/document.ts";
+import { applyMessage, createDocument, type TspDocMessage } from "../src/shared/tsp/document.ts";
 import { hasRunningWork } from "../src/shared/tsp/task-status.ts";
 import { deriveTodoPhases } from "../src/shared/tsp/todos.ts";
 import { loadTspFixture, tspDocMessages, tspFixtureDir } from "./tsp-fixtures.ts";
@@ -21,7 +21,20 @@ describe("TspDocScans：按 changed 跳过重扫，结果和每条消息都整�
       expect(scans.todoPhases).toEqual(deriveTodoPhases(doc));
       expect(scans.toastTexts).toEqual(statusToastTexts(doc));
       expect(scans.btwView).toEqual(findBtwView(doc));
+      expect(scans.btwNotes).toEqual(findBtwNotes(doc));
       expect(scans.runningWork).toBe(hasRunningWork(doc));
     }
   });
+});
+
+it("omp 19 的旁路提问便签被删掉（omp 重建对话时）：缓存跟着失效", () => {
+  const doc = createDocument();
+  const scans = new TspDocScans(doc);
+  for (const { message } of tspDocMessages(loadTspFixture("btw-19")))
+    scans.observe(message, applyMessage(doc, message));
+  const notes = scans.btwNotes;
+  expect(notes.length).toBe(3);
+  const del: TspDocMessage = { verb: "f", body: { sf: "s:1", s: 1_000_000, ops: [["del", notes[1]!.id]] } };
+  scans.observe(del, applyMessage(doc, del));
+  expect(scans.btwNotes.map((note) => note.id)).toEqual([notes[0]!.id, notes[2]!.id]);
 });

@@ -8,6 +8,7 @@
 - **按钮的两种形状**：studio 在 hello 里声明了 `button`，omp ≥18.14.2 把门里的按钮发成 `button` 节点（role 仍是 `omp.btn`，文字、`keys`、`variant`、`actions.click` 在 props 里，没有子节点；审批 Details 点开后文字变 `Less`），更早的 omp 发 `row omp.btn`（子节点是文字和 `kbd`）。实测 omp 18.18.6：审批卡 `t.actions/expand|deny|approve`、提问底栏 `t.actions/hide|cancel|submit`、`/context` 的 Close 都是 `button`。`gate.ts`、`btw.ts`、`context-report.ts` 只看 role 和 `actions.click`，两种都认（`test/tsp-gate.test.ts`、`test/context-report.test.ts` 用新录制钉住）。
 - **渲染**：`features/tsp/interactive/AskGate.tsx`（提问，含多题 / 多选 / Review 页）；按钮由 `interactive/Button.tsx` 画成真 `<button>`（两种形状同一个组件，点 = 节点自己的 `actions.click`，`disabled` / `busy` 不发，不抢焦点）；键盘由对话框根节点接，按键编码后写进伪终端（`keys.ts`）。纯函数在 `src/shared/tsp/ask-gate.ts`、`gate.ts`。
 - **输入框的行为**（`shared/tsp/gate.ts` 的 `findMessageTarget`）：提问在等时输入框不能发送（placeholder 提示先回答）；审批在等时输入框里写的字 = 拒绝并说明理由，omp 把这条消息当插话交给模型（omp 18.12.5 实测，[tsp-real-omp-probes.md](tsp-real-omp-probes.md) §14）；Ctrl+Enter 批准，Ctrl+O 看详情；焦点在门里时 Esc 写给 omp（由 omp 决定），焦点在输入框时 Esc 走 spec §5.2（停止）。
+- **omp 19 的提问**（实测 19.0.1，2026-11-21，只跑了真实 omp、没有录 fixture）：提问不再换掉 dock 里的输入框，改成 main 里的一张表单卡 `col role=omp.ask.card`（`omp.ask.open` → `omp.ask.field` → `list omp.ask.options`，选项仍是 `omp.ask.option`，底栏 `omp.btn` 的 cancel / note / submit）；omp 的输入框照常可发，占位符 "Answer above, or type here to skip the questions"，发一句话 = 跳过提问（工具卡写 "Ask interrupted by message"）。任务照样进 `needs_you`（7501 的等待信号带标题，不靠 `omp.editor.ask` 节点），点选项发的 `select`（`askItemClick`）加 submit 能答完。studio 的输入框在提问时仍然不能发送，不提供"打字跳过"。
 
 ## 任务状态里的"门"
 

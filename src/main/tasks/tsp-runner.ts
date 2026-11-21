@@ -276,7 +276,7 @@ export class TspRunner {
   readonly #factsTracker = new TspComposerFactsTracker();
   /** 后台驱动旁路提问期间为真：#awaitComposer 等它结束。 */
   #btwDriving = false;
-  /** 旁路提问（`/btw`）：omp 画成 modal 弹窗，这里读成话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
+  /** 旁路提问（`/btw`）：omp 画成 modal 弹窗或 main 里的便签（omp 19），这里读成话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
   readonly #btw = new TspBtw({
     document: () => this.#session?.document ?? null,
     sendEvent: (event) => this.sendTspEvent(event),
@@ -756,7 +756,8 @@ export class TspRunner {
             this.#syncStatus(document);
             this.#composerState.observe(document);
             this.#observeFacts(document);
-            this.#btw.sync(this.#scansFor(document).btwView);
+            const scans = this.#scansFor(document);
+            this.#btw.sync(scans.btwView, scans.btwNotes);
             this.#notifyWaiters(document);
             this.#revival.sync(this.#currentSessionFile(), this.#scansFor(document).doneAgents);
             this.#syncRestartable();
@@ -803,7 +804,8 @@ export class TspRunner {
       this.#syncStatus(session.document);
       this.#composerState.observe(session.document);
       this.#observeFacts(session.document);
-      this.#btw.sync(this.#scansFor(session.document).btwView);
+      const scans = this.#scansFor(session.document);
+      this.#btw.sync(scans.btwView, scans.btwNotes);
       this.#notifyWaiters(session.document);
       this.#revival.sync(this.#currentSessionFile(), this.#scansFor(session.document).doneAgents);
       void this.#refreshCatalog(false);

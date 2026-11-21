@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyBtwEvent, isBtwRunning, latestTurn, type BtwHistoryRecord, type BtwUiEvent } from "../src/shared/btw.ts";
 import { applyMessage, createDocument, type TspDocMessage, type TspDocument } from "../src/shared/tsp/document.ts";
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
-import { findBtwView } from "../src/shared/tsp/btw.ts";
+import { findBtwNotes, findBtwView } from "../src/shared/tsp/btw.ts";
 import { BTW_STILL_RUNNING, TspBtw, type BtwHost } from "../src/main/tasks/tsp-btw.ts";
 import { loadTspFixture } from "./tsp-fixtures.ts";
 
@@ -43,8 +43,10 @@ class ReplayHost implements BtwHost {
   sessionFilePath: string | null = null;
   /** 控制器的事件被录制接受时调用（写磁盘上的话题）。 */
   onAccepted: (event: Record<string, unknown>) => Promise<void> | void = () => {};
+  readonly composerId: string;
 
-  constructor(fixture: string, startAt: number) {
+  constructor(fixture: string, startAt: number, composerId = "j.line/input") {
+    this.composerId = composerId;
     let nth = 0;
     for (const line of loadTspFixture(fixture)) {
       if (line.dir === "in" && typeof line.body === "object" && line.body !== null) {
@@ -80,7 +82,7 @@ class ReplayHost implements BtwHost {
           void this.onAccepted(event!);
         } else {
           applyMessage(this.doc, entry.message);
-          this.btw.sync(findBtwView(this.doc));
+          this.btw.sync(findBtwView(this.doc), findBtwNotes(this.doc));
         }
         this.#pos += 1;
       }
@@ -110,7 +112,7 @@ class ReplayHost implements BtwHost {
   }
 
   composer(): Promise<{ sf: string; id: string }> {
-    return Promise.resolve({ sf: "s:1", id: "j.line/input" });
+    return Promise.resolve({ sf: "s:1", id: this.composerId });
   }
 
   exclusive<T>(job: () => Promise<T>): Promise<T> {
@@ -312,5 +314,123 @@ describe("TspBtw · btw-error.jsonl（无效 API key）", () => {
       "close",
     ]);
     expect(host.leftover).toEqual([]);
+  });
+});
+
+describe("TspBtw · btw-19.jsonl（真实 omp 19.0.1：新问题画成 main 里的便签，追问仍走历史弹窗）", () => {
+  const ids19 = { pong: "15d63b0638e5fe76", ping: "15d63b07e4e5fe77", essay: "15d63b0aa3a5fe78" } as const;
+
+  it("提问 → 再问 → 追问 → 取消便签上的长回答：事件和录制逐字相同、话题 id 是磁盘上的真 id、镜像和渲染进程的投影一致", async () => {
+    // startAt 1：跳过第一句主会话消息（它和旁路提问无关）。
+    const host = new ReplayHost("btw-19", 1, "3.line/input");
+    host.btw = new TspBtw(host);
+    const dir = path.join(scratch, "s-19");
+    host.sessionFilePath = `${dir}.jsonl`;
+    host.onAccepted = async (event) => {
+      const text = event["text"];
+      if (typeof text !== "string" || !text.startsWith("/btw ")) return;
+      const question = text.slice("/btw ".length);
+      const id = question.includes("pong") ? ids19.pong : question.includes("ping") ? ids19.ping : ids19.essay;
+      const history = path.join(dir, "btw-history");
+      await mkdir(history, { recursive: true });
+      const now = Date.now();
+      await writeFile(
+        path.join(history, `entry-${id}.json`),
+        JSON.stringify({ question, answer: "", status: "running", createdAt: now, updatedAt: now, id, leafId: "leaf" }),
+      );
+    };
+    const { btw } = host;
+
+    expect(await btw.ask("Reply with exactly the word: pong", undefined)).toBe(ids19.pong);
+    expect(btw.records[0]).toMatchObject({ id: ids19.pong, status: "complete", answer: "pong" });
+    expect(await btw.ask("Reply with exactly the word: ping", undefined)).toBe(ids19.ping);
+    expect(btw.records.map((record) => [record.id, record.answer])).toEqual([
+      [ids19.ping, "ping"],
+      [ids19.pong, "pong"],
+    ]);
+
+    expect(await btw.ask("Now reply with exactly the word: again", ids19.pong)).toBe(ids19.pong);
+    const pong = btw.records.find((record) => record.id === ids19.pong)!;
+    expect(pong).toMatchObject({ answer: "pong", status: "complete" });
+    expect(pong.followUps).toEqual([
+      expect.objectContaining({
+        question: "Now reply with exactly the word: again",
+        answer: "again",
+        status: "complete",
+      }),
+    ]);
+
+    expect(await btw.ask("Write a 400 word essay about trees.", undefined)).toBe(ids19.essay);
+    expect(isBtwRunning(btw.records)).toBe(true);
+    expect(btw.cancel(ids19.pong)).toBe(false);
+    expect(btw.cancel(undefined)).toBe(true);
+    expect(btw.records[0]).toMatchObject({ id: ids19.essay, status: "cancelled" });
+    expect(btw.records[0]!.answer).toContain("Standing Archive");
+    expect(btw.cancel(undefined)).toBe(false);
+
+    const recorded = loadTspFixture("btw-19")
+      .filter((line) => line.dir === "in" && !isAck(line.body))
+      .map((line) => line.body)
+      .slice(1);
+    expect(host.accepted).toEqual(recorded);
+    expect(host.accepted.map((event) => event["act"] ?? event["ev"])).toEqual([
+      "send",
+      "send",
+      "send",
+      "select",
+      "follow-up",
+      "edit",
+      "send",
+      "close",
+      "send",
+      "btw-stop",
+    ]);
+    expect(host.leftover).toEqual([]);
+    expect(stripTimes(projection(host))).toEqual(stripTimes(btw.records));
+  });
+
+  it("镜像里已有同一个问题的旧话题（比如重开会话前问过）：新便签不会被认成旧话题，旧的仍是 complete，之后照常能问", async () => {
+    const host = new ReplayHost("btw-19", 1, "3.line/input");
+    host.btw = new TspBtw(host);
+    const dir = path.join(scratch, "s-19-again");
+    host.sessionFilePath = `${dir}.jsonl`;
+    const history = path.join(dir, "btw-history");
+    await mkdir(history, { recursive: true });
+    const old = {
+      question: "Reply with exactly the word: pong",
+      answer: "pong",
+      status: "complete",
+      createdAt: 1,
+      updatedAt: 1,
+      id: "OLD",
+      leafId: "leaf",
+    };
+    await writeFile(path.join(history, "entry-OLD.json"), JSON.stringify(old));
+    host.onAccepted = async (event) => {
+      if (event["text"] !== "/btw Reply with exactly the word: pong") return;
+      const now = Date.now();
+      await writeFile(
+        path.join(history, `entry-${ids19.pong}.json`),
+        JSON.stringify({ ...old, answer: "", status: "running", createdAt: now, updatedAt: now, id: ids19.pong }),
+      );
+    };
+    await host.btw.reload();
+
+    expect(await host.btw.ask("Reply with exactly the word: pong", undefined)).toBe(ids19.pong);
+    expect(host.btw.records.map((record) => [record.id, record.status, record.answer])).toEqual([
+      [ids19.pong, "complete", "pong"],
+      ["OLD", "complete", "pong"],
+    ]);
+    // 渲染进程从没见过旧话题变成"回答中"。
+    expect(
+      host.emitted.some(
+        (event) =>
+          (event.type === "record" && event.record.id === "OLD" && event.record.status === "running") ||
+          (event.type === "records" &&
+            event.records.some((record) => record.id === "OLD" && record.status === "running")),
+      ),
+    ).toBe(false);
+    await host.btw.reload();
+    expect(isBtwRunning(host.btw.records)).toBe(false);
   });
 });

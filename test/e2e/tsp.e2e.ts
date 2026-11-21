@@ -3492,6 +3492,108 @@ test("旁路提问面板(TSP):长主对话中问答和追问可读,再问、取�
   }
 });
 
+// 旁路提问面板(omp 19.0.1 录制 btw-19):新问题画成 main 里的便签(omp.btw.note),追问仍走历史弹窗。studio 读便签、不画它,
+// 取消是对便签发 `action btw-stop`;假 omp 只在事件和录制逐字相同时往下放帧。
+test("旁路提问面板(TSP,omp 19 便签):问、再问、追问、取消都能用,omp 的便签和弹窗一次也没画", async () => {
+  test.setTimeout(120_000);
+  const events = recordedUserEvents(loadTspFixture("btw-19")).map((entry) => entry.event);
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp btw19 e2e-"));
+  const sessionFile = path.join(scratch, "session.jsonl");
+  await writeFile(sessionFile, "{}\n");
+  const { launched, received, cleanup } = await start("btw-19", { FAKE_TSP_SESSION_FILE: sessionFile });
+  const topics: Record<string, string> = {
+    "/btw Reply with exactly the word: pong": "15d63b0638e5fe76",
+    "/btw Reply with exactly the word: ping": "15d63b07e4e5fe77",
+    "/btw Write a 400 word essay about trees.": "15d63b0aa3a5fe78",
+  };
+  const written = new Set<string>();
+  const writer = setInterval(() => {
+    void received().then(async (sent) => {
+      for (const event of sent) {
+        const text = event["text"];
+        const id = typeof text === "string" ? topics[text] : undefined;
+        if (event["ev"] !== "send" || id === undefined || typeof text !== "string" || written.has(id)) continue;
+        written.add(id);
+        const dir = path.join(scratch, "session", "btw-history");
+        await mkdir(dir, { recursive: true });
+        const now = Date.now();
+        await writeFile(
+          path.join(dir, `entry-${id}.json`),
+          JSON.stringify({
+            question: text.slice(5),
+            answer: "",
+            status: "running",
+            createdAt: now,
+            updatedAt: now,
+            id,
+            leafId: "leaf",
+          }),
+        );
+      }
+    });
+  }, 50);
+  try {
+    const { page } = launched;
+    await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        document: { querySelector(s: string): unknown; documentElement: unknown };
+        MutationObserver: new (cb: () => void) => { observe(target: unknown, o: object): void };
+        __btwDrawn: boolean;
+      };
+      g.__btwDrawn = false;
+      new g.MutationObserver(() => {
+        if (
+          g.document.querySelector(
+            '[data-testid="tsp-view"] [data-role^="omp.btw.note"], [data-testid="tsp-view"] [data-role="omp.overlay.btwHistory"]',
+          )
+        )
+          g.__btwDrawn = true;
+      }).observe(g.document.documentElement, { subtree: true, childList: true, attributes: true });
+    });
+    // 先有任务(录制里第一句是主会话的消息),再问 /btw。
+    await sendFirst(page, String(events[0]!["text"]));
+    await expect
+      .poll(async () => (await received()).some((event) => event["ev"] === "send"), { timeout: 30_000 })
+      .toBe(true);
+    const panel = page.getByTestId("btw-panel");
+    const composer = page.getByTestId("composer-input");
+    const turns = panel.getByTestId("btw-turn");
+    await composer.fill("/btw Reply with exactly the word: pong");
+    await expect(page.getByTestId("slash-menu")).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    await expect(turns).toHaveCount(1, { timeout: 30_000 });
+    await expect(turns.first()).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
+    await expect(turns.first()).toContainText("pong");
+    await panel.getByTestId("btw-new-topic").click();
+    await panel.getByTestId("btw-input").fill("Reply with exactly the word: ping");
+    await panel.getByTestId("btw-input").press("Enter");
+    await expect(panel.locator('[data-testid^="btw-topics-"]')).toHaveCount(2, { timeout: 30_000 });
+    await expect(turns.first()).toContainText("ping");
+    await panel.locator('[data-testid^="btw-topics-"][title$="pong"]').click();
+    await panel.getByTestId("btw-input").fill("Now reply with exactly the word: again");
+    await panel.getByTestId("btw-input").press("Enter");
+    await expect(turns).toHaveCount(2, { timeout: 30_000 });
+    await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
+    await expect(turns.nth(1)).toContainText("again");
+    await panel.getByTestId("btw-new-topic").click();
+    await panel.getByTestId("btw-input").fill("Write a 400 word essay about trees.");
+    await panel.getByTestId("btw-input").press("Enter");
+    await expect(panel.getByTestId("btw-cancel")).toBeVisible({ timeout: 30_000 });
+    await panel.getByTestId("btw-cancel").click();
+    await expect(turns.first()).toHaveAttribute("data-status", "cancelled", { timeout: 30_000 });
+    // 取消保留已经收到的部分。
+    await expect(turns.first()).toContainText("Standing Archive");
+
+    expect(await page.evaluate(() => (globalThis as unknown as { __btwDrawn: boolean }).__btwDrawn)).toBe(false);
+    await expect.poll(async () => (await received(["edit"])).length, { timeout: 30_000 }).toBe(events.length);
+    expect(await received(["edit"])).toEqual(events);
+  } finally {
+    clearInterval(writer);
+    await cleanup();
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
 // 对话区按剩下的高度分（flex-basis 0）：长对话不会把旁路提问面板、终端这些能收缩的兄弟按比例压扁（#12：旁路提问被压成一条、文字被裁）。
 test("长对话里打开旁路提问和终端：两者都是自己的高度，不被对话区挤扁", async () => {
   test.setTimeout(90_000);

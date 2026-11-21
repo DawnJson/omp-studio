@@ -15,7 +15,8 @@ import {
   btwStatusFromMeta,
   btwViewRunning,
   findBtwView,
-  isBtwOverlayNode,
+  findBtwNotes,
+  isBtwHiddenNode,
   isProvisionalBtwId,
   mergeBtwDisk,
   normalizeBtwQuestion,
@@ -57,7 +58,7 @@ function replay(name: string): { steps: Step[]; events: Record<string, unknown>[
     steps.push({
       userEvents: seenEvents,
       view: findBtwView(doc),
-      overlayParent: nodes.find((node) => node.k === "overlay" && isBtwOverlayNode(node))?.parent ?? null,
+      overlayParent: nodes.find((node) => node.k === "overlay" && isBtwHiddenNode(node))?.parent ?? null,
       userMessages: nodes.filter((node) => node.p["role"] === "omp.user").map((node) => JSON.stringify(node.p)),
       target: findMessageTarget(doc),
       blocking: hasBlockingPanel(doc),
@@ -77,10 +78,13 @@ function lastViewOf(steps: readonly Step[], question: string): BtwView {
 }
 
 describe("弹窗节点（btw.jsonl，omp 18.12.5）", () => {
-  it("只有 overlay role=omp.overlay.btwHistory 被认作旁路提问弹窗；别的弹窗不算", () => {
-    expect(isBtwOverlayNode({ p: { role: "omp.overlay.btwHistory" } })).toBe(true);
-    expect(isBtwOverlayNode({ p: { role: "omp.overlay.jobs" } })).toBe(false);
-    expect(isBtwOverlayNode({ p: {} })).toBe(false);
+  it("旁路提问弹窗和 omp 19 的便签（展开、被点中、收起）都不画；别的弹窗不算", () => {
+    expect(isBtwHiddenNode({ p: { role: "omp.overlay.btwHistory" } })).toBe(true);
+    for (const role of ["omp.btw.note", "omp.btw.note.active", "omp.btw.note.folded"])
+      expect(isBtwHiddenNode({ p: { role } })).toBe(true);
+    expect(isBtwHiddenNode({ p: { role: "omp.overlay.jobs" } })).toBe(false);
+    expect(isBtwHiddenNode({ p: { role: "omp.btw.note.turn" } })).toBe(false);
+    expect(isBtwHiddenNode({ p: {} })).toBe(false);
   });
 
   it("提问时 main 里什么也不加（没有 omp.user / 排队），弹窗只在 layer 里；输入框照常是发送目标", () => {
@@ -377,5 +381,65 @@ describe("磁盘上的 btw-history", () => {
     const ping = parseBtwEntry(ENTRY_PING)!;
     const merged = mergeBtwDisk([ping], [{ ...ping, answer: "", status: "running" }]);
     expect(merged.records[0]).toMatchObject({ status: "complete", answer: "ping" });
+  });
+});
+
+describe("便签（btw-19.jsonl，omp 19.0.1）", () => {
+  /** 逐帧放录制，每帧读一次便签。 */
+  const frames = (() => {
+    const doc = createDocument();
+    const out: ReturnType<typeof findBtwNotes>[] = [];
+    for (const { message } of tspDocMessages(loadTspFixture("btw-19"))) {
+      applyMessage(doc, message);
+      out.push(findBtwNotes(doc));
+    }
+    return out;
+  })();
+  const final = frames.at(-1)!;
+
+  it("每个新问题一张便签，按提问顺序；收尾后第一问 = 问题、答案是 omp 的回复、没有状态词即 complete", () => {
+    expect(final.map((note) => note.turns[0]?.question)).toEqual([
+      "Reply with exactly the word: pong",
+      "Reply with exactly the word: ping",
+      "Write a 400 word essay about trees.",
+    ]);
+    expect(final[1]!.turns).toEqual([
+      {
+        kind: "question",
+        question: "Reply with exactly the word: ping",
+        status: "complete",
+        answer: "ping",
+        error: undefined,
+      },
+    ]);
+  });
+
+  it("回答中：状态 running，答案还没到时是空串（Thinking… 不算答案）", () => {
+    const first = frames.find((notes) => notes.length === 1)!;
+    expect(first[0]!.turns[0]).toMatchObject({ status: "running", answer: "" });
+  });
+
+  it("经历史弹窗追问后，便签里多一问（kind followUp，问题是追问的原文）", () => {
+    expect(final[0]!.turns.map((turn) => [turn.kind, turn.question, turn.answer, turn.status])).toEqual([
+      ["question", "Reply with exactly the word: pong", "pong", "complete"],
+      ["followUp", "Now reply with exactly the word: again", "again", "complete"],
+    ]);
+  });
+
+  it("对便签发 btw-stop 后最新一问是 cancelled；viewToRecord 保留镜像里更早一问已收尾的状态", () => {
+    expect(final[2]!.turns[0]).toMatchObject({ status: "cancelled" });
+    const base: BtwHistoryRecord = {
+      id: "t",
+      leafId: "leaf",
+      question: "Reply with exactly the word: pong",
+      answer: "pong",
+      status: "cancelled",
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    expect(viewToRecord(final[0]!, "t", base, 2)).toMatchObject({
+      status: "cancelled",
+      followUps: [{ status: "complete" }],
+    });
   });
 });
