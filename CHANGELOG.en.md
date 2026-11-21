@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Changed
+
+- Scrolling up in the conversation now shows "Jump to latest" right away instead of only after new content arrives; it goes away when you scroll back to the bottom or click it.
+
 ### Fixed
 
 - With omp 19, side questions (`/btw`) no longer fail after about 8 seconds with "omp did not open the side question"; asking, following up and cancelling work again, and omp's side-question notes no longer show in the conversation next to the panel.

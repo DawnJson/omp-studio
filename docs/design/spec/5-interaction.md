@@ -94,7 +94,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 **滚动**（单一 `.scroller`）：
 1. 吸底判定：距底 ≤48px（`IntersectionObserver` 观察底部哨兵）。吸底时每次布局变化后在 `ResizeObserver` 回调里（排版之后、绘制之前）直接 `scrollTop = scrollHeight`（瞬时，不用 smooth）：长出来的内容画出来的那一帧就在底部，不先在底边下面画一帧再跳上来。
 2. 用户主动向上滚动（滚轮、拖动滚动条、PageUp/Home/↑、触摸）立即脱离吸底；此后追加内容不改变 `scrollTop`；程序性滚动不算。滚回距底 ≤48px 自动重新吸底。
-3. 脱离吸底且仍有新内容 → 显示 JumpToLatest（§4.15）。
+3. 脱离吸底 → 显示 JumpToLatest（§4.15），不管有没有新内容；回到吸底时消失。
 4. 用户发送消息 → 强制吸底。
 5. 展开/折叠任意块（过程行、代码块、长用户消息）以被点击元素为锚：它在视口里的位置不变，必要时补偿 `scrollTop`。
 6. 切换任务：各自记住滚动位置和吸底状态。最近看过的几个任务的过程区（`TspView`，个数 `App.tsx` 的 `KEPT_VIEWS`）不卸载，切走时用 React 的 `Activity` 藏起来（effect 和订阅撤掉，DOM 和状态留着；藏着时的更新按低优先级渲染），切回来不用把整段对话重画一遍。藏着的过程区 `KEPT_IDLE_MS` 没再看就卸载，挤出 `KEPT_VIEWS` 的也一样：卸载时放掉它的文档镜像和图片（`releaseTspDocument`，主进程也不再推它的批次），折叠状态留着；切回来重新拉快照、重画整段对话。因此 DOM 里可能同时有几个 `tsp-view`，按全局选择器找过程区里的元素时要取看得见的那个。进设置时当前任务的过程区不进 `Activity`，而是“停着”（`TspView` 的 `parked`，`data-parked`：`position: absolute` + `visibility: hidden`）：节点、effect、排版和滚动位置都留着，返回时不用把上万个节点重算样式、重挂 effect（2026-10-25 实测 120 轮、约 2 万个节点的对话，返回那一帧 139ms → 约 50ms）。不加 `content-visibility: hidden`：它里面的动画交不给合成器，停着的对话里有一个转圈的工具卡，主线程就每帧都要跑（2026-10-28 实测设置页上每秒 400 多个主线程帧）；停着时 omp 的快捷键不转发、⌃O / ⌃⇧C 不生效、omp 弹层不截 Esc、omp 的通知不弹（`TspParkedCtx`）。

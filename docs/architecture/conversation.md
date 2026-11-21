@@ -20,10 +20,10 @@
 ### 滚动（`conversation/use-stick-to-bottom.ts`）
 
 - 离底不远即视为吸底；吸底时内容增长在 `ResizeObserver` 回调里直接 `scrollTop = 底`：回调在排版之后、绘制之前，这一帧画出来就在底部。留到下一个 rAF 再设会先在底边下面画一帧再跳上来，新消息看着"闪一下"（`tsp.e2e.ts`"流式吸底"）。
-- 用户主动上滚（wheel 向上、PageUp/Home/↑、scrollTop 减小且不是程序设置的）立即脱离；脱离后有新内容显示"回到最新"。End 回底。"scrollTop 减小"只在可滚范围（`scrollHeight - clientHeight`）和上次滚动事件时一样、或按着鼠标 / 触摸时才算：scroll 事件晚一帧派发，omp 先收起上方的块（浏览器把 `scrollTop` 夹小）、同一帧又长出新内容时，读到的也是"scrollTop 变小、离底很远"，那是布局变化，不是用户上滚（慢机器上会让吸底停在半截；用 CDP `Emulation.setCPUThrottlingRate` 降速可复现）。
+- 用户主动上滚（wheel 向上、PageUp/Home/↑、scrollTop 减小且不是程序设置的）立即脱离；脱离吸底就显示"回到最新"（不等新内容，所有者定，2026-11-21），内容还放得下时上滚没有 scroll 事件，等内容长到离底超过阈值再显示。End 回底。"scrollTop 减小"只在可滚范围（`scrollHeight - clientHeight`）和上次滚动事件时一样、或按着鼠标 / 触摸时才算：scroll 事件晚一帧派发，omp 先收起上方的块（浏览器把 `scrollTop` 夹小）、同一帧又长出新内容时，读到的也是"scrollTop 变小、离底很远"，那是布局变化，不是用户上滚（慢机器上会让吸底停在半截；用 CDP `Emulation.setCPUThrottlingRate` 降速可复现）。
 - 输入框发送 → `scroll-bus.requestStickToBottom` 强制吸底。
 - 切任务记各自的 scrollTop 和吸底状态（内存）。
-- 阅读锚点：脱离吸底时每次滚动记录视口顶部下方第一个 `[data-anchor]` 块和偏移（只看最外层的块：缓存列表，对话列直接子元素增删时作废，按底边二分，每次滚动只读 O(log n) 个矩形）；内容尺寸变化（列宽变化、锚点上方的块变高变矮）后让锚点块回到原偏移，底下长出新内容才提示"回到最新"；点击 `[data-anchor]` 内的按钮（展开/折叠）以该块为锚补偿，补偿后重记阅读锚点。
+- 阅读锚点：脱离吸底时每次滚动记录视口顶部下方第一个 `[data-anchor]` 块和偏移（只看最外层的块：缓存列表，对话列直接子元素增删时作废，按底边二分，每次滚动只读 O(log n) 个矩形）；内容尺寸变化（列宽变化、锚点上方的块变高变矮）后让锚点块回到原偏移；点击 `[data-anchor]` 内的按钮（展开/折叠）以该块为锚补偿，补偿后重记阅读锚点。
 - TSP 的对话区关掉浏览器的滚动锚定（`overflow-anchor: none`）：omp 一直在改写视口上方的节点，锚定会把 `scrollTop` 往上推，被误认成用户上滚（[tsp-migration.md](tsp-migration.md) §8）。脱离吸底时由上一条的阅读锚点补偿代替。
 - inline 对话区的顶层块（`.tsp-column > [data-anchor]`，用户消息除外）用 `content-visibility: auto`：离屏块不排版、不绘制；没画过的块按估计高度占位，滚到附近换成实际高度，差值由阅读锚点补偿。块自带 paint 包含：后代画到块外会被裁掉、点击也落不到，节点里不能放超出块边界的弹层（菜单、放大图在 `TspHosts` / `layer` 里）。用户消息不加：气泡上方的悬停按钮行和悬停桥（`bottom: 100%`）在块外，加了就点不到回退、复制按钮（`overflow-clip-margin` 不管用）。
 - 覆盖式滚动条 `src/renderer/src/ui/OverlayScrollbar.tsx`：宿主 `position: relative`，滚动容器隐藏原生条，组件作为兄弟节点。hover 宿主或滚动时出现（指针还在宿主上不自动隐藏），拖滑块滚动，点轨道翻约一页，深浅随主题。对话区、侧栏任务列表、命令面板列表共用。

@@ -54,7 +54,7 @@ function firstBelow(list: readonly Element[], top: number): Element | null | und
 }
 
 export interface StickToBottom {
-  /** 脱离吸底且有新内容时为 true：显示"回到最新"。 */
+  /** 脱离吸底（离底超过吸底阈值）时为 true：显示"回到最新"。 */
   showJump: boolean;
   scrollToBottom(): void;
 }
@@ -109,7 +109,7 @@ export function useStickToBottom(
     if (!el) return;
     const previous = saved.get(taskId);
     stuck.current = previous?.stuck ?? true;
-    setShowJump(false);
+    setShowJump(!stuck.current);
     if (stuck.current) el.scrollTop = el.scrollHeight;
     else el.scrollTop = previous?.top ?? 0;
     lastTop.current = el.scrollTop;
@@ -138,11 +138,11 @@ export function useStickToBottom(
       lastRange = range;
       if (distance <= STICK_THRESHOLD) {
         stuck.current = true;
-        setShowJump(false);
       } else if (!programmatic && !layoutDriven && el.scrollTop < lastTop.current - 0.5) {
         // 用户主动向上（或"对话线"跳到前面的消息）：立即脱离吸底。
         stuck.current = false;
       }
+      setShowJump(!stuck.current);
       lastTop.current = el.scrollTop;
       if (!stuck.current) recordAnchor();
     };
@@ -161,15 +161,8 @@ export function useStickToBottom(
     };
 
     // 内容尺寸变化（流式追加、展开、窗口缩放重排）：吸底就跟到底；否则让锚点块回到原来的视口偏移（浏览器的滚动锚定关着，
-    // 见 tsp.css .tsp-scroller；离屏的消息块是 content-visibility: auto，滚到附近才从估计高度换成实际高度），
-    // 底下长出新内容时提示"回到最新"。
-    let lastHeight = root.offsetHeight;
-    let lastWidth = root.offsetWidth;
+    // 见 tsp.css .tsp-scroller；离屏的消息块是 content-visibility: auto，滚到附近才从估计高度换成实际高度）。
     const contentObserver = new ResizeObserver(() => {
-      const widthChanged = root.offsetWidth !== lastWidth;
-      const grownBy = root.offsetHeight - lastHeight;
-      lastHeight = root.offsetHeight;
-      lastWidth = root.offsetWidth;
       if (stuck.current) {
         pinToBottom();
         return;
@@ -183,7 +176,8 @@ export function useStickToBottom(
           lastProgrammaticTop.current = el.scrollTop;
         }
       }
-      if (!widthChanged && grownBy > Math.max(shift, 0) + 0.5) setShowJump(true);
+      // 内容还放得下时上滚没有 scroll 事件：脱离吸底后内容长到离底够远，在这里显示"回到最新"。
+      if (el.scrollHeight - el.clientHeight - el.scrollTop > STICK_THRESHOLD) setShowJump(true);
       lastTop.current = el.scrollTop;
     });
     contentObserver.observe(root);

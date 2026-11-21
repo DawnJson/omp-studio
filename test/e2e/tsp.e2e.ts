@@ -4455,3 +4455,53 @@ test("点开过的工具卡，omp 回显之后再按 Ctrl+O（omp 发 collapsed:
     await rm(work, { recursive: true, force: true });
   }
 });
+
+test("回到最新：一轮跑完后往上滑就出现（没有新内容也出现），点了回到底部并消失", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("task");
+  const { page } = launched;
+  try {
+    await launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(900, 560));
+    await sendFirst(page, TASK_PROMPT);
+    const row = page.getByTestId("task-row").first();
+    await expect(row).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    await expect(page.getByTestId("tsp-todo-bar")).toHaveCount(0, { timeout: 20_000 });
+    type Scroll = { scrollTop: number; scrollHeight: number; clientHeight: number };
+    const scroller = page.locator(".tsp-scroller");
+    const distance = () => scroller.evaluate((el: Scroll) => el.scrollHeight - el.clientHeight - el.scrollTop);
+    // 侧栏转成空闲时假 omp 还在回放这一轮的收尾：等对话列一秒内不再变高变矮。
+    const height = () => scroller.evaluate((el: Scroll) => el.scrollHeight);
+    await expect
+      .poll(async () => {
+        const before = await height();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return (await height()) === before;
+      })
+      .toBe(true);
+    expect(await scroller.evaluate((el: Scroll) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(200);
+    // 让往上滑时对话列的高度一点都不变（没有"新内容"）：离屏块平时按估计高度占位、滚到附近才换成实际高度，
+    // 这里全部按实际尺寸排版。旧规则（有新内容才显示）下药丸就不会出现。
+    await page.addStyleTag({
+      content: ".tsp-column > [data-anchor] { content-visibility: visible !important; }",
+    });
+    await scroller.evaluate(async (el: Scroll) => {
+      const win = globalThis as unknown as { requestAnimationFrame(cb: () => void): void };
+      const frame = () => new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
+      for (let still = 0; still < 2;) {
+        el.scrollTop = el.scrollHeight;
+        await frame();
+        still = el.scrollHeight - el.clientHeight - el.scrollTop < 1 ? still + 1 : 0;
+      }
+    });
+    await expect(page.getByTestId("jump-latest")).toHaveCount(0);
+    const box = (await scroller.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -200);
+    await expect(page.getByTestId("jump-latest")).toBeVisible();
+    await page.getByTestId("jump-latest").click();
+    await expect(page.getByTestId("jump-latest")).toHaveCount(0);
+    await expect.poll(distance).toBeLessThanOrEqual(2);
+  } finally {
+    await cleanup();
+  }
+});
