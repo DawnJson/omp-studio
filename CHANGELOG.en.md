@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-11-21
+
 ### Changed
 
 - Scrolling up in the conversation now shows "Jump to latest" right away instead of only after new content arrives; it goes away when you scroll back to the bottom or click it.
