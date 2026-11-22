@@ -1,4 +1,5 @@
 // `/tools` 的输出解析（omp 18.12.5 rpc-ui：每行一个工具，`* ` 启用、`- ` 可用但当前没启用、`~ ` xd 设备）。
+// 设备行 omp 18 写 `~ xd://lsp`，omp 19 写 `~ lsp`（实测 19.0.1，2026-11-22），和同名的 `- lsp` 撞名：这里统一成 `xd://<名>`。
 // 这是服务进程（用户范围、没有项目）看到的全局列表：项目里的插件和 MCP 提供的工具不在里面。
 
 export type ToolState = "enabled" | "inactive" | "device";
@@ -25,7 +26,8 @@ export function parseTools(text: string): ToolList {
     const match = /^([*\-~])\s+(\S.*)$/.exec(line);
     const state = match?.[1] === undefined ? undefined : MARKS[match[1]];
     if (match?.[2] === undefined || state === undefined) unparsed.push(line);
-    else tools.push({ name: match[2], state });
+    else
+      tools.push({ name: state === "device" && !match[2].startsWith("xd://") ? `xd://${match[2]}` : match[2], state });
   }
   return { tools, unparsed };
 }

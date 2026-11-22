@@ -23,9 +23,9 @@ function columnsOf(root: HTMLElement): { cols: number; colWidth: number; gap: nu
   return { cols: tracks.length, colWidth: tracks[0] ?? 0, gap: Number.parseFloat(style.columnGap) || 0 };
 }
 
-/** 每格不折行时的宽：临时把各格排成 max-content 的一行量出来，再还原（同一帧里，不会画出来）。
+/** 每格不折行时的宽和它的控件的宽：临时把各格排成 max-content 的一行量出来，再还原（同一帧里，不会画出来）。
  * data-measuring 期间标签和控件不换行、文本框按原宽算（settings.css）。 */
-function naturalWidths(el: HTMLElement): number[] {
+function naturalWidths(el: HTMLElement): { widths: number[]; controls: number[] } {
   const kids = [...el.children] as HTMLElement[];
   const template = el.style.gridTemplateColumns;
   const spans = kids.map((kid) => kid.style.gridColumn);
@@ -33,10 +33,13 @@ function naturalWidths(el: HTMLElement): number[] {
   el.style.gridTemplateColumns = `repeat(${kids.length}, max-content)`;
   for (const kid of kids) kid.style.gridColumn = "auto";
   const widths = kids.map((kid) => Math.ceil(kid.getBoundingClientRect().width));
+  const controls = kids.map((kid) =>
+    Math.ceil(kid.querySelector(":scope > .ui-row-control")?.getBoundingClientRect().width ?? 0),
+  );
   el.style.gridTemplateColumns = template;
   kids.forEach((kid, index) => (kid.style.gridColumn = spans[index] ?? ""));
   delete el.dataset["measuring"];
-  return widths;
+  return { widths, controls };
 }
 
 const sameOrder = (a: readonly string[], b: readonly string[]) =>
@@ -68,7 +71,7 @@ export function Cells({
     const { cols, colWidth, gap } = columnsOf(root);
     if (cols === 0) return;
     const { keys: rendered, natural: source } = state.current;
-    const widths = naturalWidths(el);
+    const { widths, controls } = naturalWidths(el);
     const widthOf = new Map(rendered.map((key, index) => [key, widths[index] ?? 0]));
     const packed = packCells(
       source.map((key) => widthOf.get(key) ?? 0),
@@ -81,11 +84,19 @@ export function Cells({
       setOrder(next);
       return; // 重排后的这一次渲染再设跨列
     }
+    // 控件占掉格子后标签剩不到 --st-label-min（窄窗口里一个宽的分段控件）：控件换到标签下面，标签不被挤成一字一行。
+    const labelMin = Number.parseFloat(getComputedStyle(el).getPropertyValue("--st-label-min")) || 0;
     const kids = [...el.children] as HTMLElement[];
     kids.forEach((kid, index) => {
       const span = packed.spans[packed.order[index]!] ?? 1;
       const value = span > 1 ? `span ${span}` : "";
       if (kid.style.gridColumn !== value) kid.style.gridColumn = value;
+      const cell = span * colWidth + (span - 1) * gap;
+      const stack = (widths[index] ?? 0) > cell && (controls[index] ?? 0) + gap > cell - labelMin;
+      if (stack !== (kid.dataset["stack"] !== undefined)) {
+        if (stack) kid.dataset["stack"] = "";
+        else delete kid.dataset["stack"];
+      }
     });
     // 只占一行、没填满的小组：只占用到的列，后面的小组可以排在同一行。
     const group = el.parentElement;

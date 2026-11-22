@@ -18,6 +18,8 @@ How to write it:
 ### Fixed
 
 - With omp 19, side questions (`/btw`) no longer fail after about 8 seconds with "omp did not open the side question"; asking, following up and cancelling work again, and omp's side-question notes no longer show in the conversation next to the panel.
+- In a narrow settings window with large text, settings with many choices (such as `personality`) no longer squeeze their name into one letter per line: the choices move below the name.
+- With omp 19, Settings → Available tools shows the device entries of `ast_edit`, `debug` and `lsp` as `xd://…` again, with their hover explanation, instead of looking like duplicates of the tools.
 
 ## [0.10.4] - 2026-11-20
 

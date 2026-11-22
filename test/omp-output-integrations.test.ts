@@ -165,6 +165,17 @@ describe("parseTools（/tools）", () => {
     });
   });
 
+  it("omp 19 的设备行不带 xd://（`~ lsp`）：统一成 xd://lsp，同名的 `- lsp` 仍是按需调用", () => {
+    const { tools } = parseTools("* read\n- lsp\n- goal\n~ lsp");
+    const devices = deviceToolNames(tools);
+    expect(tools.map((tool) => [tool.name, toolKind(tool, devices)])).toEqual([
+      ["read", "enabled"],
+      ["lsp", "mounted"],
+      ["goal", "inactive"],
+      ["xd://lsp", "device"],
+    ]);
+  });
+
   it("工具名 → 设置项：snake 和 camel 两种写法都试，快照里没有就没有开关", () => {
     const keys = new Set(["astEdit.enabled", "web_search.enabled", "lsp.enabled"]);
     expect(toolConfigKey("ast_edit", keys)).toBe("astEdit.enabled");

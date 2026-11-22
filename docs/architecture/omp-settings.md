@@ -167,6 +167,8 @@ omp 只有 `/mcp add|remove|enable|disable|test|list|reload…`，没有修改�
 
 每行 `* 名` 已启用、`- 名` 可用但当前没启用（如 `ast_edit`、`lsp`、`debug`）、`~ xd://…` xd 设备。把 `bash.enabled` 设成 false 后，**`bash` 从列表里整行消失**（不是变成 `-`）；把 `lsp.enabled` 设成 true 没有改变 `- lsp`（还需别的条件）。运行中改 config.yml，下一次 `/tools` 就反映。所以工具卡片的开关是 `<工具>.enabled` 设置项本身（`ast_edit` → `astEdit.enabled`，`web_search` → `web_search.enabled`，`toolConfigKey` 两种写法都试），关掉后行保留、点刷新才重读。列表是服务进程（无项目）的全局结果。
 
+omp 19（实测 19.0.1，2026-11-22，空 `PI_CODING_AGENT_DIR`）设备行不带前缀：`~ ast_edit`、`~ debug`、`~ lsp`，和同名的 `- lsp` 撞名。`parseTools` 把设备行统一成 `xd://<名>`，界面和 omp 18 一样。
+
 **为什么有些行没有开关（2026-10-23 实测，omp 18.12.6，rpc-ui 发 `/tools`；仓库所有者本机和"空 `PI_CODING_AGENT_DIR` + 空 HOME"两边对比）**：不是本地配置的问题，也不是 studio 坏了。
 
 - 空目录的输出里同样有 `- ast_edit`、`- debug`、`- lsp`、`- goal`、`- init_experiment`、`- run_experiment`、`- log_experiment`、`- update_notes` 和 `~ xd://ast_edit`、`~ xd://debug`、`~ xd://lsp`；仓库所有者本机多出来的只有 `- mcp__pro_image_*`、`- mcp__tavily_*` 和对应的 `~ xd://mcp__*`，来自他 `mcp.json` 里的两台 MCP 服务器。
