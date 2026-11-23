@@ -61,7 +61,8 @@ describe("登录方式", () => {
   });
 
   it("RPC 里被 omp 拒绝的（多步交互登录）走应用内终端登录", () => {
-    for (const id of ["github-copilot", "perplexity", "snowflake"]) expect(loginKind(id), id).toBe("terminal");
+    for (const id of ["github-copilot", "perplexity", "snowflake", "kiro", "antigravity-cli"])
+      expect(loginKind(id), id).toBe("terminal");
   });
 
   it("没见过的 provider（omp 新增）按 OAuth 处理，不藏登录入口；原型属性名不会误判", () => {

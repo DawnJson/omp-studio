@@ -107,7 +107,11 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 
 ### 为什么要一个临时 omp
 
-`github-copilot`、`alibaba-coding-plan`、`alibaba-token-plan`、`perplexity`、`snowflake`、`lm-studio` 的登录要多步交互（企业域名、区域、设备码、选登录方式……），rpc-ui 的 `login` 直接以 "requires interactive prompts which are not supported in RPC mode" 拒绝，只有交互式 omp 的 `/login <provider>` 走得完。所以应用起一个临时交互式 omp（和任务同一套 TSP：握手、文档、关进程树），发 `/login <provider>`，用过程区的渲染器画 omp 自己的登录窗，结果出来就关进程。
+`github-copilot`、`alibaba-coding-plan`、`alibaba-token-plan`、`perplexity`、`snowflake`、`lm-studio`、`kiro` 的登录要多步交互（企业域名、区域、设备码、选登录方式……），rpc-ui 的 `login` 直接以 "requires interactive prompts which are not supported in RPC mode" 拒绝，只有交互式 omp 的 `/login <provider>` 走得完。所以应用起一个临时交互式 omp（和任务同一套 TSP：握手、文档、关进程树），发 `/login <provider>`，用过程区的渲染器画 omp 自己的登录窗，结果出来就关进程。
+
+`antigravity-cli`（反重力，issue #24）也走这里。实测 omp 19.1.1，用临时 agent 目录：rpc-ui 里先弹一个要输入 "yes" 的风险确认（`input`），接着 `open_url`，然后 omp 用 secret 提示要授权码，RPC 拒绝 secret 提示，omp 把原因吞成 "Antigravity CLI sign-in failed; try signing in again"。表现是浏览器打开了、登录马上失败，原因里也没有 `secret`/`terminal`，触发不了上面的兜底。交互式 omp 里：先是带输入框的风险确认（输入 yes 再 Continue；直接 Continue 是 "Login cancelled"），然后是带 "Open sign-in page" / "Copy" 的粘贴授权码窗。
+
+同一次实测把 studio 当成 oauth 的 29 个 provider 都在 rpc-ui 里发了一遍 `login`：除上面两个外，要么等浏览器回调，要么弹非 secret 的粘贴框，都走得完。`devin-cli` 失败的原因是本机没有 Devin CLI 的凭据（omp 读本地文件），不是登录方式的问题。
 
 ### 主进程
 

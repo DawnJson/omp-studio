@@ -13,6 +13,7 @@ How to write it:
 ### Fixed
 
 - The desktop pet no longer disappears after you change the font size: its window no longer zooms along with the main window.
+- Settings → Providers: signing in to Antigravity CLI no longer fails right after the browser opens. It now runs in the in-app sign-in window: accept the risk notice, sign in in the browser, then paste the authorization code back (#24).
 
 ## [0.10.5] - 2026-11-21
 

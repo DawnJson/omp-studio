@@ -76,12 +76,22 @@ const apiKeyLogin: Readonly<Record<string, true>> = Object.fromEntries(
   ].map((id) => [id, true]),
 );
 
-/** omp 在 RPC 里直接拒绝登录、要求多步交互提示（企业域名、区域、设备码……）的 provider：这些走应用内终端登录（`startTerminalLogin`）。 */
+/**
+ * omp 在 RPC 里登录走不完、要走应用内终端登录（`startTerminalLogin`）的 provider：
+ * 多数直接拒绝、要求多步交互提示（企业域名、区域、设备码......）；`antigravity-cli` 在 open_url 之后用 secret 提示要授权码，
+ * RPC 拒绝后 omp 只报"sign-in failed"（实测 omp 19.1.1，issue #24）。
+ */
 const terminalLogin: Readonly<Record<string, true>> = Object.fromEntries(
-  ["github-copilot", "alibaba-coding-plan", "alibaba-token-plan", "perplexity", "snowflake", "lm-studio"].map((id) => [
-    id,
-    true,
-  ]),
+  [
+    "github-copilot",
+    "alibaba-coding-plan",
+    "alibaba-token-plan",
+    "perplexity",
+    "snowflake",
+    "lm-studio",
+    "kiro",
+    "antigravity-cli",
+  ].map((id) => [id, true]),
 );
 
 export function loginKind(providerId: string): LoginKind {
