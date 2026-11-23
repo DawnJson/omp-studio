@@ -1,4 +1,6 @@
 // 自定义协议 app://studio/：只提供 out/renderer 里的文件，以及 app://studio/@backdrop/<文件名>（userData/backdrops 里的自选背景图）。
+// 宠物窗口的页面走 app://pet/（同一批文件，没有背景图）：Chromium 的页面缩放按源记，同源时主窗口的字号（setZoomFactor）
+// 会连带把宠物页面放大，宠物画到透明窗口外面看不见（2026-11-23 用户反馈，Electron 44 实测宠物页跟着变成 1.47 倍）。
 // file:// 下 CSP 的 'self' 等于"本机任意文件"，换成专用协议后 'self' 只剩应用自己的资源。路径穿越（../、编码的 ..、绝对路径）一律 404；
 // 背景图只认 backdropFilePattern（sha256 + 图片扩展名）这种文件名，不解码、不拼子目录。
 // 文件预览的网页走另一个协议 studio-preview://（preview-protocol.ts），在这里一起登记：registerSchemesAsPrivileged 只能调一次。
@@ -11,6 +13,7 @@ import { backdropsDir } from "../settings/backdrop-image.ts";
 
 const appScheme = "app";
 const appOrigin = `${appScheme}://studio`;
+const petOrigin = `${appScheme}://pet`;
 
 const rendererRoot = path.join(import.meta.dirname, "..", "renderer");
 const backdropPrefix = "/@backdrop/";
@@ -21,10 +24,10 @@ export function rendererEntryUrl(): string {
   return dev ?? `${appOrigin}/index.html`;
 }
 
-/** 宠物窗口的页面（electron.vite.config.ts 的第二个 HTML 入口），和主页面同源。 */
+/** 宠物窗口的页面（electron.vite.config.ts 的第二个 HTML 入口）。打包后和主页面不同源（见文件开头）；开发服务器时同源，字号会连带缩放它。 */
 export function petPageUrl(): string {
   const dev = app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"];
-  return dev === undefined ? `${appOrigin}/pet.html` : new URL("pet.html", dev).href;
+  return dev === undefined ? `${petOrigin}/pet.html` : new URL("pet.html", dev).href;
 }
 
 /** url 是不是宠物页面：协议、主机、路径都要对上。 */
@@ -43,13 +46,13 @@ export function registerAppScheme(): void {
   ]);
 }
 
-/** 把请求地址映射到 rendererRoot 下的文件（或 backdrops 里的背景图）；越界、文件名不合规或不是 app://studio 返回 null。 */
+/** 把请求地址映射到 rendererRoot 下的文件（或 backdrops 里的背景图）；越界、文件名不合规或不是 app://studio、app://pet 返回 null。 */
 export function resolveAppFile(requestUrl: string): string | null {
   const url = new URL(requestUrl);
-  if (url.protocol !== `${appScheme}:` || url.host !== "studio") return null;
+  if (url.protocol !== `${appScheme}:` || (url.host !== "studio" && url.host !== "pet")) return null;
   if (url.pathname.startsWith(backdropPrefix)) {
     const name = url.pathname.slice(backdropPrefix.length);
-    return backdropFilePattern.test(name) ? path.join(backdropsDir(), name) : null;
+    return url.host === "studio" && backdropFilePattern.test(name) ? path.join(backdropsDir(), name) : null;
   }
   const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "index.html";
   const file = path.resolve(rendererRoot, relative);

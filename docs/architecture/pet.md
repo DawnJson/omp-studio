@@ -52,7 +52,7 @@
 
 ## 安全
 
-`security.md` 的「窗口和页面」规则对宠物窗口同样适用：开沙箱和上下文隔离，只加载 `app://studio/pet.html`，禁止导航和新开窗口，页面套同一份 CSP。
+`security.md` 的「窗口和页面」规则对宠物窗口同样适用：开沙箱和上下文隔离，只加载 `app://pet/pet.html`（和主页面不同源：Chromium 的页面缩放按源记，同源时字号设置会连带把宠物页面放大，宠物画到透明窗口外面，2026-11-23），禁止导航和新开窗口，页面套同一份 CSP。
 
 preload 用单独的 `pet.cjs`，只暴露 `PetApi`；页面上没有 `window.studio`（e2e 会检查）。主窗口的 `assertTrustedSender` 只认主窗口，所以宠物窗口调不动任何 `studio:*` 通道。`pet:*` 通道只认宠物窗口的顶层页面（`isPetUrl`），改名的参数在主进程校验。
 

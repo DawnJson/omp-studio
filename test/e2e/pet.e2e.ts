@@ -257,3 +257,26 @@ test("右键重新孵化：宠物窗口里的 studio 样式确认框；Esc 和�
     await rm(userData, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
+
+test("改字号不缩放宠物窗口：主窗口按字号放大，宠物页面仍是 1 倍、整只画在窗口里", async () => {
+  const launched = await launchApp(petEnv);
+  try {
+    const pet = await petPage(launched);
+    const zooms = () =>
+      launched.app.evaluate(({ BrowserWindow }) =>
+        Object.fromEntries(
+          BrowserWindow.getAllWindows().map((window) => [
+            window.webContents.getURL().endsWith("/pet.html") ? "pet" : "main",
+            window.webContents.getZoomFactor(),
+          ]),
+        ),
+      );
+    await launched.page.evaluate(() => globalThis.studio.setFontSize(22));
+    await expect.poll(async () => (await zooms())["main"]).toBeCloseTo(22 / 15, 3);
+    expect((await zooms())["pet"]).toBe(1);
+    const { bounds } = await petWindowInfo(launched);
+    expect(await pet.evaluate(() => (globalThis as unknown as { innerWidth: number }).innerWidth)).toBe(bounds.width);
+  } finally {
+    await launched.close();
+  }
+});

@@ -45,6 +45,11 @@ describe("resolveAppFile", () => {
     expect(resolveAppFile("file:///C:/Windows/win.ini")).toBeNull();
   });
 
+  it("app://pet（宠物页面，和主页面不同源）给同一批文件，不给背景图", () => {
+    expect(resolveAppFile("app://pet/pet.html")).toBe(resolveAppFile("app://studio/pet.html"));
+    expect(resolveAppFile(`app://pet/@backdrop/${backdrop}`)).toBeNull();
+  });
+
   it("@backdrop/<sha256>.<扩展名> 映射到 userData/backdrops 里的那个文件", () => {
     expect(resolveAppFile(`app://studio/@backdrop/${backdrop}`)).toBe(
       path.join(hoisted.userData, "backdrops", backdrop),
