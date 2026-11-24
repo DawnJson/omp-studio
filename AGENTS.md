@@ -57,7 +57,7 @@ omp-studio：oh-my-pi（omp）的桌面端（Electron + React，Windows 为主�
 - 只做这次需要的：不顺手重构、不预留扩展点、不过度防御、错误不吞；同类 bug 一起修或说明为什么不修；没人用的代码一起删。
 - 沿整条路径查：渲染进程 → preload → IPC → 主进程 → omp → 界面。
 - 回归测试要撤掉修复跑一次，确认会失败；只读代码不算验证，改了主进程或协议要起应用真发一次 prompt。
-- 交付带证据：跑了什么、结果、没试什么。评审用 skill `review`；收尾（CHANGELOG、提交、推送、清理）用 skill `finish`。
+- 交付带证据：跑了什么、结果、没试什么。收尾（CHANGELOG、提交、推送、清理）用 skill `finish`。
 - 只在所有者说"发版"时发版，用 skill `release`。
 - omp 行为的实测结论写进对应的 `docs/architecture/<功能>.md`，写明 omp 版本；没实测的标推测。
 
