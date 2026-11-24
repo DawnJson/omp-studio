@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-11-23
+
 ### Fixed
 
 - The desktop pet no longer disappears after you change the font size: its window no longer zooms along with the main window.
