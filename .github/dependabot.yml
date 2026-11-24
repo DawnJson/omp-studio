@@ -7,6 +7,11 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    # @types/node 跟 Electron 内置的 Node 同一个主版本（Electron 44 是 Node 24）：类型比运行时新，类型检查会放过运行时没有的 API。
+    # 主版本随 Electron 升级时手动改。
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       electron:
         patterns: [electron]
