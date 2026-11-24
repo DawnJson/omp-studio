@@ -1,6 +1,6 @@
 # Windows 版（x64，主要平台）：在 GitHub 的 Windows 机器上跑 npm run check（lint、格式、类型检查和仓库扫描）、单测、一条真正发 prompt 的 e2e，
 # 打免安装目录（npm run pack 的产物）并启动它做冒烟。只做检查：Windows 安装包和更新源由本机发版脚本（npm run release）打、传。
-# 推到 main（只改文档的推送不跑）、推版本 tag 或手动触发时跑；同一分支连推时只留最新一次。
+# 推到 main（只改文档的推送不跑）、开 PR 或往 PR 推（外部贡献和 dependabot 合并前先过一遍）、推版本 tag 或手动触发时跑；同一分支连推时只留最新一次。
 name: windows
 
 on:
@@ -10,6 +10,9 @@ on:
     tags: ["v*"]
     # 只对分支推送生效：GitHub 推 tag 时不看路径过滤，发版构建照跑。*.md 不进构建也不过 Prettier（.prettierignore），
     # 但 CHANGELOG.md、CHANGELOG.en.md 会打进主进程（whats-new.ts），不能列进来。
+    paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md"]
+  # fork 来的 PR 拿到的是只读 token、没有 secrets（pull_request，不是 pull_request_target），在这里跑别人的代码是安全的。
+  pull_request:
     paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md"]
 
 concurrency:

@@ -19,7 +19,7 @@ description: 一轮改动做完、检查通过之后的收尾：写 CHANGELOG「
 1. 确认 hook 已启用：`git config core.hooksPath` 应该是 `.githooks`（`npm install` 时 `scripts/postinstall.ts` 设好；不是就 `git config core.hooksPath .githooks`）。`git config user.email` 必须是仓库级的 noreply 地址 `165480087+DawnJson@users.noreply.github.com`，不是全局配置里的私人邮箱（pre-commit 也会拦）。
 2. 提交到 `main`：在分支上做的先合并回 `main`，合并后删掉分支。不用 `git worktree`，不丢掉没提交的改动；多个代理共用工作区时不跑 `checkout` / `restore` / `stash` / `reset` / `clean`。
 3. 只 `git add` 这次改的文件，不用 `git add -A` 把别人的改动带进来。
-4. 提交信息 `类型: 中文说明`，类型是 `feat` / `fix` / `test` / `chore`；说明写用户能理解的结果。不写私人信息和第三方客户端名（commit-msg hook 查）。
+4. 提交信息 `类型: 中文说明`，类型是 `feat` / `fix` / `test` / `chore`；说明写用户能理解的结果。修 GitHub issue 的在标题末尾写 `(#N)`：发版后 `scripts/close-fixed-issues.ts` 靠它回复并关掉 issue。不写私人信息和第三方客户端名（commit-msg hook 查）。
 5. `git show --stat HEAD` 确认只有这次改的文件。hook 失败就修好问题再提交，不用 `--no-verify`。
 
 ## 3. 推送

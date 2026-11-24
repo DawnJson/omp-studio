@@ -50,7 +50,15 @@ npm run release -- <版本>
 (unset GITHUB_TOKEN; node scripts/publish-release.ts <版本> release/latest.yml release/omp-studio-<版本>-setup.exe release/omp-studio-<版本>-setup.exe.blockmap)
 ```
 
-最后一条是发版脚本最后打印的命令，包进上面的子 shell。它把三个文件传到这个版本的 GitHub Release（没有就建，说明是 `CHANGELOG.en.md` 和 `CHANGELOG.md` 里这一版，英文在前、中文在后；仓库所有者 2026-10-25 批准），`latest.yml` 最后传。装着的旧版本从这个 Release 自动更新（`docs/architecture/auto-update.md`），三个文件缺一不可。
+第二条是发版脚本最后打印的两条命令里的第一条，包进上面的子 shell。它把三个文件传到这个版本的 GitHub Release（没有就建，说明是 `CHANGELOG.en.md` 和 `CHANGELOG.md` 里这一版，英文在前、中文在后；仓库所有者 2026-10-25 批准），`latest.yml` 最后传。装着的旧版本从这个 Release 自动更新（`docs/architecture/auto-update.md`），三个文件缺一不可。
+
+上传完后关掉这一版修好的 issue（打印的第二条命令）：
+
+```bash
+(unset GITHUB_TOKEN; node scripts/close-fixed-issues.ts <版本>)
+```
+
+它找上一个 tag 到这个 tag 之间提交标题里的 `#N`，还开着的 issue 回复一句"v<版本> 已修复。Fixed in v<版本>."再关掉；PR 和已关闭的跳过。回复只这一句（仓库所有者 2026-11-24 定：要精简）。
 
 ## 5. 确认 mac 和 Linux 构建
 

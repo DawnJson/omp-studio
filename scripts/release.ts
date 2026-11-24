@@ -78,6 +78,7 @@ await Promise.all(stale.map((file) => rm(path.join(releaseDir, file), { force: t
 // 正斜杠：这条命令会被贴进 bash，反斜杠会被吃掉；node 两种都认。
 const assets = ["latest.yml", installer, `${installer}.blockmap`].map((file) => `release/${file}`).join(" ");
 console.log(
-  `\n已提交并打 tag v${version}（未推送）。推送后上传到 GitHub Release（装着的旧版本从那里自动更新）：\n` +
-    `node scripts/publish-release.ts ${version} ${assets}`,
+  `\n已提交并打 tag v${version}（未推送）。推送后上传到 GitHub Release（装着的旧版本从那里自动更新），再关掉这一版修好的 issue：\n` +
+    `node scripts/publish-release.ts ${version} ${assets}\n` +
+    `node scripts/close-fixed-issues.ts ${version}`,
 );
