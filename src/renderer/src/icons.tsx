@@ -288,13 +288,20 @@ export const Quote = (props: IconProps) => (
     <path d="M3 8.500h3v4H3zM3 8.500c0-2.500.8-4 3-5M9.500 8.500h3v4h-3zM9.500 8.500c0-2.500.8-4 3-5" />
   </Icon>
 );
+/** 文件树"插入到输入框"：@ */
+export const AtSign = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="2.670" />
+    <path d="M10.670 5.330v3.330a2 2 0 0 0 4 0V8a6.670 6.670 0 1 0-2.670 5.330" />
+  </Icon>
+);
 /** 模型角色 default：星 */
 export const Star = (props: IconProps) => (
   <Icon {...props}>
     <path d="M8 2.5 9.7 6l3.8.5-2.8 2.6.7 3.8L8 11.1l-3.4 1.8.7-3.8-2.8-2.6L6.3 6 8 2.5Z" />
   </Icon>
 );
-/** 任务菜单"保持运行"：图钉 */
+/** 置顶（任务菜单、任务行）：图钉 */
 export const Pin = (props: IconProps) => (
   <Icon {...props}>
     <path d="M6 2.5h4M6.8 2.5v3.8L4.5 9h7L9.2 6.3V2.5M8 9v4.5" />

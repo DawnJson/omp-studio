@@ -281,7 +281,8 @@ test("斜杠命令：/skillful 不带参数打开菜单，/computer on 先确认
 });
 
 // 浮层伸到主区上沿时，omp 回的 toast 落在上沿会盖住浮层的头几行（2026-11-13 截图巡检：会话开关、顶栏任务菜单）。
-// 浮层压到气泡位置时气泡挪到窗口底部；浮层关掉后回到上沿。顶栏的任务菜单从上沿往下展开，一定压到那叠气泡。
+// 浮层压到气泡位置时气泡挪到窗口底部；浮层关掉后回到上沿。任务菜单（侧栏任务行的右键菜单）开在右键点的位置：
+// 造一个落在气泡上的右键（Playwright 的 click 只能点在行上，在页面里造带坐标的 contextmenu），菜单就压到那叠气泡。
 test("浮层压到主区上沿的 toast 时，toast 挪到底部、不压住浮层；关掉浮层后回到上沿", async () => {
   test.setTimeout(120_000);
   const { launched, cleanup } = await start();
@@ -300,7 +301,13 @@ test("浮层压到主区上沿的 toast 时，toast 挪到底部、不压住浮�
     const toast = toasts.getByText("Skill listing disabled for this session.");
     await expect(toast).toBeVisible();
     await expect(toasts).not.toHaveAttribute("data-place", /.*/);
-    await page.getByTestId("task-menu").click();
+    const target = (await toast.boundingBox())!;
+    const [x, y] = [Math.round(target.x + target.width / 2), Math.round(target.y + 2)];
+    await page.evaluate(`(() => {
+      const row = document.querySelector('[data-testid=task-row][data-selected="true"] .sb-row-main');
+      const init = { bubbles: true, cancelable: true, clientX: ${x}, clientY: ${y}, button: 2 };
+      row.dispatchEvent(new MouseEvent("contextmenu", init));
+    })()`);
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
     await expect(toasts).toHaveAttribute("data-place", "bottom");

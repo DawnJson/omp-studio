@@ -1,6 +1,6 @@
-/* worktree / git：任务条的分支胶囊（任务的、新任务草稿的）、git 对话框。只用设计 token。 */
+/* worktree / git：输入框下方状态行的位置胶囊（文件夹 + 分支，任务的、新任务草稿的）、git 对话框。只用设计 token。 */
 
-/* 菜单打开时盖住整个窗口：顶栏空白处是拖动区，点击收不到 pointerdown，菜单就收不回；scrim 是 no-drag，点哪里都会让菜单关闭（分支按钮也在它下面，所以再点按钮 = 收回）。 */
+/* 菜单打开时盖住整个窗口：顶栏空白处是拖动区，点击收不到 pointerdown，菜单就收不回；scrim 是 no-drag，点哪里都会让菜单关闭（胶囊也在它下面，所以再点胶囊 = 收回）。 */
 .git-menu-scrim {
   position: fixed;
   inset: 0;
@@ -8,17 +8,18 @@
   -webkit-app-region: no-drag;
 }
 
-/* 分支胶囊和 PR 徽标：同顶栏其它按钮一样不描边、界面字体（2026-11-15 所有者批准的界面体检方案：顶栏只有它带框、等宽字，像嵌进来的另一套控件） */
-.topbar-branch {
+/* 位置胶囊（spec §4.14 状态行）：文件夹 + 分支一个按钮，不描边、平时没有底，悬停出 --bg-hover。
+   挤的时候先缩文件夹名（PathLabel 自己省略开头），再缩分支名；图标、改动数、领先数不缩。 */
+.place-chip {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  max-width: 32ch;
-  height: var(--control-h-sm);
-  margin-right: var(--space-1);
-  padding: 0 var(--space-2);
+  height: var(--control-h-xs);
+  padding: 0 var(--space-1-5);
   color: var(--text-2);
+  font: inherit;
   font-size: var(--fs-xs);
   background: transparent;
   border: 0;
@@ -26,45 +27,52 @@
   cursor: pointer;
   transition: background-color var(--dur-instant) var(--ease-out);
 }
-.topbar-branch:hover,
-.topbar-branch[aria-expanded="true"] {
+.place-chip:hover,
+.place-chip[aria-expanded="true"] {
   color: var(--text);
   background: var(--bg-hover);
 }
-.topbar-branch:active {
+.place-chip:active {
   background: var(--bg-active);
 }
-.topbar-branch svg {
+.place-chip svg {
   flex: none;
 }
-.topbar-branch > svg:last-child {
+.place-chip > svg:last-child {
   color: var(--text-3);
 }
-.topbar-branch-name {
-  min-width: 0;
+/* 文件夹部分：缩得比分支名快（flex-shrink 大），颜色跟着胶囊 */
+.place-chip > .empty-project {
+  flex-shrink: 100;
+  padding: 0;
+  margin-right: var(--space-1);
+  color: inherit;
+}
+.place-chip-branch {
+  min-width: 3ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.topbar-branch-ahead,
-.topbar-branch-count {
+.place-chip-ahead,
+.place-chip-count {
   flex: none;
   font-variant-numeric: tabular-nums;
 }
-.topbar-branch-ahead {
+.place-chip-ahead {
   color: var(--accent);
 }
 /* 改动数（omp 的 `*N ?N`）：比分支名弱一档，不抢领先数的强调色 */
-.topbar-branch-count {
+.place-chip-count {
   color: var(--text-3);
 }
-/* 分支胶囊旁的 PR 号徽标（omp 标题后缀 ` · #12`）：同分支胶囊的样子，点击在系统浏览器打开 PR */
-.topbar-pr {
+/* 胶囊旁的 PR 号徽标（omp 标题后缀 ` · #12`）：同胶囊的样子，点击在系统浏览器打开 PR */
+.place-pr {
   flex: none;
-  height: var(--control-h-sm);
-  margin-right: var(--space-1);
-  padding: 0 var(--space-2);
+  height: var(--control-h-xs);
+  padding: 0 var(--space-1-5);
   color: var(--text-2);
+  font: inherit;
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   background: transparent;
@@ -73,26 +81,18 @@
   cursor: pointer;
   transition: background-color var(--dur-instant) var(--ease-out);
 }
-.topbar-pr:hover {
+.place-pr:hover {
   color: var(--text);
   background: var(--bg-hover);
 }
-.topbar-pr:active {
+.place-pr:active {
   background: var(--bg-active);
 }
 /* 草稿勾选了"在独立 worktree 里开始"：分支名后面的"→ 新 worktree" */
-.topbar-branch-worktree {
+.place-chip-worktree {
   flex: none;
   color: var(--accent);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
   white-space: nowrap;
-}
-/* 窄窗口：分支名收进悬停提示，只留图标和领先数 */
-@media (max-width: 999px) {
-  .topbar-branch-name {
-    display: none;
-  }
 }
 
 .git-text {

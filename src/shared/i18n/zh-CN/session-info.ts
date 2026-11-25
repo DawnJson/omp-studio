@@ -1,8 +1,7 @@
 import type { MessageEntry } from "../index.ts";
 
 export const sessionInfo = {
-  // 入口：顶栏菜单、命令面板、斜杠命令
-  "menu.label": "任务菜单",
+  // 入口：侧栏任务菜单、命令面板、斜杠命令
   "menu.info": "会话信息",
   "menu.trace": "请求记录",
   "menu.share": "分享链接…",

@@ -17,6 +17,7 @@ import {
   expectNoOverflow,
   launchApp,
   lockClipboard,
+  openTaskMenu,
   openTaskRow,
   setLocaleTheme,
   type LaunchedApp,
@@ -436,7 +437,7 @@ test("审批:omp 的审批门出现时任务是等你确认;底栏只剩 Details
   }
 });
 
-test("重开会话:顶栏标题旁的按钮;门开着时置灰,悬停出自绘提示写明原因(原生 title 拿掉);空闲时点它 omp 重新起一次进程、任务回到空闲;Ctrl+Shift+R 同样", async () => {
+test("重开会话:任务菜单里的一项;门开着时置灰,悬停写明原因;空闲时点它 omp 重新起一次进程、任务回到空闲;Ctrl+Shift+R 同样", async () => {
   test.setTimeout(90_000);
   const scratch = await mkdtemp(path.join(os.tmpdir(), "omp restart e2e-"));
   const pidFile = path.join(scratch, "pids.txt");
@@ -452,27 +453,28 @@ test("重开会话:顶栏标题旁的按钮;门开着时置灰,悬停出自绘�
     const { page } = launched;
     await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
     await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
-    const restart = page.getByTestId("topbar-restart");
-    await expect(restart).toBeDisabled();
-    await restart.hover();
-    const tip = page.getByTestId("tooltip");
-    await expect(tip).toHaveText(/任务在等你回答|waiting for your answer/i);
-    await expect(restart).not.toHaveAttribute("title", /.*/);
-    await page.getByTestId("composer-input").hover();
-    await expect(tip).toHaveCount(0);
+    const restart = page.getByTestId("task-menu-restart");
+    await openTaskMenu(page);
+    await expect(restart).toHaveAttribute("aria-disabled", "true");
     await expect(restart).toHaveAttribute("title", /任务在等你回答|waiting for your answer/i);
+    // 灰着的项点了不执行，菜单还开着（force：Playwright 默认等它可用）。
+    await restart.click({ force: true });
+    await expect(restart).toBeVisible();
+    await page.keyboard.press("Escape");
+    // 菜单的退出动画放完才算关上。
+    await expect(page.getByRole("menu")).toHaveCount(0);
 
     await page.getByTestId("composer-input").press("Control+Enter");
     const row = page.getByTestId("task-row").first();
     await expect(row).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
-    await expect(restart).toBeEnabled();
     // 进程数按增量算：rpc-ui 后台进程也走同一个假 omp，同样写 pid。
     const before = (await pids()).length;
 
+    await openTaskMenu(page);
+    await expect(restart).not.toHaveAttribute("aria-disabled", "true");
     await restart.click();
     await expect.poll(pids, { timeout: 30_000 }).toHaveLength(before + 1);
     await expect(row).toHaveAttribute("data-status", "idle");
-    await expect(restart).toBeEnabled();
 
     await page.getByTestId("composer-input").press("Control+Shift+R");
     await expect.poll(pids, { timeout: 30_000 }).toHaveLength(before + 2);
@@ -1724,10 +1726,15 @@ test("一轮还在跑（会话文件里这一轮已有结算过的用量）时�
     const { page } = launched;
     await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
     await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
-    // 上下文浮层里的速度取自同一份会话附加内容（这一条消息的 200 tok ÷ 4s）：它出来了，补的用量行要出来也已经出来了。
-    await page.getByTestId("context-meter").click();
-    await expect(page.getByTestId("session-usage").getByTestId("usage-tps")).toContainText("50");
-    await page.keyboard.press("Escape");
+    // 会话附加内容里这一轮确实有结算过的用量（有东西可补）；读到了，渲染进程挂载时那次读也已回来，补的用量行要出来也已经出来了。
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const taskId = (await globalThis.studio.listTasks())[0]!.id;
+          return (await globalThis.studio.getTspSessionExtras(taskId)).turns.at(-1) !== null;
+        }),
+      )
+      .toBe(true);
     const restored = page.locator('[data-testid="tsp-view"] [data-role="omp.turn.usage"][data-restored]');
     await expect(restored).toHaveCount(0);
     await page.getByTestId("composer-input").press("Control+Enter");
@@ -2626,12 +2633,16 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     // 点右半段 = 直接让 omp 打开它的作业弹窗（点 hud 的作业胶囊：动作 jobs.open），studio 不再有中间的列表弹层。
     await pill.click();
     await expect.poll(async () => (await jobs.received()).some((event) => event["act"] === "jobs.open")).toBe(true);
-    // 没有子代理时药丸没有左半段,顶栏的子代理按钮仍在:点开是空状态;和文件面板共用右栏,开一个就关另一个。
+    // 没有子代理时药丸没有左半段,顶栏的子代理按钮仍在:点开是空状态;和预览面板共用右栏,开一个就关另一个。
     const agentsToggle = page.getByTestId("topbar-agents");
     await agentsToggle.click();
     await expect(page.getByTestId("agents-empty")).toBeVisible();
     await expect(agentsToggle).toHaveAttribute("aria-pressed", "true");
-    await page.getByTestId("topbar-files").click();
+    // 侧栏文件区里点一个文件 = 打开预览面板。
+    const cwd = await page.evaluate(async () => (await globalThis.studio.listTasks())[0]!.cwd);
+    await writeFile(path.join(cwd, "说明.md"), "# 说明\n");
+    await page.getByTestId("file-tree-refresh").click();
+    await page.locator('[data-testid=file-tree-row][data-path="说明.md"]').click();
     await expect(page.getByTestId("file-preview")).toBeVisible();
     await expect(page.getByTestId("agents-panel")).toHaveCount(0);
     await expect(agentsToggle).toHaveAttribute("aria-pressed", "false");
@@ -2926,8 +2937,8 @@ test("子代理被 IRC 唤醒:节点还是 done,记录文件接着写时面板�
     const status = row.locator(".agents-row-status");
     await expect(status).toHaveAttribute("data-status", "done");
     await expect(row.getByTestId("agents-row-time")).toBeVisible();
-    const restart = page.getByTestId("topbar-restart");
-    await expect(restart).toBeEnabled();
+    const restartable = () => page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.restartable);
+    await expect.poll(restartable).toBe(true);
 
     // 收到 IRC 之后要等第一次工具调用才算在跑（plan mode 下 omp 只记下 IRC、不唤醒，见 subagent-revival.ts）。
     await appendFile(record, line({ type: "custom_message", customType: "irc:incoming", content: "<irc>again</irc>" }));
@@ -2938,7 +2949,7 @@ test("子代理被 IRC 唤醒:节点还是 done,记录文件接着写时面板�
     await expect(status).toHaveAttribute("data-status", "running", { timeout: 10_000 });
     await expect(row.getByTestId("agents-row-time")).toHaveCount(0);
     await expect(page.getByTestId("pill-agents")).toHaveAttribute("data-count", "1");
-    await expect(restart).toBeDisabled();
+    await expect.poll(restartable).toBe(false);
     // 进入对话、结束、插话要经过 omp 的 Hub，omp 那边它还是 done：按 done 处理，不给。
     await row.click();
     await expect(page.getByTestId("agents-detail")).toHaveAttribute("data-name", "FixOps");
@@ -2953,7 +2964,7 @@ test("子代理被 IRC 唤醒:节点还是 done,记录文件接着写时面板�
     await expect(status).toHaveAttribute("data-status", "done", { timeout: 10_000 });
     await expect(row.getByTestId("agents-row-time")).toBeVisible();
     await expect(page.getByTestId("pill-agents")).toHaveCount(0);
-    await expect(restart).toBeEnabled();
+    await expect.poll(restartable).toBe(true);
   } finally {
     await cleanup();
     await rm(scratch, { recursive: true, force: true, maxRetries: 10 });

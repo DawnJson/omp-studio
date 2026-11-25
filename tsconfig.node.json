@@ -51,6 +51,8 @@
     "src/renderer/src/features/file-preview/tree-model.ts",
     "src/renderer/src/features/file-preview/files-target.ts",
     "src/renderer/src/features/file-preview/snippet.ts",
+    "src/renderer/src/features/file-preview/preview-tabs.ts",
+    "src/renderer/src/features/tabs/task-tabs.ts",
     "src/renderer/src/ui/file-icon-name.ts",
     "src/renderer/src/features/palette/slash-cache.ts",
     "src/renderer/src/features/composer/usage-format.ts",

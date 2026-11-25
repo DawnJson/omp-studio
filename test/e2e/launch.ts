@@ -492,6 +492,13 @@ export async function openTaskRow(page: Page, nth = 0): Promise<void> {
   await (await taskRow(page, nth)).locator(".sb-row-main").click();
 }
 
+/** 当前任务的任务菜单：侧栏里选中的那一行右键（顶栏没有任务菜单）。 */
+export async function openTaskMenu(page: Page): Promise<void> {
+  await expandSidebarFolders(page);
+  await page.locator('[data-testid=task-row][data-selected="true"] .sb-row-main').click({ button: "right" });
+  await page.getByRole("menu").waitFor();
+}
+
 /**
  * 让渲染进程以为自己跑在 `platform` 上（只换 getAppInfo 的返回值里的 platform，主进程行为不变），然后重载页面。
  * 渲染进程的主修饰键、快捷键文字、`<html data-platform>` 都只看 AppInfo.platform，所以能在 Windows 上走 mac 分支。

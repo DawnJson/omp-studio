@@ -75,7 +75,12 @@ export const composer = {
   modelChip: "Choose model and thinking level",
   effort: "Thinking: {level} ({n}/{total})",
   fileRef: "Project files",
-  "usage.tps": "{n} tok/s",
+  "usage.tps": "{n} t/s",
+  "status.speedLive": "Live output speed",
+  "status.speedModel": "Average output speed of this model (measured by omp)",
+  "status.cache": "Cache {p}%",
+  "status.tokensTip":
+    "Total tokens for the whole session, including before compaction (input, output, cache read and write)",
   "badge.fast": "Fast",
   "badge.slow": "Slow",
   "badge.fallback": "Fallback",

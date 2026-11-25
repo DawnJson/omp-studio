@@ -1,16 +1,16 @@
-// `/dirs`、`/add-dir`、`/remove-dir`（spec §4.27）：studio 自己的界面是文件面板顶部的"工作区目录"行，这三条命令只是它的快捷入口。
+// `/dirs`、`/add-dir`、`/remove-dir`（spec §4.27）：studio 自己的界面是侧栏文件区顶部的"工作区目录"行，这三条命令只是它的快捷入口。
 // 命令文本由主进程按封闭的 TaskCommand 拼（shared/omp-output），路径是用户在输入框里自己打的整行（不加引号，omp 会把引号当路径的一部分）。
 import { parseDirsOutput } from "../../../../shared/omp-output/dirs.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { pushToast } from "../dialogs/index.ts";
 import type { StudioSlashCommand } from "../composer/studio-slash.ts";
 import { baseName } from "./PreviewContent.tsx";
-import { openFilesPanel } from "./preview-store.ts";
+import { emitStudioCommand } from "../palette/studio-command.ts";
 import { selectRoot, selectRootWhenListed } from "./roots-store.ts";
 
-/** 命令成功后：打开文件面板；刚加进来的目录就选中它。 */
+/** 命令成功后：展开侧栏文件区；刚加进来的目录就选中它。 */
 function showResult(taskId: TaskId, text: string): void {
-  openFilesPanel(taskId);
+  emitStudioCommand("showFiles");
   const parsed = parseDirsOutput(text);
   if (parsed.kind !== "dirs") return;
   if (parsed.notice?.kind === "added") {
@@ -27,7 +27,7 @@ export const dirsSlashCommands: readonly StudioSlashCommand[] = [
     descKey: "slash.dirsDesc",
     run: async (taskId) => {
       await window.studio.refreshWorkspaceDirs(taskId);
-      openFilesPanel(taskId);
+      emitStudioCommand("showFiles");
     },
   },
   {
@@ -51,7 +51,7 @@ export const dirsSlashCommands: readonly StudioSlashCommand[] = [
     descKey: "slash.removeDirDesc",
     run: async (taskId, args, t) => {
       if (args === "") {
-        openFilesPanel(taskId);
+        emitStudioCommand("showFiles");
         return;
       }
       const result = await window.studio.runTaskCommand(taskId, { kind: "removeDir", path: args });

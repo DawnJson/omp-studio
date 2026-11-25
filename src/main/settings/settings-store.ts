@@ -10,10 +10,8 @@ import {
   parseBackdropStrength,
   parseBoolean,
   parseFontSize,
-  parseIdleClose,
   parseOneOf,
   parseLocalePreference,
-  parseMaxLiveProcesses,
   parseRecord,
   parseThemePreference,
 } from "../ipc/validate.ts";
@@ -29,8 +27,6 @@ const defaults: StudioSettings = {
   backdropStrength: "medium",
   customBackdrop: null,
   glass: false,
-  maxLiveProcesses: 6,
-  idleClose: "1h",
   reduceMotion: false,
   enterWhileRunning: "steer",
   soundOnDone: false,
@@ -95,8 +91,6 @@ function sanitize(raw: unknown): StudioSettings {
     backdropStrength: field(parseBackdropStrength, record["backdropStrength"], defaults.backdropStrength),
     customBackdrop: field(parseBackdropFile, record["customBackdrop"], defaults.customBackdrop),
     glass: field((value) => parseBoolean(value, "glass"), record["glass"], defaults.glass),
-    maxLiveProcesses: field(parseMaxLiveProcesses, record["maxLiveProcesses"], defaults.maxLiveProcesses),
-    idleClose: field(parseIdleClose, record["idleClose"], defaults.idleClose),
     reduceMotion: field((value) => parseBoolean(value, "reduceMotion"), record["reduceMotion"], defaults.reduceMotion),
     enterWhileRunning: field(
       (value) => parseOneOf(value, "enterWhileRunning", ["steer", "followUp"]),

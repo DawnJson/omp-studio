@@ -2,7 +2,6 @@ import type { MessageEntry } from "../index.ts";
 import type { sessionInfo as zhCN } from "../zh-CN/session-info.ts";
 
 export const sessionInfo = {
-  "menu.label": "Task menu",
   "menu.info": "Session info",
   "menu.trace": "Request log",
   "menu.share": "Share link…",

@@ -4,10 +4,10 @@
 
 ## 一个任务
 
-一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个 omp 进程。所有任务都是同一种：交互式 `omp` 跑在伪终端里（node-pty，`useConptyDll: true`），界面是 omp 发来的 TSP 节点树。进程可被回收，任务和会话不会：再打开任务时起新进程，`omp --resume=<会话文件>` 回到同一个会话。
+一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个 omp 进程。所有任务都是同一种：交互式 `omp` 跑在伪终端里（node-pty，`useConptyDll: true`），界面是 omp 发来的 TSP 节点树。进程会结束（关标签页、停止、退出），任务和会话不会：再打开任务时起新进程，`omp --resume=<会话文件>` 回到同一个会话。
 
 - 持久化：`userData/tasks.json`（`TaskRegistry`，先写临时文件再改名，写盘串行）。`tasks.json` 损坏时 `load` 抛错，不当成空表覆盖。重命名和归档存这里。字段见 `TaskRecord`。`updatedAt` 只由用户发消息和一轮结束写入（侧栏按它排序，改名、存会话文件、归档等记账写入不碰它）。
-- 读老记录：`load` 丢掉已无意义的 `engine` 字段，其余原样保留；设置里残留的 `taskEngine` 由 `sanitize` 在下次写设置时丢掉。
+- 读老记录：`load` 丢掉已无意义的 `engine`、`keepAlive` 字段，其余原样保留；设置里残留的 `taskEngine`、`idleClose`、`maxLiveProcesses` 由 `sanitize` 在下次写设置时丢掉。
 - `sessionFile`：omp 启动时就用 `OSC 1337 SetUserVar=omp_session_file=<base64 路径>` 报出路径，但新会话的文件要到第一条回复之后才落盘，所以只在文件存在时才记进任务；每批帧、回合结束、进程退出、关闭时都重试。必须在第一轮进行中就记上：否则会话列表（`SessionSummary.taskId` 按记录里的会话文件匹配）把它当另一条列出，点开后再 `--resume` 同一个文件，omp 发现文件被占就分叉，侧栏出现两条同名任务（见 [session-history.md](session-history.md) 「终端正在使用同一个会话时恢复」；`test/task-tsp.test.ts`「一轮进行中」；真实 omp 18.12.6 实测还在 running 时就记上了）。
 - 一个会话文件最多挂在一个任务上（issue #11）：`TaskRegistry.addTask` / `updateTask` 遇到别的任务已经挂着的 `sessionFile`（按 `pathKey` 比，Windows 上不分大小写、不看斜杠写法）抛 `SessionFileTakenError`。`resume` / `archiveSession` 先按会话文件找已有任务，不会撞上；omp 在进程里换到了别的任务的会话（omp 里 `/resume` 了它）时，`TspRunner.#persistSessionFile` 记一条 WARN，这个任务的记录保持原来的文件，同一个文件不再重试。两个任务挂同一个文件就会对同一个会话起两个 omp，后写的那个被 omp 分叉成新文件。
 - 标题：新任务标题为空；第一次 `sendPrompt` 取首条消息第一行（`convert.ts`）；之后以 omp **记在会话文件里的标题**为准：omp 每次定标题（自动生成、`/rename`）都在文件末尾追加 `{"type":"title_change","title":…}`（omp 18.16.0 实测），`SessionTitleTracker`（`tsp/session-files.ts`）取最后一条，只在"记录里标题为空、是草稿第一句话临时取的、或是上一次采用的 omp 标题"时才覆盖，用户改过名就不再动。
@@ -23,7 +23,7 @@
 
 ## 启动
 
-`TspRunner.start()`：状态机 `start` → worktree 目录还在吗（不在：`worktree_missing`）→ 会话文件还在吗（不在：`session_missing`）→ 有会话文件时问租约（被占：`session_in_use`，见下）→ 开始读新任务默认模型（`#loadNewTaskDefaults`，不等它）→ `acquireSlot`（进程上限，见下）→ `buildLaunch`（`--resume=<会话文件>` 或 `--fork=<forkFrom>`、`--model`、`--thinking`、`--allow-home`，cwd = 任务目录，env = 进程环境 + `TERM_PROGRAM=tern` 等）→ `TspSession.start`（node-pty 起进程、回 `hello`、按信用值回 `ack`，细节见 [tsp-migration.md](tsp-migration.md) §7）→ 等握手 → 等默认模型读完 → 状态机 `ready`，随后立刻对当前文档同步一次状态（omp 可能在回复 hello 之前就已经发了第一批帧）。
+`TspRunner.start()`：状态机 `start` → worktree 目录还在吗（不在：`worktree_missing`）→ 会话文件还在吗（不在：`session_missing`）→ 有会话文件时问租约（被占：`session_in_use`，见下）→ 开始读新任务默认模型（`#loadNewTaskDefaults`，不等它）→ `assertCanStart`（应用正在退出时不再起）→ `buildLaunch`（`--resume=<会话文件>` 或 `--fork=<forkFrom>`、`--model`、`--thinking`、`--allow-home`，cwd = 任务目录，env = 进程环境 + `TERM_PROGRAM=tern` 等）→ `TspSession.start`（node-pty 起进程、回 `hello`、按信用值回 `ack`，细节见 [tsp-migration.md](tsp-migration.md) §7）→ 等握手 → 等默认模型读完 → 状态机 `ready`，随后立刻对当前文档同步一次状态（omp 可能在回复 hello 之前就已经发了第一批帧）。
 
 默认模型和 omp 启动同时进行，两段耗时不相加：冷启动拉模型目录约 0.6 秒，omp 到握手约 0.7 秒（omp 18.12.6 实测，新任务到输入框可发送约 1.05 秒）。默认模型只在新任务（记录里没有模型）时读，`--model` 不依赖它。
 
@@ -31,7 +31,7 @@
 - 检查本身失败（低于最低版本的 omp 没有这个子命令：它仍可能装在机器上，界面只禁用发送；超时；输出认不出）记 WARN、照常起（仓库所有者定，2026-11-12）。
 - 这个任务自己的上一个进程不算进去：只有 stopped / error 的任务才走到 `#start`，`close()` 等进程退出才返回；omp 的租约是内核对象（Windows 命名 mutex、Linux 抽象 socket、macOS `flock`），进程一退出就释放（omp 18.19.0 文档）。
 - omp 只在写会话时占租约，只读打开不占：终端那边刚 `--resume`、还没写东西时查不出来，这时 studio 照常起，之后先写的那边留在原文件 [推测，omp 18.19.0 文档，没实测]。
-- 起进程的路径都是用户触发的（打开任务、发消息、重开会话、会话命令）；`init`、对账、回收都不起进程，不会在后台冒出这个错误。代价：每次打开有会话文件的任务多跑一次 `omp session lease`（实测约 0.1–0.2 秒，omp 18.19.0；上限 10 秒，超时照常起进程）。
+- 起进程的路径都是用户触发的（打开任务、发消息、重开会话、会话命令）；`init`、对账都不起进程，不会在后台冒出这个错误。代价：每次打开有会话文件的任务多跑一次 `omp session lease`（实测约 0.1–0.2 秒，omp 18.19.0；上限 10 秒，超时照常起进程）。
 
 启动失败的 `TaskError.kind`：`omp_unavailable`（找不到 omp）、`spawn_failed`、`worktree_missing`、`session_missing`、`session_in_use`；进程意外退出 `exited`。失败时状态是 `error`，promise 也 reject。`STUDIO_TEST_OMP`（JSON `{command,args}`，仅未打包）替换整条命令，e2e 和单测用它跑 `fake-tsp-omp`。
 
@@ -58,16 +58,14 @@
 
 模型、思考强度、上下文占用、费用不是命令的应答，而是从 omp 输入框卡片上的节点读（`shared/tsp/composer-state.ts`，`TspRunner` 每次文档变化调用，变了才发布）：`omp.composer.model`、`omp.composer.model.effort`、`omp.composer.context`（meter）、`omp.composer.usage`。对照表在 [tsp-migration.md](tsp-migration.md) §10.2。待办阶段从 dock 里 `omp.hud.todo` 的 checklist 换算成 `TaskState.todoPhases`（`shared/tsp/todos.ts`）。输入框被提问 / 审批替换的那几帧读不到，沿用上一次的值。
 
-omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的用量脚注（含每轮费用，写法照 omp，恢复的行和实时的行一致）、最近一条回复的输出速度、按模型的累计用量，见 `src/main/tsp/session-extras.ts` 和 [tsp-migration.md](tsp-migration.md) §10.1。
+omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的用量脚注（含每轮费用，写法照 omp，恢复的行和实时的行一致）、按模型的累计用量，见 `src/main/tsp/session-extras.ts` 和 [tsp-migration.md](tsp-migration.md) §10.1。空闲时状态行的输出速度读 agent.db 的 `model_perf`（`getModelPerf`，只读）。
 
-## 进程上限和回收
+## 进程的生命周期
 
-- `maxLiveProcesses`（设置）是软上限。起新进程时存活数（含 starting）已到软上限：回收最久未用的**可回收**、没标保持运行的任务；没有可回收的就超出软上限照起，到硬上限（× 2）才失败，任务进 error（`spawn_failed`）。
-- 可回收（`TspRunner.recyclable`）：有进程、状态 idle、没有未答的门、文档里没有还在跑的 `tool` / `agent` 卡片（转到后台的任务）、没有在跑的旁路提问（`/btw`）；前台任务由池排除。
-- 定时回收：`sweep(now)` 每分钟跑一次，可回收状态持续到设置的时长（`StudioSettings.idleClose` → `IDLE_CLOSE_MS`；可设，仓库所有者定，2026-10-28）关进程；`now` 由调用方传入，测试不依赖真实时钟。
-- 关闭会话（issue #11，仓库所有者批准，2026-11-12）：任务菜单和命令面板的"关闭会话"（`closeTask` → `TaskPool.closeTask`）和空闲回收走同一条路（`#recycle`）：结束进程，任务和最后一份快照留着（stopped），前台任务也能关。忙（不可回收）时拒绝，没有进程时什么也不做。再切到它（`openTask`）或发消息（`sendPrompt` 先 `start`）时 `--resume` 同一个会话文件。用途：要在终端里接着用这个会话时先在 studio 关掉，否则 studio 的进程占着租约，终端那边一写就分叉。实测（omp 18.19.0，`test/task-real-omp.test.ts`）：跑过一轮的任务进程活着时 `omp session lease` 报占着，关闭会话后报没占，再打开照常恢复同一个文件。
-- 保持运行（`TaskRecord.keepAlive`，任务菜单里开关，`setTaskKeepAlive`；重启后还在）：定时回收和软上限回收都跳过它；硬上限照算，进程退出、用户停止照常。用途：Python eval 里的变量、`/add-dir` 加的目录、后台作业这些只在进程里的东西不丢。
-- 回收后的任务保留最后一份节点树快照，已停止的任务的快照按 LRU 限量保留，更久的释放，再打开时 `--resume` 由 omp 重发整段对话。意外退出（error）同样留着最后一份。进程不在时快照里可能还有 `running` 的工具卡、子代理和计时节点：渲染进程不改文档，只按 `TspEndedAtCtx` 把它们画成已取消 / 已中止、计时停在看到进程结束的那一刻（`use-clock.ts`），见 spec「omp 进程意外退出」。Windows 上 pty 的 Job 在进程退出时关掉，后台作业随之结束，所以这样画是真实状态。
+- 任务的标签页开着，进程就一直活着；关标签页（`closeTask` → `TaskPool.closeTask`）才结束进程。不按空闲时间关，也不限同时存活的进程数（所有者定，2026-11-25）。
+- `closeTask`：结束进程，任务和最后一份快照留着（stopped），前台任务、忙着的任务（在跑、在等你、后台还有工作）也关；任务忙时由渲染进程在关标签页前确认。没有进程时什么也不做。再打开它（`openTask`）或发消息（`sendPrompt` 先 `start`）时 `--resume` 同一个会话文件。要在终端里接着用这个会话时先在 studio 关掉它的标签页，否则 studio 的进程占着租约，终端那边一写就分叉。实测（omp 18.19.0，`test/task-real-omp.test.ts`）：跑过一轮的任务进程活着时 `omp session lease` 报占着，关掉后报没占，再打开照常恢复同一个文件。
+- 别的结束路径：用户停止、重开会话（`restartTask`，关进程再 `--resume`；只在 `restartable` 时）、进程自己退出或出错、归档、删除、应用退出（`shutdown`）。
+- 进程结束后任务保留最后一份节点树快照，已停止的任务的快照按 LRU 限量保留，更久的释放，再打开时 `--resume` 由 omp 重发整段对话。意外退出（error）同样留着最后一份。进程不在时快照里可能还有 `running` 的工具卡、子代理和计时节点：渲染进程不改文档，只按 `TspEndedAtCtx` 把它们画成已取消 / 已中止、计时停在看到进程结束的那一刻（`use-clock.ts`），见 spec「omp 进程意外退出」。Windows 上 pty 的 Job 在进程退出时关掉，后台作业随之结束，所以这样画是真实状态。
 - `shutdown()`：并行 `close` 任务的进程和删除会话的临时 omp（先 `taskkill /T /F` 进程树，再 `pty.kill()`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
 - 窗口 × 不退出：窗口只隐藏（`hide-on-close.ts`），任务池、状态机和 omp 子进程都不受影响，应用常驻托盘（决策见 [background-run.md](background-run.md)）。窗口隐藏期间状态变化照常经 `taskState` 推给渲染进程并刷新托盘；节点树批次（`tspBatch`）在窗口隐藏或最小化期间压下不发，窗口出来时渲染进程重拉快照（`main/tasks/tsp-feed.ts`，见 [tsp-migration.md](tsp-migration.md) §8）。真正的退出入口（托盘"退出"、应用菜单退出、安装更新、系统注销）才走 `shutdown()`。
 - 新加一种以某个目录为 cwd 的常驻子进程（项目 rpc-ui、终端、pty）时，同时检查所有会删这个目录的路径（丢弃 worktree、清理无主 worktree）有没有先把它关掉：cwd 占着目录，`rmdir` 报 EBUSY（例：`service/project-omp.ts` 的 `closeUnder` 由 `runtime.ts` 的 `worktreeOps.remove` 先调）。
@@ -84,7 +82,7 @@ omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的�
 
 ## 对外接口
 
-`getTaskPool(): Promise<TaskPool>`（`runtime.ts`）。`TaskPool` 的方法对应 `ipc.ts` 里任务相关的 IPC 函数（渲染进程只传 id 和封闭的参数），另有 `listSessionLinks()`、`ensureProject(cwd)`、`resume({sessionFile, cwd, projectId, title})`（供历史列表）、`sweep(now)`、`shutdown()`。`openTask` 只负责拉起进程，不返回对话内容：对话是节点树，渲染进程按 `getTspSnapshot` + `tspBatch` 同步（[tsp-migration.md](tsp-migration.md) §8）。
+`getTaskPool(): Promise<TaskPool>`（`runtime.ts`）。`TaskPool` 的方法对应 `ipc.ts` 里任务相关的 IPC 函数（渲染进程只传 id 和封闭的参数），另有 `listSessionLinks()`、`ensureProject(cwd)`、`resume({sessionFile, cwd, projectId, title})`（供历史列表）、`shutdown()`。`openTask` 只负责拉起进程，不返回对话内容：对话是节点树，渲染进程按 `getTspSnapshot` + `tspBatch` 同步（[tsp-migration.md](tsp-migration.md) §8）。
 
 IPC 调用一返回，不要马上从 store 里读这次改动的结果：主进程推送的 `taskState` 可能比 invoke 的应答晚到。要用新值就从应答里取，或者把要做的事挂起、等 store 跟上再做（`file-preview/roots-store.ts` 的 `selectRootWhenListed`）。节点树批次同理，见 [tsp-migration.md](tsp-migration.md) §8「按序号等镜像」。
 

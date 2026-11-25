@@ -26,6 +26,7 @@ export { useBtwRecords } from "./btw-store.ts";
 export {
   clearSelection,
   clearSettingsSection,
+  getSelectedTaskId,
   selectTask,
   setPaletteOpen,
   setSettingsPage,

@@ -104,7 +104,7 @@
 }
 
 /* 右栏（文件面板、子代理面板、浏览器）打开：整块从窗口右边滑进来；关闭时原路滑回（上面的 panel-out）。
-   主区宽度在打开时立即变一次、关闭的动画放完再变一次，都不逐帧重排（同侧栏，spec §2.6） */
+   主区宽度只变一次、不逐帧重排；主区里居中的内容同时横向滑到新位置（app/right-panel-slide.ts，spec §2.6） */
 @keyframes panel-in {
   from {
     transform: translateX(calc(100% + var(--space-2)));

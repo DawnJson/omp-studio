@@ -1,0 +1,167 @@
+/* 顶栏中段的任务标签（spec §4.6）：条本身只占标签需要的宽度，剩下的空白留给窗口拖动；
+   放不下时标签先等比收窄（标题省略），收到最窄还放不下才横向滚动（不画滚动条，滚轮可滚）。
+   标签样子：当前的有 --bg-active 底，别的悬停才出底。按钮（当前标签：重开会话 + ×；别的：×）只在悬停时出来，
+   绝对定位盖在标签右端，标题被盖住的那段渐隐掉：悬停不改任何尺寸，标签收窄或滚动时也不跳。
+   没有状态图标时不留槽位，标题贴左。 */
+.task-tabs {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0 var(--space-2);
+  -webkit-app-region: no-drag;
+}
+
+.task-tabs-strip {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.task-tabs-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.task-tab {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 6em;
+  max-width: 16em;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  color: var(--text-2);
+  border-radius: var(--radius-md);
+}
+.task-tab[data-dragging] {
+  opacity: 0.5;
+}
+/* 拖动时的插入线：在放下那一边、两个标签的缝里 */
+.task-tab[data-drop]::after {
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  width: 2px;
+  content: "";
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+.task-tab[data-drop="before"]::after {
+  left: calc(-1 * var(--space-1) / 2 - 1px);
+}
+.task-tab[data-drop="after"]::after {
+  right: calc(-1 * var(--space-1) / 2 - 1px);
+}
+/* 状态图标的空槽位（看过的、停止的任务）在标签里不占地方 */
+.task-tab .sb-dot:empty {
+  display: none;
+}
+.task-tab:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.task-tab[data-active] {
+  color: var(--text);
+  background: var(--bg-active);
+}
+
+.task-tab-main {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-1) 0 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+/* 就地改名：输入框占标题的地方，样子同侧栏改名框（.sb-rename） */
+.task-tab-editing {
+  cursor: default;
+}
+.task-tab-rename {
+  flex: 1;
+  min-width: 0;
+  height: calc(var(--control-h-sm) - 4px);
+  padding: 0 var(--space-1);
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  outline: none;
+}
+.task-tab-rename:focus-visible {
+  border-color: var(--focus-ring);
+}
+.task-tab-main:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -1px;
+  border-radius: var(--radius-md);
+}
+
+.task-tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 悬停按钮：绝对定位贴在标签右端（× 最右，重开在它左边），不占布局 */
+.task-tab-action {
+  position: absolute;
+  top: 50%;
+  right: var(--space-0-5);
+  display: none;
+  place-items: center;
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
+  padding: 0;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  translate: 0 -50%;
+}
+.task-tab-restart {
+  right: calc(var(--space-0-5) + var(--control-h-xs));
+}
+.task-tab-action:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.task-tab-action[aria-disabled="true"] {
+  color: var(--text-disabled);
+  background: transparent;
+  cursor: default;
+}
+.task-tab:hover:not(:has(.task-tab-editing)) .task-tab-action {
+  display: grid;
+}
+/* 按钮盖住的那段标题渐隐（mask，不用底色遮：--bg-hover 半透明，遮不住字） */
+.task-tab {
+  --tab-actions-w: var(--control-h-xs);
+}
+.task-tab[data-active] {
+  --tab-actions-w: calc(2 * var(--control-h-xs));
+}
+.task-tab:hover:has(.task-tab-action):not(:has(.task-tab-editing)) .task-tab-main {
+  mask-image: linear-gradient(
+    to left,
+    transparent calc(var(--tab-actions-w) - var(--space-2)),
+    #000 calc(var(--tab-actions-w) - var(--space-2) + var(--space-3))
+  );
+}

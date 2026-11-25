@@ -1,4 +1,4 @@
-// 全局快捷键（spec §5.1）：主修饰键 + N / Shift N / Shift O / Shift D / Shift E / Shift R / K / F / , / B / J / L / 1…9、Shift [ ]、Shift ↑ ↓、F6、后退/前进。
+// 全局快捷键（spec §5.1）：主修饰键 + N / Shift N / Shift O / Shift D / Shift E / Shift R / K / F / , / B / J / L / W / 1…9、Shift [ ]、Shift ↑ ↓、Ctrl Tab / Ctrl Shift Tab、F6、后退/前进。
 // 主修饰键 Windows / Linux 是 Ctrl，mac 是 Cmd（platform-keys.ts）；下面注释里的 "Ctrl" 都指它。后退/前进 Windows 是 Alt+←/→，mac 是 Cmd+[ / ]。
 // 窗口内的 keydown 监听，不注册系统级快捷键。输入框里只有带主修饰键/Alt 的键会走到这里；单独按下/松开修饰键（Alt、Ctrl、Shift）不触发任何动作。
 import { useEffect, useRef } from "react";
@@ -14,6 +14,10 @@ export interface ShortcutActions {
   nthTask(n: number): void;
   /** Ctrl Shift [ / ]：上/下一个任务，循环。 */
   cycleTask(delta: 1 | -1): void;
+  /** Ctrl Tab / Ctrl Shift Tab：右边 / 左边的任务标签，首尾相接（mac 上也是 Ctrl，不是 Cmd）。 */
+  cycleTab(delta: 1 | -1): void;
+  /** Ctrl W：关当前任务标签（在跑时先确认）。 */
+  closeTab(): void;
   /** Ctrl Shift ↑ / ↓：对话里上一轮 / 下一轮（以正在读的那条为起点，到头不动）。 */
   cycleTurn(delta: 1 | -1): void;
   /** F6：在 侧栏 → 对话区 → 输入框 之间循环。 */
@@ -57,6 +61,11 @@ export function useShortcuts(actions: ShortcutActions): void {
       const act = latest.current;
       if (event.defaultPrevented) return;
 
+      if (event.ctrlKey && !event.altKey && !event.metaKey && event.key === "Tab") {
+        event.preventDefault();
+        act.cycleTab(event.shiftKey ? -1 : 1);
+        return;
+      }
       if (primaryMod(event) && !event.altKey) {
         // 上/下一个任务按物理键位认：Shift 会把 [ ] 变成 { }，别的布局上字符也不同。
         if (event.shiftKey && (event.code === "BracketLeft" || event.code === "BracketRight")) {
@@ -96,6 +105,7 @@ export function useShortcuts(actions: ShortcutActions): void {
               ",": act.openSettings,
               b: act.toggleSidebar,
               j: act.jumpToWaiting,
+              w: act.closeTab,
               l: act.focusComposer,
               "`": act.toggleTerminalFocus,
             };

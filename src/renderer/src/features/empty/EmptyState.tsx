@@ -10,7 +10,6 @@ import { refreshProjects, useProjectsState } from "../sidebar/projects-store.ts"
 import { describeError } from "../../ui/errors.ts";
 import { Button } from "../../ui/controls.tsx";
 import { useAppInfo } from "../../store/index.ts";
-import { ProjectLabel } from "./ProjectLabel.tsx";
 import { EmptyMark } from "./EmptyMark.tsx";
 import { UsageCard } from "./UsageCard.tsx";
 import { useDraftProject } from "./use-draft-project.ts";
@@ -58,7 +57,7 @@ export function EmptyState() {
         <UsageCard />
       </div>
       <div className="empty-draft" data-testid="empty-draft">
-        <DraftComposer projectId={project?.id ?? null} projectTools={<ProjectLabel project={project} />} />
+        <DraftComposer project={project} />
       </div>
     </div>
   );

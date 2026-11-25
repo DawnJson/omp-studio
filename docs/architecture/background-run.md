@@ -10,7 +10,7 @@
 - 托盘（`window/tray.ts`，图标 `resources/tray.png`，由 `npm run icons` 生成，见 `spec.md` §3.1“标志”；打包经 `extraResources`）：悬停提示带运行中 / 等你确认的个数；左键显示窗口；右键菜单 = 打开 / 摘要行 / 在忙的任务（点击定位）/ 退出。托盘由系统绘制，自动化测试点不到，所以菜单模板是纯函数（`tray-model.ts`）单测。
 - 再次启动（`second-instance`）、mac `activate`、点通知、点托盘都走 `showMainWindow()`（`show-window.ts`）：最小化的先还原，隐藏的淡入（`revealWindow`），窗口不在了才重建。
 - 通知（`tasks/gate-notifier.ts`）："等你确认"在窗口没焦点时发；窗口看不见（托盘、最小化）时任务跑完或出错也发，窗口可见时不发（侧栏已有状态）。开关是 omp 自己的 `ask.notify` / `completion.notify` / `error.notify`，studio 不另设（见 `omp-settings.md`「studio 的系统通知遵守 omp 的 `*.notify`」）。点通知显示窗口并定位到该任务。
-- 真正的退出：托盘"退出"、应用菜单退出、自动更新"重启并安装"（`finishShutdown()` 后 `quitAndInstall`）、系统注销 / 关机（窗口 `session-end` → `finishShutdown()`）。都经过 `shutdown.ts`：置 `isQuitting()` 后 `hide-on-close.ts` 放行 close，不会吞掉 `quitAndInstall` 触发的退出。退出流程见 `task-model.md`"进程上限和回收"：并行关所有任务的 omp，服务进程和项目 rpc-ui 池关 stdin，超时强杀，Job Object 兜底。退出时窗口淡出与这些 hook 并行。
+- 真正的退出：托盘"退出"、应用菜单退出、自动更新"重启并安装"（`finishShutdown()` 后 `quitAndInstall`）、系统注销 / 关机（窗口 `session-end` → `finishShutdown()`）。都经过 `shutdown.ts`：置 `isQuitting()` 后 `hide-on-close.ts` 放行 close，不会吞掉 `quitAndInstall` 触发的退出。退出流程见 `task-model.md`"进程的生命周期"：并行关所有任务的 omp，服务进程和项目 rpc-ui 池关 stdin，超时强杀，Job Object 兜底。退出时窗口淡出与这些 hook 并行。
 - `index.ts` 给 `window-all-closed` 装空监听，关掉 Electron "最后一个窗口关了就退出"的默认行为。
 - 托盘"退出"和更新安装直接中止在跑的任务，不二次确认（所有者定的"退出才中止"语义，2026-10-18）。中止会丢掉那一轮（见实测 A）。
 

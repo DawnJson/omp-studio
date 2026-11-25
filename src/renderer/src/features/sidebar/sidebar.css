@@ -477,9 +477,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 置顶 / 保持运行的行：标题后面的图钉 / 闪电，和 worktree 标记同色同尺寸 */
-.sb-row-pin,
-.sb-row-keep {
+/* 置顶的行：标题后面的图钉，和 worktree 标记同色同尺寸 */
+.sb-row-pin {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -649,6 +648,105 @@
 .sb-dot-unread {
   /* StatusDot 按状态种类换 key：换了状态就是新节点，淡入而不是瞬间换形状。 */
   animation: fade-in var(--dur-base) var(--ease-out);
+}
+
+/* ───── 文件区（SidebarFiles）：展开时和上面的列表按占比分高度（两边的 flex-grow 由组件给），收起时只剩标题行 ───── */
+.sb-files {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-1) var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.sb-files[data-open] {
+  flex: 1 1 0;
+}
+/* 分隔线：命中区跨在上边线上，悬停 / 拖动 / 聚焦时上边线位置亮一条 1px（同侧栏、预览面板的拖拽条） */
+.sb-files-resizer {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 7px;
+  cursor: row-resize;
+}
+.sb-files-resizer::after {
+  position: absolute;
+  top: 3px;
+  right: 0;
+  left: 0;
+  height: 1px;
+  content: "";
+  background: var(--border-strong);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.sb-files-resizer:hover::after,
+.sb-files-resizer:active::after,
+.sb-files-resizer:focus-visible::after {
+  opacity: 1;
+}
+.sb-files-resizer:focus-visible {
+  outline: none;
+}
+.sb-files-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-h-sm);
+}
+/* 标题：同文件夹头（箭头 + 名称，小字中等字重） */
+.sb-files-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-xs);
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.sb-files-toggle:hover {
+  background: var(--bg-hover);
+}
+.sb-files-toggle:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+}
+.sb-files-chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.sb-files-chevron[data-open] {
+  transform: rotate(90deg);
+}
+.sb-files-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 额外工作区目录的切换行、树：贴着侧栏的左右留白，行不再缩进 4px（侧栏自己有留白） */
+.sb-files .file-preview-roots {
+  padding: var(--space-1) 0;
+  border-bottom: 0;
+}
+.sb-files .file-tree-row {
+  right: 0;
+  left: 0;
 }
 
 /* ───── 底部栏 ───── */

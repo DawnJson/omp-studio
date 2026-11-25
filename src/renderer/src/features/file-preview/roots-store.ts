@@ -5,12 +5,8 @@ import { createStore, useStoreValue } from "../../store/create-store.ts";
 
 const store = createStore<ReadonlyMap<TerminalKey, number>>(new Map());
 
-export function selectedRoot(key: TerminalKey): number {
-  return store.get().get(key) ?? 0;
-}
-
 export function selectRoot(key: TerminalKey, root: number): void {
-  if (selectedRoot(key) === root) return;
+  if ((store.get().get(key) ?? 0) === root) return;
   const next = new Map(store.get());
   if (root === 0) next.delete(key);
   else next.set(key, root);
@@ -19,11 +15,6 @@ export function selectRoot(key: TerminalKey, root: number): void {
 
 export function useSelectedRoot(key: TerminalKey): number {
   return useStoreValue(store, (state) => state.get(key) ?? 0);
-}
-
-/** 树的记忆（展开、光标、滚动）按根分开：同一个任务的不同根各记各的。 */
-export function rootMemoryKey(key: TerminalKey, root: number): TerminalKey {
-  return (root === 0 ? key : `${key}\u0000root${root}`) as TerminalKey;
 }
 
 // 刚加进来、列表还没到的根：IPC 应答可能先于 taskState 事件到达，文件面板等 `workspaceDirs` 长到够了再选中，

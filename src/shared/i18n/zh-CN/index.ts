@@ -52,6 +52,7 @@ import { browser } from "./browser.ts";
 import { board } from "./board.ts";
 import { modes } from "./modes.ts";
 import { pet } from "./pet.ts";
+import { tabs } from "./tabs.ts";
 
 export const zhCN = {
   shell,
@@ -108,4 +109,5 @@ export const zhCN = {
   board,
   modes,
   pet,
+  tabs,
 };

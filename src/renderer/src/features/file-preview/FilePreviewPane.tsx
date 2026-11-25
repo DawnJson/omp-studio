@@ -1,83 +1,60 @@
-// 右侧文件面板（spec §4.27）：两页——文件（树）/ 预览；头部是页签 + 刷新 + 关闭，宽度可拖。
-// 树和预览都经主进程 IPC 取数据（校验落在根目录内）；两页同时挂载、切页只是显隐，所以树的滚动位置和已加载的目录不丢。
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { parseDraftKey, type ProjectFilesTarget, type TaskId, type TerminalKey } from "../../../../shared/ipc.ts";
+// 右侧预览面板（spec §4.27）：头部一排标签（文件或代码片段，最多 maxPreviewTabs 个）+ 关闭，下面是当前标签的预览页，宽度可拖。
+// 文件树在侧栏（SidebarFiles.tsx）；预览内容经主进程 IPC 读取（校验落在根目录内，文件链接走只读的直接预览）。
+import { useLayoutEffect, useMemo, useRef, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import type { ProjectFilesTarget } from "../../../../shared/ipc.ts";
+import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close, Restart } from "../../icons.tsx";
-import { IconButton, Tabs } from "../../ui/controls.tsx";
-import { useTask } from "../../store/index.ts";
+import { Close } from "../../icons.tsx";
+import { IconButton } from "../../ui/controls.tsx";
+import { FileTypeIcon } from "../../ui/FileTypeIcon.tsx";
 import type { ExitProps } from "../../ui/presence.ts";
 import { useHeld } from "../composer/use-held.ts";
-import { FileTree } from "./FileTree.tsx";
+import { baseName } from "./PreviewContent.tsx";
 import { PreviewPage } from "./PreviewPage.tsx";
-import { WorkspaceRoots } from "./WorkspaceRoots.tsx";
 import { filesTarget } from "./files-target.ts";
-import { clearPendingRoot, rootMemoryKey, selectRoot, useSelectedRoot, usePendingRoot } from "./roots-store.ts";
 import {
   closeFilePreview,
-  previewFileInPanel,
-  setPanelPage,
+  closePreviewTab,
+  selectPreviewTab,
   setPreviewWidth,
   usePreviewPanel,
   usePreviewWidth,
-  type PanelState,
+  type PreviewPanel,
+  type PreviewTab,
 } from "./preview-store.ts";
+import { snippetExtension, snippetLabel } from "./snippet.ts";
 import "./file-preview.css";
 
 const minWidth = 280;
 const maxShare = 0.7;
 const keyboardStep = 16;
 
-const noDirs: readonly string[] = [];
-
 /** 任务目标选额外根（下标）；别的目标（草稿的项目、默认文件夹）没有额外根。 */
-function withRoot(target: ProjectFilesTarget, root: number): ProjectFilesTarget {
-  return target.kind === "task" && root > 0 ? { ...target, root } : target;
+function withRoot(target: ProjectFilesTarget, root: number | undefined): ProjectFilesTarget {
+  return target.kind === "task" && root !== undefined && root > 0 ? { ...target, root } : target;
 }
 
 /** `exitProps`：App 的右栏 usePresence 给的，关闭时原路滑回（motion.css 的 panel-out）。 */
-export function FilePreviewPane({
-  panelKey,
-  page,
-  path,
-  exitProps,
-}: { panelKey: TerminalKey; exitProps: ExitProps } & Omit<PanelState, "key" | "root" | "snippet">) {
+export function FilePreviewPane({ exitProps }: { exitProps: ExitProps }) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
   const width = usePreviewWidth();
-  const taskId = parseDraftKey(panelKey) === undefined ? (panelKey as TaskId) : null;
-  const task = useTask(taskId);
-  const dirs = task?.workspaceDirs ?? noDirs;
-  // 树当前看的根；列表缩短（目录被移除、任务重启）后落回任务目录。预览页看的是打开文件时的那个根（PanelState.root）。
-  const selected = useSelectedRoot(panelKey);
-  const treeRoot = selected <= dirs.length ? selected : 0;
   // 关闭后放退出动画的那一下 store 里已经是 null：沿用关闭前的，预览页不在滑走时换成别的内容。
   const panel = useHeld(usePreviewPanel());
-  const previewRoot = panel?.root ?? 0;
-  // 回答里代码块的"在侧栏预览"：预览页显示这段代码，不读文件（preview-store.ts 的 openSnippetPreview）。
-  const snippet = panel?.snippet ?? null;
-  const fromLink = panel?.fromLink === true;
-  const target = useMemo(() => filesTarget(panelKey), [panelKey]);
-  const treeTarget = useMemo(() => withRoot(target, treeRoot), [target, treeRoot]);
-  const previewTarget = useMemo(() => withRoot(target, previewRoot), [target, previewRoot]);
-  const [reload, setReload] = useState(0);
+  const panelKey = panel?.key ?? null;
+  const target = useMemo(() => (panelKey === null ? null : filesTarget(panelKey)), [panelKey]);
+  const tab = panel?.tabs.find((candidate) => candidate.id === panel.active) ?? null;
+  const tabRoot = tab?.kind === "file" ? tab.root : undefined;
+  const previewTarget = useMemo(() => (target === null ? null : withRoot(target, tabRoot)), [target, tabRoot]);
 
-  useEffect(() => {
-    if (selected !== treeRoot) selectRoot(panelKey, treeRoot);
-  }, [panelKey, selected, treeRoot]);
-
-  const pendingRoot = usePendingRoot(panelKey);
-  useEffect(() => {
-    if (pendingRoot === undefined || dirs.length < pendingRoot) return;
-    selectRoot(panelKey, pendingRoot);
-    clearPendingRoot(panelKey);
-  }, [panelKey, pendingRoot, dirs.length]);
-
-  // 打开、切到预览页时把焦点放进面板：Esc 才能关掉它（树隐藏后焦点会丢）；关闭后由 store 还焦点。文件页的树随后自己拿焦点。
+  // 打开、换标签时把焦点放进面板：Esc 才能关掉它；关闭后由 store 还焦点。
+  // 从侧栏文件树打开的不抢：焦点留在树里接着挑文件（树里的 Esc 同样关预览）。
   useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (active?.closest("[data-testid=sidebar-files]") || root.current?.contains(active)) return;
     root.current?.focus({ preventScroll: true });
-  }, [page]);
+  }, [tab?.id]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Escape") return;
@@ -111,7 +88,6 @@ export function FilePreviewPane({
       ref={root}
       className="file-preview"
       data-testid="file-preview"
-      data-page={page}
       aria-label={t("preview.title")}
       tabIndex={-1}
       style={width === null ? undefined : { flexBasis: width }}
@@ -132,27 +108,7 @@ export function FilePreviewPane({
         onKeyDown={onResizerKey}
       />
       <header className="file-preview-head">
-        <Tabs
-          tabs={[
-            { id: "files", label: t("preview.pageFiles") },
-            { id: "preview", label: t("preview.pagePreview"), disabled: path === null && snippet === null },
-          ]}
-          value={page}
-          onChange={setPanelPage}
-          label={t("preview.pages")}
-          idBase="file-preview"
-          testId="file-preview-page"
-        />
-        <span className="file-preview-spacer" />
-        {page === "files" && (
-          <IconButton
-            label={t("preview.refresh")}
-            testId="file-tree-refresh"
-            onClick={() => setReload((count) => count + 1)}
-          >
-            <Restart size={14} />
-          </IconButton>
-        )}
+        {panel !== null && <PreviewTabs panel={panel} />}
         <IconButton
           label={t("preview.close")}
           tip={`${t("preview.close")} (Esc)`}
@@ -162,33 +118,119 @@ export function FilePreviewPane({
           <Close size={14} />
         </IconButton>
       </header>
-      {taskId !== null && page === "files" && (
-        <WorkspaceRoots
-          taskId={taskId}
-          cwd={task?.cwd ?? ""}
-          dirs={dirs}
-          root={treeRoot}
-          onSelect={(next) => selectRoot(panelKey, next)}
-        />
-      )}
-      <FileTree
-        key={treeRoot}
-        target={treeTarget}
-        memoryKey={rootMemoryKey(panelKey, treeRoot)}
-        active={page === "files"}
-        reload={reload}
-        selected={previewRoot === treeRoot ? path : null}
-        onOpenFile={previewFileInPanel}
-      />
-      {(path !== null || snippet !== null) && (
+      {tab !== null && previewTarget !== null && (
         <PreviewPage
           target={previewTarget}
-          path={path}
-          snippet={snippet}
-          fromLink={fromLink}
-          hidden={page !== "preview"}
+          path={tab.kind === "file" ? tab.path : null}
+          snippet={tab.kind === "snippet" ? tab.snippet : null}
+          fromLink={tab.kind === "file" && tab.fromLink}
         />
       )}
     </section>
+  );
+}
+
+function tabName(tab: PreviewTab, t: TFunction): { name: string; icon: string } {
+  if (tab.kind === "file") return { name: baseName(tab.path), icon: baseName(tab.path) };
+  return {
+    name: t("preview.snippet", { lang: snippetLabel(tab.snippet.kind) }),
+    icon: `snippet.${snippetExtension(tab.snippet.kind)}`,
+  };
+}
+
+/** 标签条：←/→/Home/End 换标签（焦点跟着走），Delete 或中键关闭；标签先收窄（名字省略），收到最窄还放不下才横向滚动，竖着的滚轮也能滚。× 不进 Tab 顺序（键盘用 Delete）。 */
+function PreviewTabs({ panel }: { panel: PreviewPanel }) {
+  const t = useT();
+  const strip = useRef<HTMLDivElement>(null);
+
+  // 当前标签滚进视野（新开的标签在最右）。
+  useLayoutEffect(() => {
+    strip.current
+      ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [panel.active, panel.tabs.length]);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const last = panel.tabs.length - 1;
+    const to =
+      event.key === "ArrowRight"
+        ? (index + 1) % panel.tabs.length
+        : event.key === "ArrowLeft"
+          ? (index - 1 + panel.tabs.length) % panel.tabs.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? last
+              : null;
+    if (event.key === "Delete") {
+      event.preventDefault();
+      closePreviewTab(panel.tabs[index]!.id);
+      requestAnimationFrame(() =>
+        strip.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus(),
+      );
+      return;
+    }
+    if (to === null) return;
+    event.preventDefault();
+    selectPreviewTab(panel.tabs[to]!.id);
+    strip.current?.querySelectorAll<HTMLElement>('[role="tab"]')[to]?.focus();
+  };
+
+  return (
+    <div
+      ref={strip}
+      className="file-preview-tabs"
+      role="tablist"
+      aria-label={t("preview.tabs")}
+      data-testid="preview-tabs"
+      onWheel={(event) => {
+        // 竖着的滚轮换成横向滚动；触控板 / 高精度滚轮竖着滑时 deltaX 也常带一点，按主方向判断，不能只认 deltaX 为 0。
+        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) event.currentTarget.scrollLeft += event.deltaY;
+      }}
+    >
+      {panel.tabs.map((tab, index) => {
+        const { name, icon } = tabName(tab, t);
+        const title = tab.kind === "file" ? tab.path : name;
+        const onAuxClick = (event: MouseEvent) => {
+          if (event.button !== 1) return;
+          event.preventDefault();
+          closePreviewTab(tab.id);
+        };
+        return (
+          <div
+            key={tab.id}
+            className="file-preview-tab"
+            data-active={tab.id === panel.active || undefined}
+            data-testid="preview-tab"
+            onAuxClick={onAuxClick}
+          >
+            <button
+              type="button"
+              role="tab"
+              className="file-preview-tab-main"
+              aria-selected={tab.id === panel.active}
+              tabIndex={tab.id === panel.active ? 0 : -1}
+              title={title}
+              onClick={() => selectPreviewTab(tab.id)}
+              onKeyDown={(event) => onKeyDown(event, index)}
+            >
+              <FileTypeIcon name={icon} size={14} />
+              <span className="file-preview-tab-name">{name}</span>
+            </button>
+            <button
+              type="button"
+              className="file-preview-tab-close"
+              tabIndex={-1}
+              aria-label={t("preview.closeTab", { name })}
+              title={`${t("preview.closeTab", { name })} (Delete)`}
+              data-testid="preview-tab-close"
+              onClick={() => closePreviewTab(tab.id)}
+            >
+              <Close size={12} />
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 }

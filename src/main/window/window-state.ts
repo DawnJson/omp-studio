@@ -2,7 +2,7 @@
 // 侧栏宽度和折叠、对话列宽度由渲染进程经 setShellState 写入（spec §3.1、§3.2）。
 import { app, screen, type BrowserWindow, type Rectangle } from "electron";
 import path from "node:path";
-import { historyOrders, limits, type ShellState } from "../../shared/ipc.ts";
+import { historyOrders, limits, type ShellState, type TaskId } from "../../shared/ipc.ts";
 import {
   IpcValidationError,
   parseBoolean,
@@ -10,6 +10,7 @@ import {
   parseOneOf,
   parseRecord,
   parseString,
+  parseTaskId,
 } from "../ipc/validate.ts";
 import { readJsonFile, writeJsonFileAtomic } from "../settings/json-file.ts";
 
@@ -23,6 +24,11 @@ const defaultShellState: ShellState = {
   historyOrder: "folder",
   conversationWidth: null,
   folderOrder: [],
+  sidebarFilesOpen: true,
+  sidebarFilesShare: null,
+  openTabs: [],
+  activeTab: null,
+  taskColors: {},
 };
 
 /** 对话列宽度（占主区的百分比）：null = 默认；数字要在 limits.conversationWidthRange 里，存两位小数。 */
@@ -35,6 +41,12 @@ export function parseConversationWidth(value: unknown): number | null {
   return Math.round(value * 100) / 100;
 }
 
+/** 侧栏文件区占的百分比：null = 默认；整数，在 limits.sidebarFilesShareRange 里。 */
+export function parseSidebarFilesShare(value: unknown): number | null {
+  if (value === null) return null;
+  return parseInteger(value, "sidebarFilesShare", ...limits.sidebarFilesShareRange);
+}
+
 /** 侧栏文件夹顺序：字符串数组，不超过 limits.folderOrderMax 个，每个非空、不超过 limits.folderKeyMaxChars，不重复。 */
 export function parseFolderOrder(value: unknown): string[] {
   if (!Array.isArray(value) || value.length > limits.folderOrderMax) {
@@ -43,6 +55,35 @@ export function parseFolderOrder(value: unknown): string[] {
   const keys = value.map((key, index) => parseString(key, `folderOrder[${index}]`, limits.folderKeyMaxChars));
   if (new Set(keys).size !== keys.length) throw new IpcValidationError("folderOrder 有重复项");
   return keys;
+}
+
+/** 任务标签：任务 id 数组，不重复，不超过 limits.openTabsMax 个。任务已经不在了的 id 由渲染进程丢掉（主进程这里不查任务表）。 */
+export function parseOpenTabs(value: unknown): TaskId[] {
+  if (!Array.isArray(value) || value.length > limits.openTabsMax) {
+    throw new IpcValidationError(`openTabs 必须是不超过 ${limits.openTabsMax} 项的数组`);
+  }
+  const ids = value.map((id) => parseTaskId(id));
+  if (new Set(ids).size !== ids.length) throw new IpcValidationError("openTabs 有重复项");
+  return ids;
+}
+
+/** 当前标签：null（新任务草稿）或任务 id。 */
+export function parseActiveTab(value: unknown): TaskId | null {
+  return value === null ? null : parseTaskId(value);
+}
+
+/** 任务颜色：任务 id → 1…limits.taskColorCount 的整数，不超过 limits.taskColorsMax 条。不在了的任务由渲染进程丢掉。 */
+export function parseTaskColors(value: unknown): Record<TaskId, number> {
+  const record = parseRecord(value, "taskColors");
+  const entries = Object.entries(record);
+  if (entries.length > limits.taskColorsMax) {
+    throw new IpcValidationError(`taskColors 不能超过 ${limits.taskColorsMax} 条`);
+  }
+  const colors: Record<TaskId, number> = {};
+  for (const [id, color] of entries) {
+    colors[parseTaskId(id)] = parseInteger(color, `taskColors.${id}`, 1, limits.taskColorCount);
+  }
+  return colors;
 }
 
 interface WindowBounds {
@@ -136,6 +177,27 @@ function load(): PersistedState {
     shell.folderOrder = parseFolderOrder(raw["folderOrder"]);
   } catch {
     // 保留默认值：所有文件夹当新文件夹，按最近活动排一次后记下来。
+  }
+  try {
+    shell.sidebarFilesOpen = parseBoolean(raw["sidebarFilesOpen"], "sidebarFilesOpen");
+  } catch {
+    // 保留默认值（展开）。
+  }
+  try {
+    shell.sidebarFilesShare = parseSidebarFilesShare(raw["sidebarFilesShare"]);
+  } catch {
+    // 保留默认值（各占一半）。
+  }
+  try {
+    shell.openTabs = parseOpenTabs(raw["openTabs"]);
+    shell.activeTab = parseActiveTab(raw["activeTab"]);
+  } catch {
+    // 保留默认值（没有标签，停在新任务草稿）。
+  }
+  try {
+    shell.taskColors = parseTaskColors(raw["taskColors"]);
+  } catch {
+    // 保留默认值（都没颜色）。
   }
   state = {
     bounds: parseBounds(record["bounds"]),

@@ -60,7 +60,7 @@ describe("TaskRegistry（tasks.json）", () => {
     expect(second.findTask(task.id)).toMatchObject({ worktreePath: null, worktreeBranch: null, worktreeBase: null });
   });
 
-  it("rpc 引擎时代写的记录（engine: rpc / tsp）读出来是同一个任务：engine 字段去掉，会话文件、标题、归档状态、模型原样保留；下次保存时落盘", async () => {
+  it("老记录读出来是同一个任务：engine（rpc 引擎时代）、keepAlive（保持运行删除之前）字段去掉，会话文件、标题、归档状态、模型原样保留；下次保存时落盘", async () => {
     const file = path.join(scratch, "engine", "tasks.json");
     const project = { id: "p1", path: path.join(scratch, "engine 项目"), name: "engine 项目" };
     const record = (id: string, engine: string | null, extra: Record<string, unknown> = {}) => ({
@@ -86,16 +86,18 @@ describe("TaskRegistry（tasks.json）", () => {
           record("rpc", "rpc"),
           record("tsp", "tsp"),
           record("ancient", null),
-          record("gone", "rpc", { archived: true }),
+          record("gone", "rpc", { archived: true, keepAlive: true }),
+          record("kept", null, { keepAlive: false }),
         ],
       }),
     );
     const registry = new TaskRegistry(file);
     await registry.load();
-    for (const id of ["rpc", "tsp", "ancient", "gone"]) {
+    for (const id of ["rpc", "tsp", "ancient", "gone", "kept"]) {
       const task = registry.findTask(id as TaskId);
       expect(task).toBeDefined();
       expect(task).not.toHaveProperty("engine");
+      expect(task).not.toHaveProperty("keepAlive");
       expect(task).toMatchObject({
         sessionFile: path.join(scratch, "sessions", `${id}.jsonl`),
         title: `任务 ${id}`,
@@ -110,7 +112,7 @@ describe("TaskRegistry（tasks.json）", () => {
 
     await registry.save();
     const saved = JSON.parse(await readFile(file, "utf8")) as { tasks: Record<string, unknown>[] };
-    expect(saved.tasks.every((task) => !("engine" in task))).toBe(true);
+    expect(saved.tasks.every((task) => !("engine" in task) && !("keepAlive" in task))).toBe(true);
   });
 
   it("同一个目录只加一次（路径写法不同、Windows 上大小写不同也算同一个）", async () => {

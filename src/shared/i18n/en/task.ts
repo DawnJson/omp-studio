@@ -7,8 +7,6 @@ export const task = {
   pin: "Pin to top",
   unpin: "Unpin",
   pinned: "Pinned",
-  keepAlive: "Keep running",
-  keepAliveOff: "Stop keeping running",
   renameLabel: "Task title",
   archive: "Archive",
   archived: "Archived",
@@ -33,7 +31,5 @@ export const task = {
   restartBusyWaiting: "Waiting for your answer; answer it first",
   restartBusyStarting: "The task is starting",
   restartBusyBackground: "Background work is still running; restart when it finishes",
-  close: "Close session",
-  closeBusy: "Busy; close it when it is idle",
   exportHtml: "Export as HTML…",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

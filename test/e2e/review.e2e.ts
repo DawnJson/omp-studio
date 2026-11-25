@@ -97,6 +97,12 @@ async function openTask(page: Page): Promise<void> {
   await expect(page.getByTestId("composer-input")).toBeVisible();
 }
 
+/** 打开评审：输入框下方状态行的分支胶囊 → Git 菜单第一项。 */
+async function openReviewFromMenu(page: Page): Promise<void> {
+  await page.getByTestId("git-menu").click();
+  await page.getByTestId("git-menu-review").click();
+}
+
 const gutter = (page: Page, line: number, side: "new" | "old" = "new") =>
   page.locator(`[data-testid=line-comment][data-side=${side}][data-line="${line}"]`);
 
@@ -109,8 +115,8 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     const { page } = launched;
     await openTask(page);
 
-    // 打开评审：顶栏的评审按钮。
-    await page.getByTestId("topbar-review").click();
+    // 打开评审：状态行分支胶囊的 Git 菜单。
+    await openReviewFromMenu(page);
     const review = page.getByTestId("review");
     await expect(review).toBeVisible();
     await expect(page.getByTestId("review-branch")).toBeVisible();
@@ -179,7 +185,7 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     await expect(review).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(review).toBeHidden();
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await expect(page.getByTestId("comment-count")).toHaveText("2");
 
     // 丢弃要确认：确认框开着时 j 不切文件；取消后 hunk 还在；确认丢弃未跟踪文件后文件从磁盘和树里消失。
@@ -220,7 +226,7 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     expect(sent).toContain("请补上注释。");
     expect(sent.indexOf(":23-25")).toBeLessThan(sent.indexOf(":26"));
 
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await expect(page.getByTestId("comment-queue-button")).toBeDisabled();
   } finally {
     await cleanup();
@@ -232,7 +238,7 @@ test("评审：删除行的旧行号一直在；悬停时加评论的 + 在行�
   try {
     const { page } = launched;
     await openTask(page);
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await openFile(page, CSV_EDITED, "unstaged").click();
 
     // 评审盖住整个窗口：输入框所在的位置，最上面的元素在评审里面（输入框不透出来）。
@@ -307,7 +313,7 @@ test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整�
     git(repo, "config", "user.email", "t@example.com");
     git(repo, "config", "commit.gpgsign", "false");
     await openTask(page);
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     const review = page.getByTestId("review");
     await expect(review).toBeVisible();
 
@@ -357,7 +363,7 @@ test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整�
     // 选择在评审关闭再打开后还在（会话内记住）；键盘 f 切回改动块。
     await page.keyboard.press("Escape");
     await expect(review).toBeHidden();
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-checked", "true");
     await openFile(page, PATH_EDITED, "unstaged").click();
     await page.keyboard.press("f");
@@ -453,7 +459,7 @@ test("评审：生成提交信息（假 omp commit）：填进输入框、可取
   try {
     const { page } = launched;
     await openTask(page);
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await expect(page.getByTestId("review")).toBeVisible();
     const generate = page.getByTestId("review-commit-generate");
     const summary = page.getByTestId("review-commit-summary");
@@ -504,7 +510,7 @@ test("评审：生成提交信息：omp 没有可用模型时给出提示，输�
   try {
     const { page } = launched;
     await openTask(page);
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await page.getByTestId("review-commit-summary").fill("手写的标题");
     await page.getByTestId("review-commit-generate").click();
     await expect(page.getByTestId("toasts")).toContainText("没有可用的 commit 模型");
@@ -576,7 +582,7 @@ test("评审：修改上一次提交（Amend）：预填上一次的信息；取
     git(repo, "config", "commit.gpgsign", "false");
     git(repo, "commit", "-q", "--amend", "--only", "-m", "init 标题\n\n原来的说明");
     await openTask(page);
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     const summary = page.getByTestId("review-commit-summary");
     const description = page.getByTestId("review-commit-description");
     const amend = page.getByTestId("review-commit-amend");
@@ -648,7 +654,7 @@ test("评审：忽略空白：空白改动从 diff 里消失，按块 / 按行�
     edited[25] = "export const value26 = 2600;";
     await writeFile(path.join(repo, PATH_EDITED), edited.join("\n") + "\n");
     await openTask(page);
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await openFile(page, PATH_EDITED, "unstaged").click();
 
     const indented = page.locator(".rv-row[data-kind=add]", { hasText: "  export const value5 = 5;" });
@@ -695,7 +701,7 @@ test("评审：按行暂存 / 取消暂存 / 丢弃：点击、Shift 点击、Sh
     edited[4] = "export const value5 = 500;";
     await writeFile(path.join(repo, PATH_EDITED), edited.join("\n") + "\n");
     await openTask(page);
-    await page.getByTestId("topbar-review").click();
+    await openReviewFromMenu(page);
     await openFile(page, PATH_EDITED, "unstaged").click();
     const row = (kind: "add" | "del", text: string) =>
       page.locator(`.rv-row[data-kind=${kind}]`, { hasText: text }).first();

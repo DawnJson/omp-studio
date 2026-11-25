@@ -19,7 +19,7 @@ test("顶栏是任务条：标志+字标、切换侧栏按钮（没有关于按�
     // 左上角的标志和新任务页同一个像素标志（π + 像素字 omp studio）。
     const brand = page.getByTestId("topbar-brand");
     await expect(brand.getByTestId("pixel-logo")).toBeVisible();
-    await expect(page.getByTestId("topbar-crumb")).toHaveText(/^(新任务|New task)$/);
+    await expect(page.getByTestId("task-tab-draft")).toHaveText(/^(新任务|New task)$/);
     for (const id of ["topbar-back", "topbar-forward"]) await expect(page.getByTestId(id)).toHaveCount(0);
     // 两样横排在同一行：标志在最左，后面是切换侧栏。顶栏左侧没有"关于与反馈"按钮。
     await expect(page.getByTestId("topbar-about")).toHaveCount(0);
@@ -452,11 +452,11 @@ test("没有项目时主区是标题、用量和草稿输入框；F6 把焦点�
     await expect(empty).toBeVisible();
     await expect(empty).toHaveAttribute("data-kind", "no-project");
     await expect(empty.getByTestId("empty-mark")).toBeVisible();
-    // 输入框上面没有任何按钮；项目标签在输入框工具行里，写默认文件夹的路径。
+    // 输入框上面没有任何按钮；项目标签在输入框下方的状态行里，写默认文件夹的路径。
     await expect(empty.locator(".empty-main").getByRole("button")).toHaveCount(0);
-    await expect(page.getByTestId("draft-composer").locator(".composer-tools").getByTestId("empty-project")).toHaveText(
-      /[\\/]chats$/,
-    );
+    await expect(
+      page.getByTestId("draft-composer").getByTestId("composer-status").getByTestId("empty-project"),
+    ).toHaveText(/[\\/]chats$/);
     await expect(page.getByTestId("empty-draft").locator("[data-composer-input]")).toBeVisible();
 
     await page.keyboard.press("F6");

@@ -20,7 +20,7 @@ import { SessionTreePanel } from "../features/conversation/index.ts";
 import { releaseTspDocument, TspView } from "../features/tsp/index.ts";
 import { NoticeLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
-import { toggleFilesPanel, usePreviewPanel } from "../features/file-preview/index.ts";
+import { focusSidebarFiles, usePreviewPanel } from "../features/file-preview/index.ts";
 import { closeAgentsPanel, useAgentsPanel } from "../features/agents/index.ts";
 import { closeBrowserPanel, openBrowserPanel, toggleBrowserPanel, useBrowserPanel } from "../features/browser/index.ts";
 import {
@@ -45,6 +45,7 @@ import {
 } from "./lazy-views.tsx";
 import { emitStudioCommand, onStudioCommand } from "../features/palette/studio-command.ts";
 import { DeleteSessionHost, jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
+import { CloseTabHost, closeTaskTab, cycleTaskTab } from "../features/tabs/index.ts";
 import { addProjectAsDraft } from "../features/sidebar/sidebar-actions.ts";
 import { useLocale, useT } from "../i18n/use-t.ts";
 import { openReview } from "../store/review-store.ts";
@@ -62,7 +63,7 @@ import {
   useSettingsSettled,
 } from "../store/index.ts";
 import { AboutDialog } from "./AboutDialog.tsx";
-import { setDrawerOpen, setSidebarCollapsed, useShellValue } from "./shell-store.ts";
+import { setDrawerOpen, setSidebarCollapsed, setSidebarFilesOpen, useShellValue } from "./shell-store.ts";
 import { SidebarResizer } from "./SidebarResizer.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useNavigation } from "./use-navigation.ts";
@@ -71,6 +72,7 @@ import { useHeld } from "../features/composer/use-held.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
 import { useCopyOnSelect } from "./use-copy-on-select.ts";
 import { restartSession } from "./restart-session.ts";
+import { useRightPanelSlide } from "./right-panel-slide.ts";
 import { TooltipLayer } from "../ui/Tooltip.tsx";
 import { EditMenu } from "./EditMenu.tsx";
 
@@ -140,8 +142,8 @@ export function App() {
   const panel = usePreviewPanel();
   const agentsPanel = useAgentsPanel();
   const browserPanel = useBrowserPanel();
-  // 子代理、浏览器、文件三个面板共用右栏，同时只开一个：文件面板一打开就收起另外两个，子代理面板打开时收起浏览器
-  // （openAgentsPanel 关文件面板，openBrowserPanel 关另外两个）。
+  // 子代理、浏览器、预览三个面板共用右栏，同时只开一个：预览面板一打开就收起另外两个，子代理面板打开时收起浏览器
+  // （openAgentsPanel 关预览面板，openBrowserPanel 关另外两个）。
   useEffect(() => {
     if (panel === null) return;
     closeAgentsPanel(false);
@@ -150,21 +152,13 @@ export function App() {
   useEffect(() => {
     if (agentsPanel !== null) closeBrowserPanel(false);
   }, [agentsPanel]);
-  // 右栏现在该画哪个面板（文件优先：打开文件面板的那一帧另外两个还没收起，只画文件面板）。关了之后沿用最后一个，放完 panel-out
+  // 右栏现在该画哪个面板（预览优先：打开预览面板的那一帧另外两个还没收起，只画预览面板）。关了之后沿用最后一个，放完 panel-out
   // 再卸载：打开有滑入、关闭有滑出（2026-11-11 仓库所有者：开有动画关没有的情况要杜绝）；换成另一个面板时新的直接滑入。
   const rightPanel: ((exit: ExitProps) => ReactNode) | null =
     view !== "conversation"
       ? null
       : panel?.key === terminalKey
-        ? (exit) => (
-            <FilePreviewPane
-              key={`files:${panel.key}`}
-              panelKey={panel.key}
-              page={panel.page}
-              path={panel.path}
-              exitProps={exit}
-            />
-          )
+        ? (exit) => <FilePreviewPane key={`files:${panel.key}`} exitProps={exit} />
         : taskId !== null && agentsPanel?.taskId === taskId
           ? (exit) => (
               <AgentsPanel key={`agents:${taskId}`} taskId={taskId} selected={agentsPanel.selected} exitProps={exit} />
@@ -173,6 +167,9 @@ export function App() {
             ? (exit) => <BrowserPanel key={`browser:${taskId}`} taskId={taskId} exitProps={exit} />
             : null;
   const rightPresence = usePresence(rightPanel !== null, "panel");
+  const mainPanel = useRef<HTMLElement>(null);
+  // 右栏开关时主区里居中的内容跟着横向滑（主区宽度只变一次）
+  useRightPanelSlide(rightPanel !== null, mainPanel);
   const shownRightPanel = useHeld(rightPanel);
   // omp 连上了当前任务的浏览器（AI 开始用它）：打开面板，不抢焦点。
   useEffect(
@@ -368,10 +365,24 @@ export function App() {
     if (narrow) setDrawerOpen(!drawerOpen);
     else setSidebarCollapsed(!sidebarCollapsed);
   };
+  // 侧栏文件区（Ctrl Shift E、命令面板发 toggleFiles；/dirs 等发 showFiles）：侧栏收起时先展开侧栏。
+  // toggleFiles 打开时焦点进树，已经展开就收起；showFiles 只保证展开、不动焦点。
+  const filesOpen = useShellValue("sidebarFilesOpen");
+  const showFiles = (focus: boolean) => {
+    if (!sidebarShown) toggleSidebar();
+    setSidebarFilesOpen(true);
+    if (focus) focusSidebarFiles();
+  };
+  const toggleFiles = () => {
+    if (sidebarShown && filesOpen) setSidebarFilesOpen(false);
+    else showFiles(true);
+  };
 
   // 命令面板的"切换侧栏"以事件发来；用 ref 取最新的 toggleSidebar。/rename 要在侧栏里就地改名，收起时先展开。
   const toggleSidebarRef = useRef(toggleSidebar);
   toggleSidebarRef.current = toggleSidebar;
+  const filesRef = useRef({ toggleFiles, showFiles });
+  filesRef.current = { toggleFiles, showFiles };
   const sidebarShownRef = useRef(sidebarShown);
   sidebarShownRef.current = sidebarShown;
   useEffect(
@@ -380,6 +391,8 @@ export function App() {
         if (command === "toggleSidebar" || (command === "rename" && !sidebarShownRef.current))
           toggleSidebarRef.current();
         else if (command === "about") openAbout(true);
+        else if (command === "toggleFiles") filesRef.current.toggleFiles();
+        else if (command === "showFiles") filesRef.current.showFiles(false);
       }),
     [openAbout],
   );
@@ -405,6 +418,10 @@ export function App() {
       if (order.length === 0) return;
       const at = order.findIndex((id) => id === taskId);
       openTask(order[at === -1 ? (delta === 1 ? 0 : order.length - 1) : (at + delta + order.length) % order.length]);
+    },
+    cycleTab: (delta) => cycleTaskTab(t, delta),
+    closeTab: () => {
+      if (taskId !== null && view === "conversation") closeTaskTab(t, taskId);
     },
     cycleTurn: (delta) => emitStudioCommand(delta === 1 ? "nextTurn" : "prevTurn"),
     cycleRegion: focusRegion,
@@ -432,7 +449,7 @@ export function App() {
       if (view === "conversation") toggleTerminalFocus(terminalKey);
     },
     toggleFilesPanel: () => {
-      if (view === "conversation") toggleFilesPanel(terminalKey);
+      if (view === "conversation") toggleFiles();
     },
     toggleBrowserPanel: () => {
       if (taskId !== null && view === "conversation") toggleBrowserPanel(taskId);
@@ -477,6 +494,7 @@ export function App() {
           {view === "settings" && !narrow ? <SettingsNav /> : <Sidebar />}
         </div>
         <main
+          ref={mainPanel}
           className="panel"
           data-testid="main-panel"
           data-backdrop={backdrop}
@@ -523,6 +541,7 @@ export function App() {
       <GitDialogHost />
       <SessionInfoHost />
       <DeleteSessionHost />
+      <CloseTabHost />
       <NoticeLayer />
       <CommandPalette />
       <OmpSetupView />

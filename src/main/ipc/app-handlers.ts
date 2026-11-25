@@ -15,7 +15,11 @@ import { chooseBackdropImage } from "../settings/backdrop-image.ts";
 import {
   getShellState,
   parseConversationWidth,
+  parseActiveTab,
   parseFolderOrder,
+  parseOpenTabs,
+  parseSidebarFilesShare,
+  parseTaskColors,
   setShellState,
   sidebarWidthRange,
 } from "../window/window-state.ts";
@@ -116,6 +120,15 @@ export const appHandlers: HandlerGroup<
         conversationWidth: parseConversationWidth(record["conversationWidth"]),
       }),
       ...(record["folderOrder"] !== undefined && { folderOrder: parseFolderOrder(record["folderOrder"]) }),
+      ...(record["sidebarFilesOpen"] !== undefined && {
+        sidebarFilesOpen: parseBoolean(record["sidebarFilesOpen"], "sidebarFilesOpen"),
+      }),
+      ...(record["sidebarFilesShare"] !== undefined && {
+        sidebarFilesShare: parseSidebarFilesShare(record["sidebarFilesShare"]),
+      }),
+      ...(record["openTabs"] !== undefined && { openTabs: parseOpenTabs(record["openTabs"]) }),
+      ...(record["activeTab"] !== undefined && { activeTab: parseActiveTab(record["activeTab"]) }),
+      ...(record["taskColors"] !== undefined && { taskColors: parseTaskColors(record["taskColors"]) }),
     });
   },
   setTitleBarDimmed: async (dimmed, fade) =>

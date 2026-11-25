@@ -364,8 +364,7 @@ test("回答里 html / svg / markdown 代码块在侧栏预览：从内存渲染
     await expect(page.getByTestId("file-preview-body").getByTestId("codeblock")).toBeVisible();
     await expect(page.getByTestId("file-preview-body").getByTestId("codeblock-preview")).toHaveCount(0);
 
-    // 文件页里点文件：照旧读盘预览，片段让位。
-    await page.getByTestId("file-preview-page-files").click();
+    // 侧栏文件树里点文件：照旧读盘预览，片段让位。
     await page.locator('[data-testid="file-tree-row"][data-path="notes.md"]').click();
     await expect(page.getByTestId("file-preview-name")).toHaveText("notes.md");
     await expect(page.getByTestId("file-preview-body")).toContainText("预览标题");
@@ -384,7 +383,8 @@ test("网页预览：勾选运行脚本后内联脚本跑，不勾不跑；页�
       path.join(project, "script.html"),
       '<p id="out">静态</p><script>document.getElementById("out").textContent = "脚本跑了";</script>',
     );
-    await page.getByTestId("topbar-files").click();
+    // 文件区在启动时就读过目录：新写的文件要刷新才出现。
+    await page.getByTestId("file-tree-refresh").click();
     await page.locator('[data-testid=file-tree-row][data-path="script.html"]').click();
     const frame = page.getByTestId("file-preview-frame");
     const out = page.frameLocator('[data-testid="file-preview-frame"]').locator("#out");
@@ -438,9 +438,8 @@ test("源码视图有语法颜色：md 源码里围栏代码块的语言也着�
         );
         return new Set(Array.from(spans, (span) => g.getComputedStyle(span).color)).size;
       });
-    await page.getByTestId("topbar-files").click();
+    await page.getByTestId("file-tree-refresh").click();
     for (const file of ["code.md", "code.html"]) {
-      await page.getByTestId("file-preview-page-files").click();
       await page.locator(`[data-testid="file-tree-row"][data-path="${file}"]`).click();
       await page.getByTestId("file-preview-mode-source").click();
       await expect.poll(colorCount, { timeout: 15_000 }).toBeGreaterThanOrEqual(3);
@@ -469,7 +468,7 @@ test("svg 围栏画成图：颜色换成主题色，切主题重画；<> 看源�
         "",
       ].join("\n"),
     );
-    await page.getByTestId("topbar-files").click();
+    await page.getByTestId("file-tree-refresh").click();
     await page.locator('[data-testid="file-tree-row"][data-path="figure.md"]').click();
     const [good, bad] = [0, 1].map((nth) => page.getByTestId("file-preview-body").getByTestId("codeblock").nth(nth));
     const figure = good!.getByTestId("codeblock-figure");
@@ -531,7 +530,7 @@ test("mermaid 围栏在 worker 里画成图，颜色跟主题；不支持的图�
         "",
       ].join("\n"),
     );
-    await page.getByTestId("topbar-files").click();
+    await page.getByTestId("file-tree-refresh").click();
     await page.locator('[data-testid="file-tree-row"][data-path="flow.md"]').click();
     const [good, bad] = [0, 1].map((nth) => page.getByTestId("file-preview-body").getByTestId("codeblock").nth(nth));
     const figure = good!.getByTestId("codeblock-figure");
@@ -587,7 +586,6 @@ test("预览大图：适应窗口时缩小会更小、放大会更大；放大�
   try {
     const { page } = launched;
     await page.setViewportSize({ width: 1225, height: 756 });
-    await page.getByTestId("topbar-files").click();
     await page.locator('[data-testid=file-tree-row][data-path="big.svg"]').click();
     const img = page.getByTestId("file-preview-image");
     await expect(img).toBeVisible();
@@ -629,7 +627,6 @@ test("适应窗口：比预览区高得多的图整张缩进预览区，比例�
   try {
     const { page } = launched;
     await page.setViewportSize({ width: 1225, height: 756 });
-    await page.getByTestId("topbar-files").click();
     await page.locator('[data-testid=file-tree-row][data-path="tall.svg"]').click();
     const img = page.getByTestId("file-preview-image");
     await expect(img).toBeVisible();
@@ -656,12 +653,16 @@ test("Ctrl+滚轮缩放预览：图片以指针处为中心，文本和网页整
       await page.keyboard.up("Control");
     };
     const reset = page.getByTestId("file-preview-zoom-reset");
-    await page.getByTestId("topbar-files").click();
 
     // 图片：从适应窗口开始放大；放大到两个方向都能滚以后，再放大一格，指针下还是图片上的同一点。
     await page.locator('[data-testid=file-tree-row][data-path="big.svg"]').click();
     const img = page.getByTestId("file-preview-image");
     await expect(img).toBeVisible();
+    // 右栏滑入放完再量：滑动途中图片还在窗口右边外面，按那时的位置滚轮会落在窗口外（spec §2.6「右栏开 / 关」）。
+    await page.getByTestId("file-preview").evaluate(async (element) => {
+      const animated = element as unknown as { getAnimations(): { finished: Promise<unknown> }[] };
+      await Promise.all(animated.getAnimations().map((animation) => animation.finished));
+    });
     const fit = (await img.boundingBox())!;
     const x = fit.x + fit.width * 0.75;
     const y = fit.y + fit.height * 0.75;
@@ -686,7 +687,6 @@ test("Ctrl+滚轮缩放预览：图片以指针处为中心，文本和网页整
     await expect.poll(async () => (await img.boundingBox())!.width).toBeLessThan(fit.width);
 
     // Markdown：100% 时没有缩放组；Ctrl+滚轮放大一格，文字跟着变大，点百分比回到 100%。
-    await page.getByTestId("file-preview-page-files").click();
     await page.locator('[data-testid=file-tree-row][data-path="notes.md"]').click();
     const heading = page.getByTestId("file-preview-md").getByRole("heading", { name: "预览标题" });
     await expect(heading).toBeVisible();
@@ -709,7 +709,6 @@ test("Ctrl+滚轮缩放预览：图片以指针处为中心，文本和网页整
 
     // 网页：滚轮落在沙箱 iframe 里，应用页面收不到，父页面也看不出指针在 iframe 上；主进程转来的 zoom-changed
     // （页面没处理的 Ctrl+滚轮）带着光标位置，光标在网页上才缩放它。Playwright 的鼠标不动系统光标，这里替换光标位置。
-    await page.getByTestId("file-preview-page-files").click();
     await page.locator('[data-testid=file-tree-row][data-path="page.html"]').click();
     const frame = page.getByTestId("file-preview-frame");
     await expect(frame).toBeVisible();
@@ -748,7 +747,7 @@ test("源码预览（txt、json）：内容比预览区高时滚轮往下滚，�
     const lines = Array.from({ length: 300 }, (_, i) => `line ${i}`);
     await writeFile(path.join(project, "long.txt"), lines.join("\n"));
     await writeFile(path.join(project, "data.json"), JSON.stringify({ items: lines }, null, 2));
-    await page.getByTestId("topbar-files").click();
+    await page.getByTestId("file-tree-refresh").click();
     const body = page.getByTestId("file-preview-body");
     const scrollTop = () => body.evaluate((el) => (el as unknown as { scrollTop: number }).scrollTop);
     for (const name of ["long.txt", "data.json"]) {
@@ -770,7 +769,6 @@ test("源码预览（txt、json）：内容比预览区高时滚轮往下滚，�
       await page.mouse.wheel(0, -500);
       await expect.poll(scrollTop).toBeLessThan(zoomed);
       await page.getByTestId("file-preview-zoom-reset").click();
-      await page.getByTestId("file-preview-page-files").click();
     }
   } finally {
     await cleanup();
@@ -781,14 +779,16 @@ test("预览工具栏在 900 宽窗口、中英文下不越界（缩放过的文
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
+    // 900 宽时侧栏是抽屉：先在宽窗口里从文件树开三个标签，再缩窄，靠标签切换。
+    await page.setViewportSize({ width: 1225, height: 700 });
+    const files = ["notes.md", "logo.svg", "page.html"];
+    for (const file of files) await page.locator(`[data-testid=file-tree-row][data-path="${file}"]`).click();
     await page.setViewportSize({ width: 900, height: 700 });
-    await page.getByTestId("topbar-files").click();
     const bar = page.locator(".file-preview-bar");
     for (const locale of ["zh-CN", "en"] as const) {
       await setLocaleTheme(page, locale, "light");
-      for (const file of ["notes.md", "logo.svg", "page.html"]) {
-        await page.getByTestId("file-preview-page-files").click();
-        await page.locator(`[data-testid=file-tree-row][data-path="${file}"]`).click();
+      for (const file of files) {
+        await page.getByTestId("preview-tab").filter({ hasText: file }).click();
         await expect(page.getByTestId("file-preview-name")).toHaveText(file);
         // 文字缩放换文件不复位：第一个文件放大一格，后面的网页也带着百分比。
         if (file === "notes.md" && (await page.getByTestId("file-preview-zoom-reset").count()) === 0) {

@@ -210,16 +210,20 @@ export function summarizeSessionUsage(text: string): SessionModelUsage {
   return usage.summary();
 }
 
-/** 各模型合计的 token 分项和请求数：TSP 任务的 `sessionUsage`（omp 的 TSP 输入框卡片只给费用，token 和请求数从会话文件补）。 */
+/**
+ * 各模型合计的 token 分项和请求数：TSP 任务的 `sessionUsage`（omp 的 TSP 输入框卡片只给费用，token 和请求数从会话文件补）。
+ * 分项和请求数的范围同 omp（最近一次压缩之后）；`wholeTokens` 是整个会话（当前分支，含压缩前）的 token 合计。
+ */
 export interface SessionTotals {
   tokens: TokenUsage;
   requests: number;
+  wholeTokens: number;
 }
 
-export function totalUsage(models: readonly ModelUsage[]): SessionTotals {
+export function totalUsage(summary: SessionModelUsage): SessionTotals {
   const tokens: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
   let requests = 0;
-  for (const row of models) {
+  for (const row of summary.models) {
     tokens.input += row.input;
     tokens.output += row.output;
     tokens.cacheRead += row.cacheRead;
@@ -227,5 +231,5 @@ export function totalUsage(models: readonly ModelUsage[]): SessionTotals {
     tokens.total += row.total;
     requests += row.requests;
   }
-  return { tokens, requests };
+  return { tokens, requests, wholeTokens: summary.whole?.total ?? tokens.total };
 }

@@ -149,7 +149,12 @@ test("压缩一栏：圆环上有自动压缩刻度，构成里写在 85% 自动
   const { page, log, cleanup } = await openContextTask("压缩");
   try {
     const meter = page.getByTestId("composer-stack").getByTestId("context-meter");
-    await expect(meter.getByTestId("context-ring-tick")).toHaveAttribute("data-at", "85");
+    // 自动压缩点之后到末尾是一段条纹预留：从 85% 起，占条长的 15%。
+    const reserve = meter.getByTestId("context-reserve");
+    await expect(reserve).toHaveAttribute("data-at", "85");
+    const [bar, band] = await Promise.all([meter.locator(".usage-bar").boundingBox(), reserve.boundingBox()]);
+    expect(bar && band && Math.abs(band.x + band.width - (bar.x + bar.width)) <= 1).toBe(true);
+    expect(bar && band && Math.abs(band.width - bar.width * 0.15) <= 1).toBe(true);
     await meter.click();
     await expect(page.getByTestId("context-auto-at")).toHaveText(/85%/);
     await expect(page.getByTestId("context-handoff")).toBeEnabled();

@@ -122,7 +122,6 @@ function makeTask(status: TaskState["status"]): TaskState {
     goal: null,
     sessionToggles: emptySessionToggles(),
     workspaceDirs: [],
-    keepAlive: false,
     fallbackModel: null,
     credentialPins: {},
     revivedSubagents: {},

@@ -180,6 +180,8 @@ export const STUDIO_RESERVED: ReadonlySet<string> = new Set([
   "ctrl+j",
   "ctrl+l",
   "ctrl+`",
+  "ctrl+tab",
+  "ctrl+shift+tab",
   "ctrl+shift+{",
   "ctrl+shift+}",
   "ctrl+shift+up",

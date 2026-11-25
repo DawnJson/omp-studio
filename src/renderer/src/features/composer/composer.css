@@ -9,7 +9,8 @@
   container-type: inline-size;
   width: min(100% - 2 * var(--gutter), var(--content-w));
   margin: 0 auto;
-  padding-bottom: var(--space-4);
+  /* 底下是状态行（自己一档 --control-h-xs 的行高），只留一点边：矮窗口里状态行不多占对话区的高度 */
+  padding-bottom: var(--space-1);
 }
 /* 空状态里概览比窗口高时会滚到输入框后面：让内容从它后面淡出，而不是被切断。
    任务里的输入框不画（2026-11-10 仓库所有者：输入框和上面的用时、待办行直接放在背景上，不要一条底色）；
@@ -101,17 +102,6 @@
 .composer-tools > .ui-popover-anchor.approval-anchor {
   flex: none;
 }
-/* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。
-   路径用界面字体、同工具行字号（它是一个位置，不是要复制的代码）；开头省略的做法在 empty.css。 */
-.composer-tools > .empty-project {
-  height: var(--control-h-sm);
-  padding: 0 var(--chip-pad);
-  font-size: var(--fs-xs);
-}
-.composer-tools > .empty-project > .empty-project-name {
-  font-family: inherit;
-  font-size: inherit;
-}
 .composer-note {
   min-width: 0;
   overflow: hidden;
@@ -120,28 +110,98 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 发送键左边：上下文圆环 + 本会话费用（等宽数字的小字）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
+/* 发送键左边的本会话费用（等宽数字的小字），点开是订阅额度和每日用量。 */
 .usage-context-anchor,
 .session-cost-anchor {
   flex: none;
 }
+
+/* ───── 输入框下方的状态行（ComposerStatus.tsx，spec §4.14）：在输入框外、不加底色，同输入框宽；
+   左 位置胶囊（文件夹 + 分支），右 上下文条 · 速度 · 缓存 · tokens。字比工具行再弱一档（--text-3）。 ───── */
+.composer-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h-xs);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+/* 比最小窗口还矮（字号放大时）：输入框要整个放得下，状态行先让出来 */
+@media (max-height: 300px) {
+  .composer-status {
+    display: none;
+  }
+}
+.composer-status-place {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+/* 不是 git 仓库时单独的文件夹标签：同胶囊的内边距和字，和有分支时位置不跳 */
+.composer-status-place > .empty-project {
+  height: var(--control-h-xs);
+  padding: 0 var(--space-1-5);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+/* 路径用界面字体、同状态行字号（它是一个位置，不是要复制的代码）；开头省略的做法在 empty.css */
+.composer-status .empty-project-name {
+  font-family: inherit;
+  font-size: inherit;
+}
+.composer-status-stats {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 数字之间的 ·：每个数自己带在前面（上下文条总在最前），藏掉一个时不会多出一个点 */
+.composer-stat::before {
+  content: "·";
+  margin-right: var(--space-2);
+}
+/* 窄的时候右边按 tokens → 缓存 → 速度 的顺序藏掉，上下文条一直在；左边的胶囊靠自己收缩 */
+@container (max-width: 640px) {
+  .composer-stat[data-stat="tokens"] {
+    display: none;
+  }
+}
+@container (max-width: 540px) {
+  .composer-stat[data-stat="cache"] {
+    display: none;
+  }
+}
+@container (max-width: 440px) {
+  .composer-stat[data-stat="speed"] {
+    display: none;
+  }
+}
+
+/* 上下文：细横条 + 百分比（UsageMeter.tsx），点开是上下文构成。悬停 / 打开时只给底色，条的颜色不变。 */
 .usage-context {
-  display: grid;
-  place-items: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  height: var(--control-h-xs);
+  padding: 0 var(--space-1-5);
+  font: inherit;
+  color: inherit;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
 }
-/* 悬停 / 打开时只给底色（同其它工具按钮），圆环本身的颜色不变。 */
 button.usage-context:hover,
 .usage-context[aria-expanded="true"] {
+  color: var(--text);
   background: var(--bg-hover);
 }
-/* 还没有数据时的占位圆环：同位置同大小，不能点。 */
+/* 还没有数据时的占位：同位置同大小，不能点。 */
 .usage-context[data-pending] {
   cursor: default;
 }
@@ -333,10 +393,6 @@ button.usage-context:hover,
     max-width: 18ch;
   }
 }
-/* 工具行放不下时的让位顺序：先是项目路径（缩到只剩文件夹图标），模型名最后。 */
-.composer-tools > .empty-project {
-  flex-shrink: 100;
-}
 /* 再窄（比如右侧开着文件预览）工具行折成两行：左边模型、审批一行，右边的计数、用量、发送换到下一行靠右，模型名不再被挤没。 */
 @container (max-width: 400px) {
   .composer-tools {
@@ -378,29 +434,40 @@ button.usage-context:hover,
   margin-right: var(--space-3);
   border-right: 1px solid var(--border-subtle);
 }
-.usage-ring-track,
-.usage-ring-fill {
-  fill: none;
+/* 已用是紫色（--accent）；快满了变成琥珀色（data-high）。
+   72px 长、8px 高的小圆角矩形（--radius-xs，不是圆头胶囊），已用紫色；自动压缩触发点之后到末尾是一段斜条纹
+   （同构成里"自动压缩预留"的色块），不画竖刻度（所有者定，2026-11-25）。 */
+.usage-bar {
+  position: relative;
+  flex: none;
+  width: 72px;
+  height: 8px;
+  overflow: hidden;
+  background: var(--border-strong);
+  border-radius: var(--radius-xs);
 }
-.usage-ring-track {
-  stroke: var(--border-strong);
-  stroke-width: 1.5;
+.usage-bar-fill,
+.usage-bar-reserve {
+  position: absolute;
+  inset: 0 auto 0 0;
 }
-/* 已用是中性色的扇形（UsageMeter 的 Ring）；快满了才变成琥珀色（data-high） */
-.usage-ring-fill {
-  stroke: var(--text-3);
-  stroke-width: 6;
+.usage-bar-fill {
+  background: var(--accent);
 }
-/* 自动压缩触发点：从圆环向里的一道短刻度（UsageMeter 的 Ring；不伸出外圈，伸出去像箭头），用已用弧和底圈之外的中性色 */
-.usage-ring-tick {
-  stroke: var(--text-2);
-  stroke-width: 1.5;
+.usage-bar-reserve {
+  right: 0;
+  left: auto;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--st-waiting-soft) 0 3px,
+    color-mix(in srgb, var(--st-waiting) 35%, transparent) 3px 5px
+  );
 }
 .usage-context[data-high] {
   color: var(--st-waiting-text);
 }
-.usage-context[data-high] .usage-ring-fill {
-  stroke: var(--st-waiting);
+.usage-context[data-high] .usage-bar-fill {
+  background: var(--st-waiting);
 }
 
 /* 上下文构成（照 Claude Code 的 /context）：分段横条 + 每类一行 */

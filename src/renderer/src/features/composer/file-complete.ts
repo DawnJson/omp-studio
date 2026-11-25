@@ -33,3 +33,8 @@ export function applyFileCompletion(
     caret: reference.start + inserted.length + (spaced ? 1 : 0),
   };
 }
+
+/** 文件树的"插入到输入框"：`@路径`；路径带空白时加引号（omp 的 `@"…"` 写法，同文件附件发送时的写法）。 */
+export function fileMention(path: string): string {
+  return /\s/.test(path) ? `@"${path}"` : `@${path}`;
+}

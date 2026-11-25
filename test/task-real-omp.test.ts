@@ -56,8 +56,6 @@ describe.skipIf(!enabled)("真实 omp", () => {
       getSettings: async () => ({
         locale: "en",
         theme: "system",
-        maxLiveProcesses: 6,
-        idleClose: "1h",
         reduceMotion: false,
         enterWhileRunning: "steer",
         soundOnDone: false,
@@ -134,7 +132,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
     const sessionFile = registry.findTask(created.id)?.sessionFile ?? "";
     expect(sessionFile).toContain(path.join(scratch, "agent"));
 
-    // 进程活着时它占着会话的租约（别的 omp 这时打开会悄悄分叉）；"关闭会话"后租约放掉，再打开同一个文件照常恢复。
+    // 进程活着时它占着会话的租约（别的 omp 这时打开会悄悄分叉）；关掉（关标签页）后租约放掉，再打开同一个文件照常恢复。
     expect(await leaseHeld(sessionFile)).toBe(true);
     await pool.closeTask(created.id);
     expect(pool.listTasks()[0]?.status).toBe("stopped");

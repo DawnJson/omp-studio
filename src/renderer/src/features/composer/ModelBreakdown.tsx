@@ -1,13 +1,12 @@
-// 上下文浮层左栏的按模型明细（照 Claude Code 的 Usage → Breakdown）：头一行本会话 token 总数，下面一行输出速度，每个模型的输入 / 输出 / 缓存读取 / 缓存写入、
+// 上下文浮层左栏的按模型明细（照 Claude Code 的 Usage → Breakdown）：头一行本会话 token 总数，每个模型的输入 / 输出 / 缓存读取 / 缓存写入、
 // 缓存命中率（没有缓存数据时不显示）和费用。
 // 数据由主进程读会话文件得到（getSessionModelUsage），范围和 omp 的会话统计一致；压缩过时底部另给整个会话（含压缩前）的合计。
 // 浮层打开时读一次；打开期间一轮结束（updatedAt 变了）再读。还没有回复（会话文件里没有模型记录）时没有左栏，浮层保持单栏。
 import { useEffect, useState } from "react";
-import type { SessionModelUsage, TaskState } from "../../../../shared/ipc.ts";
+import type { ModelKey, SessionModelUsage, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { describeError } from "../../ui/errors.ts";
 import { deriveComposerFacts, sameComposerFacts } from "../../../../shared/tsp/composer-facts.ts";
-import { useSessionExtras } from "../tsp/session-extras-store.ts";
 import { useTspDerived } from "../tsp/tsp-store.ts";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
 import { cacheHitRate, formatCount, formatMoney, formatPercent } from "./usage-format.ts";
@@ -45,21 +44,47 @@ export interface Speed {
   live: boolean;
 }
 
+/** omp 记下的模型平均速度（agent.db 的 model_perf），按 `provider/modelId` 记住：切任务、切回来时直接有，不闪。 */
+const modelSpeeds = new Map<string, number | null>();
+
+/** 空闲时读一次（每轮结束 omp 记下这一轮，平均值跟着变）；运行中不读，用 omp 的实时速度。 */
+function useModelSpeed(key: ModelKey | null, busy: boolean): number | null {
+  const provider = key?.provider ?? null;
+  const modelId = key?.modelId ?? null;
+  const id = provider === null || modelId === null ? null : `${provider}/${modelId}`;
+  const [, setLoaded] = useState(0);
+  useEffect(() => {
+    if (provider === null || modelId === null || id === null || busy) return;
+    let current = true;
+    window.studio.getModelPerf([{ provider, modelId }]).then(
+      (perf) => {
+        modelSpeeds.set(id, perf[id]?.tokensPerSecond ?? null);
+        if (current) setLoaded((n) => n + 1);
+      },
+      (error: unknown) => console.warn("getModelPerf 失败", error),
+    );
+    return () => {
+      current = false;
+    };
+  }, [provider, modelId, id, busy]);
+  return id === null ? null : (modelSpeeds.get(id) ?? null);
+}
+
 /**
- * 输出速度（2026-11-07 起从工具行挪进本会话用量）：运行中有 omp 的实时速度（输入框卡片里的 `omp.composer.rate`，omp 设置 `composer.tokenRate`
- * 开着时才有，shared/tsp/composer-facts.ts）就用它（取整）；否则是会话文件里最近一条回复的（`useSessionExtras().tokensPerSecond`，
- * output ÷ (duration − ttft)，一轮结束时刷新）。都没有时 null。
+ * 输出速度（输入框下方的状态行显示）：运行中有 omp 的实时速度（输入框卡片里的 `omp.composer.rate`，omp 设置 `composer.tokenRate`
+ * 开着时才有，shared/tsp/composer-facts.ts）就用它（取整）；否则是 omp 记下的当前模型平均速度（同模型选择器里的实测速度；
+ * 所有者定 2026-11-25：不用最后一条回复的 output ÷ (duration − ttft)，整段一次到达的回复会算出几千上万）。都没有时 null。
  */
 export function useSpeed(task: TaskState): Speed | null {
-  const lastRate = useSessionExtras(task.id, (extras) => extras.tokensPerSecond);
-  const liveRate = useTspDerived(task.id, deriveComposerFacts, sameComposerFacts)?.rate ?? null;
   const busy = task.status === "running" || task.status === "needs_you";
+  const modelRate = useModelSpeed(task.model?.key ?? null, busy);
+  const liveRate = useTspDerived(task.id, deriveComposerFacts, sameComposerFacts)?.rate ?? null;
   if (busy && liveRate !== null) return { text: String(Math.max(1, Math.round(liveRate))), live: true };
-  const text = formatTokensPerSecond(lastRate);
+  const text = formatTokensPerSecond(modelRate);
   return text === null ? null : { text, live: false };
 }
 
-export function ModelBreakdown({ task, load, speed }: { task: TaskState; load: ModelUsageLoad; speed: Speed | null }) {
+export function ModelBreakdown({ task, load }: { task: TaskState; load: ModelUsageLoad }) {
   const t = useT();
   const nameOf = (provider: string, modelId: string) =>
     task.model?.key.provider === provider && task.model.key.modelId === modelId ? task.model.name : modelId;
@@ -69,11 +94,6 @@ export function ModelBreakdown({ task, load, speed }: { task: TaskState; load: M
         <strong className="mb-title">{t("composer.breakdown.title")}</strong>
         {task.sessionUsage !== null && <span className="ctx-num">{formatCount(task.sessionUsage.tokens.total)}</span>}
       </div>
-      {speed !== null && (
-        <p className="ctx-note" data-testid="usage-tps" data-live={speed.live || undefined}>
-          {t("composer.usage.tps", { n: speed.text })}
-        </p>
-      )}
       {load.kind === "error" && (
         <p className="ctx-note" role="alert">
           {t("composer.breakdown.failed", { message: describeError(t, load.error) })}

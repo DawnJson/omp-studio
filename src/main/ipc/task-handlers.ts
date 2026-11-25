@@ -53,7 +53,6 @@ export const taskHandlers: HandlerGroup<
   | "submitQueuedMessages"
   | "stopTask"
   | "renameTask"
-  | "setTaskKeepAlive"
   | "archiveTask"
   | "deleteTask"
   | "listTaskModels"
@@ -243,9 +242,6 @@ export const taskHandlers: HandlerGroup<
   stopTask: async (taskId) => (await getTaskPool()).stopTask(parseTaskId(taskId)),
 
   renameTask: async (taskId, title) => (await getTaskPool()).renameTask(parseTaskId(taskId), parseTitle(title)),
-
-  setTaskKeepAlive: async (taskId, on) =>
-    (await getTaskPool()).setTaskKeepAlive(parseTaskId(taskId), parseBoolean(on, "on")),
 
   archiveTask: async (taskId) => (await getTaskPool()).archiveTask(parseTaskId(taskId)),
 

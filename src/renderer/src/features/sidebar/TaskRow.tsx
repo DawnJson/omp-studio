@@ -4,9 +4,10 @@
 import { memo, useRef, type CSSProperties } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type SessionSummary, type TaskState } from "../../../../shared/ipc.ts";
-import { Bolt, Branch, Dots, Pin } from "../../icons.tsx";
+import { Branch, Dots, Pin } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
 import { StatusDot } from "./StatusDot.tsx";
+import { TaskColorBar } from "../tabs/TaskColorBar.tsx";
 import { taskTail } from "../../../../shared/ui/task-time.ts";
 import { dotKind, taskTitle } from "../../../../shared/ui/sidebar-model.ts";
 import { useCoarseClock } from "./task-time.ts";
@@ -133,20 +134,6 @@ export function PinMark({ t }: { t: TFunction }) {
   );
 }
 
-/** 标了保持运行的任务：标题后面一个闪电（和任务菜单里"保持运行"同一个图标），文字只在悬停提示 / 读屏里。 */
-function KeepAliveMark({ t }: { t: TFunction }) {
-  return (
-    <span
-      className="sb-row-keep"
-      data-testid="task-row-keep-alive"
-      title={t("task.keepAlive")}
-      aria-label={t("task.keepAlive")}
-    >
-      <Bolt size={12} />
-    </span>
-  );
-}
-
 const taskNavId = (task: TaskState) => `task:${task.id}`;
 
 function RenameInput({
@@ -168,6 +155,7 @@ function RenameInput({
   };
   return (
     <div className="sb-row" data-flip-key={task.id} data-selected={false} data-testid="task-row">
+      <TaskColorBar id={task.id} />
       <span className="sb-row-main sb-row-editing">
         <StatusDot task={task} t={t} />
         <input
@@ -230,6 +218,7 @@ export const TaskRow = memo(function TaskRow({
         );
       }}
     >
+      <TaskColorBar id={task.id} />
       <button
         type="button"
         className="sb-row-main"
@@ -254,7 +243,6 @@ export const TaskRow = memo(function TaskRow({
           {title}
         </span>
         {pinned && <PinMark t={t} />}
-        {task.keepAlive && <KeepAliveMark t={t} />}
         {task.worktreeBranch !== null && (
           <span
             className="sb-row-branch"

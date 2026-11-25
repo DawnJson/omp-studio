@@ -34,8 +34,6 @@ export interface TaskRecord {
    * 没有或 null = 默认目录（`worktreePath ?? 项目目录`）。不写这个字段的记录行为不变。
    */
   cwd?: string | null;
-  /** 保持运行（TaskPool.setTaskKeepAlive）：空闲时不关进程，到软上限时也不先关它。没有这个字段 = 关。 */
-  keepAlive?: boolean;
 }
 
 interface TasksFile {
@@ -82,9 +80,14 @@ export class TaskRegistry {
     if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 1)
       throw new Error(`${this.#file}: unsupported tasks.json format`);
     // 老版本写的记录：没有 worktree 字段的补 null；带 `engine` 字段的（rpc 引擎删除之前写的，`rpc` 或 `tsp`）去掉这个字段——
-    // 现在只有 TSP 一种引擎，rpc 老任务沿用原来的 sessionFile，下次启动由 TspRunner 用 `--resume` 打开同一个会话。文件不在这里改写，下次保存时落盘。
+    // 现在只有 TSP 一种引擎，rpc 老任务沿用原来的 sessionFile，下次启动由 TspRunner 用 `--resume` 打开同一个会话。
+    // 带 `keepAlive` 的（"保持运行"删除之前写的）也去掉：进程只在任务的标签页关掉时结束，没有回收可躲。文件不在这里改写，下次保存时落盘。
     const tasks = (parsed as TasksFile).tasks.map(
-      ({ engine: _engine, ...task }: TaskRecord & { engine?: unknown }) => ({
+      ({
+        engine: _engine,
+        keepAlive: _keepAlive,
+        ...task
+      }: TaskRecord & { engine?: unknown; keepAlive?: unknown }) => ({
         ...task,
         worktreePath: task.worktreePath ?? null,
         worktreeBranch: task.worktreeBranch ?? null,

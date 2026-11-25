@@ -345,29 +345,40 @@ test("空状态、对话里的用量", async () => {
     await expect(page.getByTestId("draft-git-menu")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
-    // 工具行里不再有本会话 token 图标：模型胶囊之后，发送 / 停止键左边依次是上下文圆环
-    // （fixture 上下文不到 1%，没有文字）和费用 $0.00，每日用量和额度在费用的对话框里。
+    // 工具行里没有本会话 token 图标：发送 / 停止键左边是费用 $0.00（每日用量和额度在费用的对话框里）；
+    // 上下文条在输入框下方的状态行右端（fixture 上下文不到 1%），状态行在工具行下面、和输入框同宽。
     const tools = page.locator(".composer-tools");
+    const status = page.getByTestId("composer-status");
     await expect(page.getByTestId("usage-tokens")).toHaveCount(0);
-    const contextMeter = tools.getByTestId("context-meter");
+    await expect(tools.getByTestId("context-meter")).toHaveCount(0);
+    const contextMeter = status.getByTestId("context-meter");
     await expect(contextMeter).toHaveAttribute("aria-label", /0\.\d/);
-    await expect(contextMeter).toHaveText("");
+    await expect(contextMeter).toHaveText(/^0(\.\d)?%$/);
     await expect(page.locator(".composer-stack > [data-testid=usage-meter]")).toHaveCount(0);
     const cost = tools.getByTestId("usage-cost");
     await expect(cost).toContainText("$0.00");
-    // 四个框一起量：发送后输入框还在从草稿换成任务的布局，分开量会量到不同时刻的位置。
-    const [chipBox, contextBox, costBox, sendBox] = await Promise.all(
-      [page.getByTestId("model-chip"), contextMeter, cost, tools.locator(".send")].map((locator) =>
-        locator.boundingBox(),
-      ),
+    // 几个框一起量：发送后输入框还在从草稿换成任务的布局，分开量会量到不同时刻的位置。
+    const [chipBox, costBox, sendBox, composerBox, lineBox, contextBox] = await Promise.all(
+      [
+        page.getByTestId("model-chip"),
+        cost,
+        tools.locator(".send"),
+        page.locator(".composer"),
+        status,
+        contextMeter,
+      ].map((locator) => locator.boundingBox()),
     );
-    // 同一行，从左到右：模型胶囊、圆环、费用、发送键；圆环和模型胶囊垂直中线对齐。
-    expect(contextBox && chipBox && contextBox.x).toBeGreaterThanOrEqual((chipBox?.x ?? 0) + (chipBox?.width ?? 0));
-    expect(contextBox && costBox && contextBox.x + contextBox.width).toBeLessThanOrEqual(costBox?.x ?? 0);
+    // 工具行从左到右：模型胶囊、费用、发送键。
+    expect(costBox && chipBox && costBox.x).toBeGreaterThanOrEqual((chipBox?.x ?? 0) + (chipBox?.width ?? 0));
     expect(costBox && sendBox && costBox.x + costBox.width).toBeLessThanOrEqual(sendBox?.x ?? 0);
-    expect(
-      chipBox && contextBox && Math.abs(chipBox.y + chipBox.height / 2 - (contextBox.y + contextBox.height / 2)),
-    ).toBeLessThanOrEqual(2);
+    // 状态行在输入框外的下面、同宽；上下文条贴右端。
+    expect(lineBox && composerBox && lineBox.y).toBeGreaterThanOrEqual(
+      (composerBox?.y ?? 0) + (composerBox?.height ?? 0),
+    );
+    expect(lineBox && composerBox && Math.abs(lineBox.width - composerBox.width)).toBeLessThanOrEqual(1);
+    expect(lineBox && contextBox && lineBox.x + lineBox.width - (contextBox.x + contextBox.width)).toBeLessThanOrEqual(
+      1,
+    );
     // 输入框仍在主区底部。
     const panel = await page.getByTestId("main-panel").boundingBox();
     const stack = await page.getByTestId("composer-stack").boundingBox();
@@ -662,16 +673,16 @@ test("空状态、对话里的用量", async () => {
     await page.getByTestId("sidebar-project-new").first().click();
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
     await expect(page.getByTestId("empty-project")).toHaveText(/[\\/]项目 目录$/);
-    // 文件夹标签（纯文字，不是胶囊）在工具行里，紧跟审批胶囊，垂直居中在同一行。
+    // 文件夹标签（纯文字，不是胶囊）在输入框下方状态行的左端，不在工具行里。
     const draftTools = page.getByTestId("draft-composer").locator(".composer-tools");
-    await expect(draftTools.getByTestId("empty-project")).toBeVisible();
-    const [approvalBox, projectBox] = await Promise.all([
-      draftTools.getByTestId("approval-chip").boundingBox(),
-      draftTools.getByTestId("empty-project").boundingBox(),
+    const draftStatus = page.getByTestId("draft-composer").getByTestId("composer-status");
+    await expect(draftTools.getByTestId("empty-project")).toHaveCount(0);
+    await expect(draftStatus.getByTestId("empty-project")).toBeVisible();
+    const [placeBox, projectBox] = await Promise.all([
+      draftStatus.boundingBox(),
+      draftStatus.getByTestId("empty-project").boundingBox(),
     ]);
-    expect(approvalBox && projectBox && approvalBox.x + approvalBox.width <= projectBox.x).toBe(true);
-    const midY = (box: { y: number; height: number }) => box.y + box.height / 2;
-    expect(approvalBox && projectBox && Math.abs(midY(approvalBox) - midY(projectBox)) <= 2).toBe(true);
+    expect(placeBox && projectBox && Math.abs(projectBox.x - placeBox.x) <= 1).toBe(true);
     // 审批胶囊：图标 + 模式名，来源（项目 / 全局配置）在悬停提示和 aria-label 里；还没读到模式时图标 + 骨架条（aria-busy），
     // 不写"审批…"这种像被截断的字。模型胶囊里项目草稿也显示思考强度（模型支持思考时）。
     const approvalChip = draftTools.getByTestId("approval-chip");
@@ -687,9 +698,10 @@ test("空状态、对话里的用量", async () => {
       await expect(approvalChip).toHaveAttribute("title", /.+ · .+/);
     }
     // 和模型胶囊同高（28），不被右栏挤窄：宽度至少放得下图标 + 文字。
+    const approvalBox = await approvalChip.boundingBox();
     expect(approvalBox && approvalBox.height).toBe(28);
-    // 不画成胶囊：没有底色。
-    await expect(draftTools.getByTestId("empty-project")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    // 文件夹标签不画成胶囊：没有底色。
+    await expect(draftStatus.getByTestId("empty-project")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await page.locator("[data-composer-input]").focus();
   } finally {
     await cleanup();

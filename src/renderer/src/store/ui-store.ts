@@ -51,6 +51,11 @@ export function clearSelection(): void {
   uiStore.set({ ...uiStore.get(), selectedTaskId: null });
 }
 
+/** 当前选中的任务（非 React 代码用，比如关标签时判断关的是不是当前的）。 */
+export function getSelectedTaskId(): TaskId | null {
+  return uiStore.get().selectedTaskId;
+}
+
 /** 进设置页（从对话来、或带了要定位的节）时回到那一节并清掉搜索；已在设置页里再调就保持原样。 */
 export function showView(view: MainView, options: { section?: SettingsSection } = {}): void {
   const state = uiStore.get();

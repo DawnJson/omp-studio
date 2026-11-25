@@ -4,7 +4,6 @@ import type { menu as zhCN } from "../zh-CN/menu.ts";
 export const menu = {
   newTask: "New task",
   toggleSidebar: "Toggle sidebar",
-  settings: "Settings",
   edit: "Edit",
   undo: "Undo",
   cut: "Cut",

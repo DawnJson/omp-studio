@@ -10,6 +10,22 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Files in the file tree show an `@` button on hover (or press `@` in the tree) that inserts `@path` at the cursor in the prompt (#27).
+- The preview panel can hold several files at once: one tab per file, up to 5, closing the one you looked at longest ago when full (#27).
+- Task tabs replace the title in the middle of the top bar: each opened task gets a tab; click to switch, drag to reorder, `Ctrl Tab` / `Ctrl Shift Tab` to cycle, `Ctrl W` or × to close, and hover the current tab to restart its session. Open tabs come back after a restart.
+- Right-click a task tab to rename it, give the task a color (a stripe on the left of its tab and sidebar row), or close other tabs, tabs to the right, or all tabs.
+
+### Changed
+
+- The file tree moved to the lower half of the sidebar, expanded by default, with a draggable divider above it; click its header or press `Ctrl Shift E` to collapse or expand it. The top-bar files button is gone, and the right panel only shows previews (#27).
+- A task with an open tab keeps running; closing its tab stops it (with a confirmation while it is busy). "Keep running", "Close session" and the "Close idle tasks after" / "Max running tasks" settings are gone, and "Restart session" is now on the current tab and in the sidebar task menu.
+- The task menu ⋯ in the top-right corner is gone; it was the same as the sidebar task row's right-click menu.
+- A status line under the prompt: folder and branch on the left (click for the Git menu), and context usage bar (purple, with the part past the auto-compaction point striped), output speed (live while running; when idle, omp's measured average for the model), cache hit rate and whole-session tokens (including before compaction) on the right. The top-bar branch button and the toolbar's folder and context ring moved here, and the context popover no longer repeats the output speed.
+- When the right panel opens or closes, the conversation and the panel move sideways together like two pages: the conversation gives up exactly as much as the panel takes, with no leftover ghost or jump.
+- The top-bar "Open review" button moved into the Git menu on the status line's branch, as its first item; `Ctrl Shift D` still works.
+
 ## [0.10.6] - 2026-11-23
 
 ### Fixed

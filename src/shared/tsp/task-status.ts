@@ -156,9 +156,9 @@ export function resolveTaskStatus(nodes: TspStatusInfo, signal: RunSignal): Reso
 
 /**
  * 有没有还没结束的工具或子代理卡片（`tool` / `agent` 的 status 是 pending 或 running）。回合结束后它们都是 done
- * （task.jsonl 的最后一帧）；转到后台的任务会让卡片继续 running，这时进程不能被回收，回收会把它杀掉。
+ * （task.jsonl 的最后一帧）；转到后台的任务会让卡片继续 running，这时重开会话会把它杀掉。
  * `--resume` 重放出来的旧子代理一律写着 pending，而它所在的 task 卡片已经 done（omp 18.12.6 实测，agent-hub.ts 同一条）：
- * 不算。算了的话恢复过、用过子代理的任务永远"后台还有工作"，关闭会话、重开会话一直灰着，空闲也不回收（issue #11 之后发现）。
+ * 不算。算了的话恢复过、用过子代理的任务永远"后台还有工作"，重开会话一直灰着（issue #11 之后发现）。
  */
 export function hasRunningWork(doc: TspDocument): boolean {
   const active = (status: unknown) => status === "pending" || status === "running";

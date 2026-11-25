@@ -9,7 +9,6 @@ export const error = {
   forkNoMessage: "Couldn’t find a user message to fork from.",
   exitedNoCode: "The omp process for this task exited. Your session is saved.",
   protocol: "Communication with omp failed and was disconnected. The version may be incompatible.",
-  tooManyTasks: "Too many tasks are running. Stop or archive a few and try again.",
   worktreeMissing: "This task's worktree was deleted, so the record is view-only and the chat cannot continue.",
   sessionMissing: "This task's session file was deleted. Sending a message starts a new session.",
   sessionInUse: "This conversation is open in another omp. Quit it there first, then delete it.",

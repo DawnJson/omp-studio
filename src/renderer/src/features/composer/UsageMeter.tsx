@@ -1,57 +1,29 @@
-// 输入框工具行里的用量仪表（输入框下方不再有单独一行）：发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
-// 点圆环弹出上下文构成；任务里有回复后，构成左边一直带着按模型的本会话用量（ModelBreakdown，输出速度也在那里，2026-11-07 起不再挂在工具行里）。
+// 输入框下方状态行右端的上下文条（ComposerStatus.tsx）：细横条 + 百分比，点开弹出上下文构成；
+// 任务里有回复后，构成左边一直带着按模型的本会话用量（ModelBreakdown）。
 import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { DraftContextBreakdown, prefetchCompaction, TaskContextBreakdown } from "./ContextBreakdown.tsx";
-import { hasModelUsage, ModelBreakdown, useModelUsage, useSpeed, type Speed } from "./ModelBreakdown.tsx";
+import { hasModelUsage, ModelBreakdown, useModelUsage } from "./ModelBreakdown.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
-const ringSize = 20;
-const ringRadius = 8;
-/** 已用画成圆环里的扇形（半径 3、描边 6 的圆：描边正好铺满半径 6 的饼）：占用很少时是一道细楔子，不会像转圈的加载弧。 */
-const pieRadius = 3;
-const pieLength = 2 * Math.PI * pieRadius;
-
-/** 圆环：外圈是底，里面的扇形 = 已用；`autoAt`（0–100）是自动压缩触发点，在外圈上向里画一道刻度。
- * 没用量时不画扇形（长度 0 的虚线 Chromium 仍画出一个小竖点），刻度也不伸出外圈：两者叠在一起像"刷新"图标（2026-10-29 审计）。 */
-function Ring({ percent, autoAt = null }: { percent: number; autoAt?: number | null }) {
-  const filled = (Math.min(100, Math.max(0, percent)) / 100) * pieLength;
-  const center = ringSize / 2;
+/** 横条：底 + 已用；`autoAt`（0–100）是自动压缩触发点，从它到末尾画一段斜条纹（预留），已用压在它上面。 */
+function Bar({ percent, autoAt = null }: { percent: number; autoAt?: number | null }) {
+  const clamp = (value: number) => Math.min(100, Math.max(0, value));
   return (
-    <svg
-      className="usage-ring"
-      width={ringSize}
-      height={ringSize}
-      viewBox={`0 0 ${ringSize} ${ringSize}`}
-      aria-hidden="true"
-    >
-      <circle className="usage-ring-track" cx={center} cy={center} r={ringRadius} />
-      {filled > 0 && (
-        <circle
-          className="usage-ring-fill"
-          cx={center}
-          cy={center}
-          r={pieRadius}
-          strokeDasharray={`${filled} ${pieLength}`}
-          transform={`rotate(-90 ${center} ${center})`}
-        />
-      )}
+    <span className="usage-bar" aria-hidden="true">
       {autoAt !== null && (
-        <line
-          className="usage-ring-tick"
-          data-testid="context-ring-tick"
+        <span
+          className="usage-bar-reserve"
+          data-testid="context-reserve"
           data-at={autoAt}
-          x1={center}
-          y1={center - ringRadius}
-          x2={center}
-          y2={center - ringRadius + 3}
-          transform={`rotate(${(Math.min(100, Math.max(0, autoAt)) / 100) * 360} ${center} ${center})`}
+          style={{ width: `${100 - clamp(autoAt)}%` }}
         />
       )}
-    </svg>
+      <span className="usage-bar-fill" style={{ width: `${clamp(percent)}%` }} />
+    </span>
   );
 }
 
@@ -59,18 +31,16 @@ const contextWidth = 320;
 const usageWidth = 300;
 
 /**
- * 上下文占用：只有圆环（百分比和已用/总量在悬停提示和构成里），点开是上下文构成（children，浮层开着时才挂载）。
- * 给了 task（任务里）且会话里已有回复或有输出速度时，浮层左边一直带着本会话用量（右边的构成不动）；否则浮层是单栏。
+ * 上下文占用：横条 + 百分比（已用/总量在悬停提示和构成里），点开是上下文构成（children，浮层开着时才挂载）。
+ * 给了 task（任务里）且会话里已有回复时，浮层左边一直带着本会话用量（右边的构成不动）；否则浮层是单栏。
  */
 function ContextButton({
   context,
   task,
-  speed = null,
   children,
 }: {
   context: NonNullable<TaskState["contextUsage"]>;
   task?: TaskState;
-  speed?: Speed | null;
   children: ReactNode;
 }) {
   const t = useT();
@@ -80,7 +50,7 @@ function ContextButton({
   useEffect(() => onStudioCommand((command) => command === "context" && setOpen(true)), []);
   const close = () => setOpen(false);
   const label = t("composer.context", { p: formatPercent(context.percent) });
-  const expanded = task !== undefined && (hasModelUsage(usage) || speed !== null);
+  const expanded = task !== undefined && hasModelUsage(usage);
   // omp 的自动压缩触发点（输入框卡片的 meter 里读到的生效值）；圆环上画一道刻度。
   const autoAt = task?.contextCompaction?.autoAtPercent ?? null;
   return (
@@ -99,7 +69,8 @@ function ContextButton({
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
       >
-        <Ring percent={context.percent} autoAt={autoAt} />
+        <Bar percent={context.percent} autoAt={autoAt} />
+        <span className="usage-context-pct">{formatPercent(context.percent)}%</span>
       </button>
       <Popover
         open={open}
@@ -111,7 +82,7 @@ function ContextButton({
         <div className="ctx-pop" data-expanded={expanded || undefined}>
           {expanded && task !== undefined && (
             <div className="ctx-pop-aside" data-testid="session-usage">
-              <ModelBreakdown task={task} load={usage} speed={speed} />
+              <ModelBreakdown task={task} load={usage} />
             </div>
           )}
           <div className="ctx-pop-main">{children}</div>
@@ -121,30 +92,30 @@ function ContextButton({
   );
 }
 
-/** 还没有上下文数据时的占位：同一位置、同样大小的空圆环，不能点；数据到了换成可点的圆环。 */
+/** 还没有上下文数据时的占位：同一位置、同样大小的空条，不能点；数据到了换成可点的。 */
 function ContextPlaceholder() {
   return (
     <span className="usage-context-anchor" aria-hidden="true">
       <span className="usage-context" data-pending data-testid="context-meter-pending">
-        <Ring percent={0} />
+        <Bar percent={0} />
+        <span className="usage-context-pct">0%</span>
       </span>
     </span>
   );
 }
 
-/** 任务的上下文圆环（发送键左边、费用之前）；omp 还没给出上下文占用时是占位圆环。 */
+/** 任务的上下文条；omp 还没给出上下文占用时是占位。 */
 export function ContextMeter({ task }: { task: TaskState }) {
-  const speed = useSpeed(task);
   const context = task.contextUsage;
   if (context === null) return <ContextPlaceholder />;
   return (
-    <ContextButton context={context} task={task} speed={speed}>
+    <ContextButton context={context} task={task}>
       <TaskContextBreakdown key={task.id} taskId={task.id} context={context} task={task} />
     </ContextButton>
   );
 }
 
-/** 新任务草稿的上下文圆环：还没有会话，占用是 0，窗口取所选模型的；模型还没读到或没报窗口时是占位圆环。 */
+/** 新任务草稿的上下文条：还没有会话，占用是 0，窗口取所选模型的；模型还没读到或没报窗口时是占位。 */
 export function DraftContextMeter({ model, projectId }: { model: ModelOption | null; projectId: ProjectId | null }) {
   const window = model?.contextWindow ?? null;
   useEffect(() => prefetchCompaction(projectId), [projectId]);

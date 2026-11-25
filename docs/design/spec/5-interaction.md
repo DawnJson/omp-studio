@@ -18,6 +18,8 @@ Windows / Linux 用 `Ctrl`，macOS 用 `⌘`（下文表里的 `Ctrl` 都指“�
 | 跳到等你确认的任务 | `Ctrl J` | 已在该任务时聚焦门；无待确认时无动作 |
 | 第 N 个任务 | `Ctrl 1…9` | 侧栏眼前画出来的任务顺序（合并列表里展开着的文件夹里的任务行；“对话”“归档”里是列表顺序；折叠的文件夹、被“显示更多”藏起来的行不算；`features/sidebar/visible-order-store.ts`） |
 | 上/下一个任务 | `Ctrl Shift [` / `Ctrl Shift ]` | 循环；不用 `Ctrl Alt ↑ / ↓`：那是 Intel/AMD 显卡驱动的屏幕旋转热键；按物理键位认，Codex 桌面版同款 |
+| 右 / 左一个任务标签 | `Ctrl Tab` / `Ctrl Shift Tab` | 顶栏任务标签，首尾相接；在新任务草稿上时右到第一个、左到最后一个；mac 上也是 Ctrl；不转发给 omp（`STUDIO_RESERVED`），§4.6 |
+| 关当前任务标签 | `Ctrl W` | 对话页；关标签 = 关这个任务的 omp 进程，在跑或在等你时先确认，§4.6 |
 | 对话里上一轮 / 下一轮 | `Ctrl Shift ↑` / `Ctrl Shift ↓` | 以正在读的那条用户消息为起点跳到上 / 下一条（同点对话线的刻度），到头不动；空的输入框里也生效；输入框有字时让给输入框（Chromium 里这组键是选到段首 / 段尾，mac 的 `Cmd Shift ↑ ↓` 是选到开头 / 结尾），e2e 实测选区；不转发给 omp（`STUDIO_RESERVED`）。设置页盖着对话时不翻 |
 | 发送 / 运行中插话 | `Enter` | IME 组合中无效 |
 | 换行 | `Shift Enter` | |
@@ -31,7 +33,7 @@ Windows / Linux 用 `Ctrl`，macOS 用 `⌘`（下文表里的 `Ctrl` 都指“�
 | 重命名 / 归档（侧栏聚焦） | `F2` / `Del` | |
 | 区域循环 | `F6` / `Shift F6` | 侧栏 → 对话区 → 门/输入框 |
 | 打开评审 | `Ctrl Shift D` | 当前任务；评审内的单字符键见 §4.25 |
-| 文件面板 | `Ctrl Shift E` | 当前任务或新任务草稿（含默认文件夹）；打开文件页，再按一次关闭；面板内的键见 §4.27 |
+| 侧栏文件区 | `Ctrl Shift E` | 对话页；展开着就收起，否则展开（侧栏收起时先展开侧栏）并把焦点放进文件树；树里的键见 §4.27 |
 | 浏览器面板 | `Ctrl Shift B` | 当前任务；打开 / 关闭，§4.29 |
 | 回底部 | `End` / `Ctrl End` | 焦点在对话区 |
 | omp 自己的键（TSP 任务） | 默认：`Shift Tab` / `Ctrl T` / `Ctrl P` / `Ctrl Shift P` / `Alt P` / `Alt Shift P` / `Ctrl R` / `F5` / `Alt R` / `Alt ↑`；**以 omp 的实际键位为准**（omp 默认键位 + 用户 `<agent 目录>/keybindings.yml` 的覆盖，主进程只读，`omp-config/keybindings.ts`，算法 `src/shared/tsp/omp-keybindings.ts`，经 IPC `getOmpKeybindings` 给渲染进程；输入框 / 过程区拿到焦点、窗口回前台、打开设置页时重读） | 焦点在输入框或过程区、studio 没占用这个键时原样写给该任务的 omp（`features/tsp/use-forward-omp-keys.ts`，判定 `src/shared/tsp/forward-keys.ts`）：思考强度、思考块显隐、角色模型、临时切模型、计划模式、历史搜索、重试、取回排队消息。用户在 omp 里改了键位，转发的键跟着变（覆盖整个动作，`[]` 禁用；改到 studio 占用的键上时 studio 优先、不转发；只转发带 `Ctrl` / `Alt` 的、功能键和 `Shift Tab`，单个字符、`Shift ↑` 这类输入框要用的键不转发）。设置 → 通用 → 快捷键表下面的“omp 快捷键”一组列出当前转发的动作和键（§4.19）。另外文档里 `kbd` 节点上写着的带 `Ctrl` / `Alt` 的键和功能键也转发。`Shift Tab` 只在输入框里转发（别处是焦点反向移动）。omp 的键帽提示（`Retry F5`、`Switch model ⌥P`、`Edit ⌥↑`）因此键盘也能触发 |

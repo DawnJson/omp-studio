@@ -5,7 +5,7 @@ import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/pro
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskMenu, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -148,7 +148,7 @@ test("任务菜单（顶栏 ⋯）里的会话树：打开当前任务的会话�
   try {
     const { page } = launched;
     await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(2, { timeout: 30_000 });
-    await page.getByTestId("task-menu").click();
+    await openTaskMenu(page);
     await page.getByRole("menuitem", { name: "会话树" }).click();
     const panel = page.getByTestId("session-tree");
     await expect(panel).toBeVisible();
@@ -166,7 +166,7 @@ test("窗口很矮时任务菜单不出窗：最高到窗口底，最后一项�
     const { page } = launched;
     await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(2, { timeout: 30_000 });
     await page.setViewportSize({ width: 1000, height: 300 });
-    await page.getByTestId("task-menu").click();
+    await openTaskMenu(page);
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
     const box = (await menu.boundingBox())!;

@@ -1,4 +1,4 @@
-// 文件面板的"文件"页：根目录下的树，每层目录展开时才向主进程要（listDirectory），一层上千项也只画眼前的行（定高虚拟化）。
+// 侧栏的文件树（SidebarFiles.tsx）：根目录下的树，每层目录展开时才向主进程要（listDirectory），一层上千项也只画眼前的行（定高虚拟化）。
 // 键盘：↑↓ 移动、→ 展开 / 进入第一个子项、← 收起 / 回到父目录、Enter 或空格打开文件（目录是展开收起）、Home/End。
 // 路径校验全在主进程；这里只拼相对路径传回去。被 .gitignore 忽略的条目调暗显示。
 import {
@@ -13,9 +13,9 @@ import {
   type KeyboardEvent,
   type UIEvent,
 } from "react";
-import type { DirListing, ProjectFilesTarget, TerminalKey } from "../../../../shared/ipc.ts";
+import type { DirListing, ProjectFilesTarget } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronRight } from "../../icons.tsx";
+import { AtSign, ChevronRight } from "../../icons.tsx";
 import { FileTypeIcon } from "../../ui/FileTypeIcon.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { flattenTree, treeKeyAction, type NodeRow, type TreeKey, type TreeRow } from "./tree-model.ts";
@@ -28,18 +28,23 @@ const treeKeys = new Set<string>(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRig
 interface FileTreeProps {
   /** 数据来源（任务目录或某个额外根，主进程按目标查根）。 */
   target: ProjectFilesTarget;
-  /** 展开状态、光标和滚动位置按它记（同一个任务的不同根各记各的）。 */
-  memoryKey: TerminalKey;
-  /** 文件页正在显示：变成 true 时重新读一遍已加载的目录，并把焦点放进树。 */
-  active: boolean;
-  /** 刷新按钮每按一次加一。 */
+  /** 展开状态、光标和滚动位置按它记：树根的目录路径（同一个文件夹里的任务共用一棵树，切任务不重挂、不闪）。 */
+  memoryKey: string;
+  /** 刷新按钮每按一次加一：根目录和所有展开的目录重新读一遍。 */
   reload: number;
   /** 预览页正在看的文件（相对路径），树里对应的行高亮。 */
   selected: string | null;
   onOpenFile(path: string): void;
+  /** 文件的 @：把它作为 `@路径` 插进输入框；不给时不显示按钮、不响应 @ 键。 */
+  onMention?: ((path: string) => void) | undefined;
 }
 
-export function FileTree({ target, memoryKey, active, reload, selected, onOpenFile }: FileTreeProps) {
+/** 能插成 `@"…"` 提及的文件：路径里的 `"` 会提前闭合引号。 */
+function mentionable(row: TreeRow): row is NodeRow {
+  return row.type === "node" && row.kind === "file" && !row.path.includes('"');
+}
+
+export function FileTree({ target, memoryKey, reload, selected, onOpenFile, onMention }: FileTreeProps) {
   const t = useT();
   const idBase = useId();
   const memory = treeMemory(memoryKey);
@@ -80,16 +85,11 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
     [target, t, changeExpanded],
   );
 
-  // 页面显示（或按了刷新）时：根目录和所有展开的目录重新读一遍。
+  // 挂上（切任务、换根、展开文件区）或按了刷新时：根目录和所有展开的目录重新读一遍。
   useEffect(() => {
-    if (!active) return;
     loadDir("");
     for (const dir of latest.current.expanded) loadDir(dir);
-  }, [active, reload, loadDir]);
-
-  useEffect(() => {
-    if (active) scroller.current?.focus({ preventScroll: true });
-  }, [active]);
+  }, [reload, loadDir]);
 
   useLayoutEffect(() => {
     const el = scroller.current;
@@ -105,10 +105,10 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
   // 切回任务时恢复滚动位置：列表加载出来、内容有高度之后才能滚。
   useLayoutEffect(() => {
     const el = scroller.current;
-    if (!active || restored.current || rows.length === 0 || el === null) return;
+    if (restored.current || rows.length === 0 || el === null) return;
     restored.current = true;
     el.scrollTop = memory.scrollTop;
-  }, [active, rows.length, memory]);
+  }, [rows.length, memory]);
 
   // 键盘移动光标后，保证光标行在可见范围内。
   useLayoutEffect(() => {
@@ -138,6 +138,14 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // @ 先于修饰键判断：有的键盘布局要 AltGr（= Ctrl + Alt）才打得出 @。
+    if (event.key === "@") {
+      const row = latest.current.rows[latest.current.cursorIndex];
+      if (onMention === undefined || row === undefined || !mentionable(row)) return;
+      event.preventDefault();
+      onMention(row.path);
+      return;
+    }
     if (event.ctrlKey || event.altKey || event.metaKey || !treeKeys.has(event.key)) return;
     const action = treeKeyAction(
       rows,
@@ -161,7 +169,7 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
 
   const onScroll = (event: UIEvent<HTMLDivElement>) => {
     setScrollTop(event.currentTarget.scrollTop);
-    if (active) memory.scrollTop = event.currentTarget.scrollTop;
+    memory.scrollTop = event.currentTarget.scrollTop;
   };
 
   const first = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
@@ -172,7 +180,6 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
     <div
       ref={scroller}
       className="file-tree"
-      hidden={!active}
       data-testid="file-tree"
       role="tree"
       tabIndex={0}
@@ -193,6 +200,7 @@ export function FileTree({ target, memoryKey, active, reload, selected, onOpenFi
             cursor={row.type === "node" && row.path === cursor}
             selected={row.type === "node" && row.path === selectedPath}
             onClick={onRowClick}
+            onMention={onMention}
           />
         ))}
       </div>
@@ -208,9 +216,10 @@ interface TreeRowViewProps {
   cursor: boolean;
   selected: boolean;
   onClick(row: NodeRow): void;
+  onMention: ((path: string) => void) | undefined;
 }
 
-function TreeRowView({ target, id, row, top, cursor, selected, onClick }: TreeRowViewProps) {
+function TreeRowView({ target, id, row, top, cursor, selected, onClick, onMention }: TreeRowViewProps) {
   const t = useT();
   const style = { top, "--depth": row.depth } as CSSProperties;
   if (row.type === "truncated") {
@@ -252,6 +261,22 @@ function TreeRowView({ target, id, row, top, cursor, selected, onClick }: TreeRo
         size={14}
       />
       <span className="file-tree-name">{row.name}</span>
+      {onMention !== undefined && mentionable(row) && (
+        <button
+          type="button"
+          className="file-tree-mention"
+          tabIndex={-1}
+          aria-label={t("preview.mention")}
+          title={`${t("preview.mention")} (@)`}
+          data-testid="file-tree-mention"
+          onClick={(event) => {
+            event.stopPropagation();
+            onMention(row.path);
+          }}
+        >
+          <AtSign size={14} />
+        </button>
+      )}
     </div>
   );
 }

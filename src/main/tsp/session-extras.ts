@@ -8,36 +8,16 @@
 // 每轮用量合一：这里是唯一一份解析（SessionExtrasAccumulator；整段文本和增量读文件都喂给它），
 // turn 里直接带 cost，文字由 turn-footer.ts 按 omp 的 `tLo` 写（`<$0.01`）。
 import type { TspTurnFooter } from "../../shared/ipc.ts";
-import { tokensPerSecond } from "../../shared/ui/session-trace.ts";
 import { finiteOrZero as finite, isRecord } from "../../shared/type-guards.ts";
 import { feedSessionText, type SessionEntryConsumer, type SessionFileEntry } from "./session-file-reader.ts";
 
 interface ParsedSession {
   turns: (TspTurnFooter | null)[];
-  /** 最近一条回复的输出速度（见 replySpeed）；没有时为 null。 */
-  tokensPerSecond: number | null;
 }
 
-/**
- * 一条 assistant 消息的输出速度（token/秒）：输出 ÷（`duration` − `ttft`），算法同请求记录页（shared/ui/session-trace.ts）。
- * `duration` / `ttft` 是毫秒（omp 18.12.5 实测，消息写盘时带上）；出错、被停止的消息、没有输出或耗时的消息返回 null。
- */
-function replySpeed(message: Record<string, unknown>): number | null {
-  if (message["stopReason"] === "error" || message["stopReason"] === "aborted") return null;
-  const usage = isRecord(message["usage"]) ? message["usage"] : {};
-  const duration = finite(message["duration"]);
-  const ttft = finite(message["ttft"]);
-  return tokensPerSecond({
-    output: finite(usage["output"]),
-    durationMs: duration > 0 ? duration : null,
-    ttftMs: ttft > 0 ? ttft : null,
-  });
-}
-
-/** 按文件顺序接收记录，result() 随时给出到目前为止的每轮脚注和速度。 */
+/** 按文件顺序接收记录，result() 随时给出到目前为止的每轮脚注。 */
 export class SessionExtrasAccumulator implements SessionEntryConsumer {
   #turns: (TspTurnFooter | null)[] = [];
-  #tokensPerSecond: number | null = null;
   #userAt: number | null = null;
   #input = 0;
   #output = 0;
@@ -62,8 +42,6 @@ export class SessionExtrasAccumulator implements SessionEntryConsumer {
       return;
     }
     if (message["role"] !== "assistant") return;
-    const speed = replySpeed(message);
-    if (speed !== null) this.#tokensPerSecond = speed;
     const usage = isRecord(message["usage"]) ? message["usage"] : {};
     const orchestration = isRecord(usage["orchestration"]) ? usage["orchestration"] : {};
     const usageCost = isRecord(usage["cost"]) ? finite(usage["cost"]["total"]) : 0;
@@ -99,14 +77,13 @@ export class SessionExtrasAccumulator implements SessionEntryConsumer {
 
   reset(): void {
     this.#turns = [];
-    this.#tokensPerSecond = null;
     this.#userAt = null;
     this.#clearTurn();
   }
 
   /** 新数组：之后接着累加不会改到已经交出去的结果（每轮的对象结算后不再改）。 */
   result(): ParsedSession {
-    return { turns: [...this.#turns], tokensPerSecond: this.#tokensPerSecond };
+    return { turns: [...this.#turns] };
   }
 }
 

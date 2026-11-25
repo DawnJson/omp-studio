@@ -150,39 +150,6 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
   });
 });
 
-describe("最近一条回复的速度（会话文件 assistant 消息，omp 18.12.5 实测字段）", () => {
-  // 数字来自一次真实回复：output 2073、duration 9801.9ms、ttft 1015.8ms。
-  const real = (stopReason = "stop") =>
-    JSON.stringify({
-      type: "message",
-      message: {
-        role: "assistant",
-        stopReason,
-        usage: { input: 201, output: 2073, cost: { total: 0 } },
-        duration: 9801.8974,
-        ttft: 1015.7713,
-        completedAt: 2000,
-      },
-    });
-
-  it("速度 = 输出 ÷ (duration − ttft)", () => {
-    expect(parseSession([user(1000), real()].join("\n")).tokensPerSecond).toBeCloseTo(235.9, 1);
-  });
-
-  it("取最后一条：后面有速度的回复覆盖前面的；出错和被停止的回复不改速度", () => {
-    const fast = JSON.stringify({
-      type: "message",
-      message: { role: "assistant", stopReason: "toolUse", usage: { output: 100 }, duration: 1000, ttft: 0 },
-    });
-    const text = [user(1), real(), user(2), fast, user(3), real("error"), real("aborted")].join("\n");
-    expect(parseSession(text).tokensPerSecond).toBe(100);
-  });
-
-  it("老版本 omp 的消息没有 duration：速度是 null，不抛错", () => {
-    expect(parseSession([user(1), assistant("stop", tokens(1, 5, 0), 10)].join("\n")).tokensPerSecond).toBeNull();
-  });
-});
-
 describe("脚注文字（和 omp 的 tLo 同格式）", () => {
   it("耗时、token 数的缩写和 omp 一致", () => {
     expect(formatDuration(244)).toBe("244ms");

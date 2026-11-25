@@ -1,11 +1,10 @@
-// 会话文件和 history.db 里 omp 恢复会话时不重发的内容（getTspSessionExtras）：每轮的用量脚注、最后一条空闲回顾，
-// 还有最近一条回复的输出速度（工具行的速度）。
+// 会话文件和 history.db 里 omp 恢复会话时不重发的内容（getTspSessionExtras）：每轮的用量脚注、最后一条空闲回顾。
 // 挂载时取一次，一轮结束（lastTurn 变）或新增一轮时再取。
-// 组件按选择器取自己要的那一份（某一轮的脚注、速度）：新取回的内容里没变的轮沿用旧对象，那一轮的组件不重画。
+// 组件按选择器取自己要的那一份（某一轮的脚注）：新取回的内容里没变的轮沿用旧对象，那一轮的组件不重画。
 import { useMemo, useSyncExternalStore } from "react";
 import type { TaskId, TspSessionExtras } from "../../../../shared/ipc.ts";
 
-const EMPTY: TspSessionExtras = { turns: [], tokensPerSecond: null };
+const EMPTY: TspSessionExtras = { turns: [] };
 const extras = new Map<TaskId, TspSessionExtras>();
 const requests = new Map<TaskId, number>();
 const listeners = new Map<TaskId, Set<() => void>>();
@@ -13,7 +12,7 @@ const listeners = new Map<TaskId, Set<() => void>>();
 /** 新取回的轮里内容和旧的一样的沿用旧对象（每轮几项数字，按 JSON 比）；整份都没变返回旧的那份。 */
 function share(previous: TspSessionExtras | undefined, next: TspSessionExtras): TspSessionExtras {
   if (previous === undefined) return next;
-  let same = previous.tokensPerSecond === next.tokensPerSecond && previous.turns.length === next.turns.length;
+  let same = previous.turns.length === next.turns.length;
   const turns = next.turns.map((turn, index) => {
     const old = previous.turns[index];
     if (old !== undefined && JSON.stringify(old) === JSON.stringify(turn)) return old;

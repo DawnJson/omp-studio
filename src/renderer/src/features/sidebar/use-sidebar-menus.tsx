@@ -3,7 +3,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Project, SessionSummary, TaskId, TaskState } from "../../../../shared/ipc.ts";
-import { hasProcess, taskTitle, sessionTitle } from "../../../../shared/ui/sidebar-model.ts";
+import { sessionTitle } from "../../../../shared/ui/sidebar-model.ts";
 import { Branch, Close, Folder, Trash } from "../../icons.tsx";
 import { Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { cleanupOrphans } from "../git/git-actions.ts";
@@ -40,11 +40,7 @@ export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): 
       label: t("task.more"),
       items: buildTaskMenu({
         t,
-        taskId: task.id,
-        title: taskTitle(task),
-        keepAlive: task.keepAlive,
-        live: hasProcess(task),
-        restartable: task.restartable,
+        task,
         pinned: isTaskPinned(task.id),
         selectedTaskId,
         onRename: () => onRename(task),

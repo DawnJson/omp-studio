@@ -39,7 +39,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和面板里程序之间的协议:�
 
 ### 4.1 主进程
 
-`TspSession`(`src/main/tsp/`)起 pty、回 `hello`、解析 APC/OSC、按信用值回 `ack`、维护每个 surface 的节点树并合批推给渲染进程;`TspRunner`(`src/main/tasks/tsp-runner.ts`)从树上推任务状态(侧栏点、托盘、通知)。任务池、进程上限和回收、Job Object、worktree cwd、历史会话、git、终端、文件预览、设置存储、托盘不依赖 TSP。细节 §7。
+`TspSession`(`src/main/tsp/`)起 pty、回 `hello`、解析 APC/OSC、按信用值回 `ack`、维护每个 surface 的节点树并合批推给渲染进程;`TspRunner`(`src/main/tasks/tsp-runner.ts`)从树上推任务状态(侧栏点、托盘、通知)。任务池、进程的生命周期、Job Object、worktree cwd、历史会话、git、终端、文件预览、设置存储、托盘不依赖 TSP。细节 §7。
 
 ### 4.2 渲染进程
 
@@ -62,7 +62,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和面板里程序之间的协议:�
 
 | 问题 | 决定 |
 |---|---|
-| 1. 改动卡片 | **没有改动卡片和改动条**(所有者 2026-10-21 定:评审视图已能看全部改动);评审入口是顶栏评审按钮、提交对话框的"评审改动"、`Ctrl Shift D`、命令面板 |
+| 1. 改动卡片 | **没有改动卡片和改动条**(所有者 2026-10-21 定:评审视图已能看全部改动);评审入口是状态行 Git 菜单的"打开评审"、提交对话框的"评审改动"、`Ctrl Shift D`、命令面板 |
 | 2. 设置页的登录、账号、默认模型,新任务草稿的模型下拉 | **保留后台 omp**:无会话的 rpc-ui 服务进程只给这些用;任务对话全走 TSP |
 | 3. 切换方式 | **只有 TSP**(所有者 2026-10-21 批准删除 rpc 任务引擎,0.3.26),见 §11 |
 
@@ -77,7 +77,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和面板里程序之间的协议:�
   - **shell**(omp ≥18.17):bash 卡片的命令区(role `omp.tool.bash.command`)是 `shell` 节点(`presentation`、`replayEpoch`、`liveOrigin`、`preview`),运行中每个 trace 事件整份 `set` 一次 presentation。PTY、`!` 命令这类没有 trace 的仍发 `code`,所以 `Code` 组件照留。`nodes/shell.tsx` + `shell-view.ts` 照 omp ANSI 渲染器(`tui/src/tools/shell-viz-render.ts`)的规则画 omp 算好的行,不自己解析 shell;`presentation.output` 不画(输出另有 ansi 节点)。实测形状(`&&` 链拆行、失败片段 ×、`for` 循环头、内嵌脚本 chip)见录制和单测。
   - **事件**:第一行右端常显 `Pseudo | Raw` 分段(仓库所有者 2026-11-10 定;omp 规范 "The Raw/Pseudo switch and menu stay on the first line"),点了发 `{ev:"action", id:<shell 节点>, act:"shell-viz", value:"view:raw"|"view:pseudo"}`,实测下一帧 `preferences.view` 就变;当前态只看 omp 回来的 `preferences.view`。片段带 `expanded` 的是折叠块,点了发 `value:"expand:<片段的 node>"`(omp 那边是开关,回来 `expandedNodes` 带上它)。图层菜单、split、inspector 回放、`select`、完成后的高亮余迹不做。
 - **ack / error**:每个数据块处理完,对块内每个 surface 回一次最高帧号的 `ack`(规范:ack 覆盖此前所有帧);被拒的 op 回 `error` 事件(整帧被丢没有 `op`),JSON 坏了、分块被打断也回 error。
-- **批次**:消息应用到主进程的 `TspDocument` 后合批推给渲染进程,序号 = 已应用消息数;`snapshot()` 先把待发批次推出去再取文档。进程换了(回收后再打开)序号接在上一个进程之后并空一位,渲染进程发现不连续就重取快照,不会把新进程的消息接在旧文档上。
+- **批次**:消息应用到主进程的 `TspDocument` 后合批推给渲染进程,序号 = 已应用消息数;`snapshot()` 先把待发批次推出去再取文档。进程换了(关掉后再打开、重开会话)序号接在上一个进程之后并空一位,渲染进程发现不连续就重取快照,不会把新进程的消息接在旧文档上。
   - **时机**(`src/main/platform/batch-timer.ts`):距上一批已满一个间隔就在下一轮事件循环发(同一次 pty 读到的消息仍是一批),刚发过才等。不用"第一条到了就 `setTimeout`":Windows 上 Node 的计时器按系统时钟格对齐,实测要等约 31ms,而真实节奏下一批几乎总是只有 1 条。实测(2026-10-25,`task` 录制原速回放)主进程收到 → 渲染进程画完下一帧中位 13.4ms,渲染进程这边不到 1ms,大头是等显示器的下一帧。
 - **状态推导**(OSC 7501 为主信号,节点补判断;`shared/tsp/{run-status,task-status}.ts`,`test/tsp-run-status.test.ts`、`test/task-tsp-osc.test.ts`、`test/tsp-task-status.test.ts`):
   - **OSC 7501**(omp 18.12.6 `utils/run-status.ts`,设置 `terminal.programStatus` 默认开;`TERM_PROGRAM=tern` 且 stdout 是 TTY 时发;实测 `useConptyDll` 下收得到)。wire:`ESC ] 7501 ; state=<s>[:kind=question|permission]:app=omp[:msg=<base64 UTF-8>] ESC \\`。实测序列:启动 `idle`;发消息 `working`;一轮结束 `done`;Esc 中断 `idle`(没有 done);ask `blocked:kind=question`;审批 `blocked:kind=permission:msg=Allow tool: bash Command: …`;一轮以错误结束 `error:msg=<错误原文>`;`clear` = omp 不再报告(关掉 programStatus 时一条 7501 都没有)。`attention` 只用于终端标题,不在 7501 上。
@@ -85,8 +85,8 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和面板里程序之间的协议:�
   - **没收到过 7501(或收到 `clear`)退回节点推导**(`NO_RUN_SIGNAL`,依据 `fixtures/tsp/{task,approval,ask}.jsonl` 逐帧):`dock` 里 role 以 `omp.editor.ask` 开头 = needs_you;`omp.working` / `omp.working.stop` / `omp.composer.stop` = running。主区 spinner 和 `omp.hud.activity` 的待办面板不可靠,不用。
   - **running 取并集**:7501 working/blocked 或节点有运行状态行 / loader。7501 只在 agent 一轮、工具开始 / 结束时发,压缩、交接这类运行靠节点;一轮的开始靠 7501(比 `omp.working` 那一帧早)。结束要两边都说结束。
   - **7501 不覆盖的两类(节点补)**:(a) dock 里 `omp.hud.activity` 下的 `omp.loader`(交接、建 worktree、分支摘要、debug 报告)→ running,文字放 `TaskState.loaderText`;(b) 模态弹窗 `omp.overlay.hook-select / hook-input / hook-editor / planReview / planSave / login*`(hook 系列在 **dock** 里,不是 layer)→ needs_you,合成门 id `tsp-modal`。studio 自己驱动打开的 `/jobs`、context 报告、Agent Hub、旁路提问、会话树不在名单里(单测用对应录制保证)。输入框的提问 / 审批判断(`gate.ts`)和合成的 `tsp-ask` / `tsp-approval` 门只看节点。
-  - 回收判据另外要求没有 `pending`/`running` 的 `tool`/`agent` 卡片(转到后台的任务)。
-- **整篇扫描的缓存**(`main/tasks/tsp-doc-scans.ts`,`test/tsp-doc-scans.test.ts` 用全部录制对照整篇重扫):待办 HUD、状态 toast、旁路提问弹窗、还在跑的 `tool`/`agent` 卡片要扫全部活节点,只在相关 kind 的节点出现在 `changed` 里时重扫(o / x / move 整份重扫),流式正文不触发。回收判据和回溯 / 分叉的"这一轮已结束"读同一份缓存。
+  - 能否重开会话(`restartable`)另外要求没有 `pending`/`running` 的 `tool`/`agent` 卡片(转到后台的任务)。
+- **整篇扫描的缓存**(`main/tasks/tsp-doc-scans.ts`,`test/tsp-doc-scans.test.ts` 用全部录制对照整篇重扫):待办 HUD、状态 toast、旁路提问弹窗、还在跑的 `tool`/`agent` 卡片要扫全部活节点,只在相关 kind 的节点出现在 `changed` 里时重扫(o / x / move 整份重扫),流式正文不触发。重开会话的判据和回溯 / 分叉的"这一轮已结束"读同一份缓存。
 - **待办**(`shared/tsp/todos.ts`,`fixtures/tsp/task.jsonl`,`test/tsp-todos.test.ts`,omp 18.12.3):dock 里 role `omp.hud.todo` 的 `checklist`(`mode:"hud"`)就是当前待办:todo 工具第一次写入时出现,之后整体更新 `p.phases`,回合结束随 omp 的清理消失。阶段标题带罗马数字前缀(`I. Inspect`)。`TspComposerObserver`(`main/tasks/tsp-composer-observer.ts`)换算成 `TaskState.todoPhases`,`ComposerTop` 画待办板。**只认 HUD、不回退到工具卡片**:否则 omp 清理之后会把旧待办复活。
 - **输入框上方的 HUD 由 studio 自己画**(omp 18.12.5 实测,`test/tsp-working.test.ts`):dock 里 `omp.hud`(作业 / 子代理胶囊)和 `omp.hud.activity`(运行状态行 `omp.working`、`omp.loader`、待办药丸)不渲染(`HIDDEN_HUD_ROLES`),由 `ComposerTop` 取代:药丸(子代理数 `countActiveAgents`、运行中的 bash 作业数)、状态行(用时 `TaskState.runStartedAt`,活动文字 `deriveWorkingLabel` = `omp.working.label`,没有时取 `omp.loader`)、待办板。运行状态仍由文档里的 `omp.working` 判断,与是否渲染无关。
 - **会话文件**:`SetUserVar=omp_session_file` 启动时就发了,这时文件还没落盘(第一条回复之后才写),所以只在文件存在时才记进任务,在回合结束、进程退出、关闭时重试。不带 `=` 的(omp 没有会话文件时发)当作清空,不退回记录里的旧文件。`/move` 之后 omp 搬会话文件并重发这个变量(实测),记录自动跟着换。

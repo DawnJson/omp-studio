@@ -335,7 +335,6 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
     await expect(page.getByTestId("topbar-terminal")).toBeVisible();
     await expect(page.getByTestId("git-menu")).toHaveCount(0);
-    await expect(page.getByTestId("topbar-review")).toHaveCount(0);
     const plainTaskId = await page.getByTestId("tsp-view").getAttribute("data-task-id");
 
     // 再开一个 git 仓库里的任务：顶栏有分支按钮。
@@ -348,7 +347,7 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("git-menu")).toBeVisible();
 
-    // 切回普通目录的任务：逐帧看，分支按钮和评审按钮一帧都不出现（不能先挂着上一个任务的分支，等状态回来再收掉）。
+    // 切回普通目录的任务：逐帧看，分支按钮一帧都不出现（不能先挂着上一个任务的分支，等状态回来再收掉）。
     await page.evaluate((plainId) => {
       const g = globalThis as unknown as {
         document: { querySelector(selector: string): { getClientRects(): { length: number } } | null };
@@ -362,8 +361,7 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
         const plain = g.document.querySelector(`[data-testid="tsp-view"][data-task-id="${plainId}"]`);
         const onPlain = plain !== null && plain.getClientRects().length > 0;
         if (onPlain) state.onPlain++;
-        if (onPlain && g.document.querySelector('[data-testid="git-menu"], [data-testid="topbar-review"]') !== null)
-          state.seen++;
+        if (onPlain && g.document.querySelector('[data-testid="git-menu"]') !== null) state.seen++;
         if (!state.stop) g.requestAnimationFrame(tick);
       };
       tick();

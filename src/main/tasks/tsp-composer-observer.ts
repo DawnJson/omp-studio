@@ -242,7 +242,7 @@ export class TspComposerObserver {
       cost,
       subagentCost: subagentCost ?? 0,
       premiumRequests: 0,
-      ...(totals && { requests: totals.requests }),
+      ...(totals && { requests: totals.requests, wholeTokens: totals.wholeTokens }),
     };
   }
 
@@ -270,7 +270,7 @@ export class TspComposerObserver {
     try {
       const session = await this.#host.readSessionFile();
       if (session === null || this.#host.disposed()) return;
-      const totals = totalUsage(session.usage.summary().models);
+      const totals = totalUsage(session.usage.summary());
       const sessionModel = session.usage.currentModel();
       const sameModel =
         sessionModel === null || this.#sessionModel === null

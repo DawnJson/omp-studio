@@ -1,5 +1,5 @@
 // TSP 任务的运行时：一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个伪终端里的交互式 omp（TspSession）。
-// 对任务池的接口（生命周期、回收、状态）：start / close / state；状态来自 omp 发来的节点树（task-status.ts，规则和依据见那里），
+// 对任务池的接口（生命周期、状态）：start / close / state；状态来自 omp 发来的节点树（task-status.ts，规则和依据见那里），
 // 状态机是 task-machine。旁路提问（/btw）见 tsp-btw.ts；会话命令（切模型、斜杠命令、模式、目标、快慢模式）见 tsp-commands.ts；
 // 会话树 / 回溯 / 标签见 tsp-session-tree.ts；输入框卡片的派生状态（模型、用量、待办、开关）见 tsp-composer-observer.ts。
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
@@ -102,11 +102,6 @@ import { fillFileSlots } from "../../shared/composer-files.ts";
 import { resolveComposerFiles } from "../files/composer-files.ts";
 import { isBtwRunning, type BtwHistoryRecord, type BtwUiEvent } from "../../shared/btw.ts";
 
-/** 存活进程数到了硬上限（软上限 × 2），拒绝再起。 */
-export class TooManyTasksError extends Error {
-  override name = "TooManyTasksError";
-}
-
 /** 新进程的初始列数；渲染进程挂载后用 resizeTsp 改成真实宽度。 */
 const INITIAL_COLS = 100;
 /** 等 omp 的输入框 `sendable` 的上限：omp 启动（加载扩展、MCP）可能要十几秒。 */
@@ -132,8 +127,8 @@ export type TspSessionDeps = Pick<
 
 export interface TspRunnerHost {
   buildLaunch(record: TaskRecord, project: Project): Promise<OmpLaunch>;
-  /** 起进程前调用：必要时回收别的任务；超出硬上限时 reject（任务保持 stopped）。 */
-  acquireSlot(id: TaskId): Promise<void>;
+  /** 起进程前调用：应用正在退出时抛错（不再起新进程）。 */
+  assertCanStart(): void;
   persist(id: TaskId, patch: Partial<Omit<TaskRecord, "id">>): Promise<TaskRecord>;
   isForeground(id: TaskId): boolean;
   onState(state: TaskState): void;
@@ -426,27 +421,19 @@ export class TspRunner {
     return this.#lastActiveAt;
   }
 
-  get keepAlive(): boolean {
-    return this.#record.keepAlive === true;
-  }
-
-  /** 可回收：idle、没有等待、没有还在跑的工具或子代理（转到后台的任务）。前台任务由池排除。 */
-  get recyclable(): boolean {
+  /** 能重开会话：进程已经不在，或者空闲（idle、没有等待、没有还在跑的工具或子代理——转到后台的任务——、没有在跑的旁路提问）。 */
+  get restartable(): boolean {
+    const status = this.#machine.status;
+    if (status === "stopped" || status === "error") return true;
     const session = this.#session;
     return (
       session !== null &&
-      this.#machine.status === "idle" &&
+      status === "idle" &&
       this.#machine.dialogs.length === 0 &&
       !this.#scansFor(session.document).runningWork &&
       !this.#revival.active &&
       !isBtwRunning(this.#btw.records)
     );
-  }
-
-  /** 能重开会话：可回收（空闲、没有等待和后台工作），或者进程已经不在。 */
-  get restartable(): boolean {
-    const status = this.#machine.status;
-    return status === "stopped" || status === "error" || this.recyclable;
   }
 
   /** omp 标题后缀里的 PR 号（TaskState.prNumber）；顶栏 PR 徽标的点击在主进程按它取地址。 */
@@ -499,7 +486,6 @@ export class TspRunner {
       contextCompaction: this.#composerState.contextCompaction,
       composerMode: this.#factsTracker.mode,
       extStatuses: this.#factsTracker.extStatuses,
-      keepAlive: this.keepAlive,
       fallbackModel: this.#fallbackModel,
       credentialPins: this.#credentialPins,
       revivedSubagents: this.#revival.running,
@@ -718,7 +704,7 @@ export class TspRunner {
         this.#record = await this.#host.persist(this.id, { cwd: null });
       }
       const defaultsLoaded = this.#loadNewTaskDefaults();
-      await this.#host.acquireSlot(this.id);
+      this.#host.assertCanStart();
       this.#assertNotClosing();
       const launch = await this.#buildLaunch();
       this.#assertNotClosing();
@@ -852,7 +838,6 @@ export class TspRunner {
 
   #classifyStartError(error: unknown): TaskError {
     if (error instanceof StartError) return error.taskError;
-    if (error instanceof TooManyTasksError) return { kind: "too_many_tasks", message: error.message };
     if (error instanceof TspExitedError)
       return { kind: "handshake_failed", message: this.#withTail(error.message, error.exit.textTail) };
     if (error instanceof TspHandshakeError)
@@ -943,11 +928,6 @@ export class TspRunner {
 
   async setArchived(archived: boolean): Promise<void> {
     this.#record = await this.#host.persist(this.id, { archived });
-  }
-
-  async setKeepAlive(keepAlive: boolean): Promise<void> {
-    this.#record = await this.#host.persist(this.id, { keepAlive });
-    this.#publish();
   }
 
   // ───── 会话文件、标题 ─────
@@ -1432,10 +1412,10 @@ export class TspRunner {
   async sessionExtras(): Promise<TspSessionExtras> {
     try {
       const session = await this.#readSessionFile();
-      return session?.extras.result() ?? { turns: [], tokensPerSecond: null };
+      return session?.extras.result() ?? { turns: [] };
     } catch (error) {
       log.warn("reading the session file for turn footers failed", { taskId: this.id, message: String(error) });
-      return { turns: [], tokensPerSecond: null };
+      return { turns: [] };
     }
   }
 

@@ -29,7 +29,7 @@ import { SendStop } from "./SendStop.tsx";
 import { useNewTaskDefault } from "./use-new-task-default.ts";
 import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import { SessionCost } from "./SessionCost.tsx";
-import { ContextMeter } from "./UsageMeter.tsx";
+import { TaskStatusLine } from "./ComposerStatus.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useHeld } from "./use-held.ts";
 import { useAttach } from "./use-attach.ts";
@@ -42,7 +42,6 @@ import { focusedAgentName } from "../../../../shared/tsp/agent-hub.ts";
 import { ModeChip } from "./ModeChip.tsx";
 import { userMessageTexts } from "../../../../shared/tsp/user-messages.ts";
 import { GATE_ACTION_APPROVE, GATE_ACTION_DETAILS, TSP_APPROVAL_DIALOG_ID } from "../../../../shared/tsp/gate.ts";
-import { PathLabel } from "../empty/ProjectLabel.tsx";
 import { Button } from "../../ui/controls.tsx";
 import { EnhanceButton } from "./EnhanceButton.tsx";
 import { usePromptEnhance } from "./use-prompt-enhance.ts";
@@ -468,14 +467,11 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           />
           {/* 还没发过消息的任务（标题为空）不能发斜杠命令：第一次发送会拿它当标题 */}
           <ApprovalChip projectId={task.projectId} forgetTaskId={task.title === "" ? null : taskId} />
-          {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}
-          <PathLabel path={task.cwd} testId="composer-folder" />
           <SessionTogglesMenu taskId={taskId} task={task} />
           <ModeChip taskId={taskId} task={task} />
           <ShellTag taskId={taskId} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
-          <ContextMeter task={task} />
           <SessionCost
             usage={task.sessionUsage}
             provider={task.model?.key.provider ?? null}
@@ -495,6 +491,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           />
         </div>
       </div>
+      <TaskStatusLine task={task} />
     </div>
   );
 }

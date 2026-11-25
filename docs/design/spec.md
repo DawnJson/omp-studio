@@ -18,7 +18,7 @@
 | §4.3 | [`spec/4.3-folder-group.md`](spec/4.3-folder-group.md) | FolderGroup |
 | §4.4 | [`spec/4.4-waiting-strip.md`](spec/4.4-waiting-strip.md) | WaitingStrip |
 | §4.5 | [`spec/4.5-sidebar.md`](spec/4.5-sidebar.md) | Sidebar 外壳 |
-| §4.6 | [`spec/4.6-topbar-title.md`](spec/4.6-topbar-title.md) | 顶栏任务标题与待办板 |
+| §4.6 | [`spec/4.6-topbar-title.md`](spec/4.6-topbar-title.md) | 顶栏任务标签与待办板 |
 | §4.7 | [`spec/4.7-empty-state.md`](spec/4.7-empty-state.md) | EmptyState |
 | §4.8 | [`spec/4.8-user-message.md`](spec/4.8-user-message.md) | UserMessage |
 | §4.9 | [`spec/4.9-assistant-message-markdown.md`](spec/4.9-assistant-message-markdown.md) | AssistantMessage 与 Markdown |

@@ -37,7 +37,6 @@ import { registerShutdownHook } from "../window/shutdown.ts";
 import {
   IpcValidationError,
   parseBoolean,
-  parseIdleClose,
   parseModelKey,
   parseOneOf,
   parseProjectId,
@@ -190,7 +189,6 @@ export const ompHandlers: HandlerGroup<
   | "resetOmpConfig"
   | "setReduceMotion"
   | "setEnterWhileRunning"
-  | "setIdleClose"
   | "setSoundOnDone"
   | "setCopyOnSelect"
   | "setToolHeadsOnly"
@@ -202,6 +200,7 @@ export const ompHandlers: HandlerGroup<
   | "getModelRoles"
   | "setModelRole"
   | "getApprovalMode"
+  | "getModelPerf"
   | "getModelInsights"
   | "getOmpKeybindings"
 > = {
@@ -241,7 +240,6 @@ export const ompHandlers: HandlerGroup<
     Promise.resolve(
       updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) }),
     ),
-  setIdleClose: (value) => Promise.resolve(updateSettings({ idleClose: parseIdleClose(value) })),
   setSoundOnDone: (on) => Promise.resolve(updateSettings({ soundOnDone: parseBoolean(on, "soundOnDone") })),
   setCopyOnSelect: (on) => Promise.resolve(updateSettings({ copyOnSelect: parseBoolean(on, "copyOnSelect") })),
   setToolHeadsOnly: (on) => Promise.resolve(updateSettings({ toolHeadsOnly: parseBoolean(on, "toolHeadsOnly") })),
@@ -268,6 +266,11 @@ export const ompHandlers: HandlerGroup<
       thinking === null ? null : parseString(thinking, "thinking", 16),
     );
     onOmpConfigChanged("modelRoles");
+  },
+  getModelPerf: (keys) => {
+    if (!Array.isArray(keys) || keys.length > maxInsightKeys)
+      throw new IpcValidationError(`keys 必须是不超过 ${maxInsightKeys} 项的数组`);
+    return readInDbWorker("modelPerf", resolveAgentDir(), keys.map(parseModelKey));
   },
   getModelInsights: async (projectId, keys) => {
     if (!Array.isArray(keys) || keys.length > maxInsightKeys)

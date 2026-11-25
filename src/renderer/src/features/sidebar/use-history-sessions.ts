@@ -58,8 +58,3 @@ function pinnedOf(sessions: readonly SessionSummary[] | null, taskId: TaskId): b
 export function isTaskPinned(taskId: TaskId): boolean {
   return pinnedOf(store.get(), taskId);
 }
-
-/** 顶栏 ⋯ 用：列表刷新后跟着变。 */
-export function useTaskPinned(taskId: TaskId): boolean {
-  return useStoreValue(store, (sessions) => pinnedOf(sessions, taskId));
-}

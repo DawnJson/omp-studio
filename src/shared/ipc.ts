@@ -224,10 +224,6 @@ export interface StudioSettings {
   customBackdrop: string | null;
   /** Windows 11 毛玻璃：顶栏和侧栏透出系统的 Acrylic 材质。只在 AppInfo.glassSupported 时生效。 */
   glass: boolean;
-  /** 同时存活的 omp 进程软上限；超过时回收最久未用的空闲任务。 */
-  maxLiveProcesses: number;
-  /** 空闲多久关掉任务的 omp 进程（再打开时 `--resume` 接回同一个会话）；`never` 不按时间关。标了"保持运行"的任务不受它影响。 */
-  idleClose: IdleClose;
   /** 减少动效：只能强制开启，系统要求减少动效时始终生效。 */
   reduceMotion: boolean;
   /** 运行中按 Enter：插话（steer）还是稍后（followUp）。 */
@@ -251,9 +247,6 @@ export interface StudioSettings {
   /** 宠物说话（气泡，每句是一次 omp tiny 角色——没配就 smol——的调用）。默认开（仓库所有者 2026-11-11 定）。 */
   petTalk: boolean;
 }
-
-/** 空闲任务关闭进程前等多久（StudioSettings.idleClose）。 */
-export type IdleClose = "15m" | "1h" | "4h" | "never";
 
 // ───────── 项目 ─────────
 
@@ -282,7 +275,6 @@ export interface TaskError {
     | "restore_model_failed"
     | "exited"
     | "protocol"
-    | "too_many_tasks"
     /** 任务的 worktree 目录已被删除（和 omp 一致：只能查看记录，不能继续聊）。 */
     | "worktree_missing"
     /** 任务的会话文件已被删除（在 omp 里删的）；发消息时在这个任务里开新会话。 */
@@ -340,6 +332,8 @@ interface SessionUsage {
   premiumRequests: number;
   /** 模型请求数（assistant 消息数）：从会话文件数出来。 */
   requests?: number;
+  /** 整个会话（当前分支，含压缩前）的 token 合计：输入框下方状态行显示它；`tokens` 的范围同 omp（最近一次压缩之后）。 */
+  wholeTokens?: number;
   /** 订阅计费的会话才有。 */
   credits?: SessionCredits;
 }
@@ -441,8 +435,6 @@ export interface TaskState {
   composerMode: TaskMode | null;
   /** 扩展 `ctx.ui.setStatus` 写的状态文字，按 omp 给的顺序；输入框卡片被换掉时沿用上一次的值。 */
   extStatuses: readonly string[];
-  /** 保持运行（setTaskKeepAlive）：空闲时不关进程。 */
-  keepAlive: boolean;
   /** omp 出错后自动换上的备用模型（会话文件最后一条 `model_change` 是 retry fallback，`provider/model`）；在用原来的模型为 null。 */
   fallbackModel: string | null;
   /**
@@ -702,8 +694,6 @@ export interface TspTurnFooter {
 export interface TspSessionExtras {
   /** 每个用户消息一项，从旧到新；那一轮没结束或没有用量时为 null。 */
   turns: (TspTurnFooter | null)[];
-  /** 最近一条回复的输出速度（token/秒，会话文件里 assistant 消息的 output ÷ (duration − ttft)）；还没有回复时为 null。 */
-  tokensPerSecond: number | null;
 }
 
 // ───────── 会话历史 ─────────
@@ -1060,6 +1050,16 @@ export interface ShellState {
   conversationWidth: number | null;
   /** 侧栏"按文件夹"排列里文件夹的顺序（文件夹 key：小写、正斜杠、无尾斜杠的路径），用户拖出来的；最多 limits.folderOrderMax 个。 */
   folderOrder: string[];
+  /** 侧栏下半的文件区展开着（默认展开）；收起时只剩标题行。 */
+  sidebarFilesOpen: boolean;
+  /** 文件区占侧栏列表 + 文件区总高的百分比（limits.sidebarFilesShareRange，整数）；null = 默认 50。 */
+  sidebarFilesShare: number | null;
+  /** 顶栏的任务标签（spec §3.1「任务标签」），从左到右；开着标签的任务不关 omp 进程，关标签 = 关进程。重启后恢复。 */
+  openTabs: TaskId[];
+  /** 当前标签；null = 新任务草稿（草稿标签不存）。 */
+  activeTab: TaskId | null;
+  /** 任务颜色（标签和侧栏任务行左边的竖色条，spec §4.6）：任务 id → 1…taskColorCount（对应 --chart-1…）；没颜色的不在里面。 */
+  taskColors: Record<TaskId, number>;
 }
 
 export type HistoryOrder = "folder" | "chats";
@@ -1176,7 +1176,7 @@ export interface StudioInvokeApi {
    * （聚焦子代理、读上下文报告）前，渲染进程等自己的镜像追上它：IPC 回复可能比之前发出的批次先到，不等就会把 omp 已经关掉的弹窗再画一帧。
    */
   getTspSeq(taskId: TaskId): Promise<number>;
-  /** 用量脚注（omp 恢复会话时不重发，从会话文件补）和最近一条回复的速度；读不到时 `{ turns: [], tokensPerSecond: null }`，不抛错。 */
+  /** 用量脚注（omp 恢复会话时不重发，从会话文件补）；读不到时 `{ turns: [] }`，不抛错。 */
   getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
   /**
    * omp 现算的上下文构成：主进程点 omp 输入框上的上下文 meter，读它弹出的报告再关掉（运行中也能读）。
@@ -1196,8 +1196,6 @@ export interface StudioInvokeApi {
   /** 停止：撤回排队消息并中止当前一轮。 */
   stopTask(taskId: TaskId): Promise<RestoredQueue>;
   renameTask(taskId: TaskId, title: string): Promise<void>;
-  /** 保持运行：空闲多久都不关这个任务的 omp 进程，进程数到上限时也不先关它。存进任务记录，重启应用后照旧。 */
-  setTaskKeepAlive(taskId: TaskId, on: boolean): Promise<void>;
   /** 关掉进程并从侧栏移除；会话文件不动。 */
   archiveTask(taskId: TaskId): Promise<void>;
   /** 删除会话（不可撤销）：经任务自己的（或临时起的）omp 发 `/delete` 删掉会话文件，确认删掉后去掉任务记录（taskRemoved）。失败时任务不动，错误带 omp 的原话。 */
@@ -1283,8 +1281,8 @@ export interface StudioInvokeApi {
   /** 重开会话：结束这个任务的 omp 进程，再用 `--resume` 恢复同一个会话文件（等于终端里退出再进）。`restartable` 为 false 时 reject。 */
   restartTask(taskId: TaskId): Promise<void>;
   /**
-   * 关闭会话：结束这个任务的 omp 进程，任务和对话快照留着（状态 stopped）；再切到它或发消息时用 `--resume` 恢复同一个会话文件。
-   * 没有进程时什么也不做；`restartable` 为 false（在跑、在等你、后台还有工作）时 reject。
+   * 关掉任务的标签页：结束这个任务的 omp 进程，任务和对话快照留着（状态 stopped）；忙（在跑、在等你、后台还有工作）也关，
+   * 确认由渲染进程在关标签页前做。再打开它或发消息时用 `--resume` 恢复同一个会话文件。没有进程时什么也不做。
    */
   closeTask(taskId: TaskId): Promise<void>;
   /**
@@ -1548,7 +1546,6 @@ export interface StudioInvokeApi {
   saveMcpServerFile(input: McpEditInput, projectId: ProjectId | null): Promise<McpEditOutcome<null>>;
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
-  setIdleClose(value: IdleClose): Promise<void>;
   setSoundOnDone(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
   setToolHeadsOnly(on: boolean): Promise<void>;
@@ -1578,6 +1575,8 @@ export interface StudioInvokeApi {
    * 一律写全局（`omp config set modelRoles`，值是 `provider/model[:thinking]`）。
    */
   setModelRole(role: string, model: ModelKey | null, thinking: string | null): Promise<void>;
+  /** omp 记下的这些模型的实测速度（agent.db 的 model_perf，只读，不起 omp）；键 `provider/modelId`，没有实测的不在表里。 */
+  getModelPerf(keys: ModelKey[]): Promise<Record<string, ModelPerf>>;
   /** 模型选择对话框右栏的速度、智能分和压缩设置；只读 omp 的 agent.db / models.db / `omp config list`。 */
   getModelInsights(projectId: ProjectId | null, keys: ModelKey[]): Promise<ModelInsights>;
   /** 转发给 omp 的键位：默认键位加 `<agent 目录>/keybindings.yml` 的覆盖（只读），已去掉 studio 占用的键。 */
@@ -1737,8 +1736,9 @@ export const limits = {
   terminalHeightRange: [120, 4000],
   /** 对话列宽度占主区的百分比：下限放得很低，宽屏上也能拖到 --content-w-min（840）；像素上下限由 CSS 夹（2026-11-09）。 */
   conversationWidthRange: [10, 100],
+  /** 侧栏文件区占列表 + 文件区总高的百分比：两边都至少留几行。 */
+  sidebarFilesShareRange: [15, 85],
   urlMaxChars: 8192,
-  maxLiveProcessesRange: [2, 16],
   /** `/goal` 的目标文字最大字符数。 */
   goalObjectiveMaxChars: 4_096,
   /** 自选背景图的大小上限。 */
@@ -1748,6 +1748,12 @@ export const limits = {
   /** 侧栏文件夹顺序（ShellState.folderOrder）：最多记多少个、每个 key 多长。 */
   folderOrderMax: 500,
   folderKeyMaxChars: 4096,
+  /** 任务标签（ShellState.openTabs）只是防坏数据的上限，界面不限制个数。 */
+  openTabsMax: 1000,
+  /** 任务颜色（ShellState.taskColors）的条数上限，同样只防坏数据。 */
+  taskColorsMax: 1000,
+  /** 任务颜色的色板数（--chart-1…--chart-N）。 */
+  taskColorCount: 6,
 } as const;
 
 /** userData/backdrops 里自选背景图的文件名：内容的 sha256 + 扩展名（复制进来时定的，见 main/settings/backdrop-image.ts）。
@@ -1801,7 +1807,6 @@ export const invokeNames = {
   submitQueuedMessages: true,
   stopTask: true,
   renameTask: true,
-  setTaskKeepAlive: true,
   archiveTask: true,
   deleteTask: true,
   listTaskModels: true,
@@ -1928,7 +1933,6 @@ export const invokeNames = {
   saveMcpServerFile: true,
   setReduceMotion: true,
   setEnterWhileRunning: true,
-  setIdleClose: true,
   setSoundOnDone: true,
   setCopyOnSelect: true,
   setToolHeadsOnly: true,
@@ -1945,6 +1949,7 @@ export const invokeNames = {
   getModelRoles: true,
   setModelRole: true,
   getApprovalMode: true,
+  getModelPerf: true,
   getModelInsights: true,
   getOmpKeybindings: true,
   getUpdateState: true,

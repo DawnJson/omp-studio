@@ -3,8 +3,8 @@
 // 模型胶囊显示 omp 的默认值（modelRoles.default / defaultThinkingLevel，设计原则 7）。在胶囊里改（"用于此任务"、Alt T）只管
 // 即将建的这个任务（draft-model-choice.ts）：建任务时带上，任务以 --model / --thinking 起进程，不写配置；没改的项不传。
 import { reportError } from "../../ui/errors.ts";
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -23,7 +23,7 @@ import { clearDraft, getDraft, restoreDraft, setDraftText, useDraft } from "./dr
 import { ModelChip } from "./ModelChip.tsx";
 import { decideEnter } from "./send-logic.ts";
 import { SendStop } from "./SendStop.tsx";
-import { DraftContextMeter } from "./UsageMeter.tsx";
+import { DraftStatusLine } from "./ComposerStatus.tsx";
 import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
 import { SlashMenu } from "./SlashMenu.tsx";
@@ -37,8 +37,9 @@ import { EnhanceButton } from "./EnhanceButton.tsx";
 import { usePromptEnhance } from "./use-prompt-enhance.ts";
 import "./composer.css";
 
-/** projectTools：工具行里紧跟审批胶囊的部分（空状态放项目标签）。 */
-export function DraftComposer({ projectId, projectTools }: { projectId: ProjectId | null; projectTools?: ReactNode }) {
+/** project 为 null = 默认文件夹（一个项目都没有，或新任务在默认文件夹里）。 */
+export function DraftComposer({ project }: { project: Project | null }) {
+  const projectId = project?.id ?? null;
   const t = useT();
   const terminalDraftKey = draftKey(projectId);
   // 草稿存储的键和草稿终端的键是同一个字符串。
@@ -248,9 +249,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
             setThinking={(level) => Promise.resolve(chooseDraftModel(key, { thinkingLevel: level }))}
           />
           <ApprovalChip projectId={projectId} forgetTaskId={null} />
-          {projectTools}
           <span className="composer-spacer" />
-          <DraftContextMeter model={model ?? null} projectId={projectId} />
           <SessionCost usage={null} provider={model?.key.provider ?? null} />
           <EnhanceButton enhance={enhance} disabled={false} />
           <SendStop
@@ -263,6 +262,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
           />
         </div>
       </div>
+      <DraftStatusLine project={project} model={model ?? null} />
     </div>
   );
 }

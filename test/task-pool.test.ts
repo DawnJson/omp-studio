@@ -1,10 +1,10 @@
-// 任务池：进程上限、回收、归档、恢复历史会话、失败路径、启动过程中的归档和退出。
+// 任务池：归档、关闭（关标签页）、恢复历史会话、失败路径、启动过程中的归档和退出。
 // 进程是 test/fake-omp/fake-tsp-omp.ts（伪终端里回放 fixtures/tsp 的录制）；任务状态推导和 omp 交互见 test/task-tsp.test.ts。
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { IdleClose, ProjectId, StudioSettings, TaskId, TaskState } from "../src/shared/ipc.ts";
+import type { ProjectId, StudioSettings, TaskId, TaskState } from "../src/shared/ipc.ts";
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry, type TaskRecord } from "../src/main/tasks/task-registry.ts";
@@ -26,11 +26,9 @@ afterAll(async () => {
   await rm(scratch, { recursive: true, force: true });
 });
 
-const settings = (maxLiveProcesses = 6, idleClose: IdleClose = "1h"): StudioSettings => ({
+const settings = (): StudioSettings => ({
   locale: "zh-CN",
   theme: "system",
-  maxLiveProcesses,
-  idleClose,
   reduceMotion: false,
   enterWhileRunning: "steer",
   soundOnDone: false,
@@ -104,8 +102,6 @@ const SEED_PROJECT = "p-seed" as ProjectId;
 const pools: TaskPool[] = [];
 async function harness(
   options: {
-    maxLive?: number;
-    idleClose?: IdleClose;
     buildLaunchError?: Error;
     gate?: Promise<void>;
     /** 启动前写进 tasks.json 的任务记录（项目是 projectDir，id SEED_PROJECT）。 */
@@ -141,7 +137,7 @@ async function harness(
   const temporaryLaunches: (string | null)[] = [];
   const pool = new TaskPool({
     registry,
-    getSettings: async () => settings(options.maxLive, options.idleClose),
+    getSettings: async () => settings(),
     events: events.sink,
     ...(options.sessionInUse && { sessionInUse: options.sessionInUse }),
     ...(options.waitBeforeRecheck && { waitBeforeRecheck: options.waitBeforeRecheck }),
@@ -319,100 +315,7 @@ describe("任务池：失败路径", () => {
   }, 60_000);
 });
 
-describe("任务池：进程上限、回收", () => {
-  it("到软上限时回收最久未用的可回收任务；正在前台的任务不会被回收", async () => {
-    const h = await harness({ maxLive: 2 });
-    const ids: TaskId[] = [];
-    for (let i = 0; i < 3; i += 1) {
-      const created = await h.pool.createTask({ projectId: h.projectId });
-      await h.events.until(created.id, (s) => s.status === "idle");
-      ids.push(created.id);
-    }
-    const [a, b, c] = ids as [TaskId, TaskId, TaskId];
-    expect(h.events.statuses(a)).toEqual(["starting", "idle", "stopped"]);
-    expect(h.pool.listTasks().find((s) => s.id === b)?.status).toBe("idle");
-    expect(h.pool.listTasks().find((s) => s.id === c)?.status).toBe("idle");
-
-    // b 在前台，d 启动时只能回收 c。
-    await h.pool.openTask(b);
-    const d = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(d.id, (s) => s.status === "idle");
-    expect(h.pool.listTasks().find((s) => s.id === b)?.status).toBe("idle");
-    expect(h.pool.listTasks().find((s) => s.id === c)?.status).toBe("stopped");
-  }, 120_000);
-
-  it("保持运行的任务到软上限时不被回收，换成回收下一个最久未用的", async () => {
-    const h = await harness({ maxLive: 2 });
-    const a = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(a.id, (s) => s.status === "idle");
-    await h.pool.setTaskKeepAlive(a.id, true);
-    const b = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(b.id, (s) => s.status === "idle");
-    const c = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(c.id, (s) => s.status === "idle");
-    expect(h.pool.listTasks().find((s) => s.id === a.id)?.status).toBe("idle");
-    expect(h.pool.listTasks().find((s) => s.id === b.id)?.status).toBe("stopped");
-  }, 120_000);
-
-  it("存活进程到硬上限（软上限 × 2）且没有可回收的任务时，新任务进 error(too_many_tasks)", async () => {
-    const h = await harness({ maxLive: 1 });
-    const { text } = approvalSend();
-    // 两个任务都停在"等你确认"（needs_you 不可回收）。
-    for (let i = 0; i < 2; i += 1) {
-      h.next.push({ fixture: "approval" });
-      const created = await h.pool.createTask({ projectId: h.projectId });
-      await h.events.until(created.id, (s) => s.status === "idle");
-      await h.pool.sendPrompt(created.id, { text, whenBusy: "steer" });
-      await h.events.until(created.id, (s) => s.status === "needs_you");
-    }
-    const third = await h.pool.createTask({ projectId: h.projectId });
-    const failed = await h.events.until(third.id, (s) => s.status === "error");
-    expect(failed.error?.kind).toBe("too_many_tasks");
-    expect(h.pool.listTasks().map((s) => s.status)).toEqual(["needs_you", "needs_you", "error"]);
-  }, 120_000);
-
-  it("可回收状态持续到设置的时长（默认 1 小时）才关进程；没到点不关", async () => {
-    const h = await harness();
-    const created = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(created.id, (s) => s.status === "idle");
-    const t0 = 1_000_000;
-    await h.pool.sweep(t0);
-    await h.pool.sweep(t0 + 60 * 60_000 - 1);
-    expect(h.pool.listTasks()[0]?.status).toBe("idle");
-    await h.pool.sweep(t0 + 60 * 60_000);
-    expect(h.pool.listTasks()[0]?.status).toBe("stopped");
-  }, 60_000);
-
-  it("设成「从不」时空闲多久都不关", async () => {
-    const h = await harness({ idleClose: "never" });
-    const created = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(created.id, (s) => s.status === "idle");
-    await h.pool.sweep(1_000_000);
-    await h.pool.sweep(1_000_000 + 30 * 24 * 60 * 60_000);
-    expect(h.pool.listTasks()[0]?.status).toBe("idle");
-  }, 60_000);
-
-  it("保持运行：定时回收不关它，记进任务记录；取消后从那一刻重新计时", async () => {
-    const h = await harness({ idleClose: "15m" });
-    const created = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(created.id, (s) => s.status === "idle");
-    await h.pool.setTaskKeepAlive(created.id, true);
-    expect(h.pool.listTasks()[0]?.keepAlive).toBe(true);
-    expect(h.registry.findTask(created.id)?.keepAlive).toBe(true);
-    const t0 = 1_000_000;
-    await h.pool.sweep(t0);
-    await h.pool.sweep(t0 + 24 * 60 * 60_000);
-    expect(h.pool.listTasks()[0]?.status).toBe("idle");
-
-    await h.pool.setTaskKeepAlive(created.id, false);
-    const t1 = t0 + 25 * 60 * 60_000;
-    await h.pool.sweep(t1);
-    await h.pool.sweep(t1 + 15 * 60_000 - 1);
-    expect(h.pool.listTasks()[0]?.status).toBe("idle");
-    await h.pool.sweep(t1 + 15 * 60_000);
-    expect(h.pool.listTasks()[0]?.status).toBe("stopped");
-  }, 60_000);
-
+describe("任务池：退出", () => {
   it("shutdown 关掉所有进程，任务回到 stopped", async () => {
     const h = await harness();
     const one = await h.pool.createTask({ projectId: h.projectId });
@@ -739,7 +642,7 @@ describe("任务池：删除会话（经 omp 的 /delete，issue #10）", () => 
   });
 });
 
-describe("任务池：关闭会话（issue #11）", () => {
+describe("任务池：关闭（关标签页）", () => {
   const sessionsDir = () => path.join(scratch, "关闭 会话");
   async function sessionFile(name: string): Promise<string> {
     await mkdir(sessionsDir(), { recursive: true });
@@ -797,16 +700,19 @@ describe("任务池：关闭会话（issue #11）", () => {
     expect(h.pool.listTasks()[0]?.status).not.toBe("stopped");
   }, 60_000);
 
-  it("忙（在等你确认）的任务拒绝关闭，进程照常", async () => {
+  it("忙（在等你确认）的任务也关：进程退出，任务 stopped", async () => {
     const h = await harness();
     const { text } = approvalSend();
-    h.next.push({ fixture: "approval" });
+    const pidFile = path.join(scratch, "close-busy.pid");
+    h.next.push({ fixture: "approval", env: { FAKE_OMP_PID_FILE: pidFile } });
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
+    const pid = Number((await readFile(pidFile, "utf8")).trim().split("\n")[0]);
     await h.pool.sendPrompt(created.id, { text, whenBusy: "steer" });
     await h.events.until(created.id, (s) => s.status === "needs_you");
-    await expect(h.pool.closeTask(created.id)).rejects.toThrow("the task is busy");
-    expect(h.pool.listTasks()[0]?.status).toBe("needs_you");
+    await h.pool.closeTask(created.id);
+    expect(h.pool.listTasks()[0]?.status).toBe("stopped");
+    expect(await exited(pid)).toBe(true);
   }, 60_000);
 });
 

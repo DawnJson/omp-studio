@@ -18,8 +18,8 @@ describe("errors", () => {
   it("已知错误映射到当前语言的文案，不带英文原话", () => {
     expect(describeError(createT("zh-CN"), prefixed)).toBe("可执行文件不会被直接打开，请在文件夹中显示它。");
     expect(describeError(createT("en"), prefixed)).toMatch(/^Executable files/);
-    expect(describeError(createT("zh-CN"), { kind: "too_many_tasks", message: "x" })).toBe(
-      "同时运行的任务太多。先停掉或归档几个再试。",
+    expect(describeError(createT("zh-CN"), { kind: "worktree_missing", message: "x" })).toBe(
+      "这个任务的工作区已被删除，只能查看记录，不能继续对话。",
     );
   });
 

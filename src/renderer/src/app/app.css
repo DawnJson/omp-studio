@@ -84,7 +84,6 @@ button {
 }
 
 .topbar-left button,
-.crumb,
 .topbar-tools {
   -webkit-app-region: no-drag;
 }
@@ -127,30 +126,6 @@ html[data-platform="darwin"] .topbar-left {
   transform: translateY(0.5px);
 }
 
-.crumb {
-  display: flex;
-  flex: 0 1 auto;
-  gap: var(--space-1);
-  align-items: center;
-  min-width: 0;
-  padding: 0 var(--space-3);
-  font-size: var(--fs-sm);
-  white-space: nowrap;
-}
-
-.crumb-restart {
-  flex: none;
-}
-
-/* 顶栏标题：500（2026-10-24 质感改版：原来中文 700 在 Windows 上又重又糊，标题又是整屏最显眼的字；雅黑 UI 没有 500，中文落到常规字重） */
-.crumb-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: var(--fw-medium);
-  color: var(--text);
-}
-
 /* 任务工具（分支、评审、终端）贴任务条右端；竖线把它们和系统三键隔开 */
 .topbar-tools {
   display: flex;
@@ -168,10 +143,10 @@ html[data-platform="darwin"] .topbar-left {
   background: var(--border);
 }
 
-/* 准备页（omp 没就绪，问接管除外）盖住顶栏以下时，顶栏只留标志：任务标题、工具、侧栏开关都作用在还不能用的应用上；
+/* 准备页（omp 没就绪，问接管除外）盖住顶栏以下时，顶栏只留标志：任务标签、工具、侧栏开关都作用在还不能用的应用上；
    工具藏起来后分隔线孤零零一条，也藏（2026-10-29）。问接管时底下的应用照常画、遮罩盖到顶栏，不用藏。
    只看 #app 的直接子元素，DOM 变动不触发整页重算。 */
-#app:has(> .setup:not([data-state="ask_takeover"])) :is(.crumb, [data-testid="topbar-sidebar"], .topbar-tools) {
+#app:has(> .setup:not([data-state="ask_takeover"])) :is(.task-tabs, [data-testid="topbar-sidebar"], .topbar-tools) {
   visibility: hidden;
 }
 
@@ -183,6 +158,8 @@ html[data-platform="darwin"] .topbar-left {
   min-height: 0;
   /* 主区面板是一张四角都圆的“纸”，右边和下边各留一圈窗口底色 */
   padding: 0 var(--space-2) var(--space-2) 0;
+  /* 右栏滑入 / 侧栏抽屉滑出时会伸出窗口：clip 不让它撑出可滚动区，否则聚焦时整页被横向滚走一截、再慢慢滚回来 */
+  overflow: clip;
 }
 
 /* 侧栏收起或作为抽屉时，面板左边也不贴窗口边 */

@@ -34,13 +34,11 @@ export function PreviewPage({
   path,
   snippet,
   fromLink,
-  hidden,
 }: {
   target: ProjectFilesTarget;
   path: string | null;
   snippet: Snippet | null;
   fromLink: boolean;
-  hidden: boolean;
 }) {
   const t = useT();
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -165,7 +163,7 @@ export function PreviewPage({
   };
 
   return (
-    <div className="file-preview-page" hidden={hidden}>
+    <div className="file-preview-page">
       <div className="file-preview-bar">
         {/* 片段没有文件名，按它的语言（扩展名）取图标 */}
         <FileTypeIcon name={snippet === null ? name : `snippet.${ext}`} size={14} />

@@ -185,20 +185,34 @@ describe("请求数和合计（TSP 任务的 sessionUsage 用）", () => {
       reply("a2", "a1", "haiku", 300, 0.5),
       reply("a3", "a2", "opus", 50, 0.25),
     ].join("\n");
-    const { models } = summarizeSessionUsage(text);
-    expect(models.map((row) => [row.modelId, row.requests])).toEqual([
+    const summary = summarizeSessionUsage(text);
+    expect(summary.models.map((row) => [row.modelId, row.requests])).toEqual([
       ["haiku", 1],
       ["opus", 2],
     ]);
-    // reply() 里每条 input 为 1，output 为 total - 1。
-    expect(totalUsage(models)).toEqual({
+    // reply() 里每条 input 为 1，output 为 total - 1。没压缩过时整个会话的合计就是它。
+    expect(totalUsage(summary)).toEqual({
       tokens: { input: 3, output: 447, cacheRead: 0, cacheWrite: 0, total: 450 },
       requests: 3,
+      wholeTokens: 450,
     });
-    expect(totalUsage([])).toEqual({
+    expect(totalUsage({ models: [], compactions: 0, whole: null })).toEqual({
       tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
       requests: 0,
+      wholeTokens: 0,
     });
+  });
+
+  it("压缩过：分项只算压缩之后（同 omp），wholeTokens 含压缩前（状态行显示它，压缩后不变小）", () => {
+    const text = [
+      user("u1", null),
+      reply("a1", "u1", "opus", 1000, 10),
+      JSON.stringify({ type: "compaction", id: "c1", parentId: "a1" }),
+      reply("a2", "c1", "opus", 5, 0.05),
+    ].join("\n");
+    const totals = totalUsage(summarizeSessionUsage(text));
+    expect(totals.tokens.total).toBe(5);
+    expect(totals.wholeTokens).toBe(1005);
   });
 });
 

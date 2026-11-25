@@ -1,14 +1,12 @@
-// 任务池：持有所有任务的运行时，管进程上限、空闲回收、快照淘汰、关闭。
-// 规则见 docs/architecture/task-model.md（arch 2.3）：软上限默认 6，按最近使用回收可回收的空闲任务；
-// 没有可回收的就超出软上限照起，到硬上限（软上限 × 2）才拒绝；可回收状态持续到设置的时长（默认 1 小时）定时关闭；
-// 标了"保持运行"的任务两种回收都不碰。
+// 任务池：持有所有任务的运行时，管启动、快照淘汰、关闭。
+// 规则见 docs/architecture/task-model.md（arch 2.3）：进程在任务的标签页开着时一直活着，关标签页（closeTask）才结束；
+// 不按空闲时间、不按进程数回收。
 import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type {
   CreateTaskInput,
-  IdleClose,
   ModelKey,
   ModelOption,
   Project,
@@ -40,27 +38,13 @@ import { titleFromPrompt } from "./convert.ts";
 import { looksLikeConsoleTitle, stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { readSessionHead } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
-import {
-  TooManyTasksError,
-  TspRunner,
-  type NewTaskDefaults,
-  type TspRunnerHost,
-  type TspSessionDeps,
-} from "./tsp-runner.ts";
+import { TspRunner, type NewTaskDefaults, type TspRunnerHost, type TspSessionDeps } from "./tsp-runner.ts";
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
 import { taskCommandText, type TaskCommand } from "../../shared/omp-output/index.ts";
 import { isMissingFileError, sessionFileMissing } from "./session-file-missing.ts";
 
-/** 设置"空闲多久关闭"对应的毫秒数；null = 不按时间关。 */
-export const IDLE_CLOSE_MS: Readonly<Record<IdleClose, number | null>> = {
-  "15m": 15 * 60_000,
-  "1h": 60 * 60_000,
-  "4h": 4 * 60 * 60_000,
-  never: null,
-};
 const SNAPSHOT_LRU_SIZE = 10;
 const SHUTDOWN_CLOSE_TIMEOUT_MS = 5_000;
-const SWEEP_INTERVAL_MS = 60_000;
 /** 对账时会话文件不在，隔这么久再看一次：omp 在 Windows 上原子重写会话文件时，文件可能短暂不在原处。 */
 const MISSING_RECHECK_MS = 1_500;
 
@@ -136,9 +120,7 @@ export class TaskPool {
   readonly #runners = new Map<TaskId, TspRunner>();
   /** 删除会话时临时起的 omp（#deleteWithTemporaryProcess）：不在 #runners 里，shutdown 也要关。 */
   readonly #temporary = new Set<TspRunner>();
-  readonly #recyclableSince = new Map<TaskId, number>();
   #foreground: TaskId | null = null;
-  #sweepTimer: NodeJS.Timeout | undefined;
   #shuttingDown = false;
   /** 正在跑的对账（pruneMissingSessions）；同时只跑一次。 */
   #pruning: Promise<TaskId[]> | null = null;
@@ -151,7 +133,7 @@ export class TaskPool {
       buildLaunch: (record, project) => tsp.buildLaunch(record, project),
       persist: (id, patch) => deps.registry.updateTask(id, patch),
       isForeground: (id) => this.#foreground === id,
-      acquireSlot: (id) => this.#acquireSlot(id),
+      assertCanStart: () => this.#assertCanStart(),
       onState: (state) => {
         deps.events.state(state);
         // 进程自己退出或被停止时，退出任务的最后一份快照也要受 SNAPSHOT_LRU_SIZE 约束。
@@ -174,15 +156,13 @@ export class TaskPool {
     };
   }
 
-  /** 载入 tasks.json，换掉误存的控制台标题，为未归档的任务建（还没有进程的）运行时，并开始定时回收。 */
+  /** 载入 tasks.json，换掉误存的控制台标题，为未归档的任务建（还没有进程的）运行时。 */
   async init(): Promise<void> {
     await this.#deps.registry.load();
     await this.#replaceConsoleTitles();
     for (const record of this.#deps.registry.listTasks()) {
       if (!record.archived) this.#adopt(record);
     }
-    this.#sweepTimer = setInterval(() => void this.sweep(Date.now()), SWEEP_INTERVAL_MS);
-    this.#sweepTimer.unref();
   }
 
   /**
@@ -263,7 +243,6 @@ export class TaskPool {
       await this.#deps.beforeTaskClose?.(id);
       await runner.dispose();
       this.#runners.delete(id);
-      this.#recyclableSince.delete(id);
       if (this.#foreground === id) this.#foreground = null;
     }
     await this.#deps.registry.removeTask(id);
@@ -524,10 +503,6 @@ export class TaskPool {
     return this.#runner(id).rename(title);
   }
 
-  setTaskKeepAlive(id: TaskId, on: boolean): Promise<void> {
-    return this.#runner(id).setKeepAlive(on);
-  }
-
   /** 关掉进程并从侧栏移除；会话文件和 tasks.json 记录保留（resume() 能找回）。 */
   async archiveTask(id: TaskId): Promise<void> {
     const runner = this.#runner(id);
@@ -535,7 +510,6 @@ export class TaskPool {
     await runner.dispose();
     await runner.setArchived(true);
     this.#runners.delete(id);
-    this.#recyclableSince.delete(id);
     if (this.#foreground === id) this.#foreground = null;
     this.#deps.events.taskRemoved(id);
   }
@@ -596,7 +570,7 @@ export class TaskPool {
     };
     const runner = new TspRunner(record, project, {
       buildLaunch: (current, target) => this.#deps.tsp.buildLaunch(current, target, { temporary: true }),
-      acquireSlot: (slot) => this.#acquireSlot(slot),
+      assertCanStart: () => this.#assertCanStart(),
       // 临时进程的记录只在内存里（omp 报的会话文件、标题等不落进 tasks.json）。
       persist: async (_id, patch) => {
         record = { ...record, ...patch };
@@ -627,15 +601,15 @@ export class TaskPool {
   }
 
   /**
-   * 关闭会话（任务菜单、命令面板）：结束 omp 进程，任务和对话快照留着（stopped），和空闲回收一样（#recycle）；前台任务也能关。
-   * 再切到它（openTask）或发消息（sendPrompt 先 start）时 `--resume` 同一个会话文件。没有进程时什么也不做；忙（在跑、在等你、
-   * 后台还有工作，即不可回收）时拒绝，不打断正在做的事。
+   * 关掉任务的标签页：结束 omp 进程，任务和对话快照留着（stopped）；忙（在跑、在等你、后台还有工作）也关，
+   * 确认由渲染进程在关标签页前做。再打开它（openTask）或发消息（sendPrompt 先 start）时 `--resume` 同一个会话文件。
+   * 没有进程时什么也不做。
    */
   async closeTask(id: TaskId): Promise<void> {
     const runner = this.#runner(id);
     if (!runner.hasProcess) return;
-    if (!runner.recyclable) throw new Error("the task is busy; close it when it is idle");
-    await this.#recycle(runner);
+    await runner.close();
+    this.#trimSnapshots();
   }
 
   /**
@@ -867,31 +841,10 @@ export class TaskPool {
     return this.#runner(id).setSlowMode(enabled);
   }
 
-  // ───── 上限和回收 ─────
+  // ───── 启动、快照 ─────
 
-  #liveRunners(except: TaskId): TspRunner[] {
-    return [...this.#runners.values()].filter(
-      (runner) => runner.id !== except && (runner.hasProcess || runner.status === "starting"),
-    );
-  }
-
-  async #acquireSlot(id: TaskId): Promise<void> {
+  #assertCanStart(): void {
     if (this.#shuttingDown) throw new Error("the app is shutting down");
-    const soft = (await this.#deps.getSettings()).maxLiveProcesses;
-    const live = this.#liveRunners(id);
-    if (live.length >= soft) {
-      const victim = live
-        .filter((runner) => runner.recyclable && !runner.keepAlive && runner.id !== this.#foreground)
-        .sort((a, b) => a.lastActiveAt - b.lastActiveAt)[0];
-      if (victim) await this.#recycle(victim);
-      else if (live.length >= soft * 2) throw new TooManyTasksError("too many tasks are running at the same time");
-    }
-  }
-
-  async #recycle(runner: TspRunner): Promise<void> {
-    await runner.close();
-    this.#recyclableSince.delete(runner.id);
-    this.#trimSnapshots();
   }
 
   /** 已停止的任务最多保留 SNAPSHOT_LRU_SIZE 份对话快照，更久没用的释放，再打开时从会话文件恢复。 */
@@ -902,27 +855,9 @@ export class TaskPool {
     for (const runner of stopped.slice(SNAPSHOT_LRU_SIZE)) runner.releaseSnapshot();
   }
 
-  /**
-   * 定时回收：可回收状态持续到设置的"空闲多久关闭"（IDLE_CLOSE_MS）就关进程；保持运行的任务不算可回收，
-   * 取消保持运行后从那一刻重新计时。`now` 由调用方传入，测试不依赖真实时钟。
-   */
-  async sweep(now: number): Promise<void> {
-    const limit = IDLE_CLOSE_MS[(await this.#deps.getSettings()).idleClose] ?? null;
-    for (const runner of this.#runners.values()) {
-      if (!runner.hasProcess || !runner.recyclable || runner.keepAlive || runner.id === this.#foreground) {
-        this.#recyclableSince.delete(runner.id);
-        continue;
-      }
-      const since = this.#recyclableSince.get(runner.id) ?? now;
-      this.#recyclableSince.set(runner.id, since);
-      if (limit !== null && now - since >= limit) await this.#recycle(runner);
-    }
-  }
-
   /** 关所有子进程（任务的和删除会话的临时 omp）：并行 close，超时按进程树结束；最后等任务记录写完盘（`/move` 之类改动是不等写盘就发出的）。before-quit 调用。 */
   async shutdown(): Promise<void> {
     this.#shuttingDown = true;
-    clearInterval(this.#sweepTimer);
     await Promise.all(
       [...this.#runners.values(), ...this.#temporary].map((runner) => runner.close(SHUTDOWN_CLOSE_TIMEOUT_MS)),
     );

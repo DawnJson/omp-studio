@@ -30,7 +30,18 @@ export interface MenuAction {
   onSelect(): void;
 }
 
-export type MenuEntry = MenuAction | { kind: "separator"; id: string } | { kind: "label"; id: string; label: string };
+/** 色板一行（如任务颜色）：左边一个标签，右边一排可选的色块，当前的带外圈；选一个就执行并关菜单。 */
+export interface MenuSwatches {
+  kind: "swatches";
+  id: string;
+  label: string;
+  /** color 是 CSS 颜色（多用 var(--…)）；null = "无颜色"那一格。 */
+  options: readonly { id: string; label: string; color: string | null; checked: boolean; testId?: string }[];
+  onPick(id: string): void;
+}
+
+export type MenuEntry =
+  MenuAction | MenuSwatches | { kind: "separator"; id: string } | { kind: "label"; id: string; label: string };
 
 export interface MenuAnchor {
   x: number;
@@ -88,6 +99,31 @@ function MenuItems({
     <>
       {items.map((entry) => {
         if (!isAction(entry)) {
+          if (entry.kind === "swatches") {
+            return (
+              <div key={entry.id} className="ui-menu-swatches" role="group" aria-label={entry.label}>
+                <span className="ui-menu-swatches-label">{entry.label}</span>
+                {entry.options.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={option.checked}
+                    aria-label={option.label}
+                    title={option.label}
+                    className="ui-menu-swatch"
+                    data-none={option.color === null || undefined}
+                    style={option.color === null ? undefined : { background: option.color }}
+                    data-testid={option.testId}
+                    onClick={() => {
+                      onPicked();
+                      entry.onPick(option.id);
+                    }}
+                  />
+                ))}
+              </div>
+            );
+          }
           return entry.kind === "separator" ? (
             <div key={entry.id} className="ui-menu-sep" role="separator" />
           ) : (

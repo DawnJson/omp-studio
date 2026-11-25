@@ -1,14 +1,15 @@
-// 任务条右侧的 git 工具：分支胶囊（照终端版 omp 的状态栏标 `*改动 ?未跟踪`，worktree 任务另标领先提交数，点开是 Git 菜单）+ 评审按钮。
-// 基分支、改动数、领先提交数的完整说法在胶囊的悬停提示里。任务目录不是 git 仓库（或没有 git）时都不渲染。
+// 输入框下方状态行左端的位置胶囊（spec §4.14）：文件夹 + 分支一个按钮（照终端版 omp 的状态栏标 `*改动 ?未跟踪`，worktree 任务另标领先提交数），
+// 点开是 Git 菜单（第一项是打开评审，Ctrl Shift D）；PR 号徽标跟在后面。基分支、改动数、领先提交数的完整说法在胶囊的悬停提示里。
+// 任务目录不是 git 仓库（或没有 git）时只有文件夹标签，不能点。
 import { useEffect, useState } from "react";
 import type { GitStatus } from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { withShortcut } from "../../app/platform-keys.ts";
+import { shortcutLabel } from "../../app/platform-keys.ts";
 import { ArrowUp, Branch, ChevronDown, Commit, Diff, External, Trash } from "../../icons.tsx";
+import { PathLabel } from "../empty/ProjectLabel.tsx";
 import { useTask } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
-import { IconButton } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { anchorBelow, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { mergeBack, pushBranch } from "./git-actions.ts";
@@ -16,18 +17,13 @@ import { openGitDialog } from "./git-dialog-store.ts";
 import { useGitVersion, useTaskWorktree } from "./git-store.ts";
 import "./git.css";
 
-export function GitTools({ taskId }: { taskId: TaskId }) {
-  const t = useT();
+/** 任务目录的 git 状态：任务一轮结束、git 操作完成（version）时重读；不是仓库或读失败为 null。 */
+function useTaskGitStatus(taskId: TaskId): GitStatus | null {
   const task = useTask(taskId);
   const updatedAt = task?.updatedAt ?? 0;
   const version = useGitVersion(taskId);
-  const worktree = useTaskWorktree(taskId, updatedAt);
-  // 状态连同它是哪个任务的一起记：切到别的任务的第一帧，上一个任务的分支按钮不能还挂在顶栏上（不是 git 仓库的任务一个都不该有）。
+  // 状态连同它是哪个任务的一起记：切到别的任务的第一帧，上一个任务的分支不能还挂着（不是 git 仓库的任务一个都不该有）。
   const [loaded, setLoaded] = useState<{ taskId: TaskId; status: GitStatus | null } | null>(null);
-  const status = loaded?.taskId === taskId ? loaded.status : null;
-  // 只记打开的位置；菜单项每次渲染现算，开着时切语言或 git 状态变了也跟着变。
-  const [menu, setMenu] = useState<MenuAnchor | null>(null);
-
   useEffect(() => {
     let current = true;
     window.studio.getGitStatus(taskId).then(
@@ -38,8 +34,18 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
       current = false;
     };
   }, [taskId, updatedAt, version]);
+  return loaded?.taskId === taskId ? loaded.status : null;
+}
 
-  if (status?.kind !== "ok") return null;
+export function TaskPlace({ taskId, path }: { taskId: TaskId; path: string }) {
+  const t = useT();
+  const task = useTask(taskId);
+  const worktree = useTaskWorktree(taskId, task?.updatedAt ?? 0);
+  const status = useTaskGitStatus(taskId);
+  // 只记打开的位置；菜单项每次渲染现算，开着时切语言或 git 状态变了也跟着变。
+  const [menu, setMenu] = useState<MenuAnchor | null>(null);
+
+  if (status?.kind !== "ok") return <PathLabel path={path} testId="composer-folder" />;
   const label = worktree?.branch ?? status.branch.head ?? t("git.merge.detached");
   const ahead = worktree?.commitsAhead ?? 0;
   // omp 的 `*N`：有暂存或工作区改动的已跟踪文件（含冲突）；`?N`：未跟踪的文件。
@@ -58,6 +64,15 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
   // 动作菜单：图标 + 分隔线；破坏性的"丢弃 worktree…"红字放最后、前面一条分隔线；不可用项第二行写原因。
   const menuItems = (): MenuEntry[] => {
     const items: MenuEntry[] = [
+      {
+        id: "review",
+        label: t("review.open"),
+        icon: <Diff />,
+        shortcut: shortcutLabel("Ctrl Shift D"),
+        testId: "git-menu-review",
+        onSelect: () => openReview(taskId),
+      },
+      { kind: "separator", id: "sep-review" },
       {
         id: "commit",
         label: t("git.menu.commit"),
@@ -110,31 +125,32 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
     <>
       <button
         type="button"
-        className="topbar-branch"
+        className="place-chip"
         data-testid="git-menu"
         data-worktree={worktree !== null || undefined}
         aria-haspopup="menu"
         aria-expanded={menu !== null}
-        aria-label={`${t("git.bar.menu")} · ${summary}`}
+        aria-label={`${t("git.bar.menu")} · ${path} · ${summary}`}
         title={summary}
         onClick={(event) => toggleMenu(event.currentTarget)}
       >
+        <PathLabel path={path} testId="composer-folder" />
         <Branch size={14} />
-        <span className="topbar-branch-name" data-testid="git-branch">
+        <span className="place-chip-branch" data-testid="git-branch">
           {label}
         </span>
         {changed > 0 && (
-          <span className="topbar-branch-count" data-testid="git-changed">
+          <span className="place-chip-count" data-testid="git-changed">
             *{changed}
           </span>
         )}
         {untracked > 0 && (
-          <span className="topbar-branch-count" data-testid="git-untracked">
+          <span className="place-chip-count" data-testid="git-untracked">
             ?{untracked}
           </span>
         )}
         {ahead > 0 && (
-          <span className="topbar-branch-ahead" data-testid="git-ahead">
+          <span className="place-chip-ahead" data-testid="git-ahead">
             ↑{ahead}
           </span>
         )}
@@ -143,7 +159,7 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
       {task?.prNumber != null && (
         <button
           type="button"
-          className="topbar-pr"
+          className="place-pr"
           data-testid="git-pr-badge"
           aria-label={t("git.pr.badge", { number: task.prNumber })}
           title={t("git.pr.badge", { number: task.prNumber })}
@@ -152,14 +168,6 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
           #{task.prNumber}
         </button>
       )}
-      <IconButton
-        label={t("review.open")}
-        tip={withShortcut(t("review.open"), "Ctrl Shift D")}
-        testId="topbar-review"
-        onClick={() => openReview(taskId)}
-      >
-        <Diff size={16} />
-      </IconButton>
       {menu && <div className="git-menu-scrim" />}
       {menu && <Menu anchor={menu} items={menuItems()} label={t("git.bar.menu")} onClose={() => setMenu(null)} />}
     </>

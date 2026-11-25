@@ -6,7 +6,6 @@ import {
   limits,
   type BackdropMode,
   type BackdropStrength,
-  type IdleClose,
   type LocalePreference,
   type ModelKey,
   type PromptImage,
@@ -130,15 +129,6 @@ export function parseFontSize(value: unknown): number {
 /** 任务的思考强度（建任务、切强度）：含 auto（`--thinking auto`、omp 的 ⇧⇥ 循环里都有），不含 inherit（任务没有上一级可继承）。 */
 export function parseThinkingLevel(value: unknown): TaskThinkingLevel {
   return parseOneOf(value, "thinkingLevel", ["auto", "off", "minimal", "low", "medium", "high", "xhigh", "max"]);
-}
-
-export function parseMaxLiveProcesses(value: unknown): number {
-  const [min, max] = limits.maxLiveProcessesRange;
-  return parseInteger(value, "maxLiveProcesses", min, max);
-}
-
-export function parseIdleClose(value: unknown): IdleClose {
-  return parseOneOf(value, "idleClose", ["15m", "1h", "4h", "never"]);
 }
 
 export function parseModelKey(value: unknown): ModelKey {

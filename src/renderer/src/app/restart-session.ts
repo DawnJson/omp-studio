@@ -1,4 +1,4 @@
-// 重开会话（顶栏标题旁的按钮、命令面板、Ctrl Shift R）：主进程结束任务的 omp 进程再 `--resume`（TaskPool.restartTask），
+// 重开会话（任务菜单、命令面板、Ctrl Shift R）：主进程结束任务的 omp 进程再 `--resume`（TaskPool.restartTask），
 // 等于终端里退出会话再进，skill、MCP、插件和配置全部重新读。任务忙时不重开（主进程同样拒绝），说明原因。
 import type { MessageKey, TFunction } from "../../../shared/i18n/index.ts";
 import type { TaskState } from "../../../shared/ipc.ts";

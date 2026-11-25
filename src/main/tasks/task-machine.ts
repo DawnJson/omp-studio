@@ -30,7 +30,7 @@ export type MachineInput =
   | { type: "dialog_close"; id: string }
   /** 进程意外退出。 */
   | { type: "failed"; error: TaskError }
-  /** 我们主动关的（回收、归档、关应用）。 */
+  /** 我们主动关的（关标签页、归档、关应用）。 */
   | { type: "stopped" }
   | { type: "mark_read" };
 

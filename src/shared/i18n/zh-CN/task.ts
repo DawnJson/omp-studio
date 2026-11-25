@@ -6,8 +6,6 @@ export const task = {
   pin: "置顶",
   unpin: "取消置顶",
   pinned: "已置顶",
-  keepAlive: "保持运行",
-  keepAliveOff: "取消保持运行",
   renameLabel: "任务标题",
   archive: "归档",
   archived: "已归档",
@@ -31,7 +29,5 @@ export const task = {
   restartBusyWaiting: "任务在等你回答，答完才能重开",
   restartBusyStarting: "任务正在启动",
   restartBusyBackground: "后台还有工作在运行，结束后才能重开",
-  close: "关闭会话",
-  closeBusy: "任务忙着，空闲后才能关闭",
   exportHtml: "导出为 HTML…",
 } satisfies Record<string, MessageEntry>;

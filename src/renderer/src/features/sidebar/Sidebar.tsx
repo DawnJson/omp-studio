@@ -1,11 +1,12 @@
-// 侧栏（spec §3.2、第 4 章）：竖排三行（搜索 / 新任务 / 打开文件夹）、"等你确认"条、按项目分组的任务、底部是设置和（更新下载好后才有的）新版本标签。
+// 侧栏（spec §3.2、第 4 章）：竖排三行（搜索 / 新任务 / 打开文件夹）、"等你确认"条、按项目分组的任务、下半是当前项目的文件区（SidebarFiles）、
+// 底部是设置和（更新下载好后才有的）新版本标签。
 // 从顶栏下面开始，不画标题栏；底色 --bg-sidebar 与顶栏连成一片。宽度由外层容器给。
 import { reportError } from "../../ui/errors.ts";
 import { publishVisibleTaskIds } from "./visible-order-store.ts";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectId, TaskId, TaskState } from "../../../../shared/ipc.ts";
-import { setFolderOrder, setHistoryOrder, useShellValue } from "../../app/shell-store.ts";
+import { defaultSidebarFilesShare, setFolderOrder, setHistoryOrder, useShellValue } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { shortcutLabel } from "../../app/platform-keys.ts";
 import {
@@ -53,6 +54,7 @@ import {
 import type { RowHandlers } from "./TaskRow.tsx";
 import { useHistorySessions, useHistorySessionsLoaded } from "./use-history-sessions.ts";
 import { useSidebarMenus } from "./use-sidebar-menus.tsx";
+import { SidebarFiles } from "../file-preview/SidebarFiles.tsx";
 import "./sidebar.css";
 
 const noneCollapsed: ReadonlySet<string> = new Set();
@@ -110,6 +112,8 @@ export function Sidebar() {
   }, [unknownProject]);
 
   const order = useShellValue("historyOrder");
+  const filesOpen = useShellValue("sidebarFilesOpen");
+  const filesShare = useShellValue("sidebarFilesShare") ?? defaultSidebarFilesShare;
   const sessions = useHistorySessions(searching, historyKey);
   // "归档"不记进外壳状态：重开应用回到平常的列表。最后一条归档的恢复后自己回到平常的列表。
   const [showArchived, setShowArchived] = useState(false);
@@ -414,7 +418,8 @@ export function Sidebar() {
           }}
         />
       )}
-      <div className="sb-list-host">
+      {/* 文件区展开时两块按占比分高度（SidebarFiles 的分隔线拖动时直接改这两个 flex-grow） */}
+      <div className="sb-list-host" style={filesOpen ? { flexGrow: 100 - filesShare } : undefined}>
         <div className="sb-list" ref={listRef} onKeyDown={onListKeyDown}>
           {tasksState.error !== null && (
             <p className="sb-note sb-note-error">{t("sidebar.loadFailed", { message: tasksState.error })}</p>
@@ -460,6 +465,7 @@ export function Sidebar() {
         </div>
         <OverlayScrollbar target={listRef} />
       </div>
+      <SidebarFiles />
 
       <div className="sb-bottom">
         <button

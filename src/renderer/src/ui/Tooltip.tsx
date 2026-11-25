@@ -9,6 +9,7 @@
 // `left` 画在左边、竖直居中（左边放不下退回默认；对话线的刻度贴着滚动区右缘，画在下方会盖住滚动条）。
 // 带 `data-tip-overflow` 的单行文字（省略号截断的名称、元信息）：只在被截断、显示不全时把全文当提示画出来；放得下时不出，
 // 免得把看得见的字再写一遍（2026-10-30 仓库所有者定）。它里面或外面离指针更近的 title 优先。
+// 带 title 的元素里面还有带 title 的元素（文件树行里的 @ 按钮）：指到里面的出里面的提示，移回外层出外层的。
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { keyboardFocused } from "./input-modality.ts";
@@ -129,7 +130,12 @@ export function TooltipLayer() {
       if (event.pointerType === "touch") return;
       const node = event.target instanceof Element ? event.target : null;
       if (node === null) return;
-      if (hovered?.contains(node)) return;
+      // 在来源里面移动不重新开始；除非指到它里面另一个带 title 的元素（文件树行里的 @ 按钮）：来源自己的 title 已拿掉，
+      // closest 找到的带 title 元素要么在来源外面，要么就是里面这个更近的。
+      if (hovered?.contains(node)) {
+        const inner = node.closest(TITLED);
+        if (inner === null || !hovered.contains(inner)) return;
+      }
       // 先放回拿掉的 title：从图标移到带 title 的外层（它的 title 正被拿掉）时要能找到它。
       closeTip();
       restore();

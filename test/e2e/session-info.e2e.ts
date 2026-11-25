@@ -10,11 +10,10 @@ import { DatabaseSync } from "node:sqlite";
 import { expect, test, type Page } from "@playwright/test";
 import {
   expandSidebarFolders,
-  expectNoOverflow,
   launchApp,
   lockClipboard,
+  openTaskMenu,
   openTaskRow,
-  setLocaleTheme,
   type LaunchedApp,
 } from "./launch.ts";
 
@@ -52,6 +51,8 @@ interface Started {
   agentDir: string;
   sessionFile: string;
   project: string;
+  /** 假 omp 的 --log 文件：收到的每条 TSP 消息、按键。 */
+  log: string;
   received(): Promise<Record<string, unknown>[]>;
   cleanup(): Promise<void>;
 }
@@ -156,6 +157,7 @@ async function start(
     agentDir,
     sessionFile,
     project,
+    log,
     async received() {
       const text = await readFile(log, "utf8").catch(() => "");
       return text
@@ -194,19 +196,24 @@ test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、�
     // 任务的会话在置顶文件里：侧栏这一行带图钉，任务菜单给"取消置顶"。
     await expect(page.getByTestId("task-row").first().getByTestId("sidebar-row-pinned")).toBeVisible();
     await expect(page.getByTestId("sidebar-session").getByTestId("sidebar-row-pinned")).toHaveCount(0);
+    // 输入框下方的状态行：本会话 token 总数和缓存命中率，和概览同口径（会话文件里 1150 token，600 ÷ 1000 = 60%）。
+    const status = page.getByTestId("composer-status");
+    await expect(status.getByTestId("status-tokens")).toHaveText("1.1K");
+    await expect(status.getByTestId("status-cache")).toHaveText(/^(缓存|Cache) 60%$/);
+    await expect(status.getByTestId("context-meter").or(status.getByTestId("context-meter-pending"))).toBeVisible();
     // 任务菜单的"复制会话 ID"：菜单一关就看不到按钮了，复制成功要有 toast，剪贴板里是会话 ID。
     const unlock = await lockClipboard();
     try {
       await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
-      await page.getByTestId("task-menu").click();
+      await openTaskMenu(page);
       await page.getByRole("menuitem", { name: /复制会话 ID|Copy session ID/ }).click();
       await expect(page.getByTestId("toasts")).toContainText(/已复制|Copied/);
       await expect.poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(SESSION_ID);
     } finally {
       await unlock();
     }
-    await expect(page.getByTestId("task-menu")).toHaveAttribute("aria-expanded", "false");
-    await page.getByTestId("task-menu").click();
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await openTaskMenu(page);
     await expect(page.getByTestId("task-menu-pin")).toHaveText(/取消置顶|Unpin/);
     await page.getByRole("menuitem", { name: /会话信息|Session info/ }).click();
     const dialog = page.getByTestId("session-info-dialog");
@@ -231,77 +238,25 @@ test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、�
   }
 });
 
-test("保持运行：顶栏任务菜单打开 / 取消，记进任务记录；设置里空闲多久关进程写进 settings.json", async () => {
+test("重开会话：任务菜单里重开，omp 用同一个会话文件 --resume 起新进程、任务回到空闲；菜单里没有保持运行、关闭会话", async () => {
   test.setTimeout(120_000);
-  const { launched, cleanup } = await start([SESSION_ID]);
-  try {
-    const { page } = launched;
-    await runErrorTurn(page);
-    const keepAlive = async () =>
-      (
-        JSON.parse(await readFile(path.join(launched.userDataDir, "tasks.json"), "utf8")) as {
-          tasks: { keepAlive?: boolean }[];
-        }
-      ).tasks[0]?.keepAlive;
-    await page.getByTestId("task-menu").click();
-    await page.getByRole("menuitem", { name: /^(保持运行|Keep running)$/ }).click();
-    await expect.poll(keepAlive).toBe(true);
-    // 侧栏的任务行标题后面一个闪电，取消后消失。
-    const keepMark = page.getByTestId("task-row").first().getByTestId("task-row-keep-alive");
-    await expect(keepMark).toBeVisible();
-    // 菜单的退出动画放完（⋯ 的 aria-expanded 回到 false）才算关上；放完前再点 ⋯ 是"关菜单"。
-    await expect(page.getByTestId("task-menu")).toHaveAttribute("aria-expanded", "false");
-    await page.getByTestId("task-menu").click();
-    await page.getByRole("menuitem", { name: /取消保持运行|Stop keeping running/ }).click();
-    await expect.poll(keepAlive).toBe(false);
-    await expect(keepMark).toHaveCount(0);
-
-    await page.keyboard.press("Control+,");
-    await page.getByTestId("settings-nav-general").click();
-    const select = page.getByTestId("setting-idle-close");
-    await expect(select).toContainText(/1 小时|1 hour/);
-    await select.click();
-    await page.getByRole("option", { name: /从不|Never/ }).click();
-    await expect
-      .poll(async () =>
-        readFile(path.join(launched.userDataDir, "settings.json"), "utf8").then(
-          (text) => (JSON.parse(text) as { idleClose?: string }).idleClose,
-          () => undefined,
-        ),
-      )
-      .toBe("never");
-    // 窄窗口、中英文下"空闲任务"这一行不越界。
-    await page.setViewportSize({ width: 900, height: 800 });
-    for (const locale of ["zh-CN", "en"] as const) {
-      await setLocaleTheme(page, locale, "light");
-      await expectNoOverflow(page.getByTestId("settings"));
-    }
-  } finally {
-    await cleanup();
-  }
-});
-
-test("关闭会话：任务菜单结束 omp 进程，对话留着；再点开任务时用同一个会话文件恢复（issue #11）", async () => {
-  test.setTimeout(120_000);
-  const { launched, sessionFile, cleanup } = await start();
+  const { launched, sessionFile, log, cleanup } = await start();
   try {
     const { page } = launched;
     await runErrorTurn(page);
     const status = () => page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.status);
-    const errorCard = page.locator('[data-testid="tsp-view"] [data-role="omp.error"]');
+    // 每起一个 omp，studio 回一次 hello（假 omp 记进 --log）。
+    const hellos = async () =>
+      (await readFile(log, "utf8").catch(() => "")).split("\n").filter((line) => line.includes('"r":"hello"')).length;
     await expect.poll(status).toBe("idle");
-    await page.getByTestId("task-menu").click();
-    await page.getByTestId("task-menu-close").click();
-    await expect.poll(status).toBe("stopped");
-    // 对话（快照）还在，进程没了：菜单里不再有"关闭会话"。
-    await expect(errorCard).toBeVisible();
-    await expect(page.getByTestId("task-menu")).toHaveAttribute("aria-expanded", "false");
-    await page.getByTestId("task-row").first().click({ button: "right" });
-    await expect(page.getByRole("menuitem", { name: /重命名|Rename/ })).toBeVisible();
-    await expect(page.getByTestId("task-menu-close")).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    // 再点开：同一个会话文件 `--resume`，记录里的会话文件不变。
-    await openTaskRow(page);
+    const before = await hellos();
+    expect(before).toBeGreaterThan(0);
+    await openTaskMenu(page);
+    await expect(page.getByRole("menuitem", { name: /保持运行|Keep running|关闭会话|Close session/ })).toHaveCount(0);
+    const restart = page.getByTestId("task-menu-restart");
+    await expect(restart).not.toHaveAttribute("aria-disabled", "true");
+    await restart.click();
+    await expect.poll(hellos, { timeout: 30_000 }).toBe(before + 1);
     await expect.poll(status).toBe("idle");
     const tasks = JSON.parse(await readFile(path.join(launched.userDataDir, "tasks.json"), "utf8")) as {
       tasks: { sessionFile: string | null }[];
@@ -429,7 +384,7 @@ test("请求记录页：“在浏览器中打开”给任务的 omp 发 /trace�
       await globalThis.studio.createTask({ projectId: project!.id });
     });
     await openTaskRow(page);
-    await page.getByTestId("task-menu").click();
+    await openTaskMenu(page);
     await page.getByRole("menuitem", { name: /会话信息|Session info/ }).click();
     await page.getByRole("tab", { name: /请求记录|Requests/ }).click();
     const open = page.getByTestId("trace-open");

@@ -1,5 +1,5 @@
 // 设置 -> 通用：外观（主题画廊；背景图、浓度、毛玻璃、语言、字号、减少动效、选中即复制）；桌面宠物（显示、说话、花费）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
-// 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；空闲任务多久关进程；终端 shell；快捷键（只读；studio 的键，加转发给 omp 的键）。
+// 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；终端 shell；快捷键（只读；studio 的键，加转发给 omp 的键）。
 // 各组共用一套列（Cells.tsx 的 Groups），只占一行的小组并排；格子排法见 settings.css 的 .st-cells。
 import { Fragment, useEffect, useState } from "react";
 import {
@@ -7,7 +7,6 @@ import {
   fontSizeSteps,
   type BackdropMode,
   type BackdropStrength,
-  type IdleClose,
   type LocalePreference,
   type TerminalShellOption,
 } from "../../../../shared/ipc.ts";
@@ -153,10 +152,6 @@ export function GeneralSection() {
     { value: "steer", label: t("settings.enterBehavior.steer") },
     { value: "followUp", label: t("settings.enterBehavior.later") },
   ] as const;
-  const idleCloseOptions = (["15m", "1h", "4h", "never"] as const).map((value) => ({
-    value,
-    label: t(`settings.idleClose.${value}`),
-  }));
   const terminalShell = settings?.terminalShell ?? null;
   const shellOptions = [
     { value: "", label: t("settings.terminalShell.auto") },
@@ -375,23 +370,6 @@ export function GeneralSection() {
           {whileRunning.map((item) => (
             <ConfigRow key={item.key} item={item} />
           ))}
-        </Cells>
-      </Group>
-      <Group>
-        <SectionHead title={t("settings.idleTasks")} />
-        <Cells>
-          <Row label={t("settings.idleClose")} info={t("settings.idleClose.desc")}>
-            {(labelId) => (
-              <Select<IdleClose>
-                size="sm"
-                value={settings?.idleClose ?? "1h"}
-                options={idleCloseOptions}
-                labelledBy={labelId}
-                onChange={(next) => void window.studio.setIdleClose(next)}
-                testId="setting-idle-close"
-              />
-            )}
-          </Row>
         </Cells>
       </Group>
       <Group>

@@ -56,7 +56,6 @@ function makeTask(
     goal: null,
     sessionToggles: emptySessionToggles(),
     workspaceDirs: [],
-    keepAlive: false,
     fallbackModel: null,
     credentialPins: {},
     revivedSubagents: {},
@@ -501,6 +500,8 @@ test("文件夹顺序：拖动换位置，Alt+↑/↓ 移一格；任务跑完�
     const labels = async () => Promise.all((await folders.all()).map((folder) => folder.getAttribute("aria-label")));
     const head = (name: string) => history.getByRole("region", { name }).locator(".sb-group-head");
     await expect(folders).toHaveCount(3);
+    // 收起下半的文件区：列表占满侧栏，三个文件夹头同时在眼前（拖动从一个头拖到另一个头）。
+    await page.getByTestId("sidebar-files-toggle").click();
     // api server 的最新一行（15 分钟前）比两个刚写的会话文件旧：一开始排最后。三个文件夹一读到就记进顺序。
     await expect.poll(labels).toEqual([expect.any(String), expect.any(String), "api server"]);
     const [first, second] = (await labels()) as string[];
