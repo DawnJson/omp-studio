@@ -1,6 +1,7 @@
-// 目标模式（omp goal）的纯函数：`/goal` 参数解析、目标条上能点哪些按钮、用量文字、自动继续设置的改写。
+// 目标模式（omp goal）的纯函数：`/goal` 参数解析、目标条上能点哪些按钮、用量和用时文字、自动继续设置的改写。
 // 语义出自实测（见 docs/architecture/conversation.md 的"目标模式"一节）。
 import type { TaskGoal } from "../../../../shared/ipc.ts";
+import { formatDuration } from "../tsp/turn-footer.ts";
 
 export type GoalButton = "pause" | "resume" | "drop";
 
@@ -39,4 +40,10 @@ export function goalUsage(goal: Pick<TaskGoal, "tokensUsed" | "tokenBudget">): s
   return goal.tokenBudget === null
     ? formatTokens(goal.tokensUsed)
     : `${formatTokens(goal.tokensUsed)} / ${formatTokens(goal.tokenBudget)}`;
+}
+
+/** 目标已用时间（omp 只计进行中的时间）：16 → "16s"，754 → "12m34s"，7980 → "2h13m"。 */
+export function goalElapsed(seconds: number): string {
+  const whole = Math.floor(seconds);
+  return whole < 60 ? `${whole}s` : formatDuration(whole * 1000);
 }

@@ -307,6 +307,13 @@ export const Pin = (props: IconProps) => (
     <path d="M6 2.5h4M6.8 2.5v3.8L4.5 9h7L9.2 6.3V2.5M8 9v4.5" />
   </Icon>
 );
+/** 目标模式（目标条）：靶心 */
+export const Target = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="5.5" />
+    <circle cx="8" cy="8" r="2" />
+  </Icon>
+);
 /** 模型角色 slow（深度思考）：沙漏 */
 export const Hourglass = (props: IconProps) => (
   <Icon {...props}>

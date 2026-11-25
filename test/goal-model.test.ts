@@ -1,7 +1,13 @@
 // 目标模式的纯函数：/goal 参数、按钮、用量文字。
 import { describe, expect, it } from "vitest";
 import type { TaskGoal } from "../src/shared/ipc.ts";
-import { formatTokens, goalButtons, goalUsage, parseGoalArgs } from "../src/renderer/src/features/goal/goal-model.ts";
+import {
+  formatTokens,
+  goalButtons,
+  goalElapsed,
+  goalUsage,
+  parseGoalArgs,
+} from "../src/renderer/src/features/goal/goal-model.ts";
 
 const goal = (extra: Partial<TaskGoal> = {}): TaskGoal => ({
   id: "g",
@@ -47,5 +53,13 @@ describe("formatTokens / goalUsage", () => {
   it("有预算时显示 已用 / 预算", () => {
     expect(goalUsage({ tokensUsed: 9_323, tokenBudget: 20_000 })).toBe("9.3k / 20k");
     expect(goalUsage({ tokensUsed: 800, tokenBudget: null })).toBe("800");
+  });
+});
+
+describe("goalElapsed", () => {
+  it("不到一分钟只写整秒，再往上按 omp 的写法", () => {
+    expect(goalElapsed(16.7)).toBe("16s");
+    expect(goalElapsed(754)).toBe("12m34s");
+    expect(goalElapsed(7_980)).toBe("2h13m");
   });
 });

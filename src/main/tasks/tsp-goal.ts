@@ -1,6 +1,7 @@
 // TSP 任务的目标状态（TaskState.goal）：从 omp 输入框卡片上的"Goal …"事实行读状态和用量（shared/tsp/goal.ts），
-// 目标文字从会话文件的 mode_change 记录读（只读，shared/omp-output/goal.ts）。记录要等 omp 写盘，读不到时先用 studio 自己
-// 创建目标时发出去的那段字，之后每次用量变化再试。目标完成（事实行消失、记录是 complete）时通知一次。
+// 目标文字和已用时间从会话文件的 mode_change 记录读（只读，shared/omp-output/goal.ts；时间只在记录里）。记录要等 omp 写盘，
+// 读不到时先用 studio 自己创建目标时发出去的那段字；之后每次事实行变化（用量涨了）重读尾部，时间跟着更新。
+// 目标完成（事实行消失、记录是 complete）时通知一次。
 import { open } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { TaskGoal } from "../../shared/ipc.ts";
@@ -89,7 +90,7 @@ export class TspGoalTracker {
       return;
     }
     this.#recompute();
-    if (this.#record === null) void this.#loadRecord();
+    void this.#loadRecord();
   }
 
   #recompute(): void {

@@ -1,11 +1,12 @@
-// 目标条（omp 目标模式）：对话流顶部、待办条下面的一行：目标文字、状态、用量，和暂停 / 继续 / 放弃。
+// 目标条（omp 目标模式）：对话流顶部、待办条下面的一行：靶心图标、目标文字、状态、用时、用量，和暂停 / 继续 / 放弃。
 // 数据是主进程的 TaskState.goal（get_state、goal_updated）；这里只显示，操作经 IPC taskGoal 发给 omp。
 import { useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useTaskValue } from "../../store/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { runGoalOp } from "./goal-actions.ts";
-import { goalButtons, goalUsage, type GoalButton } from "./goal-model.ts";
+import { goalButtons, goalElapsed, goalUsage, type GoalButton } from "./goal-model.ts";
+import { Target } from "../../icons.tsx";
 import { Badge, Button } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useHeld } from "../composer/use-held.ts";
@@ -37,6 +38,7 @@ export function GoalStrip({ taskId }: { taskId: TaskId }) {
           role="group"
           aria-label={t("goal.title")}
         >
+          <Target size={14} className="goal-icon" />
           <span className="goal-objective" title={goal.objective}>
             {goal.objective}
           </span>
@@ -45,9 +47,14 @@ export function GoalStrip({ taskId }: { taskId: TaskId }) {
               {t(`goal.status.${goal.status}`)}
             </Badge>
           )}
+          {goal.timeUsedSeconds > 0 && (
+            <span className="goal-meta" data-testid="goal-time">
+              {goalElapsed(goal.timeUsedSeconds)}
+            </span>
+          )}
           {(goal.tokensUsed > 0 || goal.tokenBudget !== null) && (
             <span
-              className="goal-usage"
+              className="goal-meta"
               title={t(goal.tokenBudget === null ? "goal.usageTitle" : "goal.usageBudgetTitle", {
                 used: goal.tokensUsed,
                 budget: goal.tokenBudget ?? 0,

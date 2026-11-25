@@ -133,7 +133,7 @@
 
 `/goal <目标>` 创建目标（`goalSlash`，不发给模型）；`/goal` 不带文字用 toast 说出当前目标（或"当前没有目标"）；单独的 `pause` / `resume` / `drop` 操作当前目标；失败时 `sendDraft` 把原文放回草稿并提示。目标条上的按钮和命令面板的"暂停目标 / 继续目标 / 放弃目标"（只列当前状态下能做的，`goal-model.ts goalButtons`）走同一条路：`window.studio.taskGoal(taskId, op, objective?)` → `TaskPool.taskGoal` → `TspRunner.goal`：发 omp 的 `/goal pause|resume|drop|<文字>`（drop 要点掉 omp 的 "Drop goal?" 确认选择器）。
 
-- 数据 `TaskState.goal`（`TaskGoal`）：状态从 omp 输入框卡片上的 `Goal …` 事实行读（`shared/tsp/goal.ts`），目标文字从会话文件的 `mode_change` 读（`shared/omp-output/goal.ts`）；只保留 `active` / `paused` / `budget-limited`，`complete` / `dropped` / 没有目标都是 `null`，目标条随之消失；完成时经 `TaskNotice{kind:"goal_complete"}` 弹一条 info toast（放弃不弹）。目标条 `GoalStrip` 挂在 `TspView` 顶部。
+- 数据 `TaskState.goal`（`TaskGoal`）：状态从 omp 输入框卡片上的 `Goal …` 事实行读（`shared/tsp/goal.ts`），目标文字和已用时间从会话文件的 `mode_change` 读（`shared/omp-output/goal.ts`），事实行每变一次重读会话文件尾部 256 KB（omp 19.2.1 实测：进行中的目标每轮都追加一条记录，`timeUsedSeconds` 随之更新）；只保留 `active` / `paused` / `budget-limited`，`complete` / `dropped` / 没有目标都是 `null`，目标条随之消失；完成时经 `TaskNotice{kind:"goal_complete"}` 弹一条 info toast（放弃不弹）。目标条 `GoalStrip` 挂在 `TspView` 顶部。
 - IPC 收窄：`op` 必须是 `get | create | pause | resume | drop`；`create` 的目标文字长度限 `limits.goalObjectiveMaxChars`。omp 拒绝时 reject，原文透传。
 - `drop` 不中止正在跑的那一轮（omp 的语义，studio 不额外发 Esc）；停止一轮（Esc）会把进行中的目标暂停，要 `resume` 才继续（omp 18.12.2 实测）。omp 的 `goal.continuationModes` 对 TSP 任务无关（交互式 omp 自己连续推进）。
 - 实测和细节见 [tsp-migration.md](tsp-migration.md)「目标模式」，录制 `fixtures/tsp/goal-{pause-resume,drop,budget,flow}.jsonl`，测试 `test/tsp-goal.test.ts`、`test/goal-model.test.ts`。
