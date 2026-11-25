@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-25
+
 ### Added
 
 - Files in the file tree show an `@` button on hover (or press `@` in the tree) that inserts `@path` at the cursor in the prompt (#27).
