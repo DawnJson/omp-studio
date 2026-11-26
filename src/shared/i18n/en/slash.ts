@@ -6,6 +6,7 @@ export const slash = {
   forkDesc: "Fork a new task from the last user message",
   empty: "No matching commands",
   label: "Slash commands",
+  studioHandled: "Handled by studio",
   unknown: "omp has no /{name} command",
   sendAnyway: "Send as text anyway",
   exportDesc: "Export the conversation as HTML",
@@ -30,8 +31,7 @@ export const slash = {
   marketplaceDesc: "Manage plugin marketplaces",
   reloadPluginsDesc: "Reload plugins, skills, commands and MCP servers in this task",
   reloadPluginsDone: "Plugins reloaded",
-  pluginsArgs:
-    "/plugins and /marketplace take no arguments and open the plugins page; remove the text after it and send again",
+  pluginsArgs: "Arguments to /plugins and /marketplace run in a task; here the command alone opens the plugins page",
   reloadPluginsArgs: "/reload-plugins takes no arguments; remove the text after it and send again",
   dirsDesc: "Show workspace folders",
   addDirDesc: "Add a folder to the workspace",

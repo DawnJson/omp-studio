@@ -395,6 +395,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         <SlashMenu
           id="slash-menu"
           open={slashOpen}
+          host="task"
           commands={slashMatches}
           active={slashActive}
           onHover={setSlashIndex}

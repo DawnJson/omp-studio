@@ -190,6 +190,7 @@ export function DraftComposer({ project }: { project: Project | null }) {
         <SlashMenu
           id="slash-menu"
           open={slashMenu.open}
+          host="draft"
           commands={slashMenu.matches}
           active={slashMenu.active}
           onHover={slashMenu.setActive}

@@ -1171,6 +1171,11 @@ button.usage-context:hover,
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
+.slash-studio {
+  flex: none;
+  display: inline-flex;
+  color: var(--text-3);
+}
 /* Ctrl+R 历史搜索：同斜杠菜单的浮层外观，顶上一个搜索框（不随列表滚走），行里是历史消息的第一行。 */
 .history {
   gap: var(--space-1);

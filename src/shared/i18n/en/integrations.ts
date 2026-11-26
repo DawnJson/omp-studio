@@ -118,7 +118,7 @@ export const integrations = {
   "slash.tools": "See available tools (opens Settings → Tools & permissions)",
   "slash.memory": "View and consolidate memory (opens Settings → Context & memory)",
   "slash.changelog": "See the omp changelog (opens Settings → About)",
-  "slash.args": "The arguments were not run: type the command alone to open the settings page and make changes there.",
+  "slash.args": "Arguments run in a task; here the command alone opens the settings page.",
 
   "cmd.mcp": "MCP servers",
   "cmd.ssh": "SSH hosts",

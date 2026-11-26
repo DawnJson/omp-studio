@@ -288,6 +288,18 @@ test("窗口很矮时斜杠、@ 文件、Ctrl+R 菜单缩到主区顶边以内�
     await input.fill("/");
     await expect(page.getByTestId("slash-menu").getByRole("option").nth(10)).toBeAttached({ timeout: 60_000 });
     await expectFits(page.getByTestId("slash-menu"));
+    // studio 接管的命令行尾带 ↗（slash-studio），omp 原生的没有。
+    await input.fill("/mcp");
+    await expect(
+      page
+        .getByTestId("slash-menu")
+        .getByRole("option", { name: /^\/mcp\b/ })
+        .getByTestId("slash-studio"),
+    ).toBeVisible();
+    await input.fill("/compact");
+    const compact = page.getByTestId("slash-menu").getByRole("option", { name: /^\/compact\b/ });
+    await expect(compact).toBeVisible();
+    await expect(compact.getByTestId("slash-studio")).toHaveCount(0);
     await input.fill("");
     await input.pressSequentially("@note");
     await expect(page.getByTestId("file-menu").getByRole("option")).toHaveCount(15);

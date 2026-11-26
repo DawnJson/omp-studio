@@ -116,7 +116,7 @@ export const integrations = {
   "slash.tools": "查看可用工具（打开设置 → 工具与权限）",
   "slash.memory": "查看和整理记忆（打开设置 → Context 与记忆）",
   "slash.changelog": "查看 omp 更新日志（打开设置 → 关于）",
-  "slash.args": "参数没有执行：不带参数输入会打开设置页，在页面里操作。",
+  "slash.args": "参数要在任务里才能执行；这里不带参数输入会打开设置页。",
 
   "cmd.mcp": "MCP 服务器",
   "cmd.ssh": "SSH 主机",

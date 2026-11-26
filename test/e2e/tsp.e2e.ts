@@ -2912,6 +2912,34 @@ test("目标条(TSP,omp 18.12.5 录制):/goal 由 studio 接管,目标条读输�
   }
 });
 
+test("studio 接管的斜杠命令：/mcp、/plugins 带参数时原样交给 omp，不带参数打开设置页", async () => {
+  test.setTimeout(90_000);
+  const { launched, received, cleanup } = await start("goal-flow");
+  try {
+    const { page } = launched;
+    await sendFirst(page, "Reply with the single word PONG and nothing else.");
+    await expect
+      .poll(async () => (await received()).some((event) => event["ev"] === "send"), { timeout: 30_000 })
+      .toBe(true);
+    const input = page.getByTestId("composer-input");
+    const sends = async () =>
+      (await received()).filter((event) => event["ev"] === "send").map((event) => event["text"]);
+    for (const text of ["/mcp reauth demo", "/plugins enable demo@market"]) {
+      await input.fill(text);
+      await page.keyboard.press("Enter");
+      await expect.poll(sends, { timeout: 30_000 }).toContain(text);
+    }
+    await expect(page.getByTestId("settings")).toHaveCount(0);
+
+    await input.fill("/mcp");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("settings")).toBeVisible();
+    expect((await sends()).filter((text) => text === "/mcp")).toEqual([]);
+  } finally {
+    await cleanup();
+  }
+});
+
 // issue #23:已完成的子代理被主代理用 IRC 唤醒后,omp 的 agent 节点还写着 done(omp 19.0.1 实测),studio 看它的记录文件。
 // 回放 task 录制(FixOps 跑完),再往 FixOps.jsonl 里照 omp 的格式追加"收到 IRC"和"又结束"两条。
 test("子代理被 IRC 唤醒:节点还是 done,记录文件接着写时面板那一行是运行中、不显示上一轮用时,👥 计 1、不能重开;又结束后回到已完成", async () => {

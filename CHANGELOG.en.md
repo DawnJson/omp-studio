@@ -10,8 +10,13 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Slash menu rows for commands studio handles itself end with ↗, setting them apart from omp's own commands.
+
 ### Fixed
 
+- In a task, `/mcp`, `/ssh`, `/tools`, `/memory`, `/changelog`, `/plugins` and `/marketplace` with arguments now go to omp (for example `/mcp reauth <name>`) instead of being refused; without arguments they still open the settings page.
 - Diagrams drawn in answers now use studio's theme colors and follow light/dark switches; before, they could show light text on a light background.
 
 ### Changed

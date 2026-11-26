@@ -20,8 +20,9 @@
 | `/effort` | 档位在 `TaskState.thinkingLevels` 里直接设置，否则交给 omp |
 | `/todo` | `start/done/drop/rm/append` 走 `TaskCommand { kind: "todo" }`（返回 omp 的 toast 文字）；无参数开待办板；其余子命令交给 omp |
 | `/settings 词` | 打开设置并搜索；`/usage` `/hotkeys` 打开界面（设置页搜索只覆盖 omp 配置项，快捷键页不支持搜索词，参数忽略） |
+| `/mcp` `/ssh` `/tools` `/memory` `/changelog` `/plugins` `/marketplace` | 无参数打开设置里对应的页；任务里带参数（`/mcp reauth github`、`/plugins enable x`）交给 omp；草稿页没有 omp，带参数报错、草稿放回输入框 |
 
-`run` 返回 `"omp"` = 原文照常发给 omp（`sendDraft` 里 studio 分支落空后走普通发送）。
+`run` 返回 `"omp"` = 原文照常发给 omp（`sendDraft` 里 studio 分支落空后走普通发送）。斜杠菜单里 studio 接管的命令行尾带 ↗（`External` 图标，悬停"由 studio 处理"），和 omp 原生命令区分开。
 
 ## 3. 运行中的发送方式
 

@@ -1,21 +1,21 @@
-// `/mcp`、`/ssh`、`/tools`、`/memory`、`/changelog`（studio 接管，不弹 omp 的 TSP 报告弹窗）：打开设置里对应的卡片。
-// 带参数（`/mcp add …`）时不悄悄丢掉用户写的话：报错、草稿放回输入框，和 /compact、/plugins 一样；增删改在卡片的表单里做。
+// `/mcp`、`/ssh`、`/tools`、`/memory`、`/changelog`（studio 接管，不弹 omp 的 TSP 报告弹窗）：不带参数打开设置里对应的卡片。
+// 任务里带参数（`/mcp reauth github`）时原样交给 omp，由它执行；草稿页没有 omp，报错、草稿放回输入框。
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { showView, type SettingsSection } from "../../store/index.ts";
 import type { StudioSlashCommand } from "../composer/studio-slash.ts";
 
-type T = Parameters<StudioSlashCommand["run"]>[2];
-
 function row(name: string, descKey: MessageKey, section: SettingsSection): StudioSlashCommand {
-  const open = (args: string, t: T) => {
-    if (args !== "") throw new Error(t("integrations.slash.args"));
-    showView("settings", { section });
-  };
   return {
     name,
     descKey,
-    run: (_taskId, args, t) => open(args, t),
-    draft: (args, t) => open(args, t),
+    run: (_taskId, args) => {
+      if (args !== "") return "omp";
+      showView("settings", { section });
+    },
+    draft: (args, t) => {
+      if (args !== "") throw new Error(t("integrations.slash.args"));
+      showView("settings", { section });
+    },
   };
 }
 
