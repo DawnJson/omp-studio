@@ -9,6 +9,11 @@
   overflow-y: auto;
 }
 
+/* 新任务页顶部中间一片很淡的主题色光晕（spec §4.7）：只是氛围，不压字；跟着 .empty 滚走。加载中 / 出错不画。 */
+.empty:is([data-kind="project"], [data-kind="no-project"]) {
+  background: radial-gradient(ellipse 62% 38% at 50% 0, color-mix(in srgb, var(--accent) 9%, transparent), transparent);
+}
+
 /* 加载中 / 出错：没有输入框，引导卡片在面板中间 */
 .empty[data-kind="loading"],
 .empty[data-kind="error"] {
