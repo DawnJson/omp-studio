@@ -34,7 +34,6 @@
   content: "";
   background: var(--border-strong);
   opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .terminal-resizer:hover::after,
 .terminal-resizer:focus-visible::after {

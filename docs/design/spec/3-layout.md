@@ -34,7 +34,7 @@
 └──────────────────────┴┴───────────────────────────────────────────────────────┘
 ```
 
-- 侧栏底色 `--bg-sidebar`，与顶栏连成一片；主区面板 `--bg-app` 带圆角，两者之间不画线。侧栏拖拽条贴在面板左缘，hover 显示 `--border`；双击恢复默认宽 `--sidebar-w`（范围见 `app/shell-store.ts` 的 `sidebarWidthRange`）。
+- 侧栏底色 `--bg-sidebar`，与顶栏连成一片；主区面板 `--bg-app` 带圆角，两者之间不画线。侧栏拖拽条贴在面板左缘，悬停 / 拖动时面板左边线那 1px 亮成 `--border-strong`，从中间往两头画出来（§2.6「拖拽条」）；双击恢复默认宽 `--sidebar-w`（范围见 `app/shell-store.ts` 的 `sidebarWidthRange`）。
 - `.scroller` 铺满主区、滚动条贴窗口边缘；`.column` 在其中居中；底部 padding = 底部栈高度 + 留白（栈高度由 `ResizeObserver` 写入组件私有变量 `--stack-h`）。
 - 任务里输入框和它上面的用时、待办行直接放在背景上，没有底色（仓库所有者定，2026-11-10）：对话不被一刀切，而是过程区滚动区自己的底边遮罩（`mask-image`，`tsp.css` `.tsp-scroller`）在状态行上方淡出，淡出高度等于对话列的下边距，滚到底时最后一项不被淡掉。空状态里输入框 sticky 在概览上，仍用 `--bg-app` 渐变让概览从它后面淡出。
 - 对话列默认约占主区面板 80%，夹在 `--content-w-min` 和 `--content-w-max` 之间（`--content-w` = `clamp(--content-w-min, var(--content-ratio, 80cqi), --content-w-max)`，定义在 `.panel` 上：自定义属性里的 `var()` 在声明处就替换，放 `:root` 拿不到面板上的比例；`cqi` 相对主区面板 `.panel`，它是 `container-type: inline-size`；用的地方再和 `100% − 2×--gutter` 取小）。默认窗口时列宽是下限，15px 正文下英文约 99 字符/行、中文约 54 字/行。omp 拿到的列数随列宽变（`useColumns` → `resizeTsp`）。

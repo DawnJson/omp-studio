@@ -682,7 +682,6 @@
   content: "";
   background: var(--border-strong);
   opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .sb-files-resizer:hover::after,
 .sb-files-resizer:active::after,

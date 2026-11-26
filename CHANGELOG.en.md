@@ -29,6 +29,7 @@ How to write it:
 - When a task's title changes (it gets a title, or you rename it), the new title wipes in from the left in the sidebar and the tab.
 - Menus, dropdowns, the popovers above the input box and the command palette are now frosted glass: what's behind shows through blurred, with a thin highlight along the top edge.
 - The main area and the right panel now have thinner hairline edges; when the right panel opens it joins the main area into one sheet with a single divider between them.
+- Hovering a drag-to-resize divider now draws its line out from the middle; just passing over it no longer flashes.
 
 ## [0.11.0] - 2026-11-25
 

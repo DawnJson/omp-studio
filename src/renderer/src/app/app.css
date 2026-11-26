@@ -332,6 +332,7 @@ html[data-platform="darwin"] .topbar-left {
   --bd-veil: 90%;
 }
 
+/* 侧栏拖拽条：命中区 4px 贴在面板左缘；悬停 / 拖动时面板左边线那 1px 亮起（同其他拖拽条，motion.css 从中间往两头画） */
 .sidebar-resizer {
   position: absolute;
   top: 0;
@@ -340,11 +341,22 @@ html[data-platform="darwin"] .topbar-left {
   z-index: var(--z-sticky);
   width: var(--space-1);
   cursor: col-resize;
-  transition: background-color var(--dur-fast) var(--ease-out);
 }
-
-.sidebar-resizer:hover {
-  background: var(--border);
+.sidebar-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  content: "";
+  background: var(--border-strong);
+  opacity: 0;
+}
+.sidebar-resizer:is(:hover, :active, :focus-visible)::after {
+  opacity: 1;
+}
+.sidebar-resizer:focus-visible {
+  outline: none;
 }
 
 /* 窄窗口：抽屉的宽度和阴影。位置和滑动见上面 .sidebar-column 的规则；

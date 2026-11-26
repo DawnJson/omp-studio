@@ -95,6 +95,7 @@
 | 侧栏悬停预览（`app.css` `#app[data-peek]`，`app/use-sidebar-peek.ts`，§4.5） | 收起时列仍带着 `margin-left`（在窗口外），预览用 `transform` 平移回来、盖在主区上，主区不动；撤掉预览时 margin 没变，不会引发主区过渡 | 出 `--dur-base`，收 `--dur-base-exit`，都是 `--ease-pane` |
 | 右栏开 / 关（预览面板、子代理面板、浏览器，`file-preview.css` 的 `panel-in`、`motion.css` 的 `panel-out`，`App.tsx` 的 `rightPresence`，`app/right-panel-slide.ts`） | 右栏在排版里，`margin-right` 从"整块藏在窗口右边外"过渡到 0 / 原路退回，主区**逐帧**跟着变窄变宽（所有者定，2026-11-26），主区里居中的对话列、门、输入框随之重排；右栏自己的宽度不变。滑进来的过程中两者之间的缝（`margin-left` 从 `--space-2` 到 -1px）合上，停靠后贴成一张，主区右边两角同时长变直；关闭时原路张开、变回圆角（所有者定，2026-11-26，§3）。藏多少按右栏宽度 `--pane-w` 算（挂上和开始关闭时量一次；懒加载的面板第一次打开还没量到时按 36%）。`.body` 是 `overflow: clip`：伸出窗口的面板不撑出横向滚动。换成另一个面板时新的直接滑进。浏览器的原生页面滑出一开始就藏起来（它不跟 CSS 动） | 开、关都是 `--dur-pane` `--ease-pane` |
 | 侧栏 / 右栏开合期间的对话列宽（`app/right-panel-slide.ts` 的 `usePaneColumnHold`，`ColumnResizer.tsx` 的 `holdColumns`） | 主区逐帧变宽变窄时不逐帧给 omp 发 `resize`（omp 每次整篇重排、换掉节点）：侧栏 `margin-left`、`.body` `padding-left` 的过渡和右栏 `panel-in` / `panel-out` 放着时占住，放完量一次再发；元素中途被卸掉（换面板）收不到结束事件，到点自己放开 | — |
+| 拖拽条（侧栏、右栏、对话列宽、文件区分隔线、终端顶边，`motion.css`） | 悬停 / 拖动 / 键盘聚焦时 1px 线从中间往两头画出来（竖线裁上下、横线裁左右的 `clip-path`），悬停先停 `--dur-instant` 才画，路过不闪；移开原路收回中间 | 画 `--dur-base` `--ease-pane`；亮起 `--dur-fast` |
 | 状态点切换 | 新点淡入；变成没有点（看过了、跑完了）时旧点淡出（`StatusDot.tsx`）；分段上的小圆点同样淡入淡出（`controls.tsx` 的 `SegDot`） | 进 `--dur-base`；出 `--dur-fast-exit` |
 | 进行中转圈（状态点） | 一段弧旋转，循环 | `--dur-spin` 按 `--tick-spin` 跳帧，`animation-play-state: var(--play-state)`；减少动效时静止 |
 | 加载环 | 旋转 | `--dur-spin` 按 `--tick-spin` 跳帧 |

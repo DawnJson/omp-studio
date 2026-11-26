@@ -380,7 +380,6 @@
   position: absolute;
   inset: 0 calc(var(--space-1) - 1px);
   background: transparent;
-  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .tsp-column-resizer:is(:hover, :active)::after {
   background: var(--border);
