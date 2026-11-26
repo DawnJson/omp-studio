@@ -2,10 +2,13 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
 
-/** 词法上在根内（根本身不算）；不碰磁盘，实际路径仍由 resolveInsideReal 校验。`..cache` 这类名字在根内。 */
+/**
+ * 词法上在根内（根本身不算）；不碰磁盘，实际路径仍由 resolveInsideReal 校验。`..cache` 这类名字在根内。
+ * 第一段按 `/` 和 `\` 两种分隔符取：渲染进程给的 `..\x` 在 Linux / macOS 上虽是一个文件名，也当越界拒绝。
+ */
 export function isInside(root: string, file: string): boolean {
   const relative = path.relative(root, file);
-  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+  return relative !== "" && relative.split(/[\\/]/, 1)[0] !== ".." && !path.isAbsolute(relative);
 }
 
 /** 根内的绝对路径换成相对路径；根外路径仍交给现有边界校验拒绝。 */
