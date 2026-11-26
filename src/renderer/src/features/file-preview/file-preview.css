@@ -1,5 +1,7 @@
-/* 右侧文件预览面板：和主区"纸面"并排的另一张纸，默认占主区约 36%，左边缘可拖。只用 tokens.css 里的变量。 */
+/* 右侧文件预览面板：和主区"纸面"贴在一起的另一张纸（停靠，所有者定 2026-11-26），默认占主区约 36%，左边缘可拖。只用 tokens.css 里的变量。 */
 
+/* 只在停靠时存在：左边两个角是直的，margin-left -1px 压住主区的右边线，两张纸之间只剩这里的左边线。
+   滑进 / 滑出时 margin-left 从 .body 右边留白的宽度过渡到 -1px（motion.css 的 panel-in / panel-out）。 */
 .file-preview {
   position: relative;
   display: flex;
@@ -8,12 +10,22 @@
   min-width: 280px;
   max-width: 70%;
   min-height: 0;
-  margin-left: var(--space-2);
+  margin-left: -1px;
   overflow: hidden;
   background: var(--bg-app);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+  isolation: isolate;
   animation: panel-in var(--dur-pane) var(--ease-pane);
+}
+/* 发丝边：同主区（app.css 的 .panel::after） */
+.file-preview::after {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-sticky);
+  pointer-events: none;
+  content: "";
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--panel-edge);
 }
 .file-preview:focus {
   outline: none;

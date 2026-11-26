@@ -703,7 +703,7 @@ async function slideFrames(page: Page): Promise<SlideFrame[]> {
   })`);
 }
 
-test("右栏开关像并排的两页：主区逐帧跟着变窄变宽，右边缘贴着右栏左边缘（缝宽不变），右栏自己不变宽；页面不被横向滚走", async () => {
+test("右栏开关像并排的两页：主区逐帧跟着变窄变宽，右栏滑进来时和主区之间的缝合上、停靠后贴成一张（主区右边两角变直），右栏自己不变宽；页面不被横向滚走", async () => {
   // dirs 的回放录制会把收到的事件记进 inputLog（数 resize 用）
   const { launched, inputLog, cleanup } = await start({ dirs: true });
   try {
@@ -736,17 +736,25 @@ test("右栏开关像并排的两页：主区逐帧跟着变窄变宽，右边�
     expect(opening.every((frame) => mid(frame) >= narrowMid - 1 && mid(frame) <= wideMid + 1)).toBe(true);
     const opened = await resizes();
     expect(opened - before).toBeLessThanOrEqual(1);
-    // 每一帧主区和右栏之间都是同一道缝（= 放完时的缝）；右栏宽度从头到尾不变（滑进来的是整块，里面不重排）。
-    const gap = seams(opening).at(-1)!;
-    expect(gap).toBeGreaterThan(0);
-    for (const seam of seams(opening)) expect(Math.abs(seam - gap)).toBeLessThanOrEqual(2);
+    // 滑进来的过程中主区和右栏之间的缝逐帧合上（不会变宽），停靠后右栏压住主区右边线 1px，两张纸贴成一张（所有者定，2026-11-26）；
+    // 右栏宽度从头到尾不变（滑进来的是整块，里面不重排）。
+    const openSeams = seams(opening);
+    expect(openSeams.at(-1)!).toBeCloseTo(-1, 0);
+    for (let i = 1; i < openSeams.length; i += 1) expect(openSeams[i]!).toBeLessThanOrEqual(openSeams[i - 1]! + 0.5);
+    const radius = (testId: string, corner: "top-right" | "top-left") =>
+      page.getByTestId(testId).evaluate((el, c) => getComputedStyle(el).getPropertyValue(`border-${c}-radius`), corner);
+    await expect.poll(() => radius("main-panel", "top-right")).toBe("0px");
+    expect(await radius("file-preview", "top-left")).toBe("0px");
     const paneWidth = opening.at(-1)!.pane!;
     for (const frame of opening) if (frame.pane !== null) expect(frame.pane).toBeCloseTo(paneWidth, 0);
-    // 关：同样逐帧变宽、缝不变，最后回到原来的宽度和位置。
+    // 关：同样逐帧变宽，缝逐帧张开（原路退回），主区右边两角变回圆的，最后回到原来的宽度和位置。
     await page.getByTestId("file-preview-close").click();
     const closing = await slideFrames(page);
-    expect(seams(closing).length).toBeGreaterThan(3);
-    for (const seam of seams(closing)) expect(Math.abs(seam - gap)).toBeLessThanOrEqual(2);
+    const closeSeams = seams(closing);
+    expect(closeSeams.length).toBeGreaterThan(3);
+    for (let i = 1; i < closeSeams.length; i += 1)
+      expect(closeSeams[i]!).toBeGreaterThanOrEqual(closeSeams[i - 1]! - 0.5);
+    await expect.poll(() => radius("main-panel", "top-right")).not.toBe("0px");
     expect(
       closing.filter((frame) => frame.main > narrowMain + 20 && frame.main < wideMain - 20).length,
     ).toBeGreaterThan(2);

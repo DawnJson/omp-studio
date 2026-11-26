@@ -542,6 +542,8 @@
   --focus-ring: color-mix(in srgb, var(--text) 30%, transparent);
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --input-border: color-mix(in srgb, var(--text) 15%, transparent);
+  /* 主区、右栏这两张"纸"的发丝边（0.5px 内描边，盖在内容上面） */
+  --panel-edge: color-mix(in srgb, var(--text) 12%, transparent);
 }
 :root[data-input="pointer"] {
   --focus-ring: transparent;

@@ -506,6 +506,7 @@ export function App() {
           ref={mainPanel}
           className="panel"
           data-testid="main-panel"
+          data-docked={rightPanel !== null || undefined}
           data-backdrop={backdrop}
           data-backdrop-strength={backdrop && settings?.backdropStrength}
           style={

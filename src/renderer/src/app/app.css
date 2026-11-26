@@ -266,8 +266,28 @@ html[data-platform="darwin"] .topbar-left {
   --content-w: clamp(var(--content-w-min), var(--content-ratio, 80cqi), var(--content-w-max));
   container-type: inline-size;
   background: var(--bg-app);
-  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
+  /* 自成层叠上下文：下面的发丝边（z-index）只盖住主区自己的内容，停靠的右栏照样压在主区右边线上 */
+  isolation: isolate;
+  transition:
+    border-top-right-radius var(--dur-pane) var(--ease-pane),
+    border-bottom-right-radius var(--dur-pane) var(--ease-pane);
+}
+/* 发丝边：0.5px 内描边画在 ::after 上，盖在内容上面（滚动条、贴边的头部不压住它）；右栏 .file-preview 同一条 */
+.panel::after {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-sticky);
+  pointer-events: none;
+  content: "";
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--panel-edge);
+}
+/* 右栏停靠（打开着，App.tsx 的 data-docked）：主区和右栏贴成一张纸，主区右边两个角变直，和右栏之间只剩右栏的左边线
+   （所有者定，2026-11-26）。开始关闭时就撤掉，角跟着右栏滑走一起变回圆的。 */
+.panel[data-docked] {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 /* 主区背景图（App.tsx 挂 data-backdrop / data-backdrop-strength；docs/architecture/themes.md「主区背景图」）。

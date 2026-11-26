@@ -105,16 +105,19 @@
 }
 
 /* 右栏（文件面板、子代理面板、浏览器）打开：在排版里从窗口右边外滑进来，主区逐帧跟着变窄；关闭时原路滑回（上面的 panel-out）。
-   动 margin-right 不动 transform：主区要跟着变宽变窄（spec §2.6）。--pane-w 是右栏自己的宽度（app/right-panel-slide.ts 量的），
-   懒加载的面板第一次打开时还没量到，先按默认的 36% 算。 */
+   动 margin 不动 transform：主区要跟着变宽变窄（spec §2.6）。--pane-w 是右栏自己的宽度（app/right-panel-slide.ts 量的），
+   懒加载的面板第一次打开时还没量到，先按默认的 36% 算。停靠后右栏贴着主区（margin-left -1px 压住主区的右边线，
+   file-preview.css）；藏在窗口外时两者之间是 .body 右边那圈留白的宽度，滑进来的过程中这道缝合上。 */
 @keyframes panel-in {
   from {
     margin-right: calc(-1 * (var(--pane-w, 36%) + var(--space-2)));
+    margin-left: var(--space-2);
   }
 }
 @keyframes panel-out {
   to {
     margin-right: calc(-1 * (var(--pane-w, 36%) + var(--space-2)));
+    margin-left: var(--space-2);
   }
 }
 
