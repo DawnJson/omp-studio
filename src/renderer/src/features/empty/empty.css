@@ -64,6 +64,7 @@
   font-size: var(--fs-xl);
   line-height: var(--lh-xl);
   font-weight: 600;
+  letter-spacing: var(--ls-tight);
   color: var(--text);
   overflow-wrap: anywhere;
 }

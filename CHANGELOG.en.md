@@ -31,6 +31,7 @@ How to write it:
 - The main area and the right panel now have thinner hairline edges; when the right panel opens it joins the main area into one sheet with a single divider between them.
 - Hovering a drag-to-resize divider now draws its line out from the middle; just passing over it no longer flashes.
 - The new-task page has a faint glow in the theme color at the top.
+- Large titles and headings in answers are set slightly tighter; hover tooltips have rounder corners and a softer two-layer shadow.
 
 ## [0.11.0] - 2026-11-25
 

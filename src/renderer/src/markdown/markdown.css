@@ -34,6 +34,13 @@
   font-size: var(--fs-lg);
   line-height: var(--lh-lg);
 }
+.md h1,
+.md h2 {
+  letter-spacing: var(--ls-tight);
+}
+.md h3 {
+  letter-spacing: var(--ls-snug);
+}
 .md .md-block:first-child > h1:first-child,
 .md .md-block:first-child > h2:first-child,
 .md .md-block:first-child > h3:first-child {

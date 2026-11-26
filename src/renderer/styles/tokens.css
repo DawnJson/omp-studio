@@ -74,7 +74,9 @@
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-strong: 600;
-  --ls-tight: -0.011em; /* 仅 ≥17px 的 Latin 标题；中文一律 0 */
+  /* 标题收一点字距（所有者定，2026-11-26）：主要是给 Latin 收紧；中文跟着收不到 0.3px，看不出 */
+  --ls-tight: -0.015em; /* ≥17px 的标题、Markdown h1 / h2 */
+  --ls-snug: -0.008em; /* Markdown h3 */
   --ls-label: 0.01em; /* 11–12px 的 Latin 小字 */
 
   /* 间距：4px 栅格，--space-N = N × 4px；半档仅用于组件内边距 */
@@ -541,6 +543,8 @@
   --ring-soft: color-mix(in srgb, var(--text) 16%, transparent);
   --focus-ring: color-mix(in srgb, var(--text) 30%, transparent);
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  /* 提示气泡：一层贴近的小阴影描出边，一层 16px 的软阴影浮起来 */
+  --shadow-tooltip: 0 1px 2px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.16);
   --input-border: color-mix(in srgb, var(--text) 15%, transparent);
   /* 主区、右栏这两张"纸"的发丝边（0.5px 内描边，盖在内容上面） */
   --panel-edge: color-mix(in srgb, var(--text) 12%, transparent);

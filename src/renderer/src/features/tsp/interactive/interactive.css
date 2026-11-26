@@ -1229,6 +1229,7 @@
   font-size: var(--fs-xl);
   line-height: var(--lh-xl);
   font-weight: var(--fw-strong);
+  letter-spacing: var(--ls-tight);
 }
 .tspi-pf-lead {
   margin: 0;

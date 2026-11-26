@@ -1361,8 +1361,8 @@
   color: var(--bg-app);
   pointer-events: none;
   background: var(--text);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-tooltip);
   animation: fade-in var(--dur-fast) var(--ease-out);
 }
 .ui-tooltip-text {
