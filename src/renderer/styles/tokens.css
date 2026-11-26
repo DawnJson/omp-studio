@@ -547,6 +547,17 @@
   --focus-ring: transparent;
 }
 
+/* 磨砂浮层（菜单、下拉、popover、斜杠菜单、清单浮层、命令面板）：半透明浮层底色，背后的内容模糊加饱和；
+ * 顶边一条 1px 高光，外面一圈 4px 淡光环。对话流式输出时开着菜单实测：合成每帧多约 0.1ms，栅格化不变（2026-11-26）。
+ * 对话框不用（盖在遮罩上，遮罩已经压暗了底下）。从 --bg-overlay 推出来，主题只管 --bg-overlay。 */
+:root {
+  --bg-overlay-glass: color-mix(in srgb, var(--bg-overlay) 80%, transparent);
+  --overlay-filter: blur(24px) saturate(1.8);
+  --overlay-edge:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0.08)),
+    0 0 0 4px light-dark(rgb(10 10 12 / 0.04), rgb(255 255 255 / 0.03));
+}
+
 /* ───────────────────────── 减少动效 ───────────────────────── */
 /* 与下方 :root[data-motion="reduced"] 必须逐行一致。
  * 规则：时长归零，位移/缩放量归零，循环动画暂停在 keyframes 的 0% 帧（0% 帧必须是静态的最终形态），

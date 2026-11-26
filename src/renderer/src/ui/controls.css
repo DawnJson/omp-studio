@@ -701,10 +701,11 @@
   min-width: 200px;
   max-width: 320px;
   padding: var(--space-1);
-  background: var(--bg-overlay);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--overlay-edge), var(--shadow-2);
 }
 /* 浮动的菜单 / 下拉列表（Menu.tsx、Select.tsx）：fixed 定位，挂在 body 上。
    最高到窗口高减上下各 8（Menu.tsx 的 edge），再高自己滚：窗口矮时任务菜单下半截出窗、够不着（2026-11-09）。 */
@@ -930,10 +931,11 @@
   max-height: min(60vh, var(--fit-room, 60vh));
   padding: var(--space-1-5);
   overflow: hidden auto;
-  background: var(--bg-overlay);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--overlay-edge), var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
 .ui-popover[data-align="end"] {

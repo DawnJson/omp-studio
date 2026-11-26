@@ -1090,7 +1090,7 @@ button.usage-context:hover,
     opacity: 0.35;
   }
 }
-/* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（--bg-overlay + 1px --border + --radius-xl + --shadow-2，
+/* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（磨砂 --bg-overlay-glass + 1px --border + --radius-xl + --shadow-2，
    项 --radius-md、行高 --row-menu，悬停 / 键盘选中 --bg-hover）。就地挂在输入框上（不挂 body），层级同 .ui-popover 用 --z-popover。 */
 .composer {
   position: relative;
@@ -1108,10 +1108,11 @@ button.usage-context:hover,
   max-height: min(calc(8 * var(--row-menu) + 2 * var(--space-1) + 2px), var(--fit-room, 100vh));
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--bg-overlay);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--overlay-edge), var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
 /* @ 文件菜单只有文件名 + 目录：不铺满整个输入框宽（840 宽一行里文字不到 100px），靠左、最宽同中号对话框 */

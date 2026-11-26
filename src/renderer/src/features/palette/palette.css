@@ -23,9 +23,10 @@
   flex-direction: column;
   width: min(var(--palette-w), calc(100vw - var(--space-8)));
   max-height: 70vh;
-  background: var(--bg-overlay);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-modal);
+  box-shadow: var(--overlay-edge), var(--shadow-modal);
   overflow: hidden;
 }
 @keyframes pl-fade {

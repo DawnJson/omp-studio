@@ -2970,7 +2970,7 @@ button.tsp-sh-fold:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 清单浮层：同 .ui-popover 的面（--bg-overlay、1px --border、--radius-xl、--shadow-2）。在对话区里就地弹出（不挂 body），
+/* 清单浮层：同 .ui-popover 的面（磨砂 --bg-overlay-glass、1px --border、--radius-xl、--shadow-2）。在对话区里就地弹出（不挂 body），
    层级同 .ui-popover 用 --z-popover；--z-menu 是挂在 body 上、要盖过对话框遮罩的菜单 / 下拉用的。 */
 .tsp-ck-pop {
   position: absolute;
@@ -2982,8 +2982,9 @@ button.tsp-sh-fold:focus-visible {
   padding: var(--space-2-5) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  background: var(--bg-overlay);
-  box-shadow: var(--shadow-2);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
+  box-shadow: var(--overlay-edge), var(--shadow-2);
 }
 .tsp-checklist.reminder {
   display: flex;
