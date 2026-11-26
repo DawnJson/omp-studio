@@ -58,7 +58,7 @@ export function DraftPlace({ projectId, path }: { projectId: ProjectId; path: st
     .filter((line) => line !== null)
     .join("\n");
 
-  const toggleMenu = (button: HTMLElement) => setMenu(menu !== null ? null : anchorBelow(button));
+  const openMenu = (button: HTMLElement) => setMenu(anchorBelow(button));
 
   return (
     <>
@@ -71,7 +71,7 @@ export function DraftPlace({ projectId, path }: { projectId: ProjectId; path: st
         aria-expanded={menu !== null}
         aria-label={`${t("git.bar.menu")} · ${path} · ${title.replaceAll("\n", " · ")}`}
         title={title}
-        onClick={(event) => toggleMenu(event.currentTarget)}
+        onClick={(event) => openMenu(event.currentTarget)}
       >
         <PathLabel path={path} />
         <Branch size={14} />

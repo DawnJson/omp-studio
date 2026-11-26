@@ -119,7 +119,7 @@ export function TaskPlace({ taskId, path }: { taskId: TaskId; path: string }) {
     return items;
   };
 
-  const toggleMenu = (button: HTMLElement) => setMenu(menu !== null ? null : anchorBelow(button));
+  const openMenu = (button: HTMLElement) => setMenu(anchorBelow(button));
 
   return (
     <>
@@ -132,7 +132,7 @@ export function TaskPlace({ taskId, path }: { taskId: TaskId; path: string }) {
         aria-expanded={menu !== null}
         aria-label={`${t("git.bar.menu")} · ${path} · ${summary}`}
         title={summary}
-        onClick={(event) => toggleMenu(event.currentTarget)}
+        onClick={(event) => openMenu(event.currentTarget)}
       >
         <PathLabel path={path} testId="composer-folder" />
         <Branch size={14} />

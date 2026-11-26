@@ -7,6 +7,7 @@ import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import { dotKind, visibleItems, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
 import { Dots, Plus } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
+import { anchorBelow, type MenuAnchor } from "../../ui/Menu.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useFlip } from "../../ui/flip.ts";
 import { ChevronIcon } from "./icons.tsx";
@@ -28,7 +29,7 @@ interface FolderGroupProps {
   onToggle(folder: SidebarFolder, open: boolean): void;
   onShowMore(folder: SidebarFolder): void;
   onNewTask(folder: SidebarFolder): void;
-  onOpenProjectMenu(project: Project, x: number, y: number, trigger: HTMLElement): void;
+  onOpenProjectMenu(project: Project, anchor: MenuAnchor): void;
   /** 正在被拖的就是它。 */
   dragging: boolean;
   /** 插入线画在它的上边 / 下边。 */
@@ -98,12 +99,11 @@ export function FolderGroup(props: FolderGroupProps) {
         onContextMenu={(event) => {
           if (project === null) return;
           event.preventDefault();
-          props.onOpenProjectMenu(
-            project,
-            event.clientX,
-            event.clientY,
-            event.currentTarget.querySelector<HTMLElement>(".sb-group-toggle") ?? event.currentTarget,
-          );
+          props.onOpenProjectMenu(project, {
+            x: event.clientX,
+            y: event.clientY,
+            returnFocus: event.currentTarget.querySelector<HTMLElement>(".sb-group-toggle") ?? event.currentTarget,
+          });
         }}
       >
         <button
@@ -172,10 +172,7 @@ export function FolderGroup(props: FolderGroupProps) {
             aria-hidden={!open || undefined}
             label={t("sidebar.projectMenu")}
             aria-haspopup="menu"
-            onClick={(event) => {
-              const box = event.currentTarget.getBoundingClientRect();
-              props.onOpenProjectMenu(project, box.left, box.bottom + 4, event.currentTarget);
-            }}
+            onClick={(event) => props.onOpenProjectMenu(project, anchorBelow(event.currentTarget))}
           >
             <Dots />
           </IconButton>

@@ -27,16 +27,16 @@ interface MenusOptions {
 
 export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): {
   menu: ReactNode;
-  openTaskMenu(task: TaskState, x: number, y: number, trigger: HTMLElement): void;
-  openSessionMenu(session: SessionSummary, x: number, y: number, trigger: HTMLElement): void;
-  openProjectMenu(project: Project, x: number, y: number, trigger: HTMLElement): void;
+  openTaskMenu(task: TaskState, anchor: MenuAnchor): void;
+  openSessionMenu(session: SessionSummary, anchor: MenuAnchor): void;
+  openProjectMenu(project: Project, anchor: MenuAnchor): void;
 } {
   const [open, setOpen] = useState<OpenMenu | null>(null);
   const close = useCallback(() => setOpen(null), []);
 
-  const openTaskMenu = (task: TaskState, x: number, y: number, trigger: HTMLElement) =>
+  const openTaskMenu = (task: TaskState, anchor: MenuAnchor) =>
     setOpen({
-      anchor: { x, y, returnFocus: trigger },
+      anchor,
       label: t("task.more"),
       items: buildTaskMenu({
         t,
@@ -49,7 +49,7 @@ export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): 
 
   // 历史会话（终端里开的、归档过的任务的）：没归档的可以归档；都可以删除（删除确认框，经 omp 的 `/delete`）。
   // 归档了的从"已归档"点开就恢复，菜单里只有删除。
-  const openSessionMenu = (session: SessionSummary, x: number, y: number, trigger: HTMLElement) => {
+  const openSessionMenu = (session: SessionSummary, anchor: MenuAnchor) => {
     const remove: MenuEntry = {
       id: "delete",
       label: t("task.delete"),
@@ -59,7 +59,7 @@ export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): 
       onSelect: () => confirmDelete({ kind: "session", sessionId: session.id, title: sessionTitle(session) ?? "" }),
     };
     setOpen({
-      anchor: { x, y, returnFocus: trigger },
+      anchor,
       label: t("task.more"),
       items: session.archived
         ? [remove]
@@ -81,9 +81,9 @@ export function useSidebarMenus({ t, selectedTaskId, onRename }: MenusOptions): 
     });
   };
 
-  const openProjectMenu = (project: Project, x: number, y: number, trigger: HTMLElement) =>
+  const openProjectMenu = (project: Project, anchor: MenuAnchor) =>
     setOpen({
-      anchor: { x, y, returnFocus: trigger },
+      anchor,
       label: t("sidebar.projectMenu"),
       items: [
         {

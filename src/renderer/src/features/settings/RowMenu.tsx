@@ -40,9 +40,10 @@ export function RowMenu({
       <IconButton
         label={label}
         expanded={anchor !== null}
+        aria-haspopup="menu"
         disabled={disabled}
         testId={testId}
-        onClick={(event) => setAnchor(anchor === null ? anchorBelow(event.currentTarget) : null)}
+        onClick={(event) => setAnchor(anchorBelow(event.currentTarget))}
       >
         <Dots />
       </IconButton>

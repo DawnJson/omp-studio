@@ -42,12 +42,11 @@ const SessionRow = memo(function SessionRow({ session, tabStop, depth, pinned, f
       {...depthProps(depth)}
       onContextMenu={(event) => {
         event.preventDefault();
-        rows.onOpenSessionMenu(
-          session,
-          event.clientX,
-          event.clientY,
-          event.currentTarget.querySelector<HTMLElement>(".sb-row-main") ?? event.currentTarget,
-        );
+        rows.onOpenSessionMenu(session, {
+          x: event.clientX,
+          y: event.clientY,
+          returnFocus: event.currentTarget.querySelector<HTMLElement>(".sb-row-main") ?? event.currentTarget,
+        });
       }}
     >
       <button

@@ -74,7 +74,7 @@ export function ViewControls({
           aria-haspopup="menu"
           aria-expanded={menu !== null}
           data-testid="view-menu"
-          onClick={(event) => setMenu(menu !== null ? null : anchorBelowEnd(event.currentTarget))}
+          onClick={(event) => setMenu(anchorBelowEnd(event.currentTarget))}
         >
           {t("review.view")}
         </Button>

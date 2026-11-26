@@ -6,6 +6,7 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type SessionSummary, type TaskState } from "../../../../shared/ipc.ts";
 import { Branch, Dots, Pin } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
+import { anchorBelow, type MenuAnchor } from "../../ui/Menu.tsx";
 import { WipeText } from "../../ui/WipeText.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { TaskColorBar } from "../tabs/TaskColorBar.tsx";
@@ -99,9 +100,10 @@ export interface RowHandlers {
   onFocusItem(navId: string): void;
   /** 收起 / 展开这一行（key）下面的分叉。 */
   onToggleForks(key: string): void;
-  onOpenMenu(task: TaskState, x: number, y: number, trigger: HTMLElement): void;
+  /** 任务菜单：右键时锚点是指针位置，⋯ 时贴在按钮下面（anchorBelow）。 */
+  onOpenMenu(task: TaskState, anchor: MenuAnchor): void;
   /** 历史会话行的右键菜单（归档）。 */
-  onOpenSessionMenu(session: SessionSummary, x: number, y: number, trigger: HTMLElement): void;
+  onOpenSessionMenu(session: SessionSummary, anchor: MenuAnchor): void;
   onStartRename(task: TaskState): void;
   onCommitRename(task: TaskState, title: string | null): void;
   onArchive(task: TaskState): void;
@@ -211,12 +213,11 @@ export const TaskRow = memo(function TaskRow({
       data-testid="task-row"
       onContextMenu={(event) => {
         event.preventDefault();
-        rows.onOpenMenu(
-          task,
-          event.clientX,
-          event.clientY,
-          event.currentTarget.querySelector<HTMLElement>(".sb-row-main") ?? event.currentTarget,
-        );
+        rows.onOpenMenu(task, {
+          x: event.clientX,
+          y: event.clientY,
+          returnFocus: event.currentTarget.querySelector<HTMLElement>(".sb-row-main") ?? event.currentTarget,
+        });
       }}
     >
       <TaskColorBar id={task.id} />
@@ -261,10 +262,7 @@ export const TaskRow = memo(function TaskRow({
         label={t("task.more")}
         tabIndex={-1}
         aria-haspopup="menu"
-        onClick={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          rows.onOpenMenu(task, box.left, box.bottom + 4, event.currentTarget);
-        }}
+        onClick={(event) => rows.onOpenMenu(task, anchorBelow(event.currentTarget))}
       >
         <Dots />
       </IconButton>

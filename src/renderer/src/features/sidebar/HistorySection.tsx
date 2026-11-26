@@ -7,6 +7,7 @@
 // 分叉出来的会话缩进在原会话下面，原会话那一行可以收起它下面的分叉（collapsedForks）。搜索时只列匹配的行，项目里有匹配的文件夹全部展开。
 // 点会话行 = 恢复成任务。
 import type { HistoryOrder, Project, TaskId } from "../../../../shared/ipc.ts";
+import type { MenuAnchor } from "../../ui/Menu.tsx";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { visibleItems, type SidebarFolder, type SidebarItem } from "../../../../shared/ui/sidebar-model.ts";
 import { useState } from "react";
@@ -82,7 +83,7 @@ interface HistorySectionProps {
   onToggle(folder: SidebarFolder, open: boolean): void;
   onShowMore(key: string): void;
   onNewTask(folder: SidebarFolder): void;
-  onOpenProjectMenu(project: Project, x: number, y: number, trigger: HTMLElement): void;
+  onOpenProjectMenu(project: Project, anchor: MenuAnchor): void;
   /** 把文件夹移到第 to 个（不含它自己，0 起），见 sidebar-model 的 moveFolder。 */
   onMoveFolder(folder: SidebarFolder, to: number): void;
 }

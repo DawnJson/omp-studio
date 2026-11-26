@@ -32,7 +32,7 @@ export function CommentQueue({
         aria-haspopup="menu"
         aria-expanded={menu !== null}
         data-testid="comment-queue-button"
-        onClick={(event) => setMenu(menu !== null ? null : anchorBelowEnd(event.currentTarget))}
+        onClick={(event) => setMenu(anchorBelowEnd(event.currentTarget))}
       >
         {t("review.tabComments")}
         {/* 没有评论时徽标位置照留（隐藏），出现数字时工具条不横移。 */}

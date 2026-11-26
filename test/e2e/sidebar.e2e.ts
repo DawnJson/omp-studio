@@ -684,3 +684,41 @@ test('窗口重新获得焦点时重扫历史会话；从列表移除只藏起�
     await rm(agentDir, { recursive: true, force: true });
   }
 });
+
+test("任务行的 ⋯ 再点一下关掉菜单，不重新打开；右键菜单开着时点别的行照常选中", async () => {
+  const agentDir = await makeAgentDir();
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  try {
+    const { app, page } = launched;
+    await stubMain(app, "zh-CN");
+    await page.reload();
+    const rows = page.getByTestId("sidebar").getByRole("region", { name: "api server" }).getByTestId("task-row");
+    await expect(rows).toHaveCount(2);
+    const row = rows.first();
+    await row.hover();
+    const more = row.locator(".sb-row-more");
+    await more.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    // 窗口矮、上下都放不下整个菜单时，菜单放在剩得多的一侧自己滚，不盖住 ⋯
+    const [button, menu] = [(await more.boundingBox())!, (await page.getByRole("menu").boundingBox())!];
+    expect(menu.y >= button.y + button.height || menu.y + menu.height <= button.y).toBe(true);
+    // 再点一下关掉：以前按下时关、松开后按钮的点击又把它打开，菜单一直在
+    await more.click();
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    // 关掉之后再点一次照常打开
+    await more.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    // 右键菜单的锚点是行本身（不带 aria-haspopup）：菜单开着时左键点这一行露在菜单外的地方，菜单关掉、这一行照常选中
+    const main = row.locator(".sb-row-main");
+    await main.click({ button: "right" });
+    await expect(page.getByRole("menu")).toBeVisible();
+    await main.click({ position: { x: 8, y: 8 } });
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(main).toHaveAttribute("aria-current", "true");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});

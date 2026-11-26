@@ -69,15 +69,27 @@ export function anchorBelowEnd(button: HTMLElement): MenuAnchor {
   return { x: rect.right, y: rect.bottom + gap, flipY: rect.top - gap, align: "end", returnFocus: button };
 }
 
-/** 菜单盒子在窗口里的位置：四周至少留 edge；下方放不下翻到锚点上方。 */
-function place(anchor: MenuAnchor, width: number, height: number): { left: number; top: number } {
-  const left = anchor.align === "end" ? anchor.x - width : anchor.x;
-  const fitsBelow = anchor.y + height <= window.innerHeight - edge;
-  const top = fitsBelow ? anchor.y : (anchor.flipY ?? anchor.y) - height;
-  return {
-    left: Math.max(edge, Math.min(left, window.innerWidth - width - edge)),
-    top: Math.max(edge, Math.min(top, window.innerHeight - height - edge)),
-  };
+/**
+ * 菜单盒子在窗口里的位置：四周至少留 edge；下方放不下翻到锚点上方。按钮弹出的菜单（有 flipY）上下都放不下时
+ * 放在剩得多的那一侧、限高自己滚，不夹回窗口里盖住按钮（盖住了就点不到按钮关它）。
+ */
+function place(
+  anchor: MenuAnchor,
+  width: number,
+  height: number,
+): { left: number; top: number; maxHeight: number | undefined } {
+  const left = Math.max(
+    edge,
+    Math.min(anchor.align === "end" ? anchor.x - width : anchor.x, window.innerWidth - width - edge),
+  );
+  const below = window.innerHeight - edge - anchor.y;
+  if (height <= below || anchor.flipY === undefined) {
+    const top = height <= below ? anchor.y : (anchor.flipY ?? anchor.y) - height;
+    return { left, top: Math.max(edge, Math.min(top, window.innerHeight - height - edge)), maxHeight: undefined };
+  }
+  const above = anchor.flipY - edge;
+  if (height <= above) return { left, top: anchor.flipY - height, maxHeight: undefined };
+  return above > below ? { left, top: edge, maxHeight: above } : { left, top: anchor.y, maxHeight: below };
 }
 
 function isAction(entry: MenuEntry): entry is MenuAction {
@@ -203,7 +215,11 @@ export function Menu({
   testId?: string | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ left: anchor.x, top: anchor.y });
+  const [position, setPosition] = useState<{ left: number; top: number; maxHeight: number | undefined }>({
+    left: anchor.x,
+    top: anchor.y,
+    maxHeight: undefined,
+  });
   const [open, setOpen] = useState(true);
   const presence = usePresence(open);
   const requestClose = () => setOpen(false);
@@ -215,12 +231,15 @@ export function Menu({
   }
 
   // 贴边时翻到锚点另一侧，四周至少留 edge；内容或窗口尺寸变了（字体、异步项）重新夹紧。
+  // 量的是内容的整高（scrollHeight 加边框），不是限高后的盒子，限过一次高下次还能放回不限高。
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node) return;
     const update = () => {
-      const next = place(anchor, node.offsetWidth, node.offsetHeight);
-      setPosition((prev) => (prev.left === next.left && prev.top === next.top ? prev : next));
+      const next = place(anchor, node.offsetWidth, node.scrollHeight + node.offsetHeight - node.clientHeight);
+      setPosition((prev) =>
+        prev.left === next.left && prev.top === next.top && prev.maxHeight === next.maxHeight ? prev : next,
+      );
       floatingChanged();
     };
     update();
@@ -241,12 +260,27 @@ export function Menu({
 
   useEffect(() => {
     if (!open) return;
+    // 打开它的按钮（带 aria-haspopup 的 ⋯、胶囊）再点一下 = 关：按下时菜单已经在关，这次点击不能再传到按钮上，
+    // 不然按钮的 onClick 用新锚点把菜单又打开。右键菜单的锚点（行本身）不带 aria-haspopup，点它照常。
+    const trigger = anchor.returnFocus?.hasAttribute("aria-haspopup") ? anchor.returnFocus : null;
     const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) requestClose();
+      const target = event.target as Node;
+      if (ref.current?.contains(target)) return;
+      requestClose();
+      if (event.button !== 0 || trigger === null || !trigger.contains(target)) return;
+      const swallow = (click: MouseEvent) => {
+        if (!trigger.contains(click.target as Node)) return;
+        click.stopPropagation();
+        click.preventDefault();
+      };
+      // 点击紧跟在 pointerup 后同步派发；之后就拿掉，拖出按钮再松开（没有点击）时不吞掉下一次点击。
+      const stop = () => setTimeout(() => window.removeEventListener("click", swallow, true));
+      window.addEventListener("click", swallow, true);
+      window.addEventListener("pointerup", stop, { capture: true, once: true });
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [open]);
+  }, [open, anchor]);
 
   // 退出动画放完（卸载）才通知父级真正关掉。
   const mounted = presence.mounted;

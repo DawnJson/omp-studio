@@ -249,8 +249,8 @@ export function Sidebar() {
           if (!next.delete(key)) next.add(key);
           return next;
         }),
-      onOpenMenu: (task, x, y, trigger) => latest.current.openTaskMenu(task, x, y, trigger),
-      onOpenSessionMenu: (session, x, y, trigger) => latest.current.openSessionMenu(session, x, y, trigger),
+      onOpenMenu: (task, anchor) => latest.current.openTaskMenu(task, anchor),
+      onOpenSessionMenu: (session, anchor) => latest.current.openSessionMenu(session, anchor),
       onStartRename: (task) => setRenamingId(task.id),
       onCommitRename: (task, title) => {
         setRenamingId(null);

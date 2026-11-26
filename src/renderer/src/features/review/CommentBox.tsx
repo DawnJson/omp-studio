@@ -101,7 +101,7 @@ export function CommentCard({
         expanded={menu !== null}
         aria-haspopup="menu"
         testId="comment-more"
-        onClick={(event) => setMenu(menu !== null ? null : anchorBelowEnd(event.currentTarget))}
+        onClick={(event) => setMenu(anchorBelowEnd(event.currentTarget))}
       >
         <Dots size={14} />
       </IconButton>
