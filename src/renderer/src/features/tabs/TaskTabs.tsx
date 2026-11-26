@@ -13,6 +13,7 @@ import { selectTask, showView, useMainView, useSelectedTaskId, useTasksState } f
 import { IconButton } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
+import { WipeText } from "../../ui/WipeText.tsx";
 import { restartBlockedKey, restartSession } from "../../app/restart-session.ts";
 import { useShellValue } from "../../app/shell-store.ts";
 import { startDraft } from "../empty/index.ts";
@@ -260,7 +261,7 @@ export function TaskTabs() {
                   onKeyDown={(event) => onKeyDown(event, index)}
                 >
                   <StatusDot task={task} t={t} />
-                  <span className="task-tab-name">{title}</span>
+                  <WipeText className="task-tab-name" text={title} />
                 </button>
               )}
               {task.id === active && (

@@ -6,6 +6,7 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type SessionSummary, type TaskState } from "../../../../shared/ipc.ts";
 import { Branch, Dots, Pin } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
+import { WipeText } from "../../ui/WipeText.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { TaskColorBar } from "../tabs/TaskColorBar.tsx";
 import { taskTail } from "../../../../shared/ui/task-time.ts";
@@ -239,9 +240,7 @@ export const TaskRow = memo(function TaskRow({
       >
         <StatusDot task={task} t={t} />
         <ForkMarks depth={depth} forks={forks} />
-        <span className="sb-row-title" title={title}>
-          {title}
-        </span>
+        <WipeText className="sb-row-title" title={title} text={title} />
         {pinned && <PinMark t={t} />}
         {task.worktreeBranch !== null && (
           <span

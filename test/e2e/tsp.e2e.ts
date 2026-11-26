@@ -233,6 +233,8 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await sendFirst(page, TASK_PROMPT);
     const row = page.getByTestId("task-row").first();
     await expect(row).toHaveAttribute("data-status", "running", { timeout: 20_000 });
+    // 标题从"新任务"换成第一句话：挂着时换掉的标题从左往右擦出来（WipeText，spec §2.6）。
+    await expect(row.locator(".sb-row-title")).toHaveAttribute("data-wipe", "true");
     // 待办：omp 的 HUD 药丸不画，studio 的待办板出现在输入框上方（数据来自 omp.hud.todo），点开是阶段与条目（阶段名没有罗马数字前缀）。
     const board = page.getByTestId("tsp-todo-bar").getByTestId("todo-board");
     await expect(board).toBeVisible({ timeout: 30_000 });

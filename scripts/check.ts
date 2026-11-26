@@ -745,6 +745,7 @@ const ENTRY_ANIMATIONS: Record<string, string> = {
   "src/renderer/src/ui/controls.css|.ui-tooltip": "Tooltip.tsx 的 TooltipLayer（usePresence fade）",
   "src/renderer/src/ui/controls.css|.ui-data-in": "骨架换成真实列表时淡入，是换内容，没有关",
   "src/renderer/src/ui/flip-text.css|.flip-new": "同一格里旧字 flip-out，放完 FlipText 收成纯文字",
+  "src/renderer/src/ui/motion.css|[data-wipe]": "WipeText 换标题：新标题擦出来盖住旧的，没有关",
   'src/renderer/src/ui/motion.css|.reveal[data-phase="enter"]':
     'Reveal.tsx，收起是 .reveal[data-phase="exit"] 的 reveal-out',
   "src/renderer/src/ui/motion.css|.panel > :is(.empty, .settings, .tsp-view, .composer-stack, .composer)":
