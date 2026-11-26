@@ -34,10 +34,14 @@
   top: var(--pet-y);
   width: var(--pet-w);
   height: var(--pet-h);
+}
+/* 接住鼠标的那一块（PetSprite.tsx 的 usePetHitBox）：身子加帽子四周 2 格，框里其余透明处穿透 */
+.pet-hit {
+  position: absolute;
   cursor: grab;
   touch-action: none;
 }
-.pet-stage:active {
+.pet-hit:active {
   cursor: grabbing;
 }
 

@@ -21,6 +21,7 @@ How to write it:
 - In a task, `/mcp`, `/ssh`, `/tools`, `/memory`, `/changelog`, `/plugins` and `/marketplace` with arguments now go to omp (for example `/mcp reauth <name>`) instead of being refused; without arguments they still open the settings page.
 - Diagrams drawn in answers now use studio's theme colors and follow light/dark switches; before, they could show light text on a light background.
 - Clicking the ⋯ button of a sidebar task or folder again now closes its menu instead of immediately reopening it; in a short window a menu that fits neither above nor below now scrolls on one side instead of covering the ⋯ button.
+- The desktop pet now only catches the mouse in a small margin around its body; clicks on the transparent space next to it reach the window underneath.
 
 ### Changed
 

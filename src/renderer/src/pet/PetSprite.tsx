@@ -36,6 +36,86 @@ export function headRatio(bones: Bones, stage: Stage, branch: Branch | null): nu
   return ((hat === null ? headY : hatTop(headY, hat)) - VIEW.y) / VIEW.height;
 }
 
+/** 不透明像素的外框（格，右、下不含）。 */
+interface CellBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** 能点的范围比宠物身子（加帽子）四周多出的格数：2 格 = 窗口里 6px。 */
+const HIT_MARGIN = 2;
+
+const opaqueCache = new Map<string, CellBox>();
+
+function opaqueBounds(image: HTMLImageElement): CellBox {
+  const canvas = document.createElement("canvas");
+  canvas.width = SPRITE_SIZE;
+  canvas.height = SPRITE_SIZE;
+  const context = canvas.getContext("2d", { willReadFrequently: true })!;
+  context.drawImage(image, 0, 0);
+  const { data } = context.getImageData(0, 0, SPRITE_SIZE, SPRITE_SIZE);
+  const box = { left: SPRITE_SIZE, top: SPRITE_SIZE, right: 0, bottom: 0 };
+  for (let y = 0; y < SPRITE_SIZE; y += 1)
+    for (let x = 0; x < SPRITE_SIZE; x += 1) {
+      if (data[(y * SPRITE_SIZE + x) * 4 + 3]! < 128) continue;
+      box.left = Math.min(box.left, x);
+      box.top = Math.min(box.top, y);
+      box.right = Math.max(box.right, x + 1);
+      box.bottom = Math.max(box.bottom, y + 1);
+    }
+  return box.right === 0 ? { left: 0, top: 0, right: SPRITE_SIZE, bottom: SPRITE_SIZE } : box;
+}
+
+/**
+ * 宠物能点（接住鼠标）的范围在宠物框里的位置（百分比）：身子的不透明像素加帽子的外框，四周再多 HIT_MARGIN 格。
+ * 宠物框为了帽子、标记、粒子四周留了很多透明的地方，整个框都接住鼠标会挡住宠物旁边的窗口（2026-11-26 所有者提）。
+ * PNG 还没读到时先按整张 48×48 算。
+ */
+export function usePetHitBox(bones: Bones, stage: Stage, branch: Branch | null): CSSProperties {
+  const sprite = spriteOf(bones.species, stage, branch);
+  const [, setLoaded] = useState<string | null>(null);
+  useEffect(() => {
+    if (opaqueCache.has(sprite.url)) return;
+    let live = true;
+    const image = new Image();
+    image.addEventListener("load", () => {
+      opaqueCache.set(sprite.url, opaqueBounds(image));
+      if (live) setLoaded(sprite.url);
+    });
+    image.src = sprite.url;
+    return () => {
+      live = false;
+    };
+  }, [sprite.url]);
+  const body = opaqueCache.get(sprite.url) ?? { left: 0, top: 0, right: SPRITE_SIZE, bottom: SPRITE_SIZE };
+  const hat = hatOf(bones, stage);
+  // 帽子和 PetSprite 里画的位置一致：左边从头顶 x 往左 hatWidth / 2（取整）开始，宽 hatWidth 格。
+  const hatWidth = hat === null ? 0 : Math.max(...hat.rows.map((row) => row.length));
+  const hatLeft = sprite.head.x - Math.floor(hatWidth / 2);
+  const box =
+    hat === null
+      ? body
+      : {
+          left: Math.min(body.left, hatLeft),
+          top: Math.min(body.top, hatTop(sprite.head.y, hat)),
+          right: Math.max(body.right, hatLeft + hatWidth),
+          bottom: body.bottom,
+        };
+  const left = Math.max(VIEW.x, box.left - HIT_MARGIN);
+  const top = Math.max(VIEW.y, box.top - HIT_MARGIN);
+  const right = Math.min(VIEW.x + VIEW.width, box.right + HIT_MARGIN);
+  const bottom = Math.min(VIEW.y + VIEW.height, box.bottom + HIT_MARGIN);
+  const pct = (value: number, size: number) => `${(value / size) * 100}%`;
+  return {
+    left: pct(left - VIEW.x, VIEW.width),
+    top: pct(top - VIEW.y, VIEW.height),
+    width: pct(right - left, VIEW.width),
+    height: pct(bottom - top, VIEW.height),
+  };
+}
+
 /** 宠物窗口自己加的一阵子表情：被摸（开心）、被拖着（><）。 */
 export type PetFace = "happy" | "dragged" | null;
 

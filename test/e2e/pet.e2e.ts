@@ -74,8 +74,17 @@ test("宠物窗口：置顶不抢焦点、拿不到主窗口的接口；孵化�
     // 孵化：假 omp 起名 Pixel，写进 pet.json。
     await expect.poll(async () => (await readPet(launched.userDataDir)).soul?.name).toBe("Pixel");
 
+    // 能点的只有蛋四周一圈，宠物框左右、上方的透明处不接鼠标（穿透到下面的窗口）。
+    const hit = pet.getByTestId("pet-hit");
+    const stageBox = (await pet.locator(".pet-stage").boundingBox())!;
+    await expect.poll(async () => (await hit.boundingBox())!.width).toBeLessThan(stageBox.width * 0.7);
+    const hitBox = (await hit.boundingBox())!;
+    expect(hitBox.x).toBeGreaterThan(stageBox.x + 20);
+    expect(hitBox.y).toBeGreaterThan(stageBox.y + 20);
+    expect(hitBox.x + hitBox.width).toBeLessThan(stageBox.x + stageBox.width - 20);
+
     // 摸一下：经验记进 pet.json（当天第一次还有签到经验，从 Lv1 升到 Lv2），说话开着时冒一句：升级那句优先（假 omp 原样回显事件）。
-    await sprite.click();
+    await hit.click();
     await expect.poll(async () => (await readPet(launched.userDataDir)).growth.totals.pet).toBe(1);
     await expect(pet.getByTestId("pet-badge")).toHaveText("Lv 2");
     await expect(pet.getByTestId("pet-bubble")).toHaveText("said: You just reached level 2.");

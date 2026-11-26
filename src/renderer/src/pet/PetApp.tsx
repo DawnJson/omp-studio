@@ -27,7 +27,7 @@ import {
   type Stage,
 } from "../../../shared/pet/model.ts";
 import { Button } from "../ui/controls.tsx";
-import { headRatio, PetSprite, type PetFace } from "./PetSprite.tsx";
+import { headRatio, PetSprite, usePetHitBox, type PetFace } from "./PetSprite.tsx";
 
 /** 按下后挪动超过这么多像素就算拖动，不算单击。 */
 const DRAG_THRESHOLD = 4;
@@ -407,6 +407,7 @@ export function PetApp({ initial, initialLayout, subscribeReactions }: PetAppPro
   const t = createT(view.locale);
   const name = view.soul?.name ?? t("pet.hatching");
   const label = `${name} · ${t(`pet.species.${view.bones.species}`)} · ${t("pet.level", { level: view.level })}`;
+  const hitBox = usePetHitBox(view.bones, view.stage, view.branch);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -491,23 +492,7 @@ export function PetApp({ initial, initialLayout, subscribeReactions }: PetAppPro
           ))}
         </div>
       )}
-      <div
-        ref={stageRef}
-        className="pet-stage"
-        data-pet-hit
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onDoubleClick={() => {
-          window.clearTimeout(clickTimer.current);
-          window.pet.openStudio();
-        }}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          window.pet.menu();
-        }}
-      >
+      <div ref={stageRef} className="pet-stage">
         <PetSprite
           bones={view.bones}
           stage={view.stage}
@@ -518,6 +503,25 @@ export function PetApp({ initial, initialLayout, subscribeReactions }: PetAppPro
           gaze={gaze}
           face={face}
           evolvingFrom={evolvingFrom}
+        />
+        {/* 只有宠物身子（加帽子）四周一圈接住鼠标，框里其余透明的地方穿透到下面的窗口（usePetHitBox） */}
+        <div
+          className="pet-hit"
+          data-pet-hit
+          data-testid="pet-hit"
+          style={hitBox}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          onDoubleClick={() => {
+            window.clearTimeout(clickTimer.current);
+            window.pet.openStudio();
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            window.pet.menu();
+          }}
         />
       </div>
     </div>
