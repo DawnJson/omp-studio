@@ -13,7 +13,7 @@
   background: var(--bg-app);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  animation: panel-in var(--dur-slow) var(--ease-out);
+  animation: panel-in var(--dur-pane) var(--ease-pane);
 }
 .file-preview:focus {
   outline: none;

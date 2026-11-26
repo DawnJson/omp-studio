@@ -72,7 +72,7 @@ import { useHeld } from "../features/composer/use-held.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
 import { useCopyOnSelect } from "./use-copy-on-select.ts";
 import { restartSession } from "./restart-session.ts";
-import { useRightPanelSlide } from "./right-panel-slide.ts";
+import { usePaneColumnHold, useRightPanelWidth } from "./right-panel-slide.ts";
 import { TooltipLayer } from "../ui/Tooltip.tsx";
 import { EditMenu } from "./EditMenu.tsx";
 
@@ -168,8 +168,10 @@ export function App() {
             : null;
   const rightPresence = usePresence(rightPanel !== null, "panel");
   const mainPanel = useRef<HTMLElement>(null);
-  // 右栏开关时主区里居中的内容跟着横向滑（主区宽度只变一次）
-  useRightPanelSlide(rightPanel !== null, mainPanel);
+  // 右栏开关时主区逐帧跟着变窄 / 变宽：滑进滑出的距离按右栏宽度算
+  useRightPanelWidth(rightPanel !== null, mainPanel);
+  // 侧栏、右栏开合时主区逐帧变宽变窄：期间不让 omp 逐帧重排对话，放完再量一次
+  usePaneColumnHold(mainPanel);
   const shownRightPanel = useHeld(rightPanel);
   // omp 连上了当前任务的浏览器（AI 开始用它）：打开面板，不抢焦点。
   useEffect(

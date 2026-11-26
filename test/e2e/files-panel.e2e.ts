@@ -666,75 +666,94 @@ test("预览标签：开过的文件各占一个标签，再点同一个切过�
 });
 
 interface SlideFrame {
-  /** 输入框左边和宽度（宽度不受 transform 影响，变了就是重排换行）。 */
+  /** 输入框左边和宽度（居中在主区里，主区逐帧变宽变窄时跟着走）。 */
   left: number;
   width: number;
+  /** 主区宽度。 */
+  main: number;
+  /** 右栏宽度；右栏不在时 null。 */
+  pane: number | null;
   /** 页面横向滚动。 */
   scrolled: number;
-  /** 主区看得见的右边缘（排版的右边缘减去 clip-path 裁掉的）到右栏左边缘的缝；右栏不在时 null。 */
+  /** 主区右边缘到右栏左边缘的缝；右栏不在时 null。 */
   seam: number | null;
 }
 
-// 一帧帧记 500ms（右栏动画 320ms）。
+// 一帧帧记 800ms（右栏动画 500ms）。
 async function slideFrames(page: Page): Promise<SlideFrame[]> {
   return page.evaluate(`new Promise((resolve) => {
     const frames = [];
     const t0 = performance.now();
     const tick = () => {
-      const main = document.querySelector('[data-testid="main-panel"]');
-      const pane = document.querySelector('[data-testid="file-preview"]');
-      const clip = /inset\\(\\S+ (\\S+)px/.exec(getComputedStyle(main).clipPath);
-      const visibleRight = main.getBoundingClientRect().right - (clip ? Number(clip[1]) : 0);
+      const main = document.querySelector('[data-testid="main-panel"]').getBoundingClientRect();
+      const pane = document.querySelector('[data-testid="file-preview"]')?.getBoundingClientRect();
+      const composer = document.querySelector(".composer-stack").getBoundingClientRect();
       frames.push({
-        left: document.querySelector(".composer-stack").getBoundingClientRect().left,
-        width: document.querySelector(".composer-stack").getBoundingClientRect().width,
+        left: composer.left,
+        width: composer.width,
+        main: main.width,
+        pane: pane ? pane.width : null,
         scrolled: document.scrollingElement.scrollLeft + document.body.scrollLeft,
-        seam: pane ? pane.getBoundingClientRect().left - visibleRight : null,
+        seam: pane ? pane.left - main.right : null,
       });
-      if (performance.now() - t0 < 500) requestAnimationFrame(tick);
+      if (performance.now() - t0 < 800) requestAnimationFrame(tick);
       else resolve(frames);
     };
     requestAnimationFrame(tick);
   })`);
 }
 
-test("右栏开关像并排的两页：主区右边缘跟着右栏左边缘走（缝宽不变、不留残影），输入框一起滑；页面不被横向滚走", async () => {
-  const { launched, cleanup } = await start();
+test("右栏开关像并排的两页：主区逐帧跟着变窄变宽，右边缘贴着右栏左边缘（缝宽不变），右栏自己不变宽；页面不被横向滚走", async () => {
+  // dirs 的回放录制会把收到的事件记进 inputLog（数 resize 用）
+  const { launched, inputLog, cleanup } = await start({ dirs: true });
   try {
     const { page } = launched;
     await page.setViewportSize({ width: 1400, height: 800 });
     const composer = page.locator(".composer-stack");
+    const mainPanel = page.getByTestId("main-panel");
     await expect.poll(async () => (await composer.boundingBox())?.x).toBeGreaterThan(0);
-    const wide = (await composer.boundingBox())!.x;
-    const wideWidth = (await composer.boundingBox())!.width;
-    const seams = (frames: SlideFrame[]) => frames.flatMap((frame) => (frame.seam === null ? [] : [frame.seam]));
-    // 开：输入框的中心从原位置一路滑到左边的新位置（中间有过渡帧，不跳），整页从不横向滚动。
+    const wideBox = (await composer.boundingBox())!;
+    const wideMain = (await mainPanel.boundingBox())!.width;
     const mid = (frame: { left: number; width: number }) => frame.left + frame.width / 2;
-    const wideMid = wide + wideWidth / 2;
+    const wideMid = wideBox.x + wideBox.width / 2;
+    const seams = (frames: SlideFrame[]) => frames.flatMap((frame) => (frame.seam === null ? [] : [frame.seam]));
+    // 开合期间主区逐帧变宽变窄，但只在放完后给 omp 发一次 resize（逐帧发 omp 会每帧整篇重排、换掉节点）。
+    // 记帧的 800ms 已盖过 500ms 的动画：逐帧发的话这时日志里早有十几条。
+    const resizes = async () =>
+      (await readFile(inputLog, "utf8")).split("\n").filter((line) => line.includes('"ev":"resize"')).length;
+    const before = await resizes();
+    // 开：主区一帧帧变窄（有介于两头之间的帧，不是一下跳过去），输入框的中心跟着往左走，整页从不横向滚动。
     await row(page, "notes.md").click();
     const opening = await slideFrames(page);
+    const narrowMain = opening.at(-1)!.main;
     const narrowMid = mid(opening.at(-1)!);
+    expect(narrowMain).toBeLessThan(wideMain - 100);
     expect(narrowMid).toBeLessThan(wideMid - 50);
     expect(opening.every((frame) => frame.scrolled === 0)).toBe(true);
-    expect(opening.some((frame) => mid(frame) > narrowMid + 10 && mid(frame) < wideMid - 10)).toBe(true);
+    expect(
+      opening.filter((frame) => frame.main > narrowMain + 20 && frame.main < wideMain - 20).length,
+    ).toBeGreaterThan(2);
     expect(opening.every((frame) => mid(frame) >= narrowMid - 1 && mid(frame) <= wideMid + 1)).toBe(true);
-    // 每一帧主区和右栏之间都是同一道缝（= 放完时的缝）：主区收回多少，右栏就进来多少。
+    const opened = await resizes();
+    expect(opened - before).toBeLessThanOrEqual(1);
+    // 每一帧主区和右栏之间都是同一道缝（= 放完时的缝）；右栏宽度从头到尾不变（滑进来的是整块，里面不重排）。
     const gap = seams(opening).at(-1)!;
     expect(gap).toBeGreaterThan(0);
     for (const seam of seams(opening)) expect(Math.abs(seam - gap)).toBeLessThanOrEqual(2);
-    // 文字只在开头换一次行：右栏一出现，输入框就是放完时的宽度，放完时不再变（不在动画结束时闪一下）。
-    const narrowWidth = opening.at(-1)!.width;
-    expect(narrowWidth).toBeLessThan(wideWidth - 20);
-    for (const frame of opening) if (frame.seam !== null) expect(frame.width).toBeCloseTo(narrowWidth, 1);
-    // 关：同样每一帧缝不变，输入框往右滑回去。
+    const paneWidth = opening.at(-1)!.pane!;
+    for (const frame of opening) if (frame.pane !== null) expect(frame.pane).toBeCloseTo(paneWidth, 0);
+    // 关：同样逐帧变宽、缝不变，最后回到原来的宽度和位置。
     await page.getByTestId("file-preview-close").click();
     const closing = await slideFrames(page);
     expect(seams(closing).length).toBeGreaterThan(3);
     for (const seam of seams(closing)) expect(Math.abs(seam - gap)).toBeLessThanOrEqual(2);
-    for (const frame of closing) expect(frame.width).toBeCloseTo(wideWidth, 1);
-    expect(closing.some((frame) => mid(frame) > narrowMid + 10 && mid(frame) < wideMid - 10)).toBe(true);
+    expect(
+      closing.filter((frame) => frame.main > narrowMain + 20 && frame.main < wideMain - 20).length,
+    ).toBeGreaterThan(2);
     expect(closing.every((frame) => mid(frame) >= narrowMid - 1 && mid(frame) <= wideMid + 1)).toBe(true);
+    expect(closing.at(-1)!.main).toBeCloseTo(wideMain, 0);
     expect(mid(closing.at(-1)!)).toBeCloseTo(wideMid, 0);
+    expect((await resizes()) - opened).toBeLessThanOrEqual(1);
     await expect(page.getByTestId("file-preview")).toHaveCount(0);
   } finally {
     await cleanup();

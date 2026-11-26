@@ -22,6 +22,7 @@ How to write it:
 
 ### Changed
 
+- Collapsing / expanding the sidebar and opening / closing the right panel slide more smoothly: the main area widens and narrows along with them, opening and closing share one fast-then-settle curve, and the motion now takes half a second.
 - The goal bar stands out more: a target icon in front, a background and left stripe colored by status (theme accent while active, amber when paused, red when the budget runs out), and the time the goal has been running.
 
 ## [0.11.0] - 2026-11-25

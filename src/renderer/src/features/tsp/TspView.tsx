@@ -25,7 +25,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { useStickToBottom } from "../conversation/use-stick-to-bottom.ts";
-import { ColumnResizer, columnDragging, onColumnDragEnd } from "./ColumnResizer.tsx";
+import { ColumnResizer, columnsHeld, onColumnsReleased } from "./ColumnResizer.tsx";
 import { ConversationLine } from "./ConversationLine.tsx";
 import type { TspContext } from "./node-props.ts";
 import { TspHosts } from "./TspHosts.tsx";
@@ -71,7 +71,7 @@ function monoCharWidth(el: HTMLElement): number {
   return width > 0 ? width : 8;
 }
 
-/** 量 column 的宽度算列数，写进 --tsp-cw，变化时 resizeTsp。拖对话列宽度期间不发，松手后量一次（omp 每次都整篇重排）。 */
+/** 量 column 的宽度算列数，写进 --tsp-cw，变化时 resizeTsp。拖对话列宽度、侧栏 / 右栏开合期间不发，结束后量一次（omp 每次都整篇重排）。 */
 function useColumns(
   taskId: TaskId,
   column: RefObject<HTMLElement | null>,
@@ -87,7 +87,7 @@ function useColumns(
       const cw = monoCharWidth(el);
       root.style.setProperty("--tsp-cw", `${cw}px`);
       const cols = Math.max(20, Math.floor(el.clientWidth / cw));
-      if (lastCols.get(taskId) === cols || columnDragging()) return;
+      if (lastCols.get(taskId) === cols || columnsHeld()) return;
       lastCols.set(taskId, cols);
       window.studio.resizeTsp(taskId, cols).catch((error: unknown) => reportErrorNow(error));
     };
@@ -96,7 +96,7 @@ function useColumns(
       if (frame === 0) frame = requestAnimationFrame(measure);
     });
     observer.observe(el);
-    const unsubscribe = onColumnDragEnd(measure);
+    const unsubscribe = onColumnsReleased(measure);
     return () => {
       observer.disconnect();
       unsubscribe();

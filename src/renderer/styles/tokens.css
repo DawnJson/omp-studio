@@ -178,12 +178,15 @@
     1.001 94%,
     1
   );
+  /* 侧栏、右栏开合（所有者定，2026-11-26）：开、关同一条先快后慢的曲线 */
+  --ease-pane: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* 动效：时长（组件里的 transition / animation / Web Animations 都读这些变量） */
   --dur-instant: 80ms; /* hover 背景、按压 */
   --dur-fast: 140ms; /* 胶囊、菜单项、tooltip、状态点切换 */
   --dur-base: 200ms; /* 折叠展开、popover、门出现 */
-  --dur-slow: 320ms; /* 侧栏、对话框、命令面板 */
+  --dur-slow: 320ms; /* 对话框、命令面板 */
+  --dur-pane: 500ms; /* 侧栏收起 / 展开、抽屉、右栏开关（主区逐帧跟着变宽变窄） */
   --dur-fade: 140ms; /* 必须保留的纯透明度渐变；reduced-motion 下为 100ms */
   --dur-breathe: 2400ms; /* 进行中状态点呼吸 */
   --dur-spin: 1100ms; /* 加载环 */
@@ -554,6 +557,7 @@
     --dur-fast: 0ms;
     --dur-base: 0ms;
     --dur-slow: 0ms;
+    --dur-pane: 0ms;
     --dur-fade: 100ms;
     --dur-breathe: 0ms;
     --dur-spin: 0ms;
@@ -571,6 +575,7 @@
   --dur-fast: 0ms;
   --dur-base: 0ms;
   --dur-slow: 0ms;
+  --dur-pane: 0ms;
   --dur-fade: 100ms;
   --dur-breathe: 0ms;
   --dur-spin: 0ms;

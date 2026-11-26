@@ -4,8 +4,8 @@
 // 万一动画没跑起来（元素被 display:none 等），兜底计时器到点也会卸载，不会卡住。
 import { useCallback, useEffect, useRef, useState, type AnimationEvent } from "react";
 
-/** 比最长的退出动画（--dur-slow-exit ≈ 192ms）宽裕；只在 animationend 没来时才用到。 */
-const exitFallbackMs = 400;
+/** 比最长的退出动画（右栏 --dur-pane 500ms）宽裕；只在 animationend 没来时才用到。 */
+const exitFallbackMs = 800;
 
 export interface ExitProps {
   "data-closing"?: ExitKind | undefined;

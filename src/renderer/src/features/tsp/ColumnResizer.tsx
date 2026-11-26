@@ -1,7 +1,7 @@
 // 对话列拖拽条（spec §3.2）：贴在对话列右缘（命中区 8px，竖跨滚动区），拖动改对话列宽度；列居中，所以列宽变化是拖动量的两倍。
 // 宽度存成占主区面板的百分比（ShellState.conversationWidth），窗口放大缩小时列跟着按比例变。拖动中只改 .panel 上的 --content-ratio
 // 和自己的 aria-valuenow（不写 store，不重渲染）；松手 commit。双击回默认（80%），←/→ 每次右缘移 16px。
-// 主区放不下比最窄（840）更宽的列（主区 − 2×留白 ≤ 840）时不画。拖动中 useColumns 不通知 omp 改列数，松手再量一次（omp 整篇重排一次）。
+// 主区放不下比最窄（840）更宽的列（主区 − 2×留白 ≤ 840）时不画。拖动中、侧栏 / 右栏开合动画中 useColumns 不通知 omp 改列数，结束再量一次（omp 整篇重排一次）。
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { limits } from "../../../../shared/ipc.ts";
 import { commitConversationWidth, useShellValue } from "../../app/shell-store.ts";
@@ -11,24 +11,42 @@ const defaultRatio = 80;
 const keyboardStep = 16;
 
 let dragging = false;
-const dragEndListeners = new Set<() => void>();
+/** 侧栏 / 右栏开合动画期间主区逐帧变宽变窄（app/right-panel-slide.ts 的 usePaneColumnHold）。 */
+let holds = 0;
+const releaseListeners = new Set<() => void>();
 
-/** 正在拖对话列：列宽一直在变，先不通知 omp。 */
-export function columnDragging(): boolean {
-  return dragging;
+/** 正在拖对话列、或侧栏 / 右栏正在开合：列宽一直在变，先不通知 omp（omp 每次都整篇重排、换掉节点）。 */
+export function columnsHeld(): boolean {
+  return dragging || holds > 0;
 }
 
-/** 拖完（松手或取消）时调用；返回取消订阅。 */
-export function onColumnDragEnd(listener: () => void): () => void {
-  dragEndListeners.add(listener);
+/** 不再被拖 / 开合动画占着时调用（量一次再通知 omp）；返回取消订阅。 */
+export function onColumnsReleased(listener: () => void): () => void {
+  releaseListeners.add(listener);
   return () => {
-    dragEndListeners.delete(listener);
+    releaseListeners.delete(listener);
   };
+}
+
+function released(): void {
+  if (!columnsHeld()) for (const listener of releaseListeners) listener();
 }
 
 function setDragging(next: boolean): void {
   dragging = next;
-  if (!next) for (const listener of dragEndListeners) listener();
+  if (!next) released();
+}
+
+/** 开合动画开始时占住，返回放开（只放一次）。 */
+export function holdColumns(): () => void {
+  holds += 1;
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    holds -= 1;
+    released();
+  };
 }
 
 interface Metrics {

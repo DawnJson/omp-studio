@@ -45,10 +45,11 @@
 :root [data-closing="fade"] {
   animation-name: fade-out;
 }
-/* 右栏面板关闭：原路滑回窗口右边（panel-in 的反向），用 slow 档的退出时长 */
+/* 右栏面板关闭：原路滑回窗口右边（panel-in 的反向），开关同一条曲线、同一个时长 */
 :root [data-closing="panel"] {
   animation-name: panel-out;
-  animation-duration: var(--dur-slow-exit);
+  animation-duration: var(--dur-pane);
+  animation-timing-function: var(--ease-pane);
 }
 
 @keyframes pop-out {
@@ -103,16 +104,17 @@
   }
 }
 
-/* 右栏（文件面板、子代理面板、浏览器）打开：整块从窗口右边滑进来；关闭时原路滑回（上面的 panel-out）。
-   主区宽度只变一次、不逐帧重排；主区里居中的内容同时横向滑到新位置（app/right-panel-slide.ts，spec §2.6） */
+/* 右栏（文件面板、子代理面板、浏览器）打开：在排版里从窗口右边外滑进来，主区逐帧跟着变窄；关闭时原路滑回（上面的 panel-out）。
+   动 margin-right 不动 transform：主区要跟着变宽变窄（spec §2.6）。--pane-w 是右栏自己的宽度（app/right-panel-slide.ts 量的），
+   懒加载的面板第一次打开时还没量到，先按默认的 36% 算。 */
 @keyframes panel-in {
   from {
-    transform: translateX(calc(100% + var(--space-2)));
+    margin-right: calc(-1 * (var(--pane-w, 36%) + var(--space-2)));
   }
 }
 @keyframes panel-out {
   to {
-    transform: translateX(calc(100% + var(--space-2)));
+    margin-right: calc(-1 * (var(--pane-w, 36%) + var(--space-2)));
   }
 }
 

@@ -158,11 +158,12 @@ html[data-platform="darwin"] .topbar-left {
   min-height: 0;
   /* 主区面板是一张四角都圆的“纸”，右边和下边各留一圈窗口底色 */
   padding: 0 var(--space-2) var(--space-2) 0;
-  /* 右栏滑入 / 侧栏抽屉滑出时会伸出窗口：clip 不让它撑出可滚动区，否则聚焦时整页被横向滚走一截、再慢慢滚回来 */
+  /* 右栏、侧栏滑进滑出时会伸出窗口：clip 不让它撑出可滚动区，否则聚焦时整页被横向滚走一截、再慢慢滚回来 */
   overflow: clip;
+  transition: padding-left var(--dur-pane) var(--ease-pane);
 }
 
-/* 侧栏收起或作为抽屉时，面板左边也不贴窗口边 */
+/* 侧栏收起或作为抽屉时，面板左边也不贴窗口边；跟着侧栏一起过渡 */
 #app[data-sidebar="hidden"] .body,
 #app[data-drawer="true"] .body {
   padding-left: var(--space-2);
@@ -175,27 +176,37 @@ html[data-platform="darwin"] .topbar-left {
   overflow: hidden;
   background: var(--bg-sidebar);
   user-select: none;
-  transition: transform var(--dur-slow) var(--ease-out);
+  transition: margin-left var(--dur-pane) var(--ease-pane);
 }
 
-/* 宽窗口收起和窄窗口的抽屉：侧栏移出版面、盖在主区上，只动 transform 滑进滑出；主区宽度立即变一次，不逐帧重排（spec §2.6）。
- * 以前收起是列宽过渡，主区每帧变宽，长对话每帧重排整段（1100 宽的窗口一次开合排版 60ms+，好几帧超过 24ms）。
+/* 宽窗口收起 / 展开（所有者定，2026-11-26）：侧栏留在排版里，margin-left 把整列推出窗口左边，主区逐帧跟着变宽变窄（spec §2.6）。
+ * 列宽不过渡：拖宽时改的是 --sidebar-current，带过渡会拖不跟手；margin 只在开合时变。
  * 子元素一律写成 .sb / .snav，不写 `> *`：#app 上 data-sidebar 一变，带 `*` 的规则会让整页（含整段对话）重算样式，
  * 长对话里开合侧栏第一帧卡 40ms 以上 */
-#app[data-sidebar="hidden"] .sidebar-column,
+#app[data-sidebar="hidden"] .sidebar-column {
+  margin-left: calc(-1 * var(--sidebar-current, var(--sidebar-w)));
+  visibility: hidden;
+  transition:
+    margin-left var(--dur-pane) var(--ease-pane),
+    visibility 0s linear var(--dur-pane);
+}
+
+/* 窄窗口的抽屉：盖在主区上，只动 transform 滑进滑出，主区宽度不变 */
 #app[data-drawer="true"] .sidebar-column {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
   z-index: var(--z-popover);
+  margin-left: 0;
+  transition: transform var(--dur-pane) var(--ease-pane);
 }
-#app[data-sidebar="hidden"] .sidebar-column {
+#app[data-drawer="true"][data-sidebar="hidden"] .sidebar-column {
   transform: translateX(-100%);
   visibility: hidden;
   transition:
-    transform var(--dur-slow) var(--ease-out),
-    visibility 0s linear var(--dur-slow);
+    transform var(--dur-pane) var(--ease-pane),
+    visibility 0s linear var(--dur-pane);
 }
 
 .sidebar-column > :is(.sb, .snav) {
@@ -278,7 +289,7 @@ html[data-platform="darwin"] .topbar-left {
   background: var(--border);
 }
 
-/* 窄窗口：抽屉盖在主区上，主区宽度不变。位置和滑动见上面 .sidebar-column 的规则；
+/* 窄窗口：抽屉的宽度和阴影。位置和滑动见上面 .sidebar-column 的规则；
    展开后是 transform: none 而不是 translateX(0)：有 transform 的祖先会成为 fixed 元素的定位框，
    侧栏里的任务菜单、语言/主题菜单会被错位并被抽屉的 overflow 裁掉。none 照样能从 -100% 过渡过来。 */
 #app[data-drawer="true"] .sidebar-column {
@@ -298,8 +309,8 @@ html[data-platform="darwin"] .topbar-left {
 
 /* 抽屉收起：遮罩随抽屉滑出的时长一起淡出，不抢先消失 */
 :root .drawer-scrim[data-closing] {
-  animation-duration: var(--dur-slow);
-  animation-timing-function: var(--ease-out);
+  animation-duration: var(--dur-pane);
+  animation-timing-function: var(--ease-pane);
   animation-fill-mode: forwards;
 }
 
@@ -317,8 +328,7 @@ html[data-platform="darwin"] .topbar-left {
 :root[data-glass] #app {
   background: color-mix(in srgb, var(--bg-sidebar) 75%, transparent);
 }
-/* 收起的侧栏和窄窗口的抽屉是盖在主区面板上的一张，底下是面板不是玻璃：照旧画实底（侧栏 .sb 跟着透明，露出这张底）。 */
-:root[data-glass] #app[data-sidebar="hidden"] .sidebar-column,
+/* 窄窗口的抽屉是盖在主区面板上的一张，底下是面板不是玻璃：照旧画实底（侧栏 .sb 跟着透明，露出这张底）。 */
 :root[data-glass] #app[data-drawer="true"] .sidebar-column {
   background: var(--bg-sidebar);
 }

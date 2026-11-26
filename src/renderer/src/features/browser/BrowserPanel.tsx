@@ -84,7 +84,7 @@ function usePlaceBrowser(taskId: TaskId, slot: RefObject<HTMLDivElement | null>,
     portals.observe(document.body, { childList: true });
     const offScrims = subscribeScrims(schedule);
     window.addEventListener("resize", schedule);
-    // 面板滑入（panel-in）用的是 transform，ResizeObserver 看不到位置变化：动画结束再量一次。
+    // 面板滑入（panel-in）只动 margin，面板自己的大小不变，ResizeObserver 看不到位置变化：动画结束再量一次。
     window.addEventListener("animationend", schedule, true);
     schedule();
     return () => {
