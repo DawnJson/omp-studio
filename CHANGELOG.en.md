@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-25
+
 ### Added
 
 - Slash menu rows for commands studio handles itself end with ↗, setting them apart from omp's own commands.
