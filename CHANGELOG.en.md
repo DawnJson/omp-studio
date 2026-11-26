@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-26
+
 ### Fixed
 
 - The macOS and Linux packages for 0.12.0 were not built; this release provides them, with the same content as 0.12.0.
