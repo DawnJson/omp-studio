@@ -1,11 +1,13 @@
-// 设置 → 集成 → SSH 主机、Skills 的 IPC：参数校验后转调 src/main/integrations/ssh.ts、skills.ts（都经 omp 自己的命令，skill 文件夹的复制 / 回收站是 docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」之一）。
-// MCP / 记忆 / 工具 / 更新日志走 runBuiltin（command-handlers.ts），这里没有。
+// 设置 → 集成 → SSH 主机、Skills、MCP 登录的 IPC：参数校验后转调 src/main/integrations/ssh.ts、skills.ts、mcp-reauth.ts（都经 omp 自己的命令，skill 文件夹的复制 / 回收站是 docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」之一）。
+// MCP 的列表、增删、测试 / 记忆 / 工具 / 更新日志走 runBuiltin（command-handlers.ts），这里没有。
 import os from "node:os";
 import { dialog, shell } from "electron";
 import type { HandlerGroup, ProjectId } from "../../shared/ipc.ts";
 import type { SshHostInput } from "../../shared/omp-output/ssh.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
+import { mcpReauth } from "../integrations/mcp-reauth-instance.ts";
 import { listSkillEntries, removeSkill, setSkillEnabled, SkillPicker } from "../integrations/skills.ts";
+import { isManageableMcpName } from "../../shared/omp-output/mcp.ts";
 import { checkSshName, listSshHosts, runSshWrite, sshAddArgs, sshRemoveArgs } from "../integrations/ssh.ts";
 import { readyOmp } from "../omp-manager/index.ts";
 import { serviceCwd } from "../service/service-omp.ts";
@@ -63,8 +65,18 @@ export const integrationsHandlers: HandlerGroup<
   | "removeSkill"
   | "pickSkillFolder"
   | "addSkill"
+  | "startMcpReauth"
+  | "cancelMcpReauth"
 > = {
   listSshHosts: async (projectId) => listSshHosts(await ompIn(optionalProjectId(projectId))),
+  startMcpReauth: async (name, projectId) => {
+    const parsed = parseString(name, "name", 100);
+    if (!isManageableMcpName(parsed)) throw new IpcValidationError("name 不是 omp 能管理的 MCP 服务器名");
+    const project = optionalProjectId(projectId);
+    const cwd = project === null ? await serviceCwd() : (await getTaskPool()).projectPath(project);
+    return mcpReauth().start(parsed, cwd);
+  },
+  cancelMcpReauth: () => mcpReauth().cancel(),
   listSkills: async (projectId) => {
     const project = optionalProjectId(projectId);
     // 用户级在中性目录里列；选了项目时在项目目录里列（用户级 + 项目级），停用补行始终读用户配置。

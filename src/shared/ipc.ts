@@ -817,6 +817,10 @@ export type LoginEvent =
 
 export type LoginOutcome = { ok: true; providerId: string } | { ok: false; message: string };
 
+/** MCP 服务器登录（startMcpReauth）的结果：`done` 带 omp 的原话（`✓ Reauthorized "x" (user config). …`），`failed` 带 omp 的错误原话。 */
+export type McpReauthOutcome =
+  { kind: "done"; message: string } | { kind: "cancelled" } | { kind: "failed"; message: string };
+
 // ───────── omp 管理 ─────────
 
 export type OmpSource =
@@ -1416,6 +1420,14 @@ export interface StudioInvokeApi {
   startTerminalLogin(providerId: string): Promise<LoginOutcome>;
   /** 结束正在进行的终端登录（关临时 omp）；没有时什么都不做。 */
   cancelTerminalLogin(): Promise<void>;
+  /**
+   * MCP 服务器的 OAuth 登录：主进程在一个专用的短命 rpc-ui 里跑 `/mcp reauth <name>`（项目范围在项目目录里，用户范围 = null 在中性目录里），
+   * omp 自己开浏览器、等回调；授权地址经 `mcpReauthUrl` 事件推来。登录结束（成功、失败、取消、超时）时 resolve，进程已关。
+   * name 必须是 omp 能管理的服务器名（isManageableMcpName），否则 reject；已有一个在进行时先取消它。
+   */
+  startMcpReauth(name: string, projectId: ProjectId | null): Promise<McpReauthOutcome>;
+  /** 取消正在进行的 MCP 登录（关进程，startMcpReauth 以 cancelled 结束）；没有时什么都不做。 */
+  cancelMcpReauth(): Promise<void>;
   listAccounts(providerId: string): Promise<LogoutAccount[]>;
   logout(providerId: string, credentialId: number): Promise<void>;
   /**
@@ -1670,6 +1682,8 @@ export interface StudioEventPayloads {
   taskNotice: TaskNotice;
   login: LoginEvent;
   ompStatus: OmpStatus;
+  /** MCP 登录（startMcpReauth）里 omp 给出的授权地址：它也会自己开浏览器，没开时用户从对话框里点。 */
+  mcpReauthUrl: string;
   settings: StudioSettings;
   /** 用户把文件夹拖进了窗口，主进程已把它加入项目。 */
   projectDropped: Project;
@@ -1894,6 +1908,8 @@ export const invokeNames = {
   cancelLogin: true,
   startTerminalLogin: true,
   cancelTerminalLogin: true,
+  startMcpReauth: true,
+  cancelMcpReauth: true,
   listAccounts: true,
   logout: true,
   saveApiKey: true,
@@ -2003,6 +2019,7 @@ export const eventNames = {
   taskNotice: true,
   login: true,
   ompStatus: true,
+  mcpReauthUrl: true,
   settings: true,
   projectDropped: true,
   composerFilesAdded: true,

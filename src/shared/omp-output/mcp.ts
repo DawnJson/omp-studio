@@ -71,17 +71,51 @@ export function mcpOutcome(text: string): McpOutcome {
 }
 
 export type McpTestResult =
-  { connected: true; toolCount: number; tools: string[] } | { connected: false; message: string };
+  { connected: true; toolCount: number; tools: string[] } | { connected: false; message: string; needsLogin: boolean };
+
+/**
+ * 连不上是因为要 OAuth 登录：服务器回 401 并带 `WWW-Authenticate: Bearer`（omp 19.2.1 实测 GitHub 的 MCP：
+ * `Failed to connect to "github": HTTP 401: … [WWW-Authenticate: Bearer error="invalid_request", …]`），或 token 失效（`invalid_token`）。
+ */
+function needsLogin(message: string): boolean {
+  return /\b401\b/.test(message) && /WWW-Authenticate:\s*Bearer|invalid_token/i.test(message);
+}
 
 /** `/mcp test <name>`：`Server "x" connected (1 tools).\n  - ping`；失败是 `Connection to "x" failed: …` 或 `Server "x" not found…`。 */
 export function parseMcpTest(text: string): McpTestResult {
   const message = text.trim();
   const head = /^Server ".+" connected \((\d+) tools?\)\.?/.exec(message);
-  if (head === null) return { connected: false, message };
+  if (head === null) return { connected: false, message, needsLogin: needsLogin(message) };
   const tools = message
     .split(/\r?\n/)
     .slice(1)
     .map((line) => /^\s*-\s+(.+?)\s*$/.exec(line)?.[1])
     .filter((name): name is string => name !== undefined);
   return { connected: true, toolCount: Number(head[1]), tools };
+}
+
+/**
+ * `/mcp reauth <name>` 在 rpc-ui 里的一条 command_output（omp 19.2.1 实测 + 读它的源码）：命令在后台跑，应答先回来，
+ * 之后陆续输出 `Reauthorizing "x"… opening your browser (5 minute timeout).`、`━━━ OAuth Authorization Required ━━━\n…\n<授权地址>`、
+ * `Waiting for browser authentication...`，最后一条是结果：`✓ Reauthorized "x" (user config). …`、`Reauthorization cancelled for "x".`，
+ * 或一句错误（`Failed to reauthorize server "x": …`、`Server "x" not found…`、`Server "x" is disabled…`、stdio 服务器不需要等）。
+ * 进度句没有固定清单：以 `…` / `...` 结尾的、`Reauthorizing` 开头的、带授权地址的当进度，其余都是结果。
+ */
+export type McpReauthLine =
+  | { kind: "progress"; url: string | null }
+  | { kind: "done"; message: string }
+  | { kind: "cancelled" }
+  | { kind: "failed"; message: string };
+
+export function classifyReauthLine(text: string): McpReauthLine {
+  const message = text.trim();
+  if (message.startsWith('✓ Reauthorized "')) return { kind: "done", message };
+  if (message.startsWith('Reauthorization cancelled for "')) return { kind: "cancelled" };
+  if (/OAuth Authorization Required/.test(message)) {
+    const url = /^https?:\/\/\S+$/m.exec(message)?.[0] ?? null;
+    return { kind: "progress", url };
+  }
+  if (message.startsWith('Reauthorizing "') || message.endsWith("…") || message.endsWith("..."))
+    return { kind: "progress", url: null };
+  return { kind: "failed", message };
 }

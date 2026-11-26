@@ -13,6 +13,7 @@ How to write it:
 ### Added
 
 - Slash menu rows for commands studio handles itself end with ↗, setting them apart from omp's own commands.
+- Settings → Integrations → MCP: servers that need OAuth show "Sign-in needed" after a connection test, with a sign-in button that authorizes in the browser; HTTP / SSE servers can also sign in again from the ⋯ menu.
 
 ### Fixed
 

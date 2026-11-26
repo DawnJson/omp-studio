@@ -2,7 +2,13 @@
 import { describe, expect, it } from "vitest";
 import { builtinCommandText, parseBuiltinCommand } from "../src/shared/omp-output/index.ts";
 import { splitChangelog } from "../src/shared/omp-output/changelog.ts";
-import { isManageableMcpName, mcpOutcome, parseMcpList, parseMcpTest } from "../src/shared/omp-output/mcp.ts";
+import {
+  classifyReauthLine,
+  isManageableMcpName,
+  mcpOutcome,
+  parseMcpList,
+  parseMcpTest,
+} from "../src/shared/omp-output/mcp.ts";
 import { parseSshList, sshWriteResult } from "../src/shared/omp-output/ssh.ts";
 import { deviceToolNames, parseTools, toolConfigKey, toolKind } from "../src/shared/omp-output/tools.ts";
 
@@ -77,7 +83,44 @@ describe("parseMcpTest（/mcp test）", () => {
 
   it("连不上：原文", () => {
     const text = 'Connection to "a" failed: MCP subprocess closed stdout before responding';
-    expect(parseMcpTest(text)).toEqual({ connected: false, message: text });
+    expect(parseMcpTest(text)).toEqual({ connected: false, message: text, needsLogin: false });
+  });
+
+  it("要 OAuth 登录：401 + WWW-Authenticate: Bearer（omp 19.2.1 实测 GitHub 的 MCP）", () => {
+    const text =
+      'Failed to connect to "github": HTTP 401: bad request: missing required Authorization header\n [WWW-Authenticate: Bearer error="invalid_request", error_description="No access token was provided in this request", resource_metadata="https://api.githubcopilot.com/.well-known/oauth-protected-resource/mcp/"]';
+    expect(parseMcpTest(text)).toMatchObject({ connected: false, needsLogin: true });
+    expect(parseMcpTest('Failed to connect to "x": HTTP 401: Unauthorized')).toMatchObject({ needsLogin: false });
+  });
+});
+
+describe("classifyReauthLine（rpc-ui 里 /mcp reauth 的 command_output，omp 19.2.1 实测）", () => {
+  const url =
+    "https://github.com/login/oauth/authorize?response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback&state=7e9d";
+
+  it("进度：开始、授权地址、等待", () => {
+    expect(classifyReauthLine('Reauthorizing "github"… opening your browser (5 minute timeout).')).toEqual({
+      kind: "progress",
+      url: null,
+    });
+    expect(
+      classifyReauthLine(
+        `━━━ OAuth Authorization Required ━━━\nOpening your browser to authorize. If it did not open:\n${url}`,
+      ),
+    ).toEqual({ kind: "progress", url });
+    expect(classifyReauthLine("Waiting for browser authentication...")).toEqual({ kind: "progress", url: null });
+  });
+
+  it("结果：成功、取消，其余句子都是失败（原话）", () => {
+    const done = '✓ Reauthorized "github" (user config). Server reconnected.';
+    expect(classifyReauthLine(done)).toEqual({ kind: "done", message: done });
+    expect(classifyReauthLine('Reauthorization cancelled for "github".')).toEqual({ kind: "cancelled" });
+    for (const failed of [
+      'Failed to reauthorize server "github": Authorization failed: timeout',
+      'Server "nope" not found. Run /mcp list to see configured servers.',
+      'Server "github" is disabled. Run /mcp enable github first.',
+    ])
+      expect(classifyReauthLine(failed)).toEqual({ kind: "failed", message: failed });
   });
 });
 

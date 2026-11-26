@@ -1,13 +1,15 @@
 // 设置 → 集成 → MCP 服务器（spec §4.19）：`/mcp list|add|remove|enable|disable|test` 的界面，加上直接改 omp 的 mcp.json 的编辑（McpForm）。
 // 数据来自 omp 的 command_output 原文（解析器 src/shared/omp-output/mcp.ts，解析不了的行原样显示）；用户范围在服务进程里跑，
 // 项目范围在项目目录里的短命 rpc-ui 里跑（列表合并了用户和项目两层，每行标出范围）。范围由集成页页头的下拉选（IntegrationsSection）。
-// 做不了的：`reauth` / `unauth` / `reconnect` 在 rpc-ui 里只回"only available in the TUI client"（实测 18.12.5），所以给出终端命令。
+// 登录：连接测试报 401 + `WWW-Authenticate: Bearer` 时徽标写"需要登录"、行尾出现登录按钮；http / sse 的服务器在 ⋯ 菜单里也能随时重新登录。
+// 登录本身是 omp 的 `/mcp reauth`（omp 19.2.1 起 rpc-ui 也认），在专用的短命 rpc-ui 里跑（McpLoginDialog）。`unauth` / `reconnect` 在 rpc-ui 里仍只回
+// "only available in the TUI client"，没有界面。
 import { useEffect, useState } from "react";
 import { isManageableMcpName, type McpServerRow, type McpTestResult } from "../../../../shared/omp-output/mcp.ts";
 import type { McpEditErrorCode, McpServerFile } from "../../../../shared/mcp-edit.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Plug, Plus, Restart } from "../../icons.tsx";
+import { Plug, Plus, Restart, SignIn } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
 import { Badge, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
@@ -17,6 +19,7 @@ import { pushToast } from "../dialogs/toast-store.ts";
 import { mcpResource, runMcpTest, runMcpWrite } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import { McpForm } from "./McpForm.tsx";
+import { McpLoginDialog } from "./McpLoginDialog.tsx";
 import { RowMenu } from "./RowMenu.tsx";
 import { TitleTip } from "./TitleTip.tsx";
 import { useAsyncAction } from "./use-async-action.ts";
@@ -33,6 +36,7 @@ function McpRow({
   onToggle,
   onEdit,
   onRemove,
+  onLogin,
 }: {
   row: McpServerRow;
   busy: boolean;
@@ -43,6 +47,8 @@ function McpRow({
   onToggle(next: boolean): void;
   onEdit(): void;
   onRemove(): void;
+  /** 只有能走 OAuth 的（http / sse）、omp 能管理的服务器有。 */
+  onLogin: (() => void) | null;
 }) {
   const t = useT();
   const manageable = isManageableMcpName(row.name);
@@ -56,8 +62,26 @@ function McpRow({
         : row.scope;
   // 卡片（.ui-cards）固定两行：测试连接的结果只是元信息行开头的一个徽标，不另起一行。连上了是 success 徽标
   // `已连接，N 个工具`，工具名在悬停里；连不上是 error 徽标，omp 的原话在悬停里（2026-11-06 仓库所有者：工具列表不能整串摊在卡片里）。
-  const failed = test !== undefined && test !== "running" && !test.connected ? test.message : null;
+  const failed = test !== undefined && test !== "running" && !test.connected ? test : null;
   const connected = test !== undefined && test !== "running" && test.connected ? test : null;
+  const needsLogin = failed?.needsLogin === true && onLogin !== null;
+  const menuItems = [
+    ...(onLogin !== null
+      ? [{ id: "login", label: t("integrations.mcp.login"), testId: `mcp-login-${row.name}`, onSelect: onLogin }]
+      : []),
+    ...(removable
+      ? [
+          { id: "edit", label: t("integrations.mcp.edit"), testId: `mcp-edit-${row.name}`, onSelect: onEdit },
+          {
+            id: "remove",
+            label: t("integrations.remove"),
+            tone: "danger" as const,
+            testId: `mcp-remove-${row.name}`,
+            onSelect: onRemove,
+          },
+        ]
+      : []),
+  ];
   return (
     <ListRow
       testId={`mcp-row-${row.name}`}
@@ -67,8 +91,12 @@ function McpRow({
         <>
           {showScope && scopeText !== "" && <Badge>{scopeText}</Badge>}
           {failed !== null && (
-            <Badge tone="error" title={failed} testId={`mcp-test-failed-${row.name}`}>
-              {t("integrations.mcp.testFailed")}
+            <Badge
+              tone={needsLogin ? "warning" : "error"}
+              title={failed.message}
+              testId={needsLogin ? `mcp-needs-login-${row.name}` : `mcp-test-failed-${row.name}`}
+            >
+              {needsLogin ? t("integrations.mcp.needsLogin") : t("integrations.mcp.testFailed")}
             </Badge>
           )}
           {connected !== null && (
@@ -90,6 +118,16 @@ function McpRow({
       }
       actions={
         <>
+          {needsLogin && (
+            <IconButton
+              label={t("integrations.mcp.login")}
+              disabled={busy}
+              onClick={onLogin}
+              testId={`mcp-login-button-${row.name}`}
+            >
+              <SignIn />
+            </IconButton>
+          )}
           <IconButton
             label={t("integrations.mcp.test")}
             disabled={busy || !manageable}
@@ -108,29 +146,15 @@ function McpRow({
           />
           <RowMenu
             label={
-              removable
+              menuItems.length > 0
                 ? t("integrations.more")
                 : manageable
                   ? t("integrations.mcp.edit.external")
                   : t("integrations.mcp.unmanageable")
             }
-            disabled={busy || !removable}
+            disabled={busy || menuItems.length === 0}
             testId={`mcp-more-${row.name}`}
-            items={[
-              {
-                id: "edit",
-                label: t("integrations.mcp.edit"),
-                testId: `mcp-edit-${row.name}`,
-                onSelect: onEdit,
-              },
-              {
-                id: "remove",
-                label: t("integrations.remove"),
-                tone: "danger",
-                testId: `mcp-remove-${row.name}`,
-                onSelect: onRemove,
-              },
-            ]}
+            items={menuItems}
           />
         </>
       }
@@ -153,6 +177,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
   } = useDialogSlot<McpServerFile>();
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const { slot: login, open: openLogin, closed: loginClosed } = useDialogSlot<string>();
   const { busy, run } = useAsyncAction((error) => setFailure(errorDetail(error)));
 
   useEffect(() => {
@@ -193,7 +218,10 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
       const result = await runMcpTest(name, scope);
       setTests((current) => ({ ...current, [name]: result }));
     } catch (error) {
-      setTests((current) => ({ ...current, [name]: { connected: false, message: errorDetail(error) } }));
+      setTests((current) => ({
+        ...current,
+        [name]: { connected: false, message: errorDetail(error), needsLogin: false },
+      }));
     }
   };
 
@@ -252,6 +280,11 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
               }
               onEdit={() => void startEdit(row)}
               onRemove={() => openRemoving(row)}
+              onLogin={
+                isManageableMcpName(row.name) && (row.transport === "http" || row.transport === "sse")
+                  ? () => openLogin(row.name)
+                  : null
+              }
             />
           ))}
         </div>
@@ -284,6 +317,21 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
           onDone={(message) => {
             editingClosed(editing.key);
             if (message !== null) pushToast({ message });
+          }}
+        />
+      )}
+      {login !== null && (
+        <McpLoginDialog
+          key={login.key}
+          name={login.value}
+          projectId={scopeProject(scope)}
+          onDone={(outcome) => {
+            loginClosed(login.key);
+            if (outcome === null) return;
+            if (outcome.kind === "done") {
+              pushToast({ message: outcome.message });
+              void runTest(login.value);
+            } else if (outcome.kind === "failed") setFailure(outcome.message);
           }}
         />
       )}

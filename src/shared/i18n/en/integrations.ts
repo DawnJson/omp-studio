@@ -19,8 +19,11 @@ export const integrations = {
   "mcp.test": "Test connection",
   "mcp.connected": "Connected, {count} tools",
   "mcp.testFailed": "Connection failed",
+  "mcp.needsLogin": "Sign-in needed",
+  "mcp.login": "Sign in",
+  "mcp.login.title": "Sign in to {name}",
   "mcp.unmanageable": "The name has special characters; edit the config file instead",
-  "mcp.note": "Applies to new tasks; authorize OAuth in the terminal",
+  "mcp.note": "Applies to new tasks",
   "mcp.remove.title": "Remove MCP server “{name}”?",
   "mcp.remove.body":
     "This removes the entry from omp's {scope} config. A server with the same name in the other scope is not affected.",
