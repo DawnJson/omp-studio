@@ -667,3 +667,46 @@ test("动效补充：命令面板只淡入（遮罩 pl-fade、面板无动画无
     await launched.close();
   }
 });
+
+test("侧栏悬停预览：收起后鼠标停在最左边才盖在主区上滑出（路过不算），主区宽度不变、里面能操作；离开后收回", async () => {
+  const launched = await launchApp();
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1400, height: 800 });
+    const root = page.getByTestId("app-root");
+    const column = page.getByTestId("sidebar-column");
+    const main = page.getByTestId("main-panel");
+    await expect(root).toHaveAttribute("data-sidebar", "shown");
+    await page.getByTestId("topbar-sidebar").click();
+    await expect(root).toHaveAttribute("data-sidebar", "hidden");
+    // 收起动画放完、主区宽度稳定
+    await expect.poll(async () => (await main.boundingBox())!.x).toBe(8);
+    const mainBox = (await main.boundingBox())!;
+    // 记下预览打开过几次：路过的那次不该算
+    await page.evaluate(`(() => {
+      window.__peekOpens = 0;
+      new MutationObserver(() => {
+        if (document.getElementById("app").dataset.peek === "open") window.__peekOpens += 1;
+      }).observe(document.getElementById("app"), { attributes: true, attributeFilter: ["data-peek"] });
+    })()`);
+    // 路过：进热区马上离开
+    await page.mouse.move(700, 400);
+    await page.mouse.move(3, 400);
+    await page.mouse.move(700, 400);
+    // 停住：200ms 后滑出，盖在主区上（左边贴窗口），主区不动
+    await page.mouse.move(3, 400);
+    await expect(root).toHaveAttribute("data-peek", "open");
+    await expect.poll(async () => (await column.boundingBox())!.x).toBeCloseTo(0, 0);
+    expect(await main.boundingBox()).toEqual(mainBox);
+    const search = page.getByTestId("sidebar-search");
+    await search.click();
+    await expect(search).toBeFocused();
+    // 离开侧栏：收回，主区仍不动
+    await page.mouse.move(900, 400);
+    await expect(root).not.toHaveAttribute("data-peek", /.*/);
+    expect(await main.boundingBox()).toEqual(mainBox);
+    expect(await page.evaluate("window.__peekOpens")).toBe(1);
+  } finally {
+    await launched.close();
+  }
+});

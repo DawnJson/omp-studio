@@ -73,6 +73,7 @@ import { useShortcuts } from "./use-shortcuts.ts";
 import { useCopyOnSelect } from "./use-copy-on-select.ts";
 import { restartSession } from "./restart-session.ts";
 import { usePaneColumnHold, useRightPanelWidth } from "./right-panel-slide.ts";
+import { useSidebarPeek } from "./use-sidebar-peek.ts";
 import { TooltipLayer } from "../ui/Tooltip.tsx";
 import { EditMenu } from "./EditMenu.tsx";
 
@@ -292,6 +293,9 @@ export function App() {
 
   const sidebarShown = narrow ? drawerOpen : !sidebarCollapsed;
   const drawerScrim = usePresence(narrow && drawerOpen, "fade");
+  // 宽窗口收起侧栏后，鼠标贴左边缘临时滑出侧栏（盖在主区上，不改主区宽度）
+  const peekEnabled = !narrow && sidebarCollapsed;
+  const peek = useSidebarPeek(peekEnabled);
 
   // 选了任务或变宽之后，抽屉自动收起。
   useEffect(() => setDrawerOpen(false), [taskId, narrow]);
@@ -474,6 +478,7 @@ export function App() {
       data-locale={appInfo?.locale}
       data-sidebar={sidebarShown ? "shown" : "hidden"}
       data-drawer={narrow}
+      data-peek={peek.state ?? undefined}
     >
       <TopBar sidebarShown={sidebarShown} onToggleSidebar={toggleSidebar} />
       <div className="body">
@@ -485,12 +490,14 @@ export function App() {
             onPointerDown={() => setDrawerOpen(false)}
           />
         )}
+        {peekEnabled && <div className="sidebar-peek-zone" data-testid="sidebar-peek-zone" {...peek.zone} />}
         <div
           ref={sidebarColumn}
           className="sidebar-column"
           data-testid="sidebar-column"
-          inert={!sidebarShown}
+          inert={!sidebarShown && peek.state !== "open"}
           style={{ "--sidebar-current": `${sidebarWidth}px` } as CSSProperties}
+          {...peek.column}
         >
           {/* 进设置时侧栏位置换成设置导航；窄窗口的抽屉里仍是会话列表，设置导航改成内容顶上的下拉 */}
           {view === "settings" && !narrow ? <SettingsNav /> : <Sidebar />}

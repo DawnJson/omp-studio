@@ -14,6 +14,7 @@ How to write it:
 
 - Slash menu rows for commands studio handles itself end with ↗, setting them apart from omp's own commands.
 - Settings → Integrations → MCP: servers that need OAuth show "Sign-in needed" after a connection test, with a sign-in button that authorizes in the browser; HTTP / SSE servers can also sign in again from the ⋯ menu.
+- With the sidebar collapsed, resting the mouse on the window's left edge slides the sidebar out over the main area so you can switch tasks; it tucks away again when the mouse leaves.
 
 ### Fixed
 

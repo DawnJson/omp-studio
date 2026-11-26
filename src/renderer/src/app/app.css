@@ -191,6 +191,44 @@ html[data-platform="darwin"] .topbar-left {
     visibility 0s linear var(--dur-pane);
 }
 
+/* 悬停预览（app/use-sidebar-peek.ts，spec §2.6）：收起的侧栏临时盖在主区上滑出来，主区宽度不变。
+ * 列仍带着收起时的 margin-left（整列在窗口左边外），用 transform 平移回来：撤掉 data-peek 时 margin 没变，
+ * 不会触发上面 margin-left 的过渡、让主区跟着动。 */
+.sidebar-peek-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: calc(var(--z-popover) - 1);
+  width: var(--space-2);
+}
+#app[data-peek] .sidebar-column {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-popover);
+  visibility: visible;
+  transform: translateX(var(--sidebar-current, var(--sidebar-w)));
+  box-shadow: var(--shadow-2);
+  transition: none;
+  animation: peek-in var(--dur-base) var(--ease-pane);
+}
+#app[data-peek="closing"] .sidebar-column {
+  pointer-events: none;
+  animation: peek-out var(--dur-base-exit) var(--ease-pane) forwards;
+}
+@keyframes peek-in {
+  from {
+    transform: none;
+  }
+}
+@keyframes peek-out {
+  to {
+    transform: none;
+  }
+}
+
 /* 窄窗口的抽屉：盖在主区上，只动 transform 滑进滑出，主区宽度不变 */
 #app[data-drawer="true"] .sidebar-column {
   position: absolute;
@@ -328,8 +366,9 @@ html[data-platform="darwin"] .topbar-left {
 :root[data-glass] #app {
   background: color-mix(in srgb, var(--bg-sidebar) 75%, transparent);
 }
-/* 窄窗口的抽屉是盖在主区面板上的一张，底下是面板不是玻璃：照旧画实底（侧栏 .sb 跟着透明，露出这张底）。 */
-:root[data-glass] #app[data-drawer="true"] .sidebar-column {
+/* 窄窗口的抽屉、收起后的悬停预览都是盖在主区面板上的一张，底下是面板不是玻璃：照旧画实底（侧栏 .sb 跟着透明，露出这张底）。 */
+:root[data-glass] #app[data-drawer="true"] .sidebar-column,
+:root[data-glass] #app[data-peek] .sidebar-column {
   background: var(--bg-sidebar);
 }
 

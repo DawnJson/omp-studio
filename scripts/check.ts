@@ -722,6 +722,8 @@ function scanDuplicateClasses(rules: CssRule[]): Finding[] {
  */
 const ENTRY_ANIMATIONS: Record<string, string> = {
   "src/renderer/src/app/app.css|.drawer-scrim": "App.tsx 的 drawerScrim（usePresence fade）",
+  "src/renderer/src/app/app.css|#app[data-peek] .sidebar-column":
+    "app/use-sidebar-peek.ts：收回时 data-peek=closing 放 peek-out，animationend 后撤掉",
   "src/renderer/src/app/app.css|.scrim": "ui/Dialog.tsx（usePresence，遮罩 data-closing=fade）",
   "src/renderer/src/features/composer/composer.css|.slash": "SlashMenu / FileMenu / HistorySearch（usePresence pop）",
   "src/renderer/src/features/dialogs/dialogs.css|.toast": "Toasts.tsx（usePresence，toast-out）",
