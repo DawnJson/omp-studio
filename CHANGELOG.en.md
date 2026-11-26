@@ -10,6 +10,10 @@ How to write it:
 
 ## [Unreleased]
 
+### Fixed
+
+- Diagrams drawn in answers now use studio's theme colors and follow light/dark switches; before, they could show light text on a light background.
+
 ### Changed
 
 - The goal bar stands out more: a target icon in front, a background and left stripe colored by status (theme accent while active, amber when paused, red when the budget runs out), and the time the goal has been running.

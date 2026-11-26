@@ -3,6 +3,9 @@ import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "
 import { markHeight, piWidth } from "../../../../../shared/ui/pixel-pi.ts";
 import type { TspText, TspTableColumn, TspTreeNode } from "../../../../../shared/tsp/tsp.generated.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
+import { documentFigureSignature, parseFigureId } from "../../../../../shared/tsp/figures.ts";
+import type { TaskId } from "../../../../../shared/ipc.ts";
+import { useTaskValue } from "../../../store/index.ts";
 import { useT } from "../../../i18n/use-t.ts";
 import { ChevronRight } from "../../../icons.tsx";
 import { themedSvgUrl, useFigurePalette } from "../../../markdown/figure-palette.ts";
@@ -17,6 +20,7 @@ import { asArray, asString } from "../props-util.ts";
 import { plainText, TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
 import { peekTspBlob, peekTspNode, useTspBlob, type TspImage } from "../tsp-store.ts";
+import { peekFigureSource, useFigureSource } from "../figure-source-store.ts";
 import { useReducedMotion } from "../use-clock.ts";
 import { openZoom } from "../zoom-store.ts";
 import { MeterView } from "./motion.tsx";
@@ -297,18 +301,44 @@ function imageSrc(image: TspImage, palette: Readonly<Record<string, string>>): s
   return image.kind === "svg" ? themedSvgUrl(image.svg, palette) : image.url;
 }
 
+/**
+ * 回复里的 ```svg 图（role `omp.figure.svg`）：omp 发的是按它自己主题栅格化的 PNG，这里算出它在会话文件里的签名
+ * （shared/tsp/figures.ts），拿到源码就按 studio 的主题画。认不出的节点为 null。
+ */
+function figureKey(taskId: TaskId, sf: string, node: NodeProps["node"]): { signature: string; ordinal: number } | null {
+  if (node.p.role !== "omp.figure.svg" || node.parent === null) return null;
+  const figure = parseFigureId(node.id);
+  const parent = peekTspNode(taskId, sf, node.parent);
+  if (figure === null || parent === null) return null;
+  const signature = documentFigureSignature(figure, parent.c, (id) => {
+    const sibling = peekTspNode(taskId, sf, id);
+    return sibling?.k === "md" ? (asString(sibling.p.text) ?? "") : null;
+  });
+  return { signature, ordinal: figure.ordinal };
+}
+
 export function Image(props: NodeProps) {
   const { node, ctx } = props;
   const p = node.p;
   const blob = useTspBlob(ctx.taskId, asString(p.blob));
   const palette = useFigurePalette();
   const alt = asString(p.alt) ?? "";
-  const w = typeof p.w === "number" && p.w > 0 ? p.w : undefined;
-  const h = typeof p.h === "number" && p.h > 0 ? p.h : undefined;
+  // 图后面的文字在流式中还在长：一轮结束时再算一次签名（这时回复也写进了会话文件）。
+  const turnEnd = useTaskValue(ctx.taskId, (task) => task?.lastTurn?.endedAt ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const figure = useMemo(() => figureKey(ctx.taskId, ctx.sf, node), [ctx.taskId, ctx.sf, node, turnEnd]);
+  const figureSvg = useFigureSource(ctx.taskId, figure?.signature ?? null, figure?.ordinal ?? 0);
+  // 换成 studio 画的图时用 svg 自己的尺寸（viewBox），不用 omp 栅格化的像素尺寸。
+  const w = figureSvg === null && typeof p.w === "number" && p.w > 0 ? p.w : undefined;
+  const h = figureSvg === null && typeof p.h === "number" && p.h > 0 ? p.h : undefined;
   const maxH = extentToCss(isRecord(p.max) ? p.max.h : undefined, "h");
-  const src = useMemo(() => (blob === null ? null : imageSrc(blob, palette)), [blob, palette]);
+  const src = useMemo(
+    () => (figureSvg !== null ? themedSvgUrl(figureSvg, palette) : blob === null ? null : imageSrc(blob, palette)),
+    [figureSvg, blob, palette],
+  );
   const reduced = useReducedMotion();
-  const missing = p.builtin !== "omp" && (src === null || !(blob?.mime ?? "").startsWith("image/"));
+  const missing =
+    p.builtin !== "omp" && figureSvg === null && (src === null || !(blob?.mime ?? "").startsWith("image/"));
 
   // zoom：同一个父节点下的 blob 图一起翻。
   const zoom = (): void => {
@@ -317,10 +347,13 @@ export function Image(props: NodeProps) {
     const items: { src: string; alt: string; id: string }[] = [];
     for (const id of parent?.c ?? [node.id]) {
       const sibling = peekTspNode(ctx.taskId, ctx.sf, id);
-      const siblingBlob = sibling?.k === "image" ? peekTspBlob(ctx.taskId, asString(sibling.p.blob)) : null;
-      if (sibling && siblingBlob && (siblingBlob.mime ?? "").startsWith("image/")) {
+      if (sibling?.k !== "image") continue;
+      const key = figureKey(ctx.taskId, ctx.sf, sibling);
+      const svg = key === null ? null : peekFigureSource(ctx.taskId, key.signature, key.ordinal);
+      const siblingBlob = peekTspBlob(ctx.taskId, asString(sibling.p.blob));
+      if (svg !== null) items.push({ src: themedSvgUrl(svg, palette), alt: asString(sibling.p.alt) ?? "", id });
+      else if (siblingBlob && (siblingBlob.mime ?? "").startsWith("image/"))
         items.push({ src: imageSrc(siblingBlob, palette), alt: asString(sibling.p.alt) ?? "", id });
-      }
     }
     const index = items.findIndex((item) => item.id === node.id);
     openZoom(index >= 0 ? items : [{ src, alt, id: node.id }], Math.max(index, 0), reduced);

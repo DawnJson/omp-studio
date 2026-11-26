@@ -7,6 +7,7 @@ import type { SessionModelUsage } from "../../shared/ipc.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { SessionUsageAccumulator } from "../history/session-usage.ts";
 import { SessionExtrasAccumulator } from "./session-extras.ts";
+import { SessionFigureIndex } from "./session-figures.ts";
 import { SessionReaderCache, type SessionEntryConsumer, type SessionFileEntry } from "./session-file-reader.ts";
 
 /**
@@ -108,6 +109,7 @@ export interface SessionFileState {
   title: SessionTitleTracker;
   fallback: ModelFallbackTracker;
   pins: CredentialPinTracker;
+  figures: SessionFigureIndex;
 }
 
 const sessionFiles = new SessionReaderCache<SessionFileState>(() => ({
@@ -116,6 +118,7 @@ const sessionFiles = new SessionReaderCache<SessionFileState>(() => ({
   title: new SessionTitleTracker(),
   fallback: new ModelFallbackTracker(),
   pins: new CredentialPinTracker(),
+  figures: new SessionFigureIndex(),
 }));
 
 /** 把 file 新追加的完整行读进累加器。文件不存在（第一条回复之后才落盘）时累加器为空；超过 MAX_SESSION_FILE_BYTES 抛错。 */

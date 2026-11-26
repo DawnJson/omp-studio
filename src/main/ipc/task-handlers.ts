@@ -78,6 +78,7 @@ export const taskHandlers: HandlerGroup<
   | "getTspBlob"
   | "getTspSeq"
   | "getTspSessionExtras"
+  | "getTspFigureSources"
   | "readTspContext"
   | "sendTspEvent"
   | "sendTspKeys"
@@ -217,6 +218,11 @@ export const taskHandlers: HandlerGroup<
     return tspFeed().delivered(id, (await getTaskPool()).getTspSeq(id));
   },
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),
+  getTspFigureSources: async (taskId, signature) =>
+    (await getTaskPool()).getTspFigureSources(
+      parseTaskId(taskId),
+      parseString(signature, "signature", limits.figureSignatureMaxChars, { allowEmpty: true }),
+    ),
   readTspContext: async (taskId) => (await getTaskPool()).readTspContext(parseTaskId(taskId)),
 
   sendTspEvent: async (taskId, event) => {

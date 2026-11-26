@@ -1419,6 +1419,17 @@ export class TspRunner {
     }
   }
 
+  /** 回复里 ```svg 图的源码（签名见 shared/tsp/figures.ts）：会话文件里还没有、对应了不同的图、读失败时为 null。 */
+  async figureSources(signature: string): Promise<readonly string[] | null> {
+    try {
+      const session = await this.#readSessionFile();
+      return session?.figures.find(signature) ?? null;
+    } catch (error) {
+      log.warn("reading the session file for figures failed", { taskId: this.id, message: String(error) });
+      return null;
+    }
+  }
+
   /**
    * 把当前会话文件新追加的部分读进累加器：只读上次之后的字节（会话文件动辄上百 MB，整份重读会卡主进程）。
    * 读取器按文件共用（tsp/session-files.ts），任务占住当前文件的那个；会话文件换了（分叉、新会话、/move）换着占。

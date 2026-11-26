@@ -432,6 +432,11 @@ export class TaskPool {
     return this.#runner(id).sessionExtras();
   }
 
+  /** 回复里 ```svg 图的源码（TspRunner.figureSources）。 */
+  getTspFigureSources(id: TaskId, signature: string): Promise<readonly string[] | null> {
+    return this.#runner(id).figureSources(signature);
+  }
+
   /** omp 现算的上下文构成（TspRunner.readContext）；读不到为 null。 */
   readTspContext(id: TaskId): Promise<ContextReport | null> {
     return this.#runner(id).readContext();

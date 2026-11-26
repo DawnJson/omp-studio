@@ -1179,6 +1179,11 @@ export interface StudioInvokeApi {
   /** 用量脚注（omp 恢复会话时不重发，从会话文件补）；读不到时 `{ turns: [] }`，不抛错。 */
   getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
   /**
+   * 回复里 ```svg 图的源码：omp 在 TSP 里只发它按自己主题栅格化的 PNG，studio 按签名（shared/tsp/figures.ts）从会话文件找回源码自己画。
+   * 这段文字里的 svg 源码按出现顺序；会话文件里还没有（回复还没写盘）、对应了不同的图时为 null，不抛错。
+   */
+  getTspFigureSources(taskId: TaskId, signature: string): Promise<readonly string[] | null>;
+  /**
    * omp 现算的上下文构成：主进程点 omp 输入框上的上下文 meter，读它弹出的报告再关掉（运行中也能读）。
    * 没有 omp 进程、输入框被提问 / 审批 / 全屏面板占着时为 null。
    */
@@ -1727,6 +1732,8 @@ export const composerFilesChannel = "studio:composerFiles";
 
 export const limits = {
   titleMaxChars: 200,
+  /** getTspFigureSources 的签名（一段回复被 svg 围栏切开后的文字）最多多少字符。 */
+  figureSignatureMaxChars: 500_000,
   promptMaxImages: 8,
   promptMaxFiles: 20,
   apiKeyMaxChars: 4096,
@@ -1799,6 +1806,7 @@ export const invokeNames = {
   getTspBlob: true,
   getTspSeq: true,
   getTspSessionExtras: true,
+  getTspFigureSources: true,
   readTspContext: true,
   sendTspEvent: true,
   sendTspKeys: true,
