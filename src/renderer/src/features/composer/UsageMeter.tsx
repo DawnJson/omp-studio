@@ -6,6 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { DraftContextBreakdown, prefetchCompaction, TaskContextBreakdown } from "./ContextBreakdown.tsx";
 import { hasModelUsage, ModelBreakdown, useModelUsage } from "./ModelBreakdown.tsx";
 import { Popover } from "../../ui/Popover.tsx";
+import { FlipText } from "../../ui/FlipText.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
@@ -70,7 +71,7 @@ function ContextButton({
         onClick={() => (open ? close() : setOpen(true))}
       >
         <Bar percent={context.percent} autoAt={autoAt} />
-        <span className="usage-context-pct">{formatPercent(context.percent)}%</span>
+        <FlipText className="usage-context-pct" value={`${formatPercent(context.percent)}%`} />
       </button>
       <Popover
         open={open}

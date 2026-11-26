@@ -80,6 +80,7 @@ function StatusLine({ task, label, facts }: { task: TaskState; label: string | n
           <FlipText
             className="run-elapsed"
             testId="run-elapsed"
+            role="timer"
             value={formatElapsed(now - task.runStartedAt, "seconds")}
           />
           <span className="run-sep" aria-hidden="true" />

@@ -9,6 +9,7 @@ import { goalButtons, goalElapsed, goalUsage, type GoalButton } from "./goal-mod
 import { Target } from "../../icons.tsx";
 import { Badge, Button } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
+import { FlipText } from "../../ui/FlipText.tsx";
 import { useHeld } from "../composer/use-held.ts";
 import "./goal.css";
 
@@ -49,7 +50,7 @@ export function GoalStrip({ taskId }: { taskId: TaskId }) {
           )}
           {goal.timeUsedSeconds > 0 && (
             <span className="goal-meta" data-testid="goal-time">
-              {goalElapsed(goal.timeUsedSeconds)}
+              <FlipText value={goalElapsed(goal.timeUsedSeconds)} />
             </span>
           )}
           {(goal.tokensUsed > 0 || goal.tokenBudget !== null) && (
@@ -60,7 +61,7 @@ export function GoalStrip({ taskId }: { taskId: TaskId }) {
                 budget: goal.tokenBudget ?? 0,
               })}
             >
-              {goalUsage(goal)}
+              <FlipText value={goalUsage(goal)} />
             </span>
           )}
           {goalButtons(goal).map((op) => (

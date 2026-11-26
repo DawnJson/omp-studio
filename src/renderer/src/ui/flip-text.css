@@ -1,5 +1,6 @@
-/* 翻牌文字（FlipText.tsx）：一个字符一个格，格高 = 行高、裁掉滚出格子的部分；旧字符滚出、新字符滚入。
-   位移用字符高度的比例，时长和缓动走令牌：减少动效时 --dur-base 为 0ms（FlipText 也不再渲染旧字符）。 */
+/* 翻牌文字（FlipText.tsx，spec §2.6「文字变化」）：变了的那段放进一个裁剪格，旧字滚出 / 淡出、新字滚入 / 淡入。
+   数字滚 --dur-base，整段换 --dur-slow，都是 --ease-pane；每位的起步延迟在 --flip-delay（从右往左每位晚一点）。
+   减少动效时时长为 0ms（FlipText 也不再渲染旧字）。 */
 .flip-text {
   display: inline-flex;
   font-variant-numeric: tabular-nums;
@@ -12,24 +13,45 @@
   /* 上下各留一点，字形的上伸 / 下伸不被裁 */
   padding-block: 0.1em;
   margin-block: -0.1em;
+  --flip-dur: var(--dur-base);
+  --flip-from: 70%;
+}
+.flip-char[data-motion="dec"] {
+  --flip-from: -70%;
+}
+/* 整段换：旧的那段可能比新的长，淡出时不裁（叠在后面的字上一瞬间） */
+.flip-char[data-motion="swap"] {
+  overflow: visible;
+  --flip-dur: var(--dur-slow);
+  --flip-from: 30%;
 }
 .flip-old {
   position: absolute;
   inset: 0.1em auto auto 0;
-  animation: flip-out var(--dur-base) var(--ease-out) forwards;
+  animation: flip-out var(--flip-dur) var(--ease-pane) var(--flip-delay, 0ms) both;
 }
-.flip-char[data-flipping] .flip-new {
-  animation: flip-in var(--dur-base) var(--ease-out);
+/* 这一位没了（10 → 9 的十位）：旧字自己撑着格子滚出去，放完 FlipText 收成纯文字 */
+.flip-char[data-gone] .flip-old {
+  position: static;
+}
+.flip-new {
+  display: inline-block;
+  animation: flip-in var(--flip-dur) var(--ease-pane) var(--flip-delay, 0ms) both;
 }
 @keyframes flip-out {
+  50% {
+    filter: blur(1.5px);
+  }
   to {
-    transform: translateY(-70%);
+    transform: translateY(calc(-1 * var(--flip-from)));
     opacity: 0;
+    filter: blur(1.5px);
   }
 }
 @keyframes flip-in {
   from {
-    transform: translateY(70%);
+    transform: translateY(var(--flip-from));
     opacity: 0;
+    filter: blur(1.5px);
   }
 }

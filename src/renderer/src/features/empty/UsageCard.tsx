@@ -4,6 +4,7 @@
 import { useEffect, useMemo } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge } from "../../ui/controls.tsx";
+import { FlipText } from "../../ui/FlipText.tsx";
 import { loadHeatmap, useUsageHeatmap } from "../composer/usage-store.ts";
 import { formatCost } from "../tsp/fmt.ts";
 import { formatTokens } from "../tsp/turn-footer.ts";
@@ -89,7 +90,7 @@ export function UsageCard() {
             ) : (
               <>
                 <span className="eu-total" data-testid="empty-usage-total">
-                  {week}
+                  <FlipText value={week} />
                 </span>
                 <span className="eu-cost">{formatCost(overview.weekCost)}</span>
               </>

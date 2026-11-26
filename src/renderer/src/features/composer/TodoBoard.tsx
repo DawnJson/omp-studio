@@ -17,6 +17,7 @@ import { CopyGlyph, useCopy } from "../../ui/CopyGlyph.tsx";
 import { Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { MenuList, type MenuEntry } from "../../ui/Menu.tsx";
 import { Popover } from "../../ui/Popover.tsx";
+import { FlipText } from "../../ui/FlipText.tsx";
 import { summarizePhase, toRoman, type TodoSummary } from "../conversation/todo-model.ts";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { runTodo } from "./todo-actions.ts";
@@ -107,9 +108,7 @@ export function TodoBoard({
         {/* 照 Tern 里的 omp：进度环（已完成 / 总数，0 是一个圆点）+ 当前项（全部完成时写"全部完成"）+ 计数。 */}
         <TodoMark state="progress" progress={total > 0 ? done / total : 0} className="todo-board-mark" />
         {label && <span className="todo-current">{label}</span>}
-        <span className="todo-count">
-          {done}/{total}
-        </span>
+        <FlipText className="todo-count" value={`${done}/${total}`} />
       </button>
       <Popover open={open} onClose={close} align="end" width={380} label={t("conversation.todoTitle")}>
         <div className="todo-popover" id={panelId} data-testid="todo-popover" aria-busy={busy}>
