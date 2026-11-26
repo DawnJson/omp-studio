@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.12.0] - 2026-11-26
+
 ### 新增
 
 - 支持 omp 19 的计划审核：计划正文按 Markdown 显示，选中文字可以加批注（能改、能删），双击正文直接改 Markdown 原文；Approve 旁边的下拉里可以选"Approve and execute"等。

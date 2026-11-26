@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-26
+
 ### Added
 
 - Plan review from omp 19: the plan body is shown as Markdown, selected text can get comments (editable and removable), and double-clicking the body edits the Markdown source in place; the menu next to Approve offers "Approve and execute" and more.
