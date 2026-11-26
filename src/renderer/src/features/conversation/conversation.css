@@ -457,7 +457,7 @@ html[data-motion="reduced"] .step-actions {
   overflow-wrap: anywhere;
 }
 .step-todo-task-note {
-  color: var(--st-waiting-text);
+  color: var(--text-3);
   font-size: var(--fs-xs);
 }
 .step-todo-ring {
@@ -486,9 +486,6 @@ html[data-motion="reduced"] .step-actions {
 }
 .step-todo-ring[data-state="abandoned"] {
   border-color: var(--st-error);
-}
-.step-todo-ring[data-state="blocked"] {
-  border-color: var(--st-waiting);
 }
 
 /* Ask：回答后问题 + 全部选项，选中的带 ✓。 */

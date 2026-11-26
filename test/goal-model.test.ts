@@ -1,13 +1,7 @@
 // 目标模式的纯函数：/goal 参数、按钮、用量文字。
 import { describe, expect, it } from "vitest";
 import type { TaskGoal } from "../src/shared/ipc.ts";
-import {
-  formatTokens,
-  goalButtons,
-  goalElapsed,
-  goalUsage,
-  parseGoalArgs,
-} from "../src/renderer/src/features/goal/goal-model.ts";
+import { goalButtons, goalElapsed, goalUsage, parseGoalArgs } from "../src/renderer/src/features/goal/goal-model.ts";
 
 const goal = (extra: Partial<TaskGoal> = {}): TaskGoal => ({
   id: "g",
@@ -40,18 +34,9 @@ describe("goalButtons", () => {
   });
 });
 
-describe("formatTokens / goalUsage", () => {
-  it("紧凑的 token 数", () => {
-    expect(formatTokens(0)).toBe("0");
-    expect(formatTokens(999)).toBe("999");
-    expect(formatTokens(1_000)).toBe("1k");
-    expect(formatTokens(9_323)).toBe("9.3k");
-    expect(formatTokens(12_345)).toBe("12k");
-    expect(formatTokens(1_500_000)).toBe("1.5M");
-  });
-
+describe("goalUsage", () => {
   it("有预算时显示 已用 / 预算", () => {
-    expect(goalUsage({ tokensUsed: 9_323, tokenBudget: 20_000 })).toBe("9.3k / 20k");
+    expect(goalUsage({ tokensUsed: 9_323, tokenBudget: 20_000 })).toBe("9.3K / 20K");
     expect(goalUsage({ tokensUsed: 800, tokenBudget: null })).toBe("800");
   });
 });

@@ -8,7 +8,7 @@ import type { ToolStep } from "./model.ts";
 import { summarizePhase } from "./todo-model.ts";
 import { askViews, type AskView } from "./tool-view.ts";
 
-function TodoRing({ state }: { state: "pending" | "active" | "done" | "abandoned" | "blocked" }) {
+function TodoRing({ state }: { state: "pending" | "active" | "done" | "abandoned" }) {
   return (
     <span className="step-todo-ring" data-state={state} aria-hidden="true">
       {state === "done" ? <Check size={10} /> : null}
@@ -52,7 +52,7 @@ export function TodoView({ phases }: { phases: readonly TodoPhase[] }) {
                     }
                   />
                   <span className="step-todo-task-text">{task.content}</span>
-                  {task.blocker !== undefined && <span className="step-todo-task-note">{task.blocker}</span>}
+                  {task.notes?.at(-1) !== undefined && <span className="step-todo-task-note">{task.notes.at(-1)}</span>}
                 </div>
               ))}
           </div>

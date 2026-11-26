@@ -1,10 +1,14 @@
 // 过程区里的控件（提问/审批的选项列表、模型选择器的输入）拿着键盘，用完被 omp 撤掉时焦点会掉到 <body>。
 // 这时把焦点还给 studio 输入框；只在"刚才拿着焦点的那个元素被撤掉"时才还，用户点了别处（焦点本来就在 body）不抢。
 import { useEffect, type RefObject } from "react";
+import { ASK_CARD_ROLE, ASK_GATE_ROLE } from "../../../../shared/tsp/ask-gate.ts";
 
 const tspSelector = '[data-testid="tsp-view"]';
-// 提问对话框还在（只是换了页）：它自己的根节点会把焦点拿回去（AskGate.tsx），这里不能先抢走。
-const askGateSelector = `${tspSelector} [data-role="omp.editor.ask"][data-tspi-keys]`;
+// 提问对话框还在（只是换了页 / 换了题）：它自己的根节点会把焦点拿回去（AskGate.tsx），这里不能先抢走。
+// omp 18 是 dock 里的 `omp.editor.ask`，omp 19 是 main 里的 `omp.ask.card`。
+const askGateSelector = [ASK_GATE_ROLE, ASK_CARD_ROLE]
+  .map((role) => `${tspSelector} [data-role="${role}"][data-tspi-keys]`)
+  .join(", ");
 
 export function useReclaimFocus(field: RefObject<HTMLTextAreaElement | null>): void {
   useEffect(() => {

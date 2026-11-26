@@ -1,11 +1,14 @@
-// 数字的紧凑显示：上下文窗口、token 数、价格。K / M 不分语言，和 omp 终端里的写法一致。
+// 数字的紧凑显示：上下文窗口、token 数、价格。K / M / B 不分语言。界面上的紧凑 token 数都用 formatCount；
+// 只有每轮脚注（tsp/turn-footer.ts）照 omp 终端的写法，和 omp 实时画的那行保持一致。
 
-/** 12_345 → "12.3K"，1_000_000 → "1M"；小于 1000 原样。 */
+const oneDecimal = (value: number, size: number): number => Number((value / size).toFixed(1));
+
+/** 12_345 → "12.3K"，999_960 → "1M"，1_500_000_000 → "1.5B"；小于 1000 原样。 */
 export function formatCount(value: number): string {
-  const trim = (n: number) => String(Number(n.toFixed(1)));
-  if (value >= 1_000_000) return `${trim(value / 1_000_000)}M`;
-  if (value >= 1_000) return `${trim(value / 1_000)}K`;
-  return String(Math.round(value));
+  if (value < 1_000) return String(Math.round(value));
+  if (oneDecimal(value, 1_000) < 1_000) return `${oneDecimal(value, 1_000)}K`;
+  if (oneDecimal(value, 1_000_000) < 1_000) return `${oneDecimal(value, 1_000_000)}M`;
+  return `${oneDecimal(value, 1_000_000_000)}B`;
 }
 
 /** 美元金额。会话累计费用常常只有几分之一美分，0 < 金额 < 0.01 时保留 4 位小数，不然全是 $0.00；正好 0 写 $0.00。 */

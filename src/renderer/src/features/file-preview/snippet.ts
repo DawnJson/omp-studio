@@ -43,6 +43,6 @@ export function snippetFile(snippet: Snippet, palette: Readonly<Record<string, s
   const { kind, code } = snippet;
   const base = { path: "", size: new TextEncoder().encode(code).length, text: code, canOpen: false };
   if (kind === "html") return { ...base, kind: "html" };
-  if (kind === "svg") return { ...base, kind: "image", dataUrl: svgDataUrl(prepareSvg(code, palette)) };
+  if (kind === "svg") return { ...base, kind: "image", imageUrl: svgDataUrl(prepareSvg(code, palette)) };
   return { ...base, kind: "text" };
 }

@@ -201,6 +201,9 @@ const TSP_RENDERER_EVENTS = [
   "undo",
   "send",
   "focus",
+  "comment",
+  "uncomment",
+  "editing",
 ] as const;
 
 /** 形状校验：事件名在白名单里；字段原样交给 omp（TSP 规范：形状不对的字段 omp 自己忽略）。 */

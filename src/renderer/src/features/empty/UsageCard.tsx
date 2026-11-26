@@ -6,8 +6,8 @@ import { useT } from "../../i18n/use-t.ts";
 import { Badge } from "../../ui/controls.tsx";
 import { FlipText } from "../../ui/FlipText.tsx";
 import { loadHeatmap, useUsageHeatmap } from "../composer/usage-store.ts";
+import { formatCount } from "../composer/usage-format.ts";
 import { formatCost } from "../tsp/fmt.ts";
-import { formatTokens } from "../tsp/turn-footer.ts";
 import { localDateText, MAX_DOTS, OVERVIEW_WEEKS, usageOverview, type UsageOverview } from "./usage-overview.ts";
 
 const PITCH = 8;
@@ -71,8 +71,8 @@ export function UsageCard() {
     );
   }
 
-  const week = `${formatTokens(overview.weekTokens)} tok`;
-  const today = formatTokens(overview.todayTokens);
+  const week = `${formatCount(overview.weekTokens)} tok`;
+  const today = formatCount(overview.todayTokens);
   return (
     <section
       className="eu"

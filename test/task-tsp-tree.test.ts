@@ -64,6 +64,8 @@ interface Harness {
   /** 假 omp 回放的录制（fixtures/tsp/<名字>.jsonl）。 */
   fixture: { current: string };
   states: TaskState[];
+  /** 再传给假 omp 的环境变量（如回溯换到的文件 FAKE_TSP_REWIND_FILE）。 */
+  env: { current: Record<string, string> };
 }
 
 const pools: TaskPool[] = [];
@@ -77,6 +79,7 @@ async function harness(): Promise<Harness> {
   const log = path.join(scratch, `omp-log-${counter}.jsonl`);
   const sessionFile: { current: string | null } = { current: null };
   const fixture = { current: "session-tree" };
+  const env: { current: Record<string, string> } = { current: {} };
   const pool = new TaskPool({
     registry,
     getSettings: async () => settings,
@@ -105,7 +108,11 @@ async function harness(): Promise<Harness> {
           command: process.execPath,
           args: [fakeTsp, fixture.current, "--speed=100", `--log=${log}`],
           cwd: record.worktreePath ?? project.path,
-          env: { ...process.env, ...(sessionFile.current !== null && { FAKE_TSP_SESSION_FILE: sessionFile.current }) },
+          env: {
+            ...process.env,
+            ...(sessionFile.current !== null && { FAKE_TSP_SESSION_FILE: sessionFile.current }),
+            ...env.current,
+          },
         };
       },
       session: {
@@ -118,7 +125,7 @@ async function harness(): Promise<Harness> {
   pools.push(pool);
   await pool.init();
   const project = await pool.ensureProject(projectDir);
-  return { pool, registry, projectId: project.id, launches, log, sessionFile, fixture, states };
+  return { pool, registry, projectId: project.id, launches, log, sessionFile, fixture, states, env };
 }
 
 afterEach(async () => {
@@ -398,4 +405,76 @@ describe("启动参数", () => {
     ]);
     expect(buildTspArgs({ cwd: "C:/p", forkSessionFile: null })).toEqual([]);
   });
+});
+
+/** taskWithSession 放会话文件的目录（每个 harness 一个）。 */
+const sessionDirOf = () => path.join(scratch, `agent-${counter}`, "sessions", "--e2e--");
+
+/** 一份"回溯出的新文件"：会话头带 parentSession（omp 19.2.1 写原文件路径）；`until` = 只留到这个条目之前。 */
+async function rewoundCopy(original: string, file: string, until?: string): Promise<void> {
+  const lines = readFileSync(original, "utf8").trimEnd().split("\n");
+  const header = JSON.parse(lines[1]!) as Record<string, unknown>;
+  const end = until === undefined ? lines.length : lines.findIndex((line) => line.includes(`"id":"${until}"`));
+  const head = JSON.stringify({ ...header, id: `${String(header["id"])}-r`, parentSession: original });
+  await writeFile(file, [lines[0], head, ...lines.slice(2, end)].join("\n") + "\n");
+}
+
+describe("omp 19.2 的回溯换新会话文件", () => {
+  it("Edit 回溯到新文件、Undo 回到原文件（omp 19.2.1 录制 rewind-19）：任务跟着换文件，离开的文件记进 leftSessionFiles", async () => {
+    const h = await harness();
+    const rewound = path.join(sessionDirOf(), "2026-10-21T18-20-00-000Z_rewound.jsonl");
+    h.fixture.current = "rewind-19";
+    h.env.current = { FAKE_TSP_REWIND_FILE: rewound };
+    const { id, file } = await taskWithSession(h);
+    // omp 在 Edit 时才建这个文件。
+    await rewoundCopy(file, rewound, BETA);
+    for (const word of ["ALPHA", "BETA"]) {
+      await h.pool.sendPrompt(id, { text: `Reply with exactly the word ${word}. No tools.`, whenBusy: "steer" });
+    }
+    h.pool.sendTspEvent(id, { ev: "action", sf: "s:1", id: "main/5/tools/edit", act: "edit-turn" });
+    await until(() => h.registry.findTask(id)?.sessionFile === rewound, "the task to follow the rewound file");
+    expect(h.registry.findTask(id)?.leftSessionFiles).toEqual([file]);
+    // 树读新文件：只剩 ALPHA。
+    expect((await h.pool.getSessionTree(id)).nodes.map((node) => node.entryId)).toEqual([ALPHA]);
+    h.pool.sendTspEvent(id, { ev: "action", sf: "s:1", id: "main/5~1", act: "undo" });
+    await until(() => h.registry.findTask(id)?.sessionFile === file, "the task to return to the original file");
+    expect(h.registry.findTask(id)?.leftSessionFiles).toEqual([rewound]);
+    expect(h.pool.listSessionLinks()).toEqual([
+      expect.objectContaining({ id, sessionFile: file, leftSessionFiles: [rewound] }),
+    ]);
+  }, 60_000);
+
+  it("studio 的 /tree 回溯记下的叶子位置跟着会话文件：omp 之后换到别的文件（复制出的条目 id 一样）就不再套用", async () => {
+    const h = await harness();
+    const other = path.join(sessionDirOf(), "2026-10-21T18-20-00-000Z_other.jsonl");
+    // session-tree 录制回放完（/tree → activate → 清空输入框）之后，omp 换到另一个文件：整份复制，最后一个条目和原文件一样。
+    const rows = readFileSync(path.join(root, "fixtures", "tsp", "session-tree.jsonl"), "utf8")
+      .trimEnd()
+      .split("\n");
+    const last = JSON.parse(rows.at(-1)!) as { t: number };
+    // 回放 --speed=100：录制里 200 秒之后 = 回放 2 秒之后，回溯和第一次读树早就做完。
+    const osc = {
+      t: last.t + 200_000,
+      dir: "out",
+      verb: "osc",
+      body: "1337;SetUserVar=omp_session_file=${b64:FAKE_TSP_REWIND_FILE}",
+    };
+    const fixture = path.join(scratch, `session-tree-switch-${counter}.jsonl`);
+    await writeFile(fixture, [...rows, JSON.stringify(osc)].join("\n") + "\n");
+    h.fixture.current = fixture;
+    h.env.current = { FAKE_TSP_REWIND_FILE: other };
+    const { id, file } = await taskWithSession(h);
+    await rewoundCopy(file, other);
+    await h.pool.branchTask(id, BETA);
+    expect((await h.pool.getSessionTree(id)).nodes.map((node) => [node.entryId, node.current])).toEqual([
+      [ALPHA, true],
+      [BETA, false],
+    ]);
+    await until(() => h.registry.findTask(id)?.sessionFile === other, "omp to switch files");
+    // 新文件的叶子是它最后一个条目（BETA 那一轮），不是在原文件里回溯到的位置。
+    expect((await h.pool.getSessionTree(id)).nodes.map((node) => [node.entryId, node.current])).toEqual([
+      [ALPHA, false],
+      [BETA, true],
+    ]);
+  }, 60_000);
 });

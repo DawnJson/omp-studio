@@ -58,7 +58,7 @@ describe("TSP 待办（omp 18.12.3 录制 task.jsonl，HUD 节点 omp.hud.todo�
 });
 
 describe("phasesOfChecklist", () => {
-  it("五种状态、spans 文字，blocked 的 note 是阻塞原因、其他状态的 note 是备注", () => {
+  it("五种状态、spans 文字；note 是备注；blocked（规范里还有，omp 19.2.1 已不发）当 pending", () => {
     const phases = phasesOfChecklist([
       {
         id: "0",
@@ -80,7 +80,7 @@ describe("phasesOfChecklist", () => {
           { content: "b2", status: "in_progress" },
           { content: "c", status: "completed" },
           { content: "d", status: "abandoned", notes: ["skipped"] },
-          { content: "e", status: "blocked", blocker: "waiting on CI" },
+          { content: "e", status: "pending", notes: ["waiting on CI"] },
         ],
       },
     ]);

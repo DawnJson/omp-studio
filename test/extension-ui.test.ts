@@ -1,4 +1,4 @@
-// 后台 rpc-ui 进程上的 extension UI：连接层的常驻默认应答（select / confirm / input / editor / ask 回 cancelled）、
+// 后台 rpc-ui 进程上的 extension UI：连接层的常驻默认应答（select / confirm / input / editor / ask / form 回 cancelled）、
 // 登录期间认领应答权（不抢答）、登录里 omp 撤销输入时推 input_closed，以及 builtin-command 执行期间的 extension_error / notice / rpc_frame_error。
 // 用假 omp 回放构造的帧；假 omp 的第二个参数记录主进程写给它的每一行。
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -94,7 +94,7 @@ const uiRequest = (id: string, method: string, extra: object = {}) => ({
 });
 
 describe("连接层的默认应答", () => {
-  it("没人认领时 select / confirm / input / editor / ask 回 cancelled，notify / setStatus / setWidget 不回应", async () => {
+  it("没人认领时 select / confirm / input / editor / ask / form 回 cancelled，notify / setStatus / setWidget 不回应", async () => {
     const { log, launch } = await fixture([
       uiRequest("u1", "select", { title: "t", options: ["a"] }),
       uiRequest("u2", "confirm", { title: "t", message: "m" }),
@@ -104,19 +104,21 @@ describe("连接层的默认应答", () => {
       uiRequest("u6", "notify", { message: "hi", notifyType: "info" }),
       uiRequest("u7", "setStatus", { statusKey: "k", statusText: "x" }),
       uiRequest("u8", "setWidget", { widgetKey: "k", widgetLines: ["x"] }),
-      ...Array.from({ length: 5 }, () => ({ kind: "in", frame: { type: "extension_ui_response" } })),
+      // omp 19.1 起 ask 工具发的 HTML 表单，不需要 opt-in。
+      uiRequest("u9", "form", { html: "<form></form>" }),
+      ...Array.from({ length: 6 }, () => ({ kind: "in", frame: { type: "extension_ui_response" } })),
       { kind: "in", frame: { type: "probe" } },
     ]);
     const connection = OmpConnection.spawn(launch);
     try {
       await connection.ready;
-      await vi.waitFor(async () => expect((await received(log)).length).toBeGreaterThanOrEqual(6));
-      // 呈现类没有应答：第 6 条之后紧跟的必须是 probe，而不是多余的 extension_ui_response。
+      await vi.waitFor(async () => expect((await received(log)).length).toBeGreaterThanOrEqual(7));
+      // 呈现类没有应答：第 7 条之后紧跟的必须是 probe，而不是多余的 extension_ui_response。
       connection.send({ type: "probe" } as never);
       await vi.waitFor(async () => expect((await received(log)).at(-1)?.type).toBe("probe"));
       const responses = await responsesIn(log);
       expect(responses).toEqual(
-        ["u1", "u2", "u3", "u4", "u5"].map((id) => ({ type: "extension_ui_response", id, cancelled: true })),
+        ["u1", "u2", "u3", "u4", "u5", "u9"].map((id) => ({ type: "extension_ui_response", id, cancelled: true })),
       );
     } finally {
       await connection.close();
@@ -162,6 +164,8 @@ describe("登录", () => {
       uiRequest("i1", "input", { title: "Paste the code", timeout: 600000 }),
       uiRequest("s1", "select", { title: "t", options: ["a"] }),
       { kind: "in", frame: { type: "extension_ui_response" } },
+      uiRequest("f1", "form", { html: "<form></form>" }),
+      { kind: "in", frame: { type: "extension_ui_response" } },
       uiRequest("c1", "cancel", { targetId: "i1" }),
       { kind: "out", frame: { type: "response", command: "login", id: "l", success: true } },
       { kind: "in", frame: { type: "probe" } },
@@ -179,7 +183,10 @@ describe("登录", () => {
       ]);
       connection.send({ type: "probe" } as never);
       await vi.waitFor(async () => expect((await received(log)).at(-1)?.type).toBe("probe"));
-      expect(await responsesIn(log)).toEqual([{ type: "extension_ui_response", id: "s1", cancelled: true }]);
+      expect(await responsesIn(log)).toEqual([
+        { type: "extension_ui_response", id: "s1", cancelled: true },
+        { type: "extension_ui_response", id: "f1", cancelled: true },
+      ]);
     } finally {
       hoisted.connection = null;
       await connection.close();

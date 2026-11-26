@@ -23,7 +23,16 @@ interface Started {
 async function start(
   fixture = "session-tree",
   session = "linear",
-  { cards = 2, transform = (text: string) => text }: { cards?: number; transform?(text: string): string } = {},
+  {
+    cards = 2,
+    transform = (text: string) => text,
+    env = () => ({}),
+  }: {
+    cards?: number;
+    transform?(text: string, project: string): string;
+    /** 再传给假 omp 的环境变量（拿到会话文件路径后算）。 */
+    env?(sessionFile: string): Record<string, string>;
+  } = {},
 ): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp tree e2e-"));
   const project = path.join(work, "项目 目录");
@@ -31,7 +40,7 @@ async function start(
   const sessionFile = path.join(work, "agent", "sessions", "--e2e--", "2026-10-21T18-14-31-448Z_linear.jsonl");
   await mkdir(path.dirname(sessionFile), { recursive: true });
   const text = await readFile(path.join(root, "fixtures", "omp-session", `${session}.jsonl`), "utf8");
-  await writeFile(sessionFile, transform(text));
+  await writeFile(sessionFile, transform(text, project));
   const log = path.join(work, "omp-received.jsonl");
   const launched = await launchApp({
     STUDIO_TEST_OMP: JSON.stringify({
@@ -40,6 +49,7 @@ async function start(
     }),
     PI_CODING_AGENT_DIR: path.join(work, "agent"),
     FAKE_TSP_SESSION_FILE: sessionFile,
+    ...env(sessionFile),
   });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
@@ -451,6 +461,99 @@ test("打标签（omp 18.12.6 录制）：行上的标签按钮 → 输入框 En
     ]);
     await panel.getByTestId("session-tree-search").fill("my lab");
     await expect(nodes).toHaveCount(1);
+  } finally {
+    await cleanup();
+  }
+});
+
+// omp 19.2.1 实测录制（fixtures/tsp/rewind-19.jsonl）：两轮 ALPHA / BETA 之后点 omp 自己的"Edit & resend"（BETA 卡片上的
+// `edit-turn` 图标）：omp 把会话搬到一个新文件（头里 parentSession = 原文件路径，OSC omp_session_file 报新文件），状态行
+// "Rewound 1 turn in a new session" 带 Undo 按钮；点 Undo 发 `action undo`，omp 回到原文件（再报一次 OSC）。
+// 侧栏里这个任务始终只有一行：离开的文件记在任务上，不另列成历史会话。
+test("omp 19 的回溯换新会话文件：状态行带 Undo 按钮，点了发 action undo；前后侧栏只有任务这一行，离开的文件不另列", async () => {
+  test.setTimeout(120_000);
+  let original = "";
+  let rewindFile = "";
+  const sessionText = { current: "" };
+  const { launched, received, cleanup } = await start("rewind-19", "linear", {
+    cards: 0,
+    transform: (text, project) => {
+      sessionText.current = text.replace('"cwd":"C:/work/project"', `"cwd":${JSON.stringify(project)}`);
+      return sessionText.current;
+    },
+    env: (sessionFile) => {
+      original = sessionFile;
+      rewindFile = path.join(path.dirname(sessionFile), "2026-10-21T18-20-00-000Z_rewound.jsonl");
+      return { FAKE_TSP_REWIND_FILE: rewindFile };
+    },
+  });
+  try {
+    const { page } = launched;
+    const input = page.getByTestId("composer-input");
+    const cards = page.locator('[data-testid="tsp-view"] [data-role="omp.user"]');
+    for (const [word, count] of [
+      ["ALPHA", 1],
+      ["BETA", 2],
+    ] as const) {
+      await input.fill(`Reply with exactly the word ${word}. No tools.`);
+      await page.keyboard.press("Enter");
+      await expect(cards).toHaveCount(count, { timeout: 30_000 });
+    }
+    // omp 回溯时才建新文件：只留 ALPHA 那一轮，头里 parentSession 是原文件路径（omp 19.2.1 实测的格式）。
+    const lines = sessionText.current.trimEnd().split("\n");
+    const header = JSON.parse(lines[1]!) as Record<string, unknown>;
+    await writeFile(
+      rewindFile,
+      [
+        lines[0],
+        JSON.stringify({ ...header, id: "01a15fac-0518-70e8-83a4-c77fcf3265ff", parentSession: original }),
+        ...lines.slice(
+          2,
+          lines.findIndex((line) => line.includes('"id":"b772c2f5"')),
+        ),
+      ].join("\n") + "\n",
+    );
+    const taskId = await page.evaluate(async () => (await globalThis.studio.listTasks())[0]!.id);
+    const sessions = page.getByTestId("sidebar-session");
+    await expect(page.getByTestId("task-row")).toHaveCount(1);
+
+    await cards.nth(1).hover();
+    await page.locator('[data-testid="tsp-view"] [data-id="main/5/tools/edit"]').click();
+    const undo = page
+      .getByTestId("tsp-status-note")
+      .filter({ hasText: "Rewound 1 turn in a new session" })
+      .getByTestId("tsp-status-note-action");
+    await expect(undo).toHaveText("Undo", { timeout: 30_000 });
+    // 任务跟到了 omp 报的文件，并且会话列表按这之后的记录重扫过（任务的会话在列表里）时：没有没挂在任务上的会话。
+    const followed = (file: string) =>
+      page.evaluate(
+        async ([id, wanted]) => {
+          if ((await globalThis.studio.getTaskSessionRef(id))?.sessionFile !== wanted) return "not followed";
+          const all = await globalThis.studio.listSessions(null);
+          return all
+            .filter((s) => s.taskId !== id && !s.archived)
+            .map((s) => s.firstPrompt ?? s.id)
+            .join(" | ");
+        },
+        [taskId, file] as const,
+      );
+    await expect.poll(() => followed(rewindFile), { timeout: 30_000 }).toBe("");
+    await expect(page.getByTestId("task-row")).toHaveCount(1);
+    await expect(sessions).toHaveCount(0);
+
+    await undo.click();
+    await expect(undo).toHaveCount(0);
+    await expect(page.getByTestId("tsp-status-note").filter({ hasText: "Rewind undone" })).toHaveCount(1, {
+      timeout: 30_000,
+    });
+    expect((await received()).filter((event) => event["ev"] === "action")).toEqual([
+      { ev: "action", sf: "s:1", id: "main/5/tools/edit", act: "edit-turn" },
+      { ev: "action", sf: "s:1", id: "main/5~1", act: "undo" },
+    ]);
+    // 回到原文件；刚才的新文件同样不另列。
+    await expect.poll(() => followed(original), { timeout: 30_000 }).toBe("");
+    await expect(page.getByTestId("task-row")).toHaveCount(1);
+    await expect(sessions).toHaveCount(0);
   } finally {
     await cleanup();
   }

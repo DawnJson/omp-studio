@@ -1,14 +1,15 @@
 // 从 TSP 文档读 omp 的待办：dock 里的 HUD 节点（role `omp.hud.todo`，k `checklist`，`p.mode:"hud"`），
 // 换算成 rpc 的 TodoPhase[]（TaskState.todoPhases / 待办板用）。纯函数，主进程每次文档变化时调用。
 //
-// 依据是 omp 18.12.3 的实测录制（fixtures/tsp/task.jsonl，test/tsp-todos.test.ts 逐帧验证）：
+// 依据是 omp 18.12.3 的实测录制（fixtures/tsp/task.jsonl，test/tsp-todos.test.ts 逐帧验证），HUD 形状读 omp 19.2.1 源码（`ui/dock/todo.tsx` 的 `TodoChecklist`）未变：
 // - HUD 节点在 `omp.hud.activity` 行里，todo 工具第一次写入时出现（帧 27），之后每次工具调用整体更新 `p.phases`；
 //   全部做完后还留着，回合结束时（录制最后一帧 145）随 omp 的自动清理消失，这时返回 []。
-// - 阶段标题带罗马数字前缀（"I. Inspect"）；todo 工具卡片里的 checklist（mode full）没有前缀。待办板自己画序号，所以去掉。
-// - 状态：pending / active / done / dropped / blocked（规范 §7.5）↔ pending / in_progress / completed / abandoned / blocked。
-// - 条目的 `note`（omp 18.12.6 `interactive-mode.ts` 建 HUD 节点时写的 `N.blocker ?? N.notes?.at(-1)`）：blocked 时是阻塞原因，
-//   其他状态是备注列表的最后一条（`TodoItem.notes` 只有一条、前面的备注 HUD 不给）。没有备注的条目没有 `note` 字段。
-//   读 omp 18.12.6 源码：它自己的 todo 工具、`/todo` 子命令都不写 notes（`/todo` 子命令的实测见 docs/architecture/todo-board.md），只有会话里本来就带 notes 的待办才有。
+// - 阶段标题带罗马数字前缀（"I. Inspect"，只有多个阶段时有）；todo 工具卡片里的 checklist（mode full）没有前缀。待办板自己画序号，所以去掉。
+// - 状态：pending / active / done / dropped（规范 §7.5）↔ pending / in_progress / completed / abandoned。规范还留着 `blocked`，
+//   但 omp 19.2.1 的待办已没有这个状态（18.20 起旧快照里的 blocked 读回成 pending），所以 `blocked` 也当 pending，它的 note 当普通备注。
+// - 条目的 `note`（omp 19.2.1 `ui/dock/todo.tsx` 写的 `notes?.at(-1)`）：备注列表的最后一条（`TodoItem.notes` 只有一条、前面的备注 HUD 不给）。
+//   没有备注的条目没有 `note` 字段。读 omp 18.12.6 源码：它自己的 todo 工具、`/todo` 子命令都不写 notes（`/todo` 子命令的实测见
+//   docs/architecture/todo-board.md），只有会话里本来就带 notes 的待办才有。
 // - 阶段的 `collapsed`（全部做完 / 放弃时 omp 置 true）studio 不用：待办板自己决定展开哪些阶段。
 // - 只认 HUD，不回退到工具卡片：omp 清理待办后 HUD 消失，卡片还留在对话里，回退会让已清理的待办复活。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
@@ -23,7 +24,7 @@ const STATUS: Readonly<Record<string, TodoStatus>> = {
   active: "in_progress",
   done: "completed",
   dropped: "abandoned",
-  blocked: "blocked",
+  blocked: "pending",
 };
 
 type Rec = Readonly<Record<string, unknown>>;
@@ -60,8 +61,7 @@ export function phasesOfChecklist(phases: unknown): TodoPhase[] {
       tasks.push({
         content: plain(item["text"]),
         status,
-        ...(status === "blocked" && note !== "" ? { blocker: note } : {}),
-        ...(status !== "blocked" && note !== "" ? { notes: [note] } : {}),
+        ...(note !== "" ? { notes: [note] } : {}),
       });
     }
     out.push({ name: stripPhaseNumeral(plain(raw["title"])), tasks });
@@ -80,18 +80,17 @@ export function deriveTodoPhases(document: TspDocument): TodoPhase[] {
   return phasesOfChecklist(found);
 }
 
-/** omp 的 Markdown 待办里的状态记号（`/todo copy` / `export` / `edit`，18.12.6 `tools/todo.ts` 的 `_Gl`）。 */
+/** omp 的 Markdown 待办里的状态记号（`/todo copy` / `export` / `edit`，19.2.1 `tools/todo.ts` 的 `STATUS_TO_MARKER`）。 */
 const MARKDOWN_MARK: Readonly<Record<TodoStatus, string>> = {
   pending: " ",
   in_progress: "/",
   completed: "x",
   abandoned: "-",
-  blocked: "!",
 };
 
 /**
- * 待办 → Markdown，和 omp `/todo copy`（`Iv`）逐字相同：`# 阶段` 一行，下面每项 `- [<记号>] 内容`，阶段之间空一行，受阻的项后面加
- * ` <!-- blocker: 原因 -->`；没有待办是 `# Todos`。以换行结尾。待办板"复制为 Markdown"用它（本地拼，不去 omp 里复制到它那台机器的剪贴板）。
+ * 待办 → Markdown，和 omp `/todo copy`（19.2.1 `phasesToMarkdown`）逐字相同：`# 阶段` 一行，下面每项 `- [<记号>] 内容`，阶段之间空一行；
+ * 没有待办是 `# Todos`。以换行结尾。待办板"复制为 Markdown"用它（本地拼，不去 omp 里复制到它那台机器的剪贴板）。
  */
 export function todoMarkdown(phases: readonly TodoPhase[]): string {
   if (phases.length === 0) return "# Todos\n";
@@ -99,10 +98,7 @@ export function todoMarkdown(phases: readonly TodoPhase[]): string {
   phases.forEach((phase, index) => {
     if (index > 0) lines.push("");
     lines.push(`# ${phase.name}`);
-    for (const task of phase.tasks) {
-      const blocker = task.status === "blocked" && task.blocker ? ` <!-- blocker: ${task.blocker} -->` : "";
-      lines.push(`- [${MARKDOWN_MARK[task.status]}] ${task.content}${blocker}`);
-    }
+    for (const task of phase.tasks) lines.push(`- [${MARKDOWN_MARK[task.status]}] ${task.content}`);
   });
   return `${lines.join("\n")}\n`;
 }

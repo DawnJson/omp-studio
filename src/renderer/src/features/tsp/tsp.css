@@ -3148,6 +3148,18 @@ button.tsp-sh-fold:focus-visible {
   line-height: var(--lh-sm);
   overflow-wrap: anywhere;
 }
+/* 带按钮的状态行（回溯的 Undo）：按钮跟在文字后面。 */
+.tsp-status-note[data-action] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tsp-status-note[data-action] > :first-child {
+  min-width: 0;
+}
+.tsp-status-note > .ui-btn {
+  flex: none;
+}
 /* omp 的警告行（`row role=omp.notice.warning`，警告图标 + 文字）：备用模型切换 "Fallback: a -> b" 也是这一行。
    原来照普通行画，混在对话里看不出来（2026-11-06）；画成警告色的底条。 */
 .tsp-row[data-role="omp.notice.warning"] {

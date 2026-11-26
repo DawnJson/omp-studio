@@ -3,10 +3,9 @@
 //   active    进行中：一圈很淡的底 + 一段细弧，`spinning`（任务在跑）时弧绕圈转，不转时停住；`progress`（0–1）给弧的长度；
 //   progress  进度环（待办板按钮，照 Tern）：弧长就是 `progress`，不夹取——0 是 12 点钟的一个圆点，1 是整圈；
 //   pending   未开始：一圈细线；
-//   blocked   受阻：红色细圈 + 感叹号；
 //   abandoned 放弃：虚线圈，淡化。
 // 转动用 --play-state：减少动效时弧停在原位（仍看得出"进行中"）。
-export type TodoMarkState = "done" | "active" | "progress" | "pending" | "blocked" | "abandoned";
+export type TodoMarkState = "done" | "active" | "progress" | "pending" | "abandoned";
 
 export function TodoMark({
   state,
@@ -61,14 +60,6 @@ export function TodoMark({
     );
     // 转的是外面这层 HTML 盒子（composer.css 的 .todo-mark-turn）：<svg> 的 transform 动画不能交给合成器，每帧占主线程。
     return spinning ? <span className="todo-mark-turn">{mark}</span> : mark;
-  }
-  if (state === "blocked") {
-    return (
-      <svg className={cls} data-state="blocked" viewBox="0 0 16 16" aria-hidden="true">
-        <circle cx="8" cy="8" r="6" />
-        <path d="M8 5.2v3.4M8 10.8v.01" />
-      </svg>
-    );
   }
   return (
     <svg className={cls} data-state={state} viewBox="0 0 16 16" aria-hidden="true">

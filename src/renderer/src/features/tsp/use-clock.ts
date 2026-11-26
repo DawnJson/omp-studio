@@ -71,17 +71,25 @@ export function useClock<T>(active: boolean, period: number, select: (now: numbe
 /**
  * 以到达时刻为锚的年龄(规范 elapsed:"A positive age shows age plus the time since that age value arrived"):
  * age 的值变了就重新锚定,其它属性变了不影响计时。running 为 false 时不走字,返回 age 本身。
+ * age 不是正数、又给了 startedAt(墙钟 ms)时从 startedAt 起算:omp 19.2.1 的后台子代理运行中 age 一直是 0,
+ * 开始时刻由主进程记(TaskState.agentStartedAt)。
  * 走字时按 formatElapsed(format) 的显示精度向 0 取整(elapsedStep),显示的文字和不取整时一样,只是文字不变时不重画。
  */
-export function useAge(age: number | undefined, running: boolean, format: ElapsedFormat = "short"): number {
+export function useAge(
+  age: number | undefined,
+  running: boolean,
+  format: ElapsedFormat = "short",
+  startedAt?: number,
+): number {
   const [anchor, setAnchor] = useState(() => ({ age, at: Date.now() }));
   // 布局阶段重新锚定:旧锚点算出的那一帧不会被画出来。
   useLayoutEffect(() => {
     setAnchor((current) => (current.age === age ? current : { age, at: Date.now() }));
   }, [age]);
   const base = age ?? 0;
+  const since = base <= 0 && startedAt !== undefined ? startedAt : anchor.at;
   // 时钟最多比锚点旧一个周期:夹到 0,不倒走。
-  const at = (current: number): number => base + Math.max(0, current - anchor.at);
+  const at = (current: number): number => base + Math.max(0, current - since);
   // 刷新周期 = 文字最少隔多久变(short 不到 1 分钟是 100ms,其余整秒),最慢整秒。
   const period = Math.min(SECOND_MS, elapsedStep(at(now), format));
   return useClock(running, period, (current) => {

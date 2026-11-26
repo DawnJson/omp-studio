@@ -1,7 +1,8 @@
 // 提示词优化：用 `omp -p` 跑一次性的模型调用，把输入框里的草稿改写得更清楚（docs/architecture/prompt-enhance.md）。
-// - 只发草稿文字和我们的模板：不带工具、会话历史、AGENTS.md / 规则 / skill（--no-tools --no-context-files --no-rules --no-skills），
+// - 只发草稿文字和我们的模板：不带内置工具、会话历史、AGENTS.md / 规则 / skill（--tools= --no-context-files --no-rules --no-skills），
 //   不落会话（--no-session）；草稿走 stdin（命令行里的中文和换行在 Windows 上不可靠），参数是数组、不经 shell。
-// - 不带 --no-extensions：studio 自带的 studio-accounts 扩展注册了一批 provider，关掉扩展这些模型就解析不到。
+// - 不用 --no-tools、不带 --no-extensions：omp 19.2 起 --no-tools 连扩展一起不加载，studio 自带的 studio-accounts 扩展注册了一批 provider，
+//   扩展不加载这些模型就解析不到。`--tools=`（空列表）只关内置工具，扩展照常加载；扩展和 MCP 自己注册的工具 omp 总会带上，挡不住。
 // - 模型：用户配了 smol 或 default 角色时用 `@smol`（smol 没配时 omp 退到显式的 default）；都没配时 omp 会按内置优先级挑一个，
 //   常常是没 key 的 provider（实测），所以退到调用方给的模型（当前任务的模型 / 草稿页的新任务默认模型）。
 // - 日志只记长度和结果类型，不记草稿和结果正文（security.md）。
@@ -52,12 +53,15 @@ export function userMessage(draft: string): string {
   return `Draft to rewrite (do not answer it):\n<draft>\n${draft}\n</draft>\n`;
 }
 
+/** 关掉 omp 的 Auto-QA（`dev.autoqa`）：开着时 `--tools=` 的请求里还有一个 `report_issue` 工具（omp 19.2.1 实测）。叠在子进程 env 上。 */
+export const ENHANCE_ENV: Readonly<Record<string, string>> = { PI_AUTO_QA: "0" };
+
 /** `omp -p` 的参数（放在 omp 可执行文件 / 假 omp 脚本之后）。 */
 export function enhanceArgs(model: string, system: string): string[] {
   return [
     "-p",
     "--no-session",
-    "--no-tools",
+    "--tools=",
     "--no-skills",
     "--no-rules",
     "--no-context-files",
@@ -129,7 +133,7 @@ export async function enhancePrompt(draft: string, options: EnhanceOptions): Pro
   try {
     result = await runCommand(omp.command, args, {
       cwd: options.cwd,
-      env: omp.env,
+      env: { ...omp.env, ...ENHANCE_ENV },
       input: userMessage(draft),
       timeoutMs: options.timeoutMs ?? ENHANCE_TIMEOUT_MS,
       maxBuffer: 1024 * 1024,

@@ -10,6 +10,28 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Plan review from omp 19: the plan body is shown as Markdown, selected text can get comments (editable and removable), and double-clicking the body edits the Markdown source in place; the menu next to Approve offers "Approve and execute" and more.
+- The model switcher has a thinking-level slider: drag or click a step to switch; it is greyed out with the reason when the model doesn't support it.
+- After omp rewinds, the status line shows an "Undo" button that goes back to the session before the rewind.
+- A reply line that is just an `<iframe>` now shows the page inside the conversation: click once to use it, Esc or click outside to leave; scrolled out of view it becomes a card with title, address and an open button.
+- PageUp / PageDown page through omp's report popups.
+
+### Fixed
+
+- Running subagents in the subagent list no longer show 0 seconds; the time matches the details on the right.
+- Files under folders whose names start with `..` (such as `..cache`) open from the task folder instead of being refused as outside it.
+- omp 19 question cards: the task shows as waiting for your answer, clicking a single-choice option only selects it (Enter moves to the next question), and the chosen option is checked.
+- With omp 19: todos omp marks as blocked show as pending; prompt enhancement and the pet's voice can use models from account extensions again; in auto mode the default thinking level shows as auto.
+- After a rewind moves to a new session file, the sidebar no longer shows an extra row for the old session.
+
+### Changed
+
+- Token counts everywhere use one format: 12.3K / 1.2M / 1.5B.
+- Image previews are read straight from the file instead of being turned into text for the window, so large images open faster and use less memory.
+- The files panel refreshes faster when many files changed, and long conversations update with less work.
+
 ## [0.11.1] - 2026-11-25
 
 ### Added

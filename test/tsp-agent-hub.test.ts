@@ -16,6 +16,7 @@ import {
   isAgentName,
   isHubOpenAction,
   listAgents,
+  trackAgentStarts,
 } from "../src/shared/tsp/agent-hub.ts";
 import { findMessageTarget } from "../src/shared/tsp/gate.ts";
 import { loadTspFixture, recordedUserEvents, tspDocMessages } from "./tsp-fixtures.ts";
@@ -206,6 +207,17 @@ describe("子代理名校验", () => {
     for (const bad of ["", "..", "a/b", "a\\b", "../x", ".hidden", "a..b", " a", "x".repeat(200), 5, null])
       expect(isAgentName(bad)).toBe(false);
     expect(AGENT_NAME_PATTERN.test("Alpha")).toBe(true);
+  });
+});
+
+describe("子代理开始时刻（TaskState.agentStartedAt）", () => {
+  it("新出现的在跑子代理记下当时，已记的保留，不在跑的删掉；没变时是同一个对象", () => {
+    const first = trackAgentStarts({}, new Set(["A"]), 100);
+    expect(first).toEqual({ A: 100 });
+    expect(trackAgentStarts(first, new Set(["A"]), 200)).toBe(first);
+    expect(trackAgentStarts(first, new Set(["A", "B"]), 300)).toEqual({ A: 100, B: 300 });
+    expect(trackAgentStarts({ A: 100, B: 300 }, new Set(["B"]), 400)).toEqual({ B: 300 });
+    expect(trackAgentStarts({ A: 100 }, new Set(["B"]), 500)).toEqual({ B: 500 });
   });
 });
 

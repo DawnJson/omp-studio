@@ -490,6 +490,8 @@ export interface TspSurfaceView extends TspSurfaceInfo {
   focus: string | null;
   /** 最近一次 reveal；靠 seq 判断是不是新的。 */
   reveal: DocSurface["reveal"];
+  /** 最近的 scroll 操作；靠 seq 判断哪些是新的。 */
+  scrolls: DocSurface["scrolls"];
   suspended: boolean;
 }
 
@@ -513,6 +515,7 @@ function readSurface(taskId: TaskId, sf: string): TspSurfaceView | null {
     previous.live === live &&
     previous.focus === surface.focus &&
     previous.reveal?.seq === surface.reveal?.seq &&
+    previous.scrolls === surface.scrolls &&
     previous.suspended === surface.suspended
   ) {
     return previous;
@@ -525,6 +528,7 @@ function readSurface(taskId: TaskId, sf: string): TspSurfaceView | null {
     live,
     focus: surface.focus,
     reveal: surface.reveal,
+    scrolls: surface.scrolls,
     suspended: surface.suspended,
   };
   cachedViews.set(cacheKey, next);

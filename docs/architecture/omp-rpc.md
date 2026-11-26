@@ -71,9 +71,9 @@ sequenceDiagram
 
 rpc-ui 只用于服务进程（`src/main/service/service-omp.ts`）和项目池（`project-omp.ts`）；任务全走 TSP。这两类进程没有界面能回答扩展的对话框，所以 `OmpConnection`（`src/main/omp/omp-connection.ts`）在路由帧时统一处理（判断在 `src/main/omp/extension-ui.ts`，登录和连接层共用）：
 
-- `select`、`confirm`、`input`、`editor`、`ask`：回 `{"type":"extension_ui_response","id":<请求 id>,"cancelled":true}`（`CancelUiResponse`，格式见 `rpc-wire.generated.ts`）。`id` 取请求的 `id`；`cancel`、`open_url` 之类不需要应答的不回。
+- `select`、`confirm`、`input`、`editor`、`ask`、`form`：回 `{"type":"extension_ui_response","id":<请求 id>,"cancelled":true}`（`CancelUiResponse`，格式见 `rpc-wire.generated.ts`）。`id` 取请求的 `id`；`cancel`、`open_url` 之类不需要应答的不回。`form`（HTML 表单）是 omp 19.1 起 ask 工具发的，不需要 opt-in（读 19.2.1 wire 类型，没有真机触发）。
 - `notify`、`setStatus`、`setWidget`：写日志（截断，经日志的脱敏）。
-- **登录期间不抢答**：`login.ts` 在登录开始时 `connection.claimExtensionUi()`，结束时释放；认领期间连接层的默认应答不动，由登录自己答（`input` 交给界面，`select`/`confirm`/`editor`/`ask` 用同一个 `cancelledReply` 回 cancelled）。认领按计数，所以别的调用方将来也能用。
+- **登录期间不抢答**：`login.ts` 在登录开始时 `connection.claimExtensionUi()`，结束时释放；认领期间连接层的默认应答不动，由登录自己答（`input` 交给界面，`select`/`confirm`/`editor`/`ask`/`form` 用同一个 `cancelledReply` 回 cancelled）。认领按计数，所以别的调用方将来也能用。
 - 订阅者（`onFrame`）照旧收到所有帧，默认应答不拦截。
 - omp 只在扩展自己传了 `timeout` 时才超时；`input` 登录输入框的 `timeout` 固定 600000（`login`，`rpc-mode.ts`）。
 

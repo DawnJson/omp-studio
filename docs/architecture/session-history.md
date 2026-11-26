@@ -41,7 +41,7 @@ omp 没有"列出会话"的 RPC。omp 自己的文档给出存储格式，我们
 
 | 函数 | 行为 |
 |---|---|
-| `listSessions(projectId \| null)` | 扫描 → `buildSessionSummaries`：`projectId` 由 cwd 对上任务池的项目；`taskId` / `archived` 由会话文件对上 `listSessionLinks()`（挂在未归档任务上的填 `taskId`，它就是任务行；挂在已归档任务上的 `archived: true`，侧栏只在"已归档"里列，点开 `resume` 恢复成同一个任务）；`parentId` 由会话头的 `parentSession` 在全部索引里对上（omp 整会话分叉写父会话 id、从某条消息分叉写父会话文件路径，两种都认），侧栏据此把分叉缩进在原会话下面，原会话那一行可以收起它下面的分叉（issue #9，规则见 spec §4.5"收起分叉"）。传了项目 id 就只留 cwd 相同的。每次调用顺带在后台跑一次对账 `TaskPool.pruneMissingSessions`（issue #10，规则见 [task-model.md](task-model.md)「会话文件被删」），不等它 |
+| `listSessions(projectId \| null)` | 扫描 → `buildSessionSummaries`：`projectId` 由 cwd 对上任务池的项目；`taskId` / `archived` 由会话文件对上 `listSessionLinks()`（挂在未归档任务上的填 `taskId`，它就是任务行；挂在已归档任务上的 `archived: true`，侧栏只在"已归档"里列，点开 `resume` 恢复成同一个任务）；任务回溯时离开的会话文件（omp 19.2 起回溯换新文件，`TaskRecord.leftSessionFiles`，见 [session-tree.md](session-tree.md)「omp 19.2 的回溯换新会话文件」）不列，任务删掉后照常列；`parentId` 由会话头的 `parentSession` 在全部索引里对上（omp 整会话分叉写父会话 id、从某条消息分叉写父会话文件路径，两种都认），侧栏据此把分叉缩进在原会话下面，原会话那一行可以收起它下面的分叉（issue #9，规则见 spec §4.5"收起分叉"）。传了项目 id 就只留 cwd 相同的。每次调用顺带在后台跑一次对账 `TaskPool.pruneMissingSessions`（issue #10，规则见 [task-model.md](task-model.md)「会话文件被删」），不等它 |
 | `archiveSession(sessionId)` | 历史会话归档（issue #9）。没挂在任务上的（终端里开的）建一条 `archived:true` 的任务记录（会话目录还不是项目时先加成项目），不起 omp、不动会话文件；挂在任务上的按任务归档 |
 | `deleteSession(sessionId)` / `deleteTask(taskId)` | 真删除，经 omp 的 `/delete`（下面「删除会话」，issue #10）。会话按头里的 `id` 找文件，挂在任务上的（含已归档的）按任务删；会话目录没了也能删 |
 | `resumeSession(sessionId)` | 按头里的 `id` 重新扫描找文件 → 检查 `cwd` 目录仍存在（不在就报错，不替用户迁移会话）→ `ensureProject(cwd)` → `TaskPool.resume({sessionFile, cwd, projectId, title})`。已有任务挂着这个文件时返回那个任务 |

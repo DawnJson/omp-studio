@@ -291,12 +291,22 @@ export class TaskPool {
 
   /**
    * 任务挂着的会话文件；历史列表据此填 SessionSummary.taskId（未归档：它就是任务行）和 archived（已归档：不在列表里，
-   * 只在"已归档"里列出，点开走 resume() 恢复成同一个任务）。
+   * 只在"已归档"里列出，点开走 resume() 恢复成同一个任务）。`leftSessionFiles`：任务回溯时离开的文件，历史列表不列（left-session-files.ts）。
    */
-  listSessionLinks(): { id: TaskId; projectId: ProjectId; sessionFile: string | null; archived: boolean }[] {
-    return this.#deps.registry
-      .listTasks()
-      .map(({ id, projectId, sessionFile, archived }) => ({ id, projectId, sessionFile, archived }));
+  listSessionLinks(): {
+    id: TaskId;
+    projectId: ProjectId;
+    sessionFile: string | null;
+    archived: boolean;
+    leftSessionFiles: readonly string[];
+  }[] {
+    return this.#deps.registry.listTasks().map(({ id, projectId, sessionFile, archived, leftSessionFiles }) => ({
+      id,
+      projectId,
+      sessionFile,
+      archived,
+      leftSessionFiles: leftSessionFiles ?? [],
+    }));
   }
 
   /**

@@ -10,7 +10,13 @@ import { TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
 import { caretRect, registerCaretOverlay, useCaretVersion } from "./caret-registry.ts";
 import { useTspParked } from "../tsp-context.ts";
-import { shouldSendOverlayEsc, type EscTarget } from "../../../../../shared/tsp/overlay-esc.ts";
+import {
+  shouldSendOverlayEsc,
+  shouldSendOverlayPageKey,
+  type EscTarget,
+} from "../../../../../shared/tsp/overlay-esc.ts";
+import { encodeKey } from "../keys.ts";
+import { likeOf } from "./key-event.ts";
 import { plainText } from "./text-model.ts";
 
 const ESC = "\x1b";
@@ -114,24 +120,28 @@ export function Overlay(props: NodeProps) {
       else if (target.closest('[data-testid="composer-input"]') !== null) where = "composer";
       else if (view.contains(target))
         where = target.closest("textarea, input, [data-tspi-keys]") === null ? "view" : "self-routing";
-      if (
-        !shouldSendOverlayEsc({
-          key: event.key,
-          defaultPrevented: event.defaultPrevented,
-          composing: event.isComposing || event.keyCode === 229,
-          ctrlKey: event.ctrlKey,
-          altKey: event.altKey,
-          shiftKey: event.shiftKey,
-          metaKey: event.metaKey,
-          target: where,
-          isTop: dismissables[dismissables.length - 1] === self,
-          pickerOpen: view.querySelector(".tspi-picker") !== null,
-        })
-      )
-        return;
+      const input = {
+        key: event.key,
+        defaultPrevented: event.defaultPrevented,
+        composing: event.isComposing || event.keyCode === 229,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey,
+        target: where,
+        isTop: dismissables[dismissables.length - 1] === self,
+        pickerOpen: view.querySelector(".tspi-picker") !== null,
+      };
+      // PageUp / PageDown：omp 的报告弹窗翻页（hello 声明了 scroll 时 omp 回 scroll 操作，TspView 的 useScrollOps 执行）。
+      const data = shouldSendOverlayEsc(input)
+        ? ESC
+        : shouldSendOverlayPageKey(input)
+          ? encodeKey(likeOf(event))
+          : null;
+      if (data === null) return;
       event.preventDefault();
       event.stopPropagation();
-      ctx.keys(ESC);
+      ctx.keys(data);
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);

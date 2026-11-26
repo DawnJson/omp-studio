@@ -1,23 +1,23 @@
 // 节点 `actions.menu` 的右键菜单：同一时间只有一个；TspView 里的 TspMenuHost 负责画。
 import { createStore, useStoreValue } from "../../store/create-store.ts";
+import type { ContextRow, MenuHeader, MenuSeparator } from "./nodes/menu-model.ts";
 
-export interface TspMenuItem {
-  /** 动作名（显示时去掉分隔符）。 */
-  act: string;
-  /** studio 自己加的菜单项的显示文字（已翻译）；没有时按 act 写。 */
-  label?: string;
+/** 菜单里的一行（omp 给的项见 menu-model.ts 的 ContextRow；studio 自己加的项 label 已翻译）。 */
+export interface TspMenuRow extends ContextRow {
   run(): void;
 }
+
+export type TspMenuEntry = MenuSeparator | MenuHeader | TspMenuRow;
 
 export interface TspMenuState {
   x: number;
   y: number;
-  items: readonly TspMenuItem[];
+  items: readonly TspMenuEntry[];
 }
 
 const menu = createStore<TspMenuState | null>(null);
 
-export function showTspMenu(at: { x: number; y: number }, items: readonly TspMenuItem[]): void {
+export function showTspMenu(at: { x: number; y: number }, items: readonly TspMenuEntry[]): void {
   menu.set({ x: at.x, y: at.y, items });
 }
 

@@ -196,13 +196,14 @@ describe("专用工具的结果", () => {
             ],
           },
           { name: "Empty", tasks: [] },
-          { name: "Run", tasks: [{ content: "c", status: "blocked", blocker: "ci" }] },
+          { name: "Run", tasks: [{ content: "c", status: "in_progress", notes: ["old", "ci"] }] },
+          { name: "Gone", tasks: [{ content: "d", status: "blocked" }] },
         ],
       },
     });
     expect(phases).toEqual([
       { name: "Fix", tasks: [{ content: "a", status: "completed" }] },
-      { name: "Run", tasks: [{ content: "c", status: "blocked", blocker: "ci" }] },
+      { name: "Run", tasks: [{ content: "c", status: "in_progress", notes: ["old", "ci"] }] },
     ]);
     expect(todoPhases({ details: { phases: [] } })).toBeNull();
     expect(todoPhases(undefined)).toBeNull();

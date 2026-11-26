@@ -15,7 +15,7 @@ import { isRecord } from "../../shared/type-guards.ts";
 import type { OmpCommand } from "../git/commit-message.ts";
 import { runCommand } from "../git/exec.ts";
 import { log } from "../log/log.ts";
-import { chooseModel, cleanOutput, enhanceArgs } from "../prompt-enhance/enhance.ts";
+import { chooseModel, cleanOutput, ENHANCE_ENV, enhanceArgs } from "../prompt-enhance/enhance.ts";
 import { PET_PERSONALITY_MAX_CHARS } from "./pet-store.ts";
 
 const VOICE_TIMEOUT_MS = 60_000;
@@ -89,9 +89,10 @@ async function run(runner: VoiceRunner, system: string, input: string): Promise<
       [...runner.omp.args, ...enhanceArgs(runner.model, system), "--mode", "json"],
       {
         cwd: runner.cwd,
-        // 不等 MCP 服务器：omp 没有关 MCP 的参数（--no-tools 只关内置工具），连上的服务器会把工具声明带进每次请求，
-        // 实测一句话 6.9k token 里 6.4k 是它们。1ms 内没就绪的服务器这次不用（stderr 一条警告），进程照常收掉（docs/architecture/pet.md「花费」）。
-        env: { ...runner.omp.env, OMP_MCP_TIMEOUT_MS: "1" },
+        // 不等 MCP 服务器：enhanceArgs 用 `--tools=`（omp 19.2 的 --no-tools 连 MCP 带扩展一起关，studio-accounts 的模型就解析不到），
+        // 它只关内置工具，MCP 照常加载，连上的服务器会把工具声明带进每次请求（18.x 实测一句话 6.9k token 里 6.4k 是它们）。
+        // 1ms 内没就绪的服务器这次不用（stderr 一条警告），进程照常收掉（docs/architecture/pet.md「花费」）。
+        env: { ...runner.omp.env, ...ENHANCE_ENV, OMP_MCP_TIMEOUT_MS: "1" },
         input,
         timeoutMs: VOICE_TIMEOUT_MS,
         // json 事件带整份请求信息（工具声明等），比纯文字大得多。

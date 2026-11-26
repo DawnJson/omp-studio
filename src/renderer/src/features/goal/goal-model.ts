@@ -1,6 +1,7 @@
 // 目标模式（omp goal）的纯函数：`/goal` 参数解析、目标条上能点哪些按钮、用量和用时文字、自动继续设置的改写。
 // 语义出自实测（见 docs/architecture/conversation.md 的"目标模式"一节）。
 import type { TaskGoal } from "../../../../shared/ipc.ts";
+import { formatCount } from "../composer/usage-format.ts";
 import { formatDuration } from "../tsp/turn-footer.ts";
 
 export type GoalButton = "pause" | "resume" | "drop";
@@ -27,19 +28,11 @@ export function goalButtons(goal: TaskGoal | null): GoalButton[] {
   return ["drop"];
 }
 
-/** 1234 → "1.2k"，12_345 → "12k"，1_500_000 → "1.5M"。 */
-export function formatTokens(count: number): string {
-  if (count < 1_000) return String(count);
-  if (count < 10_000) return `${(count / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
-  if (count < 1_000_000) return `${Math.round(count / 1_000)}k`;
-  return `${(count / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-}
-
 /** 目标条上的用量：有预算时 "已用 / 预算"，没有时只有已用。 */
 export function goalUsage(goal: Pick<TaskGoal, "tokensUsed" | "tokenBudget">): string {
   return goal.tokenBudget === null
-    ? formatTokens(goal.tokensUsed)
-    : `${formatTokens(goal.tokensUsed)} / ${formatTokens(goal.tokenBudget)}`;
+    ? formatCount(goal.tokensUsed)
+    : `${formatCount(goal.tokensUsed)} / ${formatCount(goal.tokenBudget)}`;
 }
 
 /** 目标已用时间（omp 只计进行中的时间）：16 → "16s"，754 → "12m34s"，7980 → "2h13m"。 */

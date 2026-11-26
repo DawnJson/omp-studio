@@ -853,7 +853,10 @@
   gap: var(--space-2);
   min-width: 0;
 }
+/* 名字先占宽（长到整行才省略），徽标和芯片在后面让位、裁在行里（模型切换器一行带七个角色芯片时名字被挤成一个字）。 */
 .tspi-pk-label {
+  flex: none;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -871,8 +874,10 @@
 }
 .tspi-pk-tags {
   display: inline-flex;
-  flex: none;
+  flex: 0 1 auto;
   gap: var(--space-1);
+  min-width: 0;
+  overflow: hidden;
 }
 .tspi-pk-tags .dot,
 .tspi-pk-schip .dot {
@@ -1063,6 +1068,252 @@
   background: var(--accent-soft);
   border-color: transparent;
   color: var(--accent);
+}
+/* 头上的动作（action.head）：只有图标的 ui 图标按钮，on 时同上面的按下态着色。 */
+.tspi-pk-hacts {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+}
+.tspi-pk-hact[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tspi-pk-hact-init {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-strong);
+  line-height: 1;
+}
+
+/* scopeStyle "rail"：一列图标（名字和数量在悬停提示里），窄面板上也保留；search "list" 时头上的动作在最上面。 */
+.tspi-pk-scopes.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: auto;
+  padding: var(--space-1-5);
+}
+.tspi-pk-scopes.rail .tspi-pk-hacts {
+  flex-direction: column;
+  padding-bottom: var(--space-1-5);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.tspi-pk-scopes.rail .tspi-pk-scope {
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+}
+.tspi-pk-scopes.rail .tspi-pk-ssep {
+  width: var(--space-4);
+  margin: var(--space-0-5) 0;
+}
+
+/* search "list"：没有头一行，搜索放在列表表头行的左边（列名照旧靠右对齐到事实列）。 */
+.tspi-pk-colhead.tspi-pk-lhead {
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5) var(--space-1) var(--space-3);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.tspi-pk-lhead .tspi-pk-search {
+  padding-left: var(--space-2);
+  box-shadow: none;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+.tspi-pk-head .grow {
+  flex: 1;
+}
+
+/* density "snug"：30px 的行、26px 的分组头（picker-model.ts），四周的留白跟着收紧。 */
+.tspi-picker.dn-snug .tspi-pk-sticky {
+  height: 26px;
+}
+.tspi-picker.dn-snug .tspi-pk-row {
+  gap: var(--space-2);
+}
+.tspi-picker.dn-snug .tspi-pk-head,
+.tspi-picker.dn-snug .tspi-pk-bar,
+.tspi-picker.dn-snug .tspi-pk-level {
+  padding: var(--space-1-5) var(--space-3);
+}
+
+/* 档位滑杆（level，PickerLevel.tsx）：图标、轨道、值的小签。轨道从低到高"变热"：填充是一条固定的渐变
+ * （--text-3 → 主色 → 琥珀，同输入框档位刻度的配色），按当前格露出到旋钮为止；最热的一段再加一道流光。
+ * 露出和旋钮都只动 transform（外层平移、里层反向平移），不动 width / left。 */
+.tspi-pk-level {
+  --tspi-heat: var(--text-2);
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.tspi-pk-level[data-heat="warm"] {
+  --tspi-heat: var(--accent);
+}
+.tspi-pk-level[data-heat="hot"] {
+  --tspi-heat: color-mix(in oklch, var(--accent), var(--st-waiting) 70%);
+}
+.tspi-pk-level-ic {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-2);
+}
+.tspi-pk-level-l {
+  flex: none;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+/* 裁在轨道里：露出和旋钮的平移只往左越界（不撑出横向滚动），裁掉的是看不见的部分。 */
+.tspi-pk-track {
+  position: relative;
+  flex: 1;
+  min-width: 96px;
+  height: var(--control-h-xs);
+  overflow: clip;
+  cursor: pointer;
+  touch-action: none;
+}
+.tspi-pk-level[data-frozen] .tspi-pk-track {
+  cursor: default;
+  opacity: 0.5;
+}
+/* 两端让出旋钮的半径加描边：第一格和最后一格的旋钮不被裁。 */
+.tspi-pk-track-in {
+  position: absolute;
+  inset: 0 9px;
+}
+.tspi-pk-track-rest,
+.tspi-pk-track-fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: var(--radius-pill);
+}
+.tspi-pk-track-rest {
+  background: var(--bg-active);
+}
+.tspi-pk-track-fill {
+  z-index: 1;
+  overflow: hidden;
+  transform: translateX(calc((var(--tspi-lv) - 1) * 100%));
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.tspi-pk-track-glint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    var(--text-3),
+    var(--accent) 55%,
+    color-mix(in oklch, var(--accent), var(--st-waiting) 70%)
+  );
+  transform: translateX(calc((1 - var(--tspi-lv)) * 100%));
+  transition: transform var(--dur-fast) var(--ease-out);
+  overflow: hidden;
+}
+.tspi-pk-level[data-frozen] .tspi-pk-track-fill {
+  display: none;
+}
+/* 最热的一段：亮条上来回扫一道光（HTML 盒子上的 transform 动画，减少动效时 --play-state 停住）。 */
+.tspi-pk-level[data-heat="hot"] .tspi-pk-track-glint::after {
+  position: absolute;
+  inset: 0;
+  width: 30%;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+  animation: tspi-glint var(--dur-breathe) var(--tick-breathe) infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes tspi-glint {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+.tspi-pk-tick {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--tspi-at) * 100%);
+  z-index: 2;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+}
+.tspi-pk-tick[data-on] {
+  background: color-mix(in srgb, var(--bg-overlay) 70%, transparent);
+}
+/* 旋钮挂在一条和轨道等宽的条的右端，条向左平移 (1 - 位置) 个自身宽度。 */
+.tspi-pk-knob-rail {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  transform: translateX(calc((var(--tspi-lv) - 1) * 100%));
+  transition: transform var(--dur-fast) var(--ease-out);
+  pointer-events: none;
+}
+.tspi-pk-knob {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  box-shadow:
+    0 0 0 2px var(--tspi-heat),
+    var(--shadow-xs);
+}
+.tspi-pk-level[data-frozen] .tspi-pk-knob {
+  box-shadow:
+    0 0 0 2px var(--border-strong),
+    var(--shadow-xs);
+}
+.tspi-pk-level-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+  height: var(--control-h-xs);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.tspi-pk-level-chip .v {
+  color: var(--tspi-heat);
+  font-weight: var(--fw-medium);
+}
+.tspi-pk-level[data-frozen] .tspi-pk-level-chip .v {
+  color: var(--text-3);
+}
+.tspi-pk-level-chip .d {
+  color: var(--text-3);
+}
+
+/* anchor "composer"：从 studio 的输入框往上弹（layer 的底边就是输入框上方），左缘和输入框对齐、宽不超过输入框。
+ * 只在任务的 inline surface 里这样放；其它地方（应用内登录终端等）没有输入框，按 size 的默认位置。 */
+.tsp-surface[data-mode="inline"] .tspi-picker.anc-composer .tspi-pk-sheet {
+  --tspi-col: min(100% - 2 * var(--gutter), var(--content-w));
+  width: min(680px, var(--tspi-col));
+  max-width: none;
+  max-height: min(540px, calc(100% - var(--space-4)));
+  margin: auto auto var(--space-2) calc((100% - var(--tspi-col)) / 2);
+  transform-origin: bottom left;
 }
 .tspi-pk-sheet.f-scopes .tspi-pk-scopes,
 .tspi-pk-sheet.f-tabs .tspi-pk-tabs,
@@ -1450,9 +1701,10 @@
   display: none;
 }
 
-/* ───────────────────────── 提问 / 审批门（omp.editor.ask、omp.editor.ask.approval） ───────────────────────── */
+/* ───────────────────────── 提问 / 审批门（omp.editor.ask、omp 19 的 omp.ask.card、omp.editor.ask.approval） ───────────────────────── */
 /* 门有外框（和输入框同宽同轴：dock 已经和输入框同宽），不再像对话正文。只用一道细线、不加阴影（2026-10-29：--border 偏重） */
 .tsp-col[data-role="omp.editor.ask"],
+.tsp-col[data-role="omp.ask.card"],
 .tsp-col[data-role="omp.editor.ask.approval"] {
   padding: var(--space-3) var(--space-4);
   background: var(--bg-raised);
@@ -1465,6 +1717,7 @@
 }
 /* 底栏 Hide / Note / Skip / Next / Submit：ui 的 sm 按钮，按钮里尾随快捷键小字；按钮靠右，Hide 在最左（omp 的 spacer 撑开）。 */
 .tsp-col[data-role="omp.editor.ask"] [data-role="omp.actions"],
+.tsp-col[data-role="omp.ask.card"] [data-role="omp.actions"],
 .tsp-col[data-role="omp.editor.ask.approval"] [data-role="omp.actions"] {
   gap: var(--space-2);
 }

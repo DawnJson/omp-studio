@@ -1,6 +1,6 @@
-// 节点上的指针动作（规范 Elements `actions`）：click / dblclick / menu 里写的动作名怎么执行。
+// 节点上的指针动作（规范 Elements `actions`）：click / dblclick / menu / outside 里写的动作名怎么执行。
 //   终端自己做：toggle（翻折叠）、copy（复制文字并提示）、open（打开 href）、zoom（放大图片）、select / activate（发同名事件）；
-//   其它名字原样发 `action` 事件（{ev:"action", sf, id, act, mods?}）交给 omp。
+//   其它名字原样发 `action` 事件（{ev:"action", sf, id, act, mods?}）交给 omp。`outside` 见 outside-actions.ts。
 import type { MouseEvent } from "react";
 import { createT } from "../../../../shared/i18n/index.ts";
 import type { DocNode } from "../../../../shared/tsp/document.ts";
@@ -16,7 +16,9 @@ import type { TspContext } from "./node-props.ts";
 import { isHubOpenAction } from "../../../../shared/tsp/agent-hub.ts";
 import { openAgentsPanel } from "../agents/agents-store.ts";
 import { peekTspDocument, peekTspNode } from "./tsp-store.ts";
-import { showTspMenu } from "./menu-store.ts";
+import { showTspMenu, type TspMenuEntry } from "./menu-store.ts";
+import { contextEntries } from "./nodes/menu-model.ts";
+import { watchOutside } from "./outside-actions.ts";
 import { isRecord } from "../../../../shared/type-guards.ts";
 
 /** 节点自己才知道怎么做的内置动作（折叠、放大）。 */
@@ -94,12 +96,13 @@ export function openHref(href: string, ctx: Pick<TspContext, "taskId">): void {
 }
 
 /**
- * 回答里的本地图片（`![alt](路径)`）：经主进程读（和右侧预览同一条路，只读已授权工作区、有大小上限），是图片就返回 data URL，
+ * 回答里的本地图片（`![alt](路径)`）：经主进程读（和右侧预览同一条路，只读已授权工作区、有大小上限），是图片就返回图片地址
+ * （位图是主进程登记的 studio-preview:// 地址，svg 是 data URL），
  * 不是图片、不存在、太大返回 null；目录外仍拒绝，不自动弹授权。不在这里拼路径去加载，绕不过主进程的校验。
  */
 export async function loadImageHref(href: string, ctx: Pick<TspContext, "taskId">): Promise<string | null> {
   const file = await window.studio.readPreviewFile({ kind: "task", taskId: ctx.taskId }, hrefToPath(href));
-  return file.kind === "image" ? (file.dataUrl ?? null) : null;
+  return file.kind === "image" ? (file.imageUrl ?? null) : null;
 }
 
 function copyText(text: string): void {
@@ -148,8 +151,8 @@ export function showAnswerCopyMenu(
   event.stopPropagation();
   const t = createT(currentLocale());
   showTspMenu({ x: event.clientX, y: event.clientY }, [
-    { act: "copy-markdown", label: t("tsp.copyMarkdown"), run: copyMarkdown },
-    { act: "copy-plain-text", label: t("tsp.copyPlainText"), run: () => copyAnswerPlainText(button, ctx) },
+    { kind: "row", act: "copy-markdown", label: t("tsp.copyMarkdown"), run: copyMarkdown },
+    { kind: "row", act: "copy-plain-text", label: t("tsp.copyPlainText"), run: () => copyAnswerPlainText(button, ctx) },
   ]);
 }
 
@@ -227,18 +230,25 @@ export function nodeActionHandlers(node: DocNode, ctx: TspContext, own?: OwnActi
   if (node.p.role === TURN_COPY_ROLE && typeof click === "string") {
     handlers.onContextMenu = (event) => showAnswerCopyMenu(event, ctx, () => runAction(click, node, ctx, own));
   }
-  const menu = Array.isArray(actions.menu) ? actions.menu.filter((a): a is string => typeof a === "string") : [];
-  if (menu.length > 0) {
+  // `actions.menu`：动作名、`"-"` 分隔线、`{header}` 小节标题、`{id,label,icon,detail,disabled,danger}` 行（规范 TspMenuEntry）。
+  // `actions.hold` 是触屏长按的菜单，桌面不管（规范）。
+  const menu = contextEntries(actions.menu);
+  if (menu.some((entry) => entry.kind === "row")) {
     handlers.onContextMenu = (event) => {
       event.preventDefault();
       event.stopPropagation();
-      // 规范：menu 列出的动作后面接 Copy（没列 copy 时）。
-      const items = menu.includes("copy") ? menu : [...menu, "copy"];
+      // 菜单里没有 copy 时末尾接一项 Copy（复制节点文字）。
+      const rows = menu.some((entry) => entry.kind === "row" && entry.act === "copy")
+        ? menu
+        : [...menu, { kind: "row" as const, act: "copy" }];
       showTspMenu(
         { x: event.clientX, y: event.clientY },
-        items.map((act) => ({ act, run: () => runAction(act, node, ctx, own) })),
+        rows.map((entry): TspMenuEntry =>
+          entry.kind === "row" ? { ...entry, run: () => runAction(entry.act, node, ctx, own) } : entry,
+        ),
       );
     };
   }
+  if (typeof actions.outside === "string") watchOutside(node, ctx);
   return handlers;
 }

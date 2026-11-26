@@ -9,6 +9,8 @@
 //   - 输入框区域（`dock`）里有 role 以 `omp.editor.ask` 开头的节点 = 在等用户：提问是 `omp.editor.ask`，工具审批是
 //     `omp.editor.ask.approval`。提问时 composer 被换掉；审批时 composer（`omp.editor`）留在文档里，审批卡插在它前面
 //     （approval.jsonl 第 33 帧，没有 `del j`）。两种情况 `omp.working` 那一行都仍在（任务其实还没跑完）。
+//   - omp 19（实测 19.2.1，fixtures/tsp/ask-19.jsonl）的提问是 `main` 的直接子节点 `omp.ask.card`，composer 留在 dock 里：
+//     它在 = 在等用户（ask-gate.ts 的 findAskGate），标题取第一题（`omp.ask.legend` / `omp.ask.label` / 折起来的 `omp.ask.fold.question`）。
 //   - `dock` 里有 `omp.working`（运行状态行，含 `omp.working.stop`）或 composer 的停止按钮 `omp.composer.stop` = 在跑：
 //     发出消息的那一帧出现，这一轮结束的那一帧消失。主区里的 spinner 不可靠（子代理、后台任务的卡片停在 running 时
 //     主回合已经结束），`omp.hud.activity`（待办面板）也会在回合结束后继续显示，都不用。
@@ -18,6 +20,7 @@
 //     会话树）不在这个名单里：它们是 studio 的界面在操作，不算"等你"。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import { stripIconGlyphs } from "../ui/clean-title.ts";
+import { findAskCard } from "./ask-gate.ts";
 import {
   findNode,
   liveSurfaces,
@@ -50,8 +53,14 @@ export interface TspStatusInfo {
 const ASK_ROLE_PREFIX = "omp.editor.ask";
 const APPROVAL_ROLE = "omp.editor.ask.approval";
 const WORKING_ROLES: ReadonlySet<string> = new Set(["omp.working", "omp.working.stop", "omp.composer.stop"]);
-/** 提问的问题 `md`、审批的标题 `text`。 */
-const ASK_TITLE_ROLES: ReadonlySet<string> = new Set(["omp.ask.question", "omp.approval.title"]);
+/** 提问的问题 `md`（18）、第一题的题目（19：打开的题是 legend / label，折起来的是 fold.question）、审批的标题 `text`。 */
+const ASK_TITLE_ROLES: ReadonlySet<string> = new Set([
+  "omp.ask.question",
+  "omp.ask.legend",
+  "omp.ask.label",
+  "omp.ask.fold.question",
+  "omp.approval.title",
+]);
 const ACTIVITY_ROLE = "omp.hud.activity";
 const LOADER_ROLE = "omp.loader";
 /** 等用户操作的模态弹窗（omp 源码 packages/tui/src/overlays/ 里 `super(title, "omp.overlay.*")`、plan-review-overlay、plan-save-overlay）。 */
@@ -114,6 +123,11 @@ export function deriveTaskStatus(doc: TspDocument): TspStatusInfo {
           break;
         }
       }
+    }
+    if (ask === null) {
+      // omp 19 的提问卡在 main 里，和 dock 无关；18 的提问 / 审批门在 dock 里（下面）。
+      const card = findAskCard(surface);
+      if (card) ask = { title: askTitle(surface, card), approval: false };
     }
     if (!surface.nodes.has("dock")) continue;
     if (ask === null) {

@@ -1,4 +1,4 @@
-// 数字格式（纯函数）：elapsed 的 short / seconds / clock、rate、紧凑计数和费用。过程区、输入框状态行、子代理面板共用。
+// 数字格式（纯函数）：elapsed 的 short / seconds / clock、rate 和费用。过程区、输入框状态行、子代理面板共用；紧凑计数在 composer/usage-format.ts。
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
@@ -36,17 +36,6 @@ export function elapsedStep(ms: number, format: ElapsedFormat = "short"): number
 export function formatRate(value: number, unit?: string): string {
   const text = Math.abs(value) < 100 ? value.toFixed(1) : String(Math.round(value));
   return unit ? `${text} ${unit}` : text;
-}
-
-/** 紧凑计数：999、12K、1.2M。 */
-export function formatCount(n: number): string {
-  if (n < 1000) return String(Math.round(n));
-  if (n < 1_000_000) return `${trim(n / 1000)}K`;
-  return `${trim(n / 1_000_000)}M`;
-}
-
-function trim(value: number): string {
-  return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
 }
 
 /** 费用：$0.42，不到一美分写 <$0.01，正好 0 写 $0。 */

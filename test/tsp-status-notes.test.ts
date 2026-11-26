@@ -74,6 +74,39 @@ describe("状态行（omp.toast.status）：节点下一帧就没了，所以出
     expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([{ text: "Thinking blocks: hidden", id: "w", anchor: "t" }]);
   });
 
+  it("omp 19.2 回溯的状态行带按钮（toast 的 action / label，没有 ttl）：记进状态行；没给 label 按动作名得出；set / del 掉 action 时按钮去掉", () => {
+    const doc = createDocument();
+    const apply = (message: Parameters<typeof applyMessage>[1]) => applyMessage(doc, message);
+    const frame = (ops: unknown[]) => ({ verb: "f", body: { sf: "s:1", s: 1, ops } }) as never;
+    const notes = () => doc.surfaces.get("s:1")?.statusNotes;
+    apply({ verb: "o", body: { id: "s:1", mode: "inline" } } as never);
+    apply(frame([["add", "main", "s:1", null, { id: "main", k: "col" }]]));
+    apply(frame([["add", "u", "main", null, { id: "u", k: "md", p: { text: "ALPHA" } }]]));
+    const rewound = {
+      role: "omp.toast.status",
+      text: "Rewound 1 turn in a new session",
+      action: "undo",
+      label: "Undo",
+    };
+    apply(frame([["add", "w", "main", null, { id: "w", k: "toast", p: rewound }]]));
+    expect(notes()).toEqual([
+      { text: "Rewound 1 turn in a new session", id: "w", anchor: "u", action: { act: "undo", label: "Undo" } },
+    ]);
+    // 只改了 ttl 之类：同一个数组。
+    const before = notes();
+    apply(frame([["set", "w", { ...rewound, ttl: 1 }]]));
+    expect(notes()).toBe(before);
+    // omp 原地换成不带按钮的状态行（"Rewind undone"）：按钮去掉。
+    apply(frame([["set", "w", { role: "omp.toast.status", text: "Rewind undone", action: null, label: null }]]));
+    expect(notes()).toEqual([{ text: "Rewind undone", id: "w", anchor: "u" }]);
+    // 没给 label：按规范由动作名得出（open-file → Open file）。
+    apply(frame([["set", "w", { action: "open-file" }]]));
+    expect(notes()?.[0]?.action).toEqual({ act: "open-file", label: "Open file" });
+    // toast 节点删了：那一行留着，按钮没了（再点也没有节点可发）。
+    apply(frame([["del", "w"]]));
+    expect(notes()).toEqual([{ text: "Rewind undone", id: "w", anchor: "u" }]);
+  });
+
   it("工具输出展开状态（toolsExpanded）按 omp 的 Ctrl+O 状态行记：同一个 toast 之后被 Ctrl+T 的文字换掉也不丢；新的 omp 进程从收起开始", () => {
     const doc = createDocument();
     const apply = (message: Parameters<typeof applyMessage>[1]) => applyMessage(doc, message);

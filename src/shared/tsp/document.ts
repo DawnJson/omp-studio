@@ -6,7 +6,15 @@
 // 表（Map）本身原地改。
 import { isRecord } from "../type-guards.ts";
 import { mergeStatusNotes, statusNotesIn, toolExpansionIn, type StatusNote } from "./status-notes.ts";
-import type { TspClose, TspFrame, TspNode, TspOpen, TspOp } from "./tsp.generated.ts";
+import {
+  TSP_TEXT_KINDS,
+  type TspClose,
+  type TspFrame,
+  type TspNode,
+  type TspOpen,
+  type TspScrollBy,
+  type TspOp,
+} from "./tsp.generated.ts";
 
 export interface DocNode {
   readonly id: string;
@@ -29,6 +37,11 @@ export interface DocSurface {
   focus: string | null;
   /** 最近一次 reveal；渲染进程滚过去以后不清，靠 seq 判断是不是新的。 */
   reveal: { id: string; where: "start" | "end" | "nearest"; seq: number } | null;
+  /**
+   * 最近的 scroll 操作（omp 转发的键盘滚动：PageUp/PageDown 等移动节点所在的滚动容器，hello 声明 `scroll` 才发），按顺序，
+   * 最多留 SCROLL_KEEP 条，每次变化换一个新数组。渲染进程按 seq 只执行没执行过的（同 reveal）。
+   */
+  scrolls: readonly DocScroll[];
   /** `suspend` 之后为 true，直到 `resume`。 */
   suspended: boolean;
   /** 最后应用的帧号（程序发来的 s）。 */
@@ -38,6 +51,23 @@ export interface DocSurface {
   /** omp 的工具输出展开着没有（Ctrl+O；按它的状态行 "Tool output expansion: …" 记，见 status-notes.ts）。新的 omp 进程从收起开始。 */
   toolsExpanded: boolean;
 }
+
+export interface DocScroll {
+  readonly id: string;
+  readonly by: TspScrollBy;
+  readonly seq: number;
+}
+
+/** 一帧里 omp 最多连发几步（它自己也封顶）；渲染进程一帧内就执行完，留这么多足够。 */
+const SCROLL_KEEP = 32;
+const SCROLL_BY: Readonly<Record<string, true>> = {
+  "line-up": true,
+  "line-down": true,
+  "page-up": true,
+  "page-down": true,
+  start: true,
+  end: true,
+};
 
 export interface DocBlob {
   readonly mime: string | null;
@@ -51,7 +81,7 @@ export interface TspDocument {
   /** 仍然打开（没收到 x）的 surface id。 */
   readonly live: Set<string>;
   readonly blobs: Map<string, DocBlob>;
-  /** reveal 的全局递增号，每应用一次 reveal 加一。 */
+  /** reveal / scroll 共用的全局递增号，每应用一次 reveal 或 scroll 加一。 */
   revealSeq: number;
 }
 
@@ -75,18 +105,8 @@ export interface ApplyResult {
   changed: Map<string, Set<string>>;
 }
 
-/** 有主文字（`text` / `splice` 操作的对象）的节点种类。 */
-const TEXT_KINDS: ReadonlySet<string> = new Set([
-  "text",
-  "md",
-  "code",
-  "ansi",
-  "math",
-  "editor",
-  "input",
-  "shimmer",
-  "el",
-]);
+/** 有主文字（`text` / `splice` 操作的对象）的节点种类：照规范（omp 19 起含 `doc`）。 */
+const TEXT_KINDS: ReadonlySet<string> = new Set(TSP_TEXT_KINDS);
 
 export function createDocument(): TspDocument {
   return { surfaces: new Map(), live: new Set(), blobs: new Map(), revealSeq: 0 };
@@ -138,6 +158,7 @@ function openSurface(doc: TspDocument, open: TspOpen, result: ApplyResult): void
     nodes,
     focus: null,
     reveal: null,
+    scrolls: [],
     suspended: false,
     lastFrame: 0,
     statusNotes: [],
@@ -220,9 +241,14 @@ function applyOp(doc: TspDocument, surface: DocSurface, op: TspOp, changed: Set<
       };
       return null;
     }
-    case "scroll":
-      // 键盘滚动由渲染进程按焦点处理；文档里没有滚动位置。
-      return surface.nodes.has(op[1]) ? null : `unknown id ${op[1]}`;
+    case "scroll": {
+      const [, id, by] = op;
+      if (!surface.nodes.has(id)) return `unknown id ${id}`;
+      if (SCROLL_BY[by] !== true) return `unknown scroll ${String(by)}`;
+      doc.revealSeq += 1;
+      surface.scrolls = [...surface.scrolls, { id, by, seq: doc.revealSeq }].slice(-SCROLL_KEEP);
+      return null;
+    }
     case "suspend":
       surface.suspended = true;
       return null;
@@ -414,6 +440,7 @@ export interface DocumentSnapshot {
     nodes: DocNode[];
     focus: string | null;
     reveal: DocSurface["reveal"];
+    scrolls: DocSurface["scrolls"];
     suspended: boolean;
     lastFrame: number;
     statusNotes: readonly StatusNote[];
@@ -435,6 +462,7 @@ export function snapshotDocument(doc: TspDocument): DocumentSnapshot {
       nodes: [...surface.nodes.values()],
       focus: surface.focus,
       reveal: surface.reveal,
+      scrolls: surface.scrolls,
       suspended: surface.suspended,
       lastFrame: surface.lastFrame,
       statusNotes: surface.statusNotes,
@@ -457,6 +485,7 @@ export function restoreDocument(snapshot: DocumentSnapshot): TspDocument {
       nodes: new Map(surface.nodes.map((node) => [node.id, node])),
       focus: surface.focus,
       reveal: surface.reveal,
+      scrolls: surface.scrolls,
       suspended: surface.suspended,
       lastFrame: surface.lastFrame,
       statusNotes: surface.statusNotes,
@@ -471,8 +500,8 @@ export function restoreDocument(snapshot: DocumentSnapshot): TspDocument {
 
 /**
  * 刚还原的 `next` 里内容和 `previous` 相同的节点记录（和状态行数组）换回 `previous` 里的那个对象：同一份文档重拉快照
- * （渲染进程丢帧、窗口还原后）时，按记录身份订阅的界面只有变了的节点重画。属性按 JSON 比（两边由同样的消息按同样的顺序建出，键序相同；
- * 不同就当变了，只是多画一次）。
+ * （渲染进程丢帧、窗口还原后）时，按记录身份订阅的界面只有变了的节点重画。属性按 `sameJsonValue` 逐层比，
+ * 不序列化（属性里带着整段 markdown，每次重拉整份文档都序列化两遍太贵）。
  */
 export function reuseUnchangedNodes(next: TspDocument, previous: TspDocument): void {
   for (const surface of next.surfaces.values()) {
@@ -486,12 +515,40 @@ export function reuseUnchangedNodes(next: TspDocument, previous: TspDocument): v
         kept.parent === node.parent &&
         kept.c.length === node.c.length &&
         kept.c.every((child, i) => child === node.c[i]) &&
-        JSON.stringify(kept.p) === JSON.stringify(node.p)
+        sameJsonValue(kept.p, node.p)
       )
         surface.nodes.set(id, kept);
     }
-    if (JSON.stringify(old.statusNotes) === JSON.stringify(surface.statusNotes)) surface.statusNotes = old.statusNotes;
+    if (sameJsonValue(old.statusNotes, surface.statusNotes)) surface.statusNotes = old.statusNotes;
   }
+}
+
+/**
+ * 两个 JSON 形状的值（字符串、数字、布尔、null、数组、普通对象）内容相同。对象键为 undefined 的当作没有这个键
+ * （同 JSON.stringify）；键序不管（JSON 比较会把键序不同当成变了，这里不会）。其余和 JSON 不同的边角
+ * （NaN、数组里的 undefined）按 `===` 比，至多让节点当作变了多画一次。
+ */
+function sameJsonValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!sameJsonValue(a[i], b[i])) return false;
+    return true;
+  }
+  if (Array.isArray(b)) return false;
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  let leftKeys = 0;
+  for (const key of Object.keys(left)) {
+    const value = left[key];
+    if (value === undefined) continue;
+    leftKeys += 1;
+    if (!sameJsonValue(value, right[key])) return false;
+  }
+  let rightKeys = 0;
+  for (const key of Object.keys(right)) if (right[key] !== undefined) rightKeys += 1;
+  return leftKeys === rightKeys;
 }
 
 // ───────── 查询 ─────────

@@ -38,6 +38,7 @@ import {
 import { TSP_COMPOSER_UNAVAILABLE, statusToastTexts } from "../../shared/tsp/composer-state.ts";
 import { deriveTaskStatus, resolveTaskStatus } from "../../shared/tsp/task-status.ts";
 import { deriveWorkingLabel } from "../../shared/tsp/working.ts";
+import { trackAgentStarts } from "../../shared/tsp/agent-hub.ts";
 import {
   NO_RUN_SIGNAL,
   applyRunStatus,
@@ -81,6 +82,7 @@ import {
 import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { sessionFileMissing } from "./session-file-missing.ts";
+import { isRewindSwitch, nextLeftSessionFiles } from "./left-session-files.ts";
 import { looksLikeConsoleTitle, stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { holdSessionFile, readSessionFile, type SessionFileState } from "../tsp/session-files.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
@@ -363,6 +365,8 @@ export class TspRunner {
       this.#publish();
     },
   });
+  /** 子代理开始跑的时刻（TaskState.agentStartedAt，trackAgentStarts）。 */
+  #agentStartedAt: Readonly<Record<string, number>> = {};
 
   constructor(record: TaskRecord, project: Project, host: TspRunnerHost) {
     this.id = record.id;
@@ -489,6 +493,7 @@ export class TspRunner {
       fallbackModel: this.#fallbackModel,
       credentialPins: this.#credentialPins,
       revivedSubagents: this.#revival.running,
+      agentStartedAt: this.#agentStartedAt,
     };
   }
 
@@ -550,6 +555,13 @@ export class TspRunner {
   /** 后台作业、子代理、旁路提问的起止不经过状态机：文档变了就看一眼"能否重开"变没变，变了才发布。 */
   #syncRestartable(): void {
     if (this.restartable !== this.#publishedRestartable) this.#publish();
+  }
+
+  #syncAgentStarts(active: ReadonlySet<string>): void {
+    const next = trackAgentStarts(this.#agentStartedAt, active, Date.now());
+    if (next === this.#agentStartedAt) return;
+    this.#agentStartedAt = next;
+    this.#publish();
   }
 
   /** 文档的扫描缓存；换了会话（新文档）就从头建一份。 */
@@ -746,6 +758,7 @@ export class TspRunner {
             this.#btw.sync(scans.btwView, scans.btwNotes);
             this.#notifyWaiters(document);
             this.#revival.sync(this.#currentSessionFile(), this.#scansFor(document).doneAgents);
+            this.#syncAgentStarts(this.#scansFor(document).activeAgents);
             this.#syncRestartable();
             this.#syncEditorText(document);
             // 新会话的文件在第一条回复之后才落盘，第一轮可能跑上几个小时：文件一出现就记进任务，不等这一轮结束。
@@ -779,6 +792,7 @@ export class TspRunner {
       this.#goalTracker.reset();
       this.#factsTracker.reset();
       this.#btw.reset();
+      this.#agentStartedAt = {};
       this.#session = session;
       await session.ready;
       // 输入框出现之前 TaskState 就要有模型：默认值（缓存优先；服务进程冷启动时要等它拉模型目录，约 1.5 秒）
@@ -794,6 +808,7 @@ export class TspRunner {
       this.#btw.sync(scans.btwView, scans.btwNotes);
       this.#notifyWaiters(session.document);
       this.#revival.sync(this.#currentSessionFile(), this.#scansFor(session.document).doneAgents);
+      this.#syncAgentStarts(this.#scansFor(session.document).activeAgents);
       void this.#refreshCatalog(false);
     } catch (error) {
       if (this.#closing || this.#disposed) {
@@ -943,9 +958,14 @@ export class TspRunner {
         () => false,
       );
       if (exists && !this.#disposed && file !== this.#record.sessionFile) {
+        // omp 19.2 起回溯 / 撤销回溯在同一个进程里换会话文件：离开的那个记下来，会话列表不另列（left-session-files.ts）。
+        const from = this.#record.sessionFile;
+        const left = from !== null && (await isRewindSwitch(from, file)) ? from : null;
+        const leftSessionFiles = nextLeftSessionFiles(this.#record.leftSessionFiles, file, left);
         this.#record = await this.#host.persist(this.id, {
           sessionFile: file,
           ...((this.#record.forkFrom ?? null) !== null && { forkFrom: null }),
+          ...(leftSessionFiles !== null && { leftSessionFiles }),
         });
         this.#publish();
       }

@@ -2,10 +2,10 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
 
-/** 词法上在根内（根本身不算）；不碰磁盘，实际路径仍由 resolveInsideReal 校验。 */
+/** 词法上在根内（根本身不算）；不碰磁盘，实际路径仍由 resolveInsideReal 校验。`..cache` 这类名字在根内。 */
 export function isInside(root: string, file: string): boolean {
   const relative = path.relative(root, file);
-  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  return relative !== "" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
 
 /** 根内的绝对路径换成相对路径；根外路径仍交给现有边界校验拒绝。 */
@@ -25,9 +25,7 @@ export function resolveInside(cwd: string, relPath: string): string {
   if (path.isAbsolute(relPath) || path.win32.isAbsolute(relPath) || /^[a-zA-Z]:/.test(relPath))
     throw new Error("path must be relative to the task directory");
   const resolved = path.resolve(cwd, relPath);
-  const relative = path.relative(cwd, resolved);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative))
-    throw new Error("path escapes the task directory");
+  if (!isInside(cwd, resolved)) throw new Error("path escapes the task directory");
   return resolved;
 }
 
@@ -35,9 +33,7 @@ export function resolveInside(cwd: string, relPath: string): string {
 export async function resolveInsideReal(cwd: string, relPath: string): Promise<string> {
   const lexical = resolveInside(cwd, relPath);
   const [realCwd, realFile] = await Promise.all([realpath(cwd), realpath(lexical)]);
-  const relative = path.relative(realCwd, realFile);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative))
-    throw new Error("path escapes the task directory");
+  if (!isInside(realCwd, realFile)) throw new Error("path escapes the task directory");
   return realFile;
 }
 

@@ -861,9 +861,6 @@ button.usage-context:hover,
   stroke: var(--st-done);
   stroke-width: 1.8;
 }
-.todo-mark-ico[data-state="blocked"] {
-  stroke: var(--st-error);
-}
 .todo-mark-ico[data-state="abandoned"] {
   stroke-dasharray: 2.4 2.6;
   opacity: 0.6;
@@ -963,11 +960,6 @@ button.usage-context:hover,
   flex-direction: column;
   min-width: 0;
   overflow-wrap: anywhere;
-}
-.todo-blocker {
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--st-error);
 }
 /* 备注（omp 给的最后一条）：比条目小一号、次要色 */
 .todo-note {

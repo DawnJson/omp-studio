@@ -1,5 +1,13 @@
-// omp 的提问对话框（dock 里 role `omp.editor.ask`）在 studio 里怎么响应鼠标：纯函数。
-// 依据 omp 18.12.5 的实录 `fixtures/tsp/ask-multi.jsonl`（三题：单选、多选、单选 + Review 页）：
+// omp 的提问对话框在 studio 里怎么响应鼠标：纯函数。两种形状：
+// - omp 19（实测 19.2.1，2026-11-26，`fixtures/tsp/ask-19.jsonl`、`ask-19-other.jsonl`）：`main` 的直接子节点
+//   `col role=omp.ask.card`（ask 工具的 HTML 表单），dock 里的输入框还在。所有题在一张卡里：打开的一题是 `omp.ask.open`
+//   （`omp.ask.legend` / `omp.ask.label` + `list omp.ask.options` 或文字 `input`），其余折成 `omp.ask.fold`（`actions.click` =
+//   `open:<i>`，里面的 `omp.ask.pill` 按钮 `pick:<i>:<j>` 直接答）。没有 Review 页，底栏是 cancel / note / submit。
+//   单选的 `select` / `activate` 都只是选中、不跳题（Enter 选中并跳到下一题，只有一题时 Enter = 提交）；选中的单选项带
+//   `tone:"accent"`，list 的 `selected` 只是高亮（askItemChecked）。多选照旧：`select` 切换勾选。"Other…" 和选项同一个 role，
+//   id 以 `/other` 结尾；选它后题下面加一个 `input`，打的字写进去。surface 的 `focus` 一直是 null：按键由卡片根节点接。
+// - omp 18：dock 里的 `col role=omp.editor.ask`（把输入框换掉）。依据 omp 18.12.5 的实录 `fixtures/tsp/ask-multi.jsonl`
+//   （三题：单选、多选、单选 + Review 页）：
 // - 单选题的选项 role 是 `omp.ask.option`：`select` 事件就是"回答并跳到下一页"（高亮的那一项也一样），`activate` 同效。
 // - 多选题的选项 role 是 `omp.ask.check`：`select` 事件 = 勾选 / 取消勾选这一项（已高亮的也切换，选中状态是 item 的
 //   `icon:"check"` + `tone:"accent"`）；`activate` = "下一页"，不管点的是哪一项（所以多选题点高亮项发 activate 会跳页并记成 Unanswered）。
@@ -19,8 +27,47 @@ import {
 } from "./document.ts";
 import type { NodeDeps } from "./node-watch.ts";
 
-/** 提问对话框的根节点 role；审批门是 `omp.editor.ask.approval`、隐藏后是 `omp.editor.ask.hidden`，不归这里管。 */
+/** omp 18 的提问对话框根节点 role（dock 里）；审批门是 `omp.editor.ask.approval`、隐藏后是 `omp.editor.ask.hidden`，不归这里管。 */
 export const ASK_GATE_ROLE = "omp.editor.ask";
+/** omp 19 的提问卡根节点 role（`main` 的直接子节点）。 */
+export const ASK_CARD_ROLE = "omp.ask.card";
+
+/** 是不是提问对话框的根节点（18 的 `omp.editor.ask` 或 19 的 `omp.ask.card`）。 */
+export function isAskGateRole(role: unknown): boolean {
+  return role === ASK_GATE_ROLE || role === ASK_CARD_ROLE;
+}
+
+/** omp 19 的提问卡：`main` 直接子节点里的 `omp.ask.card`（从后往前找：卡片挂在对话末尾，只看直接子节点，不遍历整段对话）。 */
+export function findAskCard(surface: DocSurface): DocNode | null {
+  const main = surface.nodes.get("main");
+  if (main === undefined) return null;
+  for (let index = main.c.length - 1; index >= 0; index -= 1) {
+    const node = surface.nodes.get(main.c[index]!);
+    if (node !== undefined && nodeRole(node) === ASK_CARD_ROLE) return node;
+  }
+  return null;
+}
+
+/** 开着的提问对话框根节点：dock 里的 `omp.editor.ask`（18）或 findAskCard（19）。没有为 null。 */
+function findAskGate(surface: DocSurface): DocNode | null {
+  const gate = surface.nodes.has("dock") ? findNode(surface, (node) => nodeRole(node) === ASK_GATE_ROLE, "dock") : null;
+  return gate ?? findAskCard(surface);
+}
+
+/**
+ * 提问选项行的单选圈 / 勾选框是不是选中：多选看 omp 的 `icon:"check"`；单选在 19 的卡片里看 `tone:"accent"`（高亮 ≠ 已答），
+ * 18 的对话框里单选选中就是跳题，画的是高亮项。
+ */
+export function askItemChecked(
+  marker: "radio" | "check",
+  gateRole: string | null,
+  item: { icon?: unknown; tone?: unknown },
+  isSelected: boolean,
+): boolean {
+  if (marker === "check") return item.icon === "check";
+  return gateRole === ASK_CARD_ROLE ? item.tone === "accent" : isSelected;
+}
+
 /** 提问 / 审批的按钮（Hide / Note / Skip / Next / Submit、Details / Deny / Approve）：`actions.click` 是动作名。声明了 `button` 的 omp（≥18.14.2）发 `button` 节点，更早的发 row（子节点是文字和 `kbd`）。 */
 export const ASK_BUTTON_ROLE = "omp.btn";
 
@@ -97,8 +144,8 @@ export function askDigitInGate(
   return pick === null ? null : { list: list.id, ...pick };
 }
 
-/** openAskTool 读的节点（NodeWatch）：提问对话框和提问工具卡。 */
-export const ASK_TOOL_NODES: NodeDeps = { roles: [ASK_GATE_ROLE, ASK_TOOL_ROLE] };
+/** openAskTool 读的节点（NodeWatch）：提问对话框（18 / 19）和提问工具卡。 */
+export const ASK_TOOL_NODES: NodeDeps = { roles: [ASK_GATE_ROLE, ASK_CARD_ROLE, ASK_TOOL_ROLE] };
 
 /** 对话框开着时卡片头不写题目的那张提问工具卡。 */
 export interface OpenAskTool {
@@ -107,13 +154,14 @@ export interface OpenAskTool {
 }
 
 /**
- * 提问对话框开着（dock 里 role 正好是 `omp.editor.ask`；隐藏后是 `omp.editor.ask.hidden`，不算）时，它对应的提问工具卡：
- * 同一个 surface 里最后一张还没结束（pending / running）的 `omp.tool.ask`。这张卡片头上的题目和对话框的标题重复，不写
- * （2026-10-29 仓库所有者：删掉重复的）；答完（卡片 done、对话框删掉）或对话框隐藏后照常写。没有这样的卡片为 null。
+ * 提问对话框开着（findAskGate：18 的 dock 里 role 正好是 `omp.editor.ask`，隐藏后的 `omp.editor.ask.hidden` 不算；19 的
+ * `omp.ask.card`）时，它对应的提问工具卡：同一个 surface 里最后一张还没结束（pending / running）的 `omp.tool.ask`。这张卡片头上的
+ * 题目和对话框的标题重复，不写（2026-10-29 仓库所有者：删掉重复的）；答完（卡片 done、对话框删掉）或对话框隐藏后照常写。
+ * 没有这样的卡片为 null。
  */
 export function openAskTool(doc: TspDocument): OpenAskTool | null {
   for (const surface of liveSurfaces(doc)) {
-    if (!surface.nodes.has("dock") || !findNode(surface, (node) => nodeRole(node) === ASK_GATE_ROLE, "dock")) continue;
+    if (findAskGate(surface) === null) continue;
     let open: OpenAskTool | null = null;
     for (const node of treeNodes(surface)) {
       if (nodeRole(node) === ASK_TOOL_ROLE && (node.p.status === "pending" || node.p.status === "running"))

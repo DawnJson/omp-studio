@@ -32,7 +32,12 @@ describe.skipIf(!enabled)("真实 omp", () => {
     );
     const model = dotenv["STUDIO_TEST_MODEL"];
     if (!model) throw new Error(".env has no STUDIO_TEST_MODEL");
-    const [provider, ...rest] = model.split("/");
+    // `provider/id`，或只写 id（`deepseek-flash`）：key 是 DEEPSEEK_* 的，提供商就是 deepseek。
+    const slash = model.indexOf("/");
+    const testModel =
+      slash < 0
+        ? { provider: "deepseek", modelId: model }
+        : { provider: model.slice(0, slash), modelId: model.slice(slash + 1) };
     const omp = await findOmpOnPath();
     if (!omp) throw new Error("omp is not on PATH");
     const projectDir = path.join(scratch, "项目 目录");
@@ -40,6 +45,13 @@ describe.skipIf(!enabled)("真实 omp", () => {
     // 新的 agent 目录里 omp 会先弹首次运行引导（screen 面板），挡住发送；应用启动时经 `omp config set` 关掉它（setup-wizard-default.ts），这里直接写进临时目录的配置。
     await mkdir(path.join(scratch, "agent"));
     await writeFile(path.join(scratch, "agent", "config.yml"), "startup:\n  setupWizard: false\n", "utf8");
+    // .env 的 key 是中转站的：omp 没有换 deepseek 地址的环境变量，用临时 agent 目录的 models.yml 覆盖内置 deepseek 的 baseUrl（不覆盖就 401）。
+    if (dotenv["DEEPSEEK_URL"])
+      await writeFile(
+        path.join(scratch, "agent", "models.yml"),
+        `providers:\n  deepseek:\n    baseUrl: ${dotenv["DEEPSEEK_URL"]}\n`,
+        "utf8",
+      );
 
     const states: TaskState[] = [];
     const waiters: { predicate: (s: TaskState) => boolean; resolve: (s: TaskState) => void }[] = [];
@@ -78,7 +90,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
           args: buildTspArgs({
             cwd: project.path,
             // 新任务不带模型（跟随 omp 配置）；这里的临时 agent 目录没有配置，用 .env 里的测试模型。
-            model: record.model ?? { provider: provider!, modelId: rest.join("/") },
+            model: record.model ?? testModel,
             thinkingLevel: record.thinkingLevel,
             resumeSessionFile: record.sessionFile,
           }),

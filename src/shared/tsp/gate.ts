@@ -5,7 +5,8 @@
 // - 审批：审批卡（`omp.editor.ask.approval`）插进 dock、在 composer（`omp.editor`）前面，composer 的编辑器一直是
 //   `sendable`。omp 文档（approval-mode.md）：有审批在等时发消息 = 拒绝所有待批的调用并把这条消息当插话，
 //   所以 `send` 事件原样发给 composer 就是"拒绝并说明理由"，和 TUI 里在输入框打字再回车一样。
-// - 提问：提问卡（`omp.editor.ask`）把 composer 整个换掉（`del j`），没有可发的地方。
+// - 提问：18 的提问卡（`omp.editor.ask`）把 composer 整个换掉（`del j`），没有可发的地方。19 的提问卡（`omp.ask.card`）在 main 里，
+//   composer 还在、omp 认为发一句话 = 跳过提问；studio 不提供"打字跳过"，两种都按 `ask` 处理（docs/architecture/dialogs.md）。
 // - 面板：全屏 surface（`mode: "screen"`，`/settings` 的录制里是 s:2）盖住会话；Agent Hub 是 inline surface 的 `layer` 里的
 //   `picker`（omp 18.12.5 录制 tsp-hub-steer）。这两种开着时一律不往主会话的 composer 发（否则消息会变成对主代理的插话）。
 //   Hub 里 `activate` 一个子代理进入聚焦模式后，同一个编辑器的 `send` 就是 steer 那个子代理（实测），所以聚焦模式照常能发。

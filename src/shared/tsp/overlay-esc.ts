@@ -37,3 +37,13 @@ export function shouldSendOverlayEsc(input: OverlayEscInput): boolean {
   if (!input.isTop || input.pickerOpen) return false;
   return input.target === "body" || input.target === "view" || input.target === "composer";
 }
+
+/**
+ * 弹窗开着时 PageUp / PageDown 该不该写给 omp：omp 的报告类弹窗（/changelog /stats 等的正文）按这两个键翻页，
+ * 声明了 `scroll` 时再用 scroll 操作让终端滚（scroll-op.ts）。焦点在 studio 输入框时也转发（输入框里这两个键没用处）；
+ * ↑ ↓ Home End 输入框要用，不转发。其余条件同 Esc。
+ */
+export function shouldSendOverlayPageKey(input: OverlayEscInput): boolean {
+  if (input.key !== "PageUp" && input.key !== "PageDown") return false;
+  return shouldSendOverlayEsc({ ...input, key: "Escape" });
+}

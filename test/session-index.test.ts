@@ -385,6 +385,28 @@ describe("buildSessionSummaries", () => {
     ]);
   });
 
+  it("任务回溯时离开的会话文件（omp 19.2 换新文件，TaskRecord.leftSessionFiles）不列出；任务删了之后照常列出", () => {
+    const leftLinks = [
+      // 已归档的任务离开的文件也不列。
+      { id: "t1" as TaskId, sessionFile: "C:\\x y\\s1.jsonl", archived: true, leftSessionFiles: ["C:\\x y\\s2.jsonl"] },
+    ];
+    expect(buildSessionSummaries(sessions, [projectA], leftLinks, null, noPins).map((s) => s.id)).toEqual(["s1"]);
+    // 撤销回溯又回到了它：它是任务的会话文件，照常算任务的。
+    const back = [
+      {
+        id: "t1" as TaskId,
+        sessionFile: "C:\\x y\\s2.jsonl",
+        archived: false,
+        leftSessionFiles: ["C:\\x y\\s2.jsonl"],
+      },
+    ];
+    expect(buildSessionSummaries(sessions, [projectA], back, null, noPins).map((s) => [s.id, s.taskId])).toEqual([
+      ["s1", null],
+      ["s2", "t1"],
+    ]);
+    expect(buildSessionSummaries(sessions, [projectA], [], null, noPins).map((s) => s.id)).toEqual(["s1", "s2"]);
+  });
+
   it("parentSession 是父会话的 id 或文件路径（omp 两种都写）都解析成父会话 id；找不到、指向自己时为 null", () => {
     const child = (id: string, parent: string): IndexedSession => ({
       ...sessions[1]!,

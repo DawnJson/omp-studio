@@ -71,12 +71,12 @@ describe("纯函数", () => {
     expect(cleanOutput("开头 ```code``` 结尾")).toBe("开头 ```code``` 结尾");
   });
 
-  it("参数：-p、不落会话、不带工具和上下文、不关扩展（studio-accounts 的 provider 要用）", () => {
+  it("参数：-p、不落会话、不带内置工具（`--tools=`，不用 --no-tools）和上下文、不关扩展（studio-accounts 的 provider 要用）", () => {
     const args = enhanceArgs("@smol", "SYS");
     expect(args).toEqual([
       "-p",
       "--no-session",
-      "--no-tools",
+      "--tools=",
       "--no-skills",
       "--no-rules",
       "--no-context-files",
@@ -86,7 +86,9 @@ describe("纯函数", () => {
       "--system-prompt",
       "SYS",
     ]);
+    // omp 19.2 起 --no-tools 连扩展一起不加载（扩展注册的模型解析不到），也不能和 --extension 同用。
     expect(args).not.toContain("--no-extensions");
+    expect(args).not.toContain("--no-tools");
   });
 });
 
@@ -107,6 +109,7 @@ interface Call {
   argv: string[];
   stdin: string;
   pid: number;
+  autoQa?: string;
 }
 
 function alive(pid: number): boolean {
@@ -154,6 +157,8 @@ describe("enhancePrompt（假 omp）", () => {
     expect(call!.cwd).toBe(scratch);
     expect(call!.stdin).toBe(`Draft to rewrite (do not answer it):\n<draft>\n${draft}\n</draft>\n`);
     expect(call!.argv.slice(0, 9)).toEqual(enhanceArgs("@smol", "").slice(0, 9));
+    // Auto-QA 关掉：不然请求里还有 report_issue 工具。
+    expect(call!.autoQa).toBe("0");
     expect(call!.argv[10]).toContain("Write the rewritten message in Chinese");
     expect(call!.argv.join("\n")).not.toContain("登录");
   });

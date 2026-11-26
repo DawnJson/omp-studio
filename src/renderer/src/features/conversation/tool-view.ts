@@ -347,7 +347,6 @@ const todoStatuses: Record<TodoStatus, true> = {
   in_progress: true,
   completed: true,
   abandoned: true,
-  blocked: true,
 };
 
 /** todo 工具结果 `details.phases`（只留有任务的阶段）；认不出形状返回 null。进度用 todo-model 的 summarizeTodos / summarizePhase 算。 */
@@ -370,11 +369,13 @@ export function todoPhases(result: unknown): TodoPhase[] | null {
         !Object.hasOwn(todoStatuses, status)
       )
         continue;
-      const blocker = task["blocker"];
+      const notes = task["notes"];
       list.push({
         content: task["content"],
         status: status as TodoStatus,
-        ...(typeof blocker === "string" && blocker !== "" ? { blocker } : {}),
+        ...(Array.isArray(notes) && notes.every((note) => typeof note === "string") && notes.length > 0
+          ? { notes: notes as string[] }
+          : {}),
       });
     }
     if (list.length > 0) out.push({ name: typeof phase["name"] === "string" ? phase["name"] : "", tasks: list });

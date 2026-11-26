@@ -1,7 +1,8 @@
 // 右侧文件预览的读取：路径校验复用 task-file-path（只允许落在任务 cwd 内），按扩展名/内容分类，限制大小。
+// 位图不在这里读：登记校验过的实际路径，返回 studio-preview:// 地址，<img> 从协议按流读（preview-image.ts）。
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import type { PreviewFile } from "../../shared/ipc.ts";
+import { previewUrl, type PreviewFile } from "../../shared/ipc.ts";
 import {
   assertLocalFilePath,
   canOpenDirectly,
@@ -10,9 +11,9 @@ import {
   toRelative,
 } from "../ipc/task-file-path.ts";
 import { isMissing } from "./list-directory.ts";
+import { previewImageMaxBytes, registerPreviewImage } from "./preview-image.ts";
 
 const previewTextMaxBytes = 2 * 1024 * 1024;
-const previewImageMaxBytes = 20 * 1024 * 1024;
 
 const imageMime: Record<string, string> = {
   ".png": "image/png",
@@ -48,8 +49,10 @@ export async function readPreviewFile(cwd: string, input: string): Promise<Previ
   const mime = imageMime[ext];
   if (mime !== undefined) {
     if (info.size > previewImageMaxBytes) return { ...base, kind: "too_large" };
+    // svg 仍给 data URL：源码视图要原文，也不让带脚本的文档出现在协议地址上。
+    if (ext !== ".svg") return { ...base, kind: "image", imageUrl: previewUrl(registerPreviewImage(file, mime)) };
     const bytes = await readFile(file);
-    return { ...base, kind: "image", dataUrl: `data:${mime};base64,${bytes.toString("base64")}` };
+    return { ...base, kind: "image", imageUrl: `data:${mime};base64,${bytes.toString("base64")}` };
   }
   if (info.size > previewTextMaxBytes) return { ...base, kind: "too_large" };
   const bytes = await readFile(file);

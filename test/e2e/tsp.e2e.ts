@@ -769,7 +769,8 @@ test("回答里的本地图片：任务目录里的直接显示、点开在右�
     await expect
       .poll(() => image.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
       .toBe(40);
-    expect((await image.getAttribute("src"))?.startsWith("data:image/png;base64,")).toBe(true);
+    // 位图走主进程登记的 studio-preview://<token>/（按流读文件），不再是 data URL。
+    expect(await image.getAttribute("src")).toMatch(/^studio-preview:\/\/[0-9a-f-]{36}\/$/);
     const link = page.getByTestId("md-image-link");
     await expect(link).toHaveText("外面的图");
     await expect(link).toHaveAttribute("title", outside);
@@ -1339,6 +1340,41 @@ test("提问(omp 18.18.3 录制):选项前有序号,按数字选第 N 项(omp �
     expect(await received()).toEqual([
       expect.objectContaining({ ev: "send" }),
       { ev: "select", sf: "s:1", id: "s.form/s0/0/f0", item: "s.form/s0/0/f0/other" },
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("提问(omp 19.2.1 录制):提问卡在对话区里;点单选项只选中,点折起的题打开它,多选点两项,文字题打字,Submit 交卷后卡片撤掉", async () => {
+  const { launched, received, receivedKeys, cleanup } = await start("ask-19");
+  try {
+    const { page } = launched;
+    const prompt = recordedUserEvents(loadTspFixture("ask-19")).find((entry) => entry.event["ev"] === "send")!.event[
+      "text"
+    ] as string;
+    await sendFirst(page, prompt);
+    const node = (id: string) => page.locator(`[data-testid="tsp-view"] [data-id="${id}"]`);
+    const card = role(page, "omp.ask.card");
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await node("main/6/body/g0/q0/f0/o1").click();
+    await node("main/6/body/g1").click();
+    await node("main/6/body/g1/q1/f1/o1").click();
+    await node("main/6/body/g1/q1/f1/o0").click();
+    await node("main/6/body/g2").click();
+    const field = node("main/6/body/g2/q2/1").locator("textarea, input");
+    await field.click();
+    await page.keyboard.type("neo");
+    await expect.poll(async () => (await receivedKeys()).join("")).toContain("neo");
+    await node("main/6/actions/submit").click();
+    await expect(card).toHaveCount(0, { timeout: 30_000 });
+    expect((await received()).slice(1)).toEqual([
+      { ev: "select", sf: "s:1", id: "main/6/body/g0/q0/f0", item: "main/6/body/g0/q0/f0/o1" },
+      { ev: "action", sf: "s:1", id: "main/6/body/g1", act: "open:1" },
+      { ev: "select", sf: "s:1", id: "main/6/body/g1/q1/f1", item: "main/6/body/g1/q1/f1/o1" },
+      { ev: "select", sf: "s:1", id: "main/6/body/g1/q1/f1", item: "main/6/body/g1/q1/f1/o0" },
+      { ev: "action", sf: "s:1", id: "main/6/body/g2", act: "open:2" },
+      { ev: "action", sf: "s:1", id: "main/6/actions/submit", act: "submit" },
     ]);
   } finally {
     await cleanup();
@@ -2396,33 +2432,71 @@ test("后台作业对话框:omp 的测试进度和逐条用时柱状图(omp.job.
   }
 });
 
-// omp 18.19.0：恢复隔离的计划会话后 /plan-review，不调用模型；目录跳转和取消保留真实事件。
-test("计划审核(TSP):长计划正文独立滚动,目录跳转和大字号下的操作可用", async () => {
+/** 在 doc 节点里选中第一段含 `wanted` 的文字（像用户拖选：只设页面选区，不按鼠标，不碰剪贴板）。 */
+async function selectInDoc(doc: Locator, wanted: string): Promise<void> {
+  await doc.evaluate((el, text) => {
+    type TextNode = { nodeValue: string | null };
+    const g = globalThis as unknown as {
+      document: {
+        createTreeWalker(root: unknown, show: number): { nextNode(): TextNode | null };
+        createRange(): { setStart(node: TextNode, offset: number): void; setEnd(node: TextNode, offset: number): void };
+      };
+      getSelection(): { removeAllRanges(): void; addRange(range: unknown): void } | null;
+    };
+    const walker = g.document.createTreeWalker(el, 4);
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const at = (node.nodeValue ?? "").indexOf(text);
+      if (at < 0) continue;
+      const range = g.document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + text.length);
+      g.getSelection()?.removeAllRanges();
+      g.getSelection()?.addRange(range);
+      return;
+    }
+    throw new Error(`text not found: ${text}`);
+  }, wanted);
+}
+
+// omp 19.2.1 录制（fixtures/tsp/plan-review.jsonl，driver 扮演 Tern，没调模型）：/plan → /plan-review 打开 8 节的计划；
+// 正文是 `doc` 节点（omp.plan.doc），目录选第 8 节 → doc.jump；选中文字批注 → 改批注 → 再批注一条并删掉 → 双击就地编辑 →
+// Approve 下拉选 "Approve and execute"。假 omp 只在收到和录制一致的事件后才往下放，最后比对 studio 发出的全部事件。
+test("计划审核(TSP):doc 正文按 Markdown 画,目录跳转、选中批注、改删批注、双击就地编辑和批准菜单发出录制里的事件", async () => {
+  test.setTimeout(120_000);
   const { launched, received, cleanup } = await start("plan-review");
   try {
     const { page } = launched;
     await page.setViewportSize({ width: 900, height: 700 });
-    await sendFirst(page, "/plan-review");
+    await sendFirst(page, "/plan");
+    await expect(page.getByTestId("mode-chip")).toHaveAttribute("data-mode", /plan/i, { timeout: 20_000 });
+    await page.getByTestId("composer-input").fill("/plan-review");
+    await page.keyboard.press("Enter");
     const overlay = role(page, "omp.overlay.planReview");
     const card = overlay.getByRole("dialog");
     const body = role(page, "omp.plan.body");
+    const doc = role(page, "omp.plan.doc");
     const toc = role(page, "omp.plan.toc");
-    const sidebar = overlay.locator('.tsp-col:has(> [data-role="omp.plan.toc"])');
-    const options = role(page, "omp.plan.options");
-    const cancel = role(page, "omp.plan.tools").getByRole("button", { name: /Cancel/ });
-    await expect(card).toBeVisible();
+    const dock = role(page, "omp.plan.dock");
+    const cancel = dock.getByRole("button", { name: "Cancel" });
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await expect(card.locator(".tspi-ov-head")).toHaveText("测试平台改进计划");
+
+    // 正文是渲染好的 Markdown：8 个标题、表格、加粗，没有 `##` / `**` 原文。
+    await expect(doc.getByRole("heading")).toHaveCount(8);
+    await expect(doc.locator("table")).toHaveCount(8);
+    await expect(doc.locator("strong")).toHaveText("可追溯");
+    await expect(doc).not.toContainText("## ");
+    await expect(doc).not.toContainText("**");
+
+    // 版面：卡片在 tsp-view 里，正文、目录、底栏都看得到；中英文都不越界，表格单元格保留可读宽度。
     const viewBox = (await page.getByTestId("tsp-view").boundingBox())!;
     const cardBox = (await card.boundingBox())!;
     expect(cardBox.y).toBeGreaterThanOrEqual(viewBox.y - 1);
     expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(viewBox.y + viewBox.height + 1);
-    await expect(card.locator(".tspi-ov-head")).toBeInViewport({ ratio: 1 });
-    await expect(cancel).toBeInViewport({ ratio: 1 });
-    await expect(options).toBeInViewport({ ratio: 1 });
-    await expect(body.getByRole("heading").first()).toBeInViewport({ ratio: 1 });
     for (const locale of ["zh-CN", "en"] as const) {
       await setLocaleTheme(page, locale, "light");
       await expectNoOverflow(card);
-      const cellChars = await body
+      const cellChars = await doc
         .locator("td")
         .first()
         .evaluate((el) => {
@@ -2434,19 +2508,69 @@ test("计划审核(TSP):长计划正文独立滚动,目录跳转和大字号下�
           return (width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / parseFloat(style.fontSize);
         });
       expect(cellChars).toBeGreaterThanOrEqual(2);
-      const lastParagraph = body.locator(".md p").last();
-      await lastParagraph.scrollIntoViewIfNeeded();
-      await expect(lastParagraph).toBeInViewport({ ratio: 1 });
-      await expect(sidebar).toBeInViewport({ ratio: 1 });
-      await expect(cancel).toBeInViewport({ ratio: 1 });
-      await expect(options).toBeInViewport({ ratio: 1 });
+      await expect(doc.getByRole("heading").first()).toBeInViewport({ ratio: 1 });
+      await expect(toc).toBeInViewport({ ratio: 1 });
+      await expect(dock).toBeInViewport({ ratio: 1 });
     }
-    // 目录跳到最后一节、再回第一节，只改变正文滚动位置。
+
+    // 目录选最后一节：omp 回 doc.jump，正文把第 8 个标题滚到顶上，底栏不动。
     await toc.locator(".tspi-item").last().click();
-    await expect(body.getByRole("heading").last()).toBeInViewport({ ratio: 1 });
-    await toc.locator(".tspi-item").first().click();
-    await expect(body.getByRole("heading").first()).toBeInViewport({ ratio: 1 });
-    // 最小窗口与最大字号组合：正文仍有阅读区域，底部操作可滚到。
+    await expect(doc.getByRole("heading").last()).toBeInViewport({ ratio: 1 });
+    await expect(dock).toBeInViewport({ ratio: 1 });
+
+    // 选中文字 → 批注按钮 → 写批注回车。omp 有批注后收起目录、换节点 id 重建正文（不再滚回第 8 节）。
+    await body.evaluate((el) => {
+      (el as unknown as { scrollTop: number }).scrollTop = 0;
+    });
+    await selectInDoc(doc, "耗时和失败原因");
+    await page.getByTestId("tsp-doc-comment").click();
+    await page.getByTestId("tsp-doc-note-input").fill("区分模型耗时和工具耗时");
+    await page.keyboard.press("Enter");
+    const notes = doc.getByTestId("tsp-doc-note");
+    await expect(notes).toHaveCount(1);
+    await expect(toc).toHaveCount(0);
+    await expect(notes).toContainText("耗时和失败原因");
+    // 批注的引文在正文里高亮（CSS Highlight，正文 DOM 不变）。
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const g = globalThis as unknown as {
+            CSS: { highlights: { get(name: string): { size: number } | undefined } };
+          };
+          return g.CSS.highlights.get("tsp-doc-comment")?.size ?? 0;
+        }),
+      )
+      .toBe(1);
+    await expect(dock.getByRole("button", { name: "Refine" })).toBeVisible();
+
+    // 改批注：Enter 保存，发 comment {comment, note}。
+    await notes.getByRole("button", { name: "Edit comment" }).click();
+    await page.getByTestId("tsp-doc-note-input").fill("区分模型耗时、工具耗时和排队耗时");
+    await page.keyboard.press("Enter");
+    await expect(notes).toContainText("区分模型耗时、工具耗时和排队耗时");
+
+    // 标题里的文字也能批注；删掉它发 uncomment。
+    await selectInDoc(doc, "缩短排队时间");
+    await page.getByTestId("tsp-doc-comment").click();
+    await page.getByTestId("tsp-doc-note-input").fill("这一节可以删掉");
+    await page.keyboard.press("Enter");
+    await expect(notes).toHaveCount(2);
+    await notes.nth(1).getByRole("button", { name: "Delete comment" }).click();
+    await expect(notes).toHaveCount(1);
+
+    // 双击就地编辑 Markdown 原文；Esc 结束编辑（发 change 和 editing off），不关评审。
+    await doc.locator(".md p").first().dblclick();
+    const source = doc.getByRole("textbox", { name: "Markdown source" });
+    await expect(source).toBeFocused();
+    const original = await source.inputValue();
+    expect(original.startsWith("\n目标：")).toBe(true);
+    await source.fill(`${original}\n补充：每周复盘一次。`);
+    await page.keyboard.press("Escape");
+    await expect(source).toHaveCount(0);
+    await expect(doc.locator(".md p").last()).toHaveText("补充：每周复盘一次。");
+    await expect(overlay).toHaveCount(1);
+
+    // 最小窗口与最大字号：正文仍有阅读区域，末段和底栏都能滚到。
     await page.setViewportSize({ width: 800, height: 560 });
     await page.evaluate(() => globalThis.studio.setFontSize(22));
     await expect
@@ -2457,39 +2581,52 @@ test("计划审核(TSP):长计划正文独立滚动,目录跳转和大字号下�
     await expect
       .poll(() => body.evaluate((el) => (el as unknown as { clientHeight: number }).clientHeight))
       .toBeGreaterThan(0);
-    const lastParagraph = body.locator(".md p").last();
+    const lastParagraph = doc.locator(".md p").last();
     await lastParagraph.scrollIntoViewIfNeeded();
-    // 缩放 22/15 时 scrollTop 是小数，滚到底后末段仍被裁掉零点几个像素（实测 0.06px，ratio 0.997），看不出来。
+    // 缩放 22/15 时 scrollTop 是小数，滚到底后末段仍被裁掉零点几个像素，看不出来。
     await expect(lastParagraph).toBeInViewport({ ratio: 0.99 });
-    const lastOption = options.locator(".tspi-item").last();
-    await lastOption.scrollIntoViewIfNeeded();
-    await expect(lastOption).toBeInViewport({ ratio: 1 });
-    await cancel.click();
+    await cancel.scrollIntoViewIfNeeded();
+    await expect(cancel).toBeInViewport({ ratio: 1 });
+
+    // Approve 下拉选 "Approve and execute"：omp 关掉评审，开新会话执行。
+    await dock.locator('[data-id$="/approve/more"]').click();
+    await page
+      .getByTestId("tsp-node-menu")
+      .getByRole("menuitem", { name: /Approve and execute/ })
+      .click();
     await expect(overlay).toHaveCount(0);
-    expect(await received()).toEqual(recordedUserEvents(loadTspFixture("plan-review")).map((entry) => entry.event));
+    await expect(page.getByTestId("tsp-view")).toContainText("New session started");
+    // 录制最后一条是录制脚本在评审撤掉后补发的 toggle open:false；studio 的菜单跟着节点一起消失，不再发。
+    const recorded = recordedUserEvents(loadTspFixture("plan-review")).map((entry) => entry.event);
+    expect(recorded.at(-1)).toMatchObject({ ev: "toggle", open: false });
+    await expect
+      .poll(() => received(["comment", "uncomment", "editing", "change", "toggle"]))
+      .toEqual(recorded.slice(0, -1));
   } finally {
     await cleanup();
   }
 });
 
-test("计划审核(TSP):无目录的短计划和操作在矮窗口中完整可见", async () => {
+test("计划审核(TSP):无目录的短计划和底栏在矮窗口中完整可见,Cancel 关闭", async () => {
   const { launched, received, cleanup } = await start("plan-review-short");
   try {
     const { page } = launched;
     await page.setViewportSize({ width: 900, height: 560 });
-    await sendFirst(page, "/plan-review");
+    await sendFirst(page, "/plan");
+    await expect(page.getByTestId("mode-chip")).toHaveAttribute("data-mode", /plan/i, { timeout: 20_000 });
+    await page.getByTestId("composer-input").fill("/plan-review");
+    await page.keyboard.press("Enter");
     const overlay = role(page, "omp.overlay.planReview");
-    await expect(overlay.getByRole("dialog")).toBeVisible();
+    await expect(overlay.getByRole("dialog")).toBeVisible({ timeout: 20_000 });
     await expect(role(page, "omp.plan.toc")).toHaveCount(0);
+    await expect(role(page, "omp.plan.doc").locator("ol > li")).toHaveCount(3);
     for (const locale of ["zh-CN", "en"] as const) {
       await setLocaleTheme(page, locale, "light");
       await expectNoOverflow(overlay.getByRole("dialog"));
       await expect(role(page, "omp.plan.body")).toBeInViewport({ ratio: 1 });
-      await expect(role(page, "omp.plan.options")).toBeInViewport({ ratio: 1 });
+      await expect(role(page, "omp.plan.dock")).toBeInViewport({ ratio: 1 });
     }
-    await role(page, "omp.plan.tools")
-      .getByRole("button", { name: /Cancel/ })
-      .click();
+    await role(page, "omp.plan.dock").getByRole("button", { name: "Cancel" }).click();
     await expect(overlay).toHaveCount(0);
     expect(await received()).toEqual(
       recordedUserEvents(loadTspFixture("plan-review-short")).map((entry) => entry.event),
@@ -3096,7 +3233,8 @@ test("子代理面板:点行只显示详情、不进入对话;点进入对话才
   test.setTimeout(120_000);
   const steerText = "Also say PINEAPPLE in your final reply.";
   const firstPrompt = String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]);
-  const { launched, received, cleanup } = await start("hub-steer");
+  // 录制里 Beta 收到插话后约 10 秒自己结束、omp 撤掉聚焦；4 倍速留 2.5 秒，够开关一次面板（面板滑动约半秒）再点"回到主会话"。
+  const { launched, received, cleanup } = await start("hub-steer", {}, 4);
   try {
     const { page } = launched;
     await sendFirst(page, firstPrompt);
@@ -3166,7 +3304,6 @@ test("子代理面板:点行只显示详情、不进入对话;点进入对话才
     await expect(page.getByTestId("agents-empty")).toHaveCount(0);
     await page.getByTestId("topbar-agents").click();
     await expect(page.getByTestId("agents-panel")).toHaveCount(0);
-
     await page.getByTestId("run-focus-back").click();
     await expect.poll(async () => (await received()).some((event) => event["act"] === "focus:Main")).toBe(true);
     await expect(banner).toHaveCount(0, { timeout: 30_000 });
@@ -3251,8 +3388,9 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await expect(
       panel.locator('[data-testid="agents-row"][data-name="Alpha"]').getByTestId("agents-row-progress"),
     ).toHaveText("66%");
-    // 用时在进度环左边(整秒;录制里 omp 18.12 的 stats.age 一直是 0,所以是 0s);详情的统计格里不再有用时。
-    await expect(beta.getByTestId("agents-row-time")).toHaveText(/^\d+s$|^\d+m \d{2}s$/);
+    // 用时在进度环左边(整秒);详情的统计格里不再有用时。录制里 omp 的 stats.age 一直是 0(19.2.1 的后台子代理也是):
+    // 从主进程记下的开始时刻起算,不停在 0s。
+    await expect(beta.getByTestId("agents-row-time")).toHaveText(/^[1-9]\d*s$|^\d+m \d{2}s$/);
     await expect(beta.locator('[data-testid="agents-row-time"] + [data-testid="agents-row-progress"]')).toHaveCount(1);
     // 同 omp 的 Agent Hub:一打开就有选中项(列表第一个)和它的详情;对话记录默认收起(工具调用的细节不摆出来),点开才显示。
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Alpha");

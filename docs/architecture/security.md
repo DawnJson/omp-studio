@@ -4,7 +4,7 @@
 
 ## 窗口和页面
 
-- `BrowserWindow` 一律 `contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`，不开 `webviewTag`，不关 `webSecurity`（`browser-window-flags`）。CSP 严格：不允许内联脚本和 `eval`，不从网络加载脚本；`frame-src` 只放行 `studio-preview:`（下面「文件预览的网页」）。
+- `BrowserWindow` 一律 `contextIsolation: true`、`sandbox: true`、`nodeIntegration: false`，不开 `webviewTag`、不开 `nodeIntegrationInSubFrames`（preload 只进主框架，iframe 里没有 `window.studio`），不关 `webSecurity`（`browser-window-flags`）。CSP 严格：不允许内联脚本和 `eval`，不从网络加载脚本；`frame-src` 只放行 `studio-preview:`（下面「文件预览的网页」）和 `http: https:`（下面「回答里的内嵌网页」），`img-src` 除 `'self' data: blob:` 外也只多放行 `studio-preview:`（下面「文件预览的位图」）。
 - 页面只从 `app://studio/` 加载；禁止窗口内导航到外部地址和新开窗口（`will-navigate`、`setWindowOpenHandler`）。
 - 例外只有右栏浏览器面板（仓库所有者 2026-10-28 批准）：外部网页放在主进程的独立 `WebContentsView` 里（`sandbox`、`contextIsolation`、独立分区、拒绝所有权限、只放行 http/https），不和应用页面同一个 webContents、拿不到 preload；给 omp 的 CDP 口只听 127.0.0.1、校验 Host、拒带 Origin 的请求、路径带随机 token。见 [browser.md](browser.md)「安全」。
 - 第二个应用窗口只有桌面宠物（仓库所有者 2026-11-11 批准，[pet.md](pet.md)「安全」）：同样的沙箱 / 隔离 / CSP，只加载 `app://pet/pet.html`（单独的源，见 pet.md「安全」）；preload 是单独的 `pet.cjs`，只暴露 `PetApi`，拿不到 `StudioApi`；主进程的 `pet:*` 通道只认这个窗口的顶层页面。
@@ -16,8 +16,28 @@
 - 协议 `studio-preview`（`src/main/window/preview-protocol.ts`，和 `app` 一起在 `app-protocol.ts` 里登记为 standard + secure，不给 fetch / CORS / bypassCSP）。地址 `studio-preview://<token>/`，token 是 `crypto.randomUUID()`；网页只放在主进程内存里，不写盘。渲染进程经 `registerHtmlPreview(html)` 登记（限 `limits.htmlPreviewMaxChars`）、`releaseHtmlPreview(token)` 放手；主窗口重载或关闭时全部清掉。没登记、放过手的 token，子路径和非 GET 一律 404。
 - 响应头 CSP（逐字值在 `preview-protocol.ts`，单测 `test/preview-protocol.test.ts` 逐字守着）：除内联脚本 / `eval` / 内联样式和 `data:`/`blob:` 资源外一律 `'none'`，`connect-src 'none'`、`form-action 'none'`、`base-uri 'none'`，`frame-ancestors` 只许应用自己的源；加 `X-Content-Type-Options: nosniff`。页面自己的 `<meta>` CSP 只能再收紧。不联网是有意的：CDN 上的脚本、图片、字体都加载不了。
 - iframe 的 `sandbox` 只在勾了“运行脚本”时给 `allow-scripts`，不给 `allow-same-origin` / `allow-top-navigation` / `allow-popups` / `allow-forms`：页面的源不透明，`parent.document` 抛跨域错误。
-- 主窗口的 `will-frame-navigate`（`guardPreviewFrames`）只许子框架停在 `studio-preview:`、`about:blank`、`about:srcdoc` 上，预览页面点链接、改 `location` 想换成外部网页时拦下；新开窗口本来就被 sandbox 和 `setWindowOpenHandler` 拒绝。
+- 主窗口的 `will-frame-navigate`（`src/main/window/web-frames.ts` 的 `guardFrames`，单测 `test/web-frames.test.ts`）按子框架现在停在哪里放行：停在 `studio-preview:` 上的只能去 `studio-preview:`、`about:blank`、`about:srcdoc`，预览页面点链接、改 `location` 想换成外部网页时拦下；新开窗口本来就被 sandbox 和 `setWindowOpenHandler` 拒绝。
 - e2e `file-preview.e2e.ts`「网页预览：勾选运行脚本后内联脚本跑……」守着：脚本开时跑、关时不跑，`fetch` 外网失败，碰 `parent.document` 抛错。
+
+## 回答里的内嵌网页
+
+omp 把回答里单独一行的 `<iframe src>` 发成 TSP `web` 节点（[tsp-migration.md](tsp-migration.md) §7「web 节点」），studio 在对话里载入那个地址。载入 omp 内嵌的地址经仓库所有者批准（2026-11-26）；除了按地址请求网页，不向外发任何东西。
+
+- 网页（http/https）放在应用页面的 iframe 里（`features/tsp/nodes/web.tsx`）：`sandbox="allow-scripts allow-same-origin allow-forms"`，不给 `allow-top-navigation` / `allow-popups`；`referrerpolicy="no-referrer"`，`allow=""`。网页跑在它自己的源上，和 `app://studio` 不同源，碰不到应用页面；拿不到 preload，权限请求一律拒绝（`security.ts` 只放行主框架）。和应用页面共用默认会话，网页的 Cookie 存在应用的会话里（应用页面自己不用 http Cookie）。
+- 导航（`guardFrames`）：停在网页上的框架只能去别的 http/https 网页，换成 `file:`、`studio-preview:`、`app:` 等一律拦；刚建的框架（空、`about:blank`）只能载入网页、预览网页或空白页。改顶层页面被 sandbox 拒绝（抛错），主窗口的 `will-navigate` 也拦。
+- 本地文件（`file://`）不直接载入：和回答里的本地图片一样经主进程 `readPreviewFile` 读（只读任务目录和已加入的工作区，有大小上限），是 HTML 才登记成 `studio-preview://`（上面「文件预览的网页」的同一套源、CSP、sandbox），脚本要用户点了之后才放行；读不到就只画静态卡片。
+- 焦点在网页里时按键到不了应用页面：主进程 `relayFrameEscape` 在 `before-input-event` 看见焦点在子框架里的 Esc 时发 `frameEscape`，渲染进程据此让网页退回不可交互的状态；不拦这个键。
+- e2e `tsp-web.e2e.ts` 守着：网页里没有 `studio` / `require` / `process`，改顶层页面抛错、应用页面不动，导航到 `studio-preview:`、`file:` 被拦，点链接去别的网页照常走。
+
+## 文件预览的位图
+
+右侧预览和回答里的本地位图（png/jpg/gif/webp/bmp/ico）不经 IPC 传内容：主进程不在主线程读整张图、转 base64，`<img>` 直接从协议按流取（`src/main/files/preview-image.ts`）。
+
+- 只有 `readPreviewFile` / `readLinkedPreviewFile` 走完原有校验（`resolveInsideReal` 落在根内、`assertLocalFilePath`、20 MB 上限）后，才把实际路径登记到主进程内存，换来 `studio-preview://<token>/`（`crypto.randomUUID()`）。渲染进程拿不到也传不了路径；没登记的 token、子路径、非 GET 一律 404。
+- 取图时再核对：实际路径（`realpath`）和登记时相同、仍是普通文件、不超过上限，读到上限为止；父目录被换成链接、文件被删或变大都 404。
+- 响应头 `Content-Type` 按扩展名，加 `Content-Security-Policy: default-src 'none'`、`X-Content-Type-Options: nosniff`、`Cache-Control: no-store`。svg 不走协议，仍是 data URL（源码视图要原文，也不让可带脚本的文档挂在协议地址上）。
+- 地址不由渲染进程放手：最多 256 条，超过时丢最早的；主窗口重载或关闭时和网页一起清掉。
+- 单测 `test/preview-protocol.test.ts` 守着字节和响应头、未登记 / 清掉的 token、登记后换目录链接、变大超限、条数上限。
 
 ## preload 和 IPC
 

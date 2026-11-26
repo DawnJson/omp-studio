@@ -1,6 +1,7 @@
 // `list` / `item`（规范 elements-lists.md）。选中项由 omp 决定：单击发 `select`，双击发 `activate`，id 是 list、item 是 item 节点 id。
 // 再点已选中的行也算 activate（和 picker 的规则一致），审批门的选项一下就能点；双击不会重复激活。
 // 多选提问的选项（`omp.ask.check`）例外：单击永远是 `select`（omp 把它当勾选切换），双击不 activate（规则在 shared/tsp/ask-gate.ts）。
+// 单选圈 / 勾选框画不画成选中由门的形状决定（AskGateRoleContext + askItemChecked）：omp 19 的提问卡里高亮 ≠ 已答。
 // 方向键、Enter 这些归 omp：list 自己可聚焦，按键用 keys.ts 编码写进伪终端。
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
@@ -8,6 +9,7 @@ import {
   askDigitPick,
   askItemClick,
   askItemDoubleActivates,
+  askItemChecked,
   askItemMarker,
 } from "../../../../../shared/tsp/ask-gate.ts";
 import { Badge } from "../../../ui/controls.tsx";
@@ -35,6 +37,9 @@ interface ListState {
 }
 
 const ListContext = createContext<ListState | null>(null);
+
+/** 外层提问对话框根节点的 role（layout.tsx 的 GateCol 提供）；不在提问对话框里为 null。 */
+export const AskGateRoleContext = createContext<string | null>(null);
 
 /** 同一个 item 600ms 内只激活一次（点已选中行 + 随后的 dblclick）。 */
 const ACTIVATE_DEBOUNCE_MS = 600;
@@ -162,6 +167,7 @@ function scrollItemIntoView(scroller: HTMLElement | null, id: string, where: "st
 export function Item({ node, ctx }: NodeProps) {
   const p = node.p as unknown as TspItemProps & { tone?: string };
   const list = useContext(ListContext);
+  const gateRole = useContext(AskGateRoleContext);
   const listId = list?.listId ?? node.id;
   const isSelected = list !== null && list.selected === node.id;
   const lastActivate = useRef(0);
@@ -191,7 +197,7 @@ export function Item({ node, ctx }: NodeProps) {
   const hits = list !== null && list.filter.trim() !== "" ? filterHits(plainText(p.label), list.filter) : undefined;
   const hasValue = p.value !== undefined && plainText(p.value) !== "";
   const marker = askItemMarker(node.p["role"]);
-  const checked = marker === "check" ? p.icon === "check" : isSelected;
+  const checked = marker === null ? isSelected : askItemChecked(marker, gateRole, p, isSelected);
 
   return (
     <div

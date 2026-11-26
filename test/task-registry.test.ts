@@ -60,6 +60,26 @@ describe("TaskRegistry（tasks.json）", () => {
     expect(second.findTask(task.id)).toMatchObject({ worktreePath: null, worktreeBranch: null, worktreeBase: null });
   });
 
+  it("leftSessionFiles（回溯离开的会话文件）随任务落盘；没有这个字段的老记录不带它，认不出的值丢掉、别的字段不受影响", async () => {
+    const file = path.join(scratch, "left", "tasks.json");
+    const first = new TaskRegistry(file);
+    await first.load();
+    const project = await first.addProject(path.join(scratch, "left 项目"));
+    const kept = await first.addTask(newTask(project.id));
+    const bad = await first.addTask(newTask(project.id));
+    const plain = await first.addTask(newTask(project.id));
+    await first.updateTask(kept.id, { leftSessionFiles: ["C:/a b/离开.jsonl"] });
+    const raw = JSON.parse(await readFile(file, "utf8")) as { tasks: Record<string, unknown>[] };
+    raw.tasks[1]!["leftSessionFiles"] = ["C:/ok.jsonl", 3, "", null];
+    await writeFile(file, JSON.stringify(raw));
+    const second = new TaskRegistry(file);
+    await second.load();
+    expect(second.findTask(kept.id)?.leftSessionFiles).toEqual(["C:/a b/离开.jsonl"]);
+    expect(second.findTask(bad.id)?.leftSessionFiles).toEqual(["C:/ok.jsonl"]);
+    expect(second.findTask(plain.id)).not.toHaveProperty("leftSessionFiles");
+    expect(second.findTask(plain.id)).toMatchObject({ title: plain.title, sessionFile: plain.sessionFile });
+  });
+
   it("老记录读出来是同一个任务：engine（rpc 引擎时代）、keepAlive（保持运行删除之前）字段去掉，会话文件、标题、归档状态、模型原样保留；下次保存时落盘", async () => {
     const file = path.join(scratch, "engine", "tasks.json");
     const project = { id: "p1", path: path.join(scratch, "engine 项目"), name: "engine 项目" };

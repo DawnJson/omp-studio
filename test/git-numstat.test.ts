@@ -1,6 +1,7 @@
 // 防的失败：评审文件树的 `+a −d` 和 diff 里的数不一致（重命名、二进制、未跟踪文件、无结尾换行的数错）、
 // "文件"视图拿到的不是整个文件连成的一个 hunk、"改动块"视图的上下文被改大而让 hunk 级暂存对不上 header。
-import { rm } from "node:fs/promises";
+import { rm, utimes } from "node:fs/promises";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { countLines, getChangeStats, parseNumstat } from "../src/main/git/numstat.ts";
 import { getFileDiff } from "../src/main/git/review.ts";
@@ -41,9 +42,54 @@ describe("parseNumstat", () => {
 describe("countLines", () => {
   it("counts lines like diffOfNewFile: trailing newline is not an extra line", () => {
     expect(countLines(Buffer.from(""))).toBe(0);
+    expect(countLines(Buffer.from("\n"))).toBe(1);
+    expect(countLines(Buffer.from("a"))).toBe(1);
     expect(countLines(Buffer.from("a\n"))).toBe(1);
     expect(countLines(Buffer.from("a\nb"))).toBe(2);
     expect(countLines(Buffer.from("a\n\nb\n"))).toBe(3);
+    expect(countLines(Buffer.from("\n\n\n"))).toBe(3);
+  });
+
+  it("counts CRLF lines by their \\n, with or without a final line break", () => {
+    expect(countLines(Buffer.from("a\r\nb\r\n"))).toBe(2);
+    expect(countLines(Buffer.from("a\r\nb"))).toBe(2);
+    expect(countLines(Buffer.from("a\r\nb\r"))).toBe(2);
+  });
+});
+
+describe("untracked line count cache", () => {
+  const FILE = "缓存 文件.txt";
+  const count = async (dir: string) =>
+    (await getChangeStats(dir)).find((s) => s.area === "untracked" && s.path === FILE)?.added;
+
+  it("reuses the count while mtime and size match, rereads when either changes", async () => {
+    const dir = await fresh();
+    const abs = join(dir, FILE);
+    await put(dir, FILE, "一\n二\n");
+    // 先钉成整秒：文件系统 mtime 比 Date 精细（NTFS 100ns），用 Date 恢复不回原值。
+    const mtime = new Date(Math.floor(Date.now() / 1000) * 1000 - 60_000);
+    const atime = mtime;
+    await utimes(abs, atime, mtime);
+    expect(await count(dir)).toBe(2);
+
+    // 同样大小（8 字节）、同样 mtime：命中缓存，不重读（这正是缓存要省掉的读）。
+    await put(dir, FILE, "a\n\n\n\n\n\n\n");
+    await utimes(abs, atime, mtime);
+    expect(await count(dir)).toBe(2);
+
+    // 只改 mtime：重读。
+    await utimes(abs, atime, new Date(mtime.getTime() + 5000));
+    expect(await count(dir)).toBe(7);
+    await put(dir, FILE, "一\n二\n三");
+    await utimes(abs, atime, new Date(mtime.getTime() + 5000));
+    // 只改 size（mtime 和上一次读时一样）：重读。
+    expect(await count(dir)).toBe(3);
+
+    // 变成空文件、再变成二进制：各自重读。
+    await put(dir, FILE, "");
+    expect(await count(dir)).toBe(0);
+    await put(dir, FILE, Buffer.from([0x61, 0, 0x0a]));
+    expect(await count(dir)).toBeUndefined();
   });
 });
 

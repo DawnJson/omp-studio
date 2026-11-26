@@ -13,8 +13,9 @@ import { Reveal } from "../../ui/Reveal.tsx";
 import { thinkingLabel } from "../composer/thinking-levels.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
+import { formatCount } from "../composer/usage-format.ts";
 import { formatCost } from "../tsp/fmt.ts";
-import { formatTokens, shortModel } from "./format.ts";
+import { shortModel } from "./format.ts";
 import {
   agentContextPercent,
   agentProgress,
@@ -208,7 +209,7 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
       <dl className="agents-stats">
         {progress !== null && <Stat label={t("agents.progress")} value={`${progress}%`} />}
         {stats.cost !== null && <Stat label={t("agents.cost")} value={formatCost(stats.cost)} />}
-        {stats.tokens !== null && <Stat label={t("agents.tokens")} value={formatTokens(stats.tokens)} />}
+        {stats.tokens !== null && <Stat label={t("agents.tokens")} value={formatCount(stats.tokens)} />}
         {stats.requests !== null && <Stat label={t("agents.requests")} value={String(stats.requests)} />}
         {stats.tools !== null && <Stat label={t("agents.tools")} value={String(stats.tools)} />}
         {(stats.contextLabel !== null || context !== null) && (

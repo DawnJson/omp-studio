@@ -3,6 +3,7 @@ import type {
   TspPickerColumn,
   TspPickerGroup,
   TspPickerItem,
+  TspPickerLevel,
   TspPickerProps,
 } from "../../../../../shared/tsp/tsp.generated.ts";
 
@@ -41,9 +42,12 @@ export type PickerEntry =
   | { kind: "group"; group: TspPickerGroup; top: number; height: number }
   | { kind: "row"; item: TspPickerItem; top: number; height: number };
 
-const GROUP_HEIGHT = 32;
+/** 分组头高度：regular 32，`density: "snug"` 26（规范 TspPickerProps.density）。 */
+function groupHeight(density: TspPickerProps["density"]): number {
+  return density === "snug" ? 26 : 32;
+}
 
-function rowHeight(layout: TspPickerProps["layout"], item: TspPickerItem): number {
+function rowHeight(layout: TspPickerProps["layout"], density: TspPickerProps["density"], item: TspPickerItem): number {
   switch (layout) {
     case "cards":
       return 54;
@@ -52,7 +56,7 @@ function rowHeight(layout: TspPickerProps["layout"], item: TspPickerItem): numbe
     case "tree":
       return 24;
     default:
-      return 36;
+      return density === "snug" ? 30 : 36;
   }
 }
 
@@ -61,25 +65,56 @@ export function buildEntries(
   catalog: Map<string, TspPickerItem>,
   order: TspPickerProps["order"],
   layout: TspPickerProps["layout"],
+  density?: TspPickerProps["density"],
 ): { entries: PickerEntry[]; total: number; rows: number } {
   const entries: PickerEntry[] = [];
   let top = 0;
   let rows = 0;
+  const groupH = groupHeight(density);
   const source: readonly (string | TspPickerGroup)[] = order ?? [...catalog.keys()];
   for (const entry of source) {
     if (typeof entry === "string") {
       const item = catalog.get(entry);
       if (!item) continue;
-      const height = rowHeight(layout, item);
+      const height = rowHeight(layout, density, item);
       entries.push({ kind: "row", item, top, height });
       top += height;
       rows += 1;
     } else if (typeof entry === "object" && "group" in entry) {
-      entries.push({ kind: "group", group: entry, top, height: GROUP_HEIGHT });
-      top += GROUP_HEIGHT;
+      entries.push({ kind: "group", group: entry, top, height: groupH });
+      top += groupH;
     }
   }
   return { entries, total: top, rows };
+}
+
+/** 档位滑杆（`level`）的当前格：`value` 在 `steps` 里的下标；不在里面时取 0。 */
+export function levelIndex(level: Pick<TspPickerLevel, "steps" | "value">): number {
+  return Math.max(
+    0,
+    level.steps.findIndex((step) => step.id === level.value),
+  );
+}
+
+/** 第 `index` 格在轨道上的位置（0–1）：格子均匀分布，只有一格时在最右。 */
+export function levelFraction(index: number, count: number): number {
+  return count <= 1 ? 1 : Math.max(0, Math.min(1, index / (count - 1)));
+}
+
+/** 指针在轨道上的横坐标（相对轨道左缘）→ 最近的一格。 */
+export function stepAtPointer(x: number, width: number, count: number): number {
+  if (count <= 1 || width <= 0) return 0;
+  return Math.max(0, Math.min(count - 1, Math.round((x / width) * (count - 1))));
+}
+
+/**
+ * 轨道的"热度"（规范：从低到高越来越热，先是颜色、再是动效）：按格子在梯子上的位置分三段，
+ * 前段 cool（中性色），中段 warm（主色），最后约四分之一 hot（主色到琥珀 + 动效）。
+ */
+export function levelHeat(index: number, count: number): "cool" | "warm" | "hot" {
+  const f = levelFraction(index, count);
+  if (count > 1 && f >= 0.75) return "hot";
+  return f >= 0.4 ? "warm" : "cool";
 }
 
 /** 滚动窗口内的条目下标范围（含上下各 overscan 行）。 */

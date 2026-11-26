@@ -131,7 +131,7 @@ describe("TspSession + 假 omp：整份录制回放", () => {
     const kinds = hello?.["kinds"] as string[];
     expect(kinds).not.toContain("json");
     expect(kinds).toEqual(expect.arrayContaining(["md", "code", "ansi", "tabs", "button", "shell"]));
-    expect(hello?.["features"]).toEqual(["blobs", "settle", "adopt", "dock", "reduce-motion"]);
+    expect(hello?.["features"]).toEqual(["blobs", "settle", "adopt", "dock", "reduce-motion", "scroll"]);
     // DA1 应答在 hello 回复之后。
     expect(records.findIndex((record) => record.kind === "da1-reply")).toBeGreaterThan(
       records.findIndex((record) => record.kind === "tsp" && record.verb === "r"),

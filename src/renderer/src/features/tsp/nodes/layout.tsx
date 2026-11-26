@@ -1,9 +1,10 @@
 // 布局类节点：col、row、card、section、rule、spacer（规范 Layout）。
 import { useMemo, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
-import { ASK_BUTTON_ROLE, ASK_GATE_ROLE } from "../../../../../shared/tsp/ask-gate.ts";
+import { ASK_BUTTON_ROLE, isAskGateRole } from "../../../../../shared/tsp/ask-gate.ts";
 import type { TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { ChevronDown } from "../../../icons.tsx";
 import { AskGateCol } from "../interactive/AskGate.tsx";
+import { AskGateRoleContext } from "../interactive/List.tsx";
 import { Button } from "../interactive/Button.tsx";
 import { ERROR_CARD_ROLE } from "../../../../../shared/tsp/error-turn.ts";
 import { RetryButton } from "../../session-info/RetryButton.tsx";
@@ -88,7 +89,7 @@ function TileCol(props: NodeProps) {
 export function Col(props: NodeProps) {
   if (props.node.p.role === "omp.job.tile") return <TileCol {...props} />;
   if (props.node.p.role === "omp.assistant") return <AssistantCol {...props} />;
-  if (props.node.p.role === ASK_GATE_ROLE) return <GateCol {...props} />;
+  if (isAskGateRole(props.node.p.role)) return <GateCol {...props} />;
   if (props.node.p.role === "omp.run") return <RunCol {...props} />;
   return <PlainCol {...props} />;
 }
@@ -115,10 +116,14 @@ function RunCol(props: NodeProps) {
   );
 }
 
+/** 提问对话框（18 的 `omp.editor.ask`、19 的 `omp.ask.card`）：根节点接键盘（AskGate.tsx），里面的选项按门的形状画选中（List.tsx）。 */
 function GateCol(props: NodeProps) {
   const blank = useBlank(props);
+  const role = typeof props.node.p.role === "string" ? props.node.p.role : null;
   return (
-    <AskGateCol {...props} dom={nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p), blank })} />
+    <AskGateRoleContext.Provider value={role}>
+      <AskGateCol {...props} dom={nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p), blank })} />
+    </AskGateRoleContext.Provider>
   );
 }
 

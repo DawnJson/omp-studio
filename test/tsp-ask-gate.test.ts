@@ -4,16 +4,20 @@
 //   select 第三题的非高亮项、action submit（Review 页的 Submit）。
 import { describe, expect, it } from "vitest";
 import {
+  ASK_CARD_ROLE,
   ASK_GATE_ROLE,
   ASK_TOOL_ROLE,
   askDigitInGate,
   askDigitPick,
+  askItemChecked,
   askItemClick,
   askItemDoubleActivates,
   askItemMarker,
+  findAskCard,
   openAskTool,
 } from "../src/shared/tsp/ask-gate.ts";
 import { applyMessage, createDocument, findNode, nodeRole, type DocNode } from "../src/shared/tsp/document.ts";
+import { findMessageTarget } from "../src/shared/tsp/gate.ts";
 import { deriveTaskStatus } from "../src/shared/tsp/task-status.ts";
 import { loadTspFixture, recordedUserEvents, tspDocMessages } from "./tsp-fixtures.ts";
 
@@ -231,5 +235,49 @@ describe("askDigitInGate：焦点在对话框根节点上时按数字键", () =>
     expect(askDigitInGate(surface, gate.id, "4")).toEqual({ list, ev: "select", item: `${list}/other` });
     expect(askDigitInGate(surface, gate.id, "1")).toEqual({ list, ev: "activate", item: `${list}/o0` });
     expect(askDigitInGate(surface, gate.id, "5")).toBeNull();
+  });
+});
+
+describe("omp 19.2.1 的提问卡（fixtures/tsp/ask-19.jsonl：单选 / 多选 / 文字三题，在 main 里）", () => {
+  const messages19 = tspDocMessages(loadTspFixture("ask-19"));
+  const card = (doc: ReturnType<typeof createDocument>) => {
+    const surface = doc.surfaces.get("s:1");
+    return surface ? findAskCard(surface) : null;
+  };
+  function replay19(until: (doc: ReturnType<typeof createDocument>) => boolean) {
+    const doc = createDocument();
+    for (const { message } of messages19) {
+      applyMessage(doc, message);
+      if (until(doc)) return doc;
+    }
+    throw new Error("录制里没有出现期望的状态");
+  }
+
+  it("卡片在：needs_you，标题是第一题，输入框不能发（提问门）；交卷后卡片撤掉，回到在跑", () => {
+    const doc = replay19((d) => card(d) !== null);
+    const status = deriveTaskStatus(doc);
+    expect(status.status).toBe("needs_you");
+    expect(status.ask).toEqual({ title: expect.stringMatching(/language/i), approval: false });
+    expect(findMessageTarget(doc)).toMatchObject({ kind: "ask" });
+    expect(openAskTool(doc)).not.toBeNull();
+    const after = createDocument();
+    for (const { message } of messages19) applyMessage(after, message);
+    expect(card(after)).toBeNull();
+    expect(deriveTaskStatus(after).ask).toBeNull();
+  });
+
+  it("单选圈看 tone:accent（高亮 ≠ 已答）；18 的对话框仍看高亮；多选看 icon:check", () => {
+    expect(askItemChecked("radio", ASK_CARD_ROLE, { tone: "accent" }, false)).toBe(true);
+    expect(askItemChecked("radio", ASK_CARD_ROLE, {}, true)).toBe(false);
+    expect(askItemChecked("radio", ASK_GATE_ROLE, {}, true)).toBe(true);
+    expect(askItemChecked("check", ASK_CARD_ROLE, { icon: "check" }, false)).toBe(true);
+  });
+
+  it("录制里点选项发的事件就是 askItemClick 给的：单选的非高亮项、多选两次都是 select", () => {
+    const events = recordedUserEvents(loadTspFixture("ask-19")).map(({ event }) => event);
+    const selects = events.filter((event) => event["ev"] === "select");
+    expect(selects).toHaveLength(3);
+    expect(askItemClick("omp.ask.option", false)).toBe("select");
+    expect(askItemClick("omp.ask.check", true)).toBe("select");
   });
 });

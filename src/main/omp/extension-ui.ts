@@ -3,7 +3,10 @@
 import type { CancelUiResponse, ExtensionUiRequest } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { log } from "../log/log.ts";
 
-/** 后台进程没有人能回答 select / confirm / input / editor / ask：应答 cancelled，否则 omp 里发请求的一侧会一直等。其它方法返回 null（不需要应答）。 */
+/**
+ * 后台进程没有人能回答 select / confirm / input / editor / ask / form（omp 19.1 起 ask 工具发的 HTML 表单，不需要 opt-in）：
+ * 应答 cancelled，否则 omp 里发请求的一侧会一直等。其它方法返回 null（不需要应答）。
+ */
 export function cancelledReply(frame: ExtensionUiRequest): CancelUiResponse | null {
   switch (frame.method) {
     case "select":
@@ -11,6 +14,7 @@ export function cancelledReply(frame: ExtensionUiRequest): CancelUiResponse | nu
     case "input":
     case "editor":
     case "ask":
+    case "form":
       return { type: "extension_ui_response", id: frame.id, cancelled: true };
     default:
       return null;

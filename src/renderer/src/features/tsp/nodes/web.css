@@ -1,0 +1,71 @@
+/* `web` 节点（nodes/web.tsx）：回答里内嵌的网页。框的尺寸由节点的 w / h 给（默认列宽、16:10），不超过列宽。 */
+.tsp-web {
+  position: relative;
+  max-width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-overlay);
+}
+.tsp-web:focus {
+  outline: none;
+}
+.tsp-web[data-mode="focused"] {
+  border-color: var(--border-strong);
+}
+.tsp-web-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+/* 不交互时盖在网页上的透明层：指针事件到不了网页，点一下进入交互。 */
+.tsp-web-shield {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.tsp-web-still {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 0 14px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.tsp-web-still-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.tsp-web-title,
+.tsp-web-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tsp-web-title {
+  color: var(--text);
+}
+.tsp-web-url {
+  color: var(--text-3);
+}
+.tsp-web-open {
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.tsp-web-open:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}

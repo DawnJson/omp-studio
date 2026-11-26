@@ -5,7 +5,7 @@
 //                    | pet（宠物：照 `--mode json` 的格式回一条 assistant 的 message_end，usage 固定 1000 token / $0.002；
 //                      stdin 是 "Hatch the pet." 时文字是 {"name":"Pixel",…}，否则是 "said: <stdin 第一行>"）
 //   FAKE_PRINT_MODE_FILE 给了就每次从这个文件读模式（e2e 一次启动里换着模式测），优先于 FAKE_PRINT_MODE
-//   FAKE_PRINT_LOG   给了就把 {cwd, argv, stdin, pid} 作为一行 JSON 追加进去：测试据此断言参数、草稿只走 stdin、进程被结束
+//   FAKE_PRINT_LOG   给了就把 {cwd, argv, stdin, pid, autoQa（PI_AUTO_QA）} 作为一行 JSON 追加进去：测试据此断言参数、env、草稿只走 stdin、进程被结束
 //   FAKE_PRINT_DELAY 输出前等这么多毫秒（e2e 里让"优化中"停一会儿）
 import { appendFileSync, readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -19,7 +19,7 @@ for await (const chunk of process.stdin) stdin += String(chunk);
 if (process.env["FAKE_PRINT_LOG"])
   appendFileSync(
     process.env["FAKE_PRINT_LOG"],
-    `${JSON.stringify({ cwd: process.cwd(), argv: process.argv.slice(2), stdin, pid: process.pid })}\n`,
+    `${JSON.stringify({ cwd: process.cwd(), argv: process.argv.slice(2), stdin, pid: process.pid, autoQa: process.env["PI_AUTO_QA"] })}\n`,
   );
 
 process.stderr.write("Working...\n");

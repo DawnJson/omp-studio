@@ -1,11 +1,11 @@
-// omp-studio：此文件从 omp v18.18.5 原样拷贝（只给相对 import 补了扩展名），不要手改。
-// 来源：https://raw.githubusercontent.com/can1357/oh-my-pi/v18.18.5/packages/wire/src/shell-trace.ts
+// omp-studio：此文件从 omp v19.2.1 原样拷贝（只给相对 import 补了扩展名），不要手改。
+// 来源：https://raw.githubusercontent.com/can1357/oh-my-pi/v19.2.1/packages/wire/src/shell-trace.ts
 // 更新：npm run omp:update-wire -- <omp 版本>
 // Copyright (c) 2025 Mario Zechner; Copyright (c) 2025-2026 Can Bölük; Copyright (c) 2026 Stencil Labs, Inc.
 // MIT License，全文见 src/shared/oh-my-pi-LICENSE.txt（随安装包分发到 resources/licenses/oh-my-pi-MIT.txt）。
 /**
- * `ShellTrace`: the live model of one embedded-shell run, produced by pi-shell's
- * `RunTrace` (`crates/pi-shell/src/bash/trace.rs`), polled over napi, carried in
+ * `ShellTrace`: the live model of one embedded-shell run, produced by omp-shell's
+ * `RunTrace` (`crates/shell/src/bash/trace.rs`), polled over napi, carried in
  * the bash tool's `details.trace`, and forwarded verbatim to Tern as the `shell`
  * node's props. Every offset is a BYTE offset; UIs convert bytes to characters
  * when the script is not ASCII. Fields at their default are omitted.
@@ -121,12 +121,14 @@ export interface ShellTraceUnit {
 	bytes?: number;
 	/** The unit's source; present only for unlocated units (an eval or function body). */
 	source?: ShellTraceBytes;
-	/** Opaque canonical native syntax archive. Only pi-shell may interpret it. */
+	/** Opaque canonical native syntax archive. Only omp-shell may interpret it. */
 	syntax?: unknown;
 	/** Compiler-known wrapper bytes removed from this unit's displayed source. */
 	projection?: number;
 	/** Script a callout (`timeout`, `git`, `xargs`, …) ran for its operands; its calling command stands for it. */
 	callout?: boolean;
+	/** Command (unit index, node id) that ran this unit's script when the script is not literal in it: `eval "$x"`, `.`, a nested shell's file. */
+	runner?: { unit: number; node: number };
 	nodes: ShellTraceNode[];
 }
 

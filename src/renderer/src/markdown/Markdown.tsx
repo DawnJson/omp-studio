@@ -126,7 +126,7 @@ const Block = memo(
 /**
  * `marks`：文字里的字面标记（要传稳定引用，变了所有块重画）。
  * `openFile`：本地文件链接（`file:` 或相对路径）点了交给它（同样要稳定引用）；不给时这类链接按纯文字显示。
- * `loadImage`：本地图片（`![alt](路径)`）读成 data URL（读不到给 null 或失败）；和 openFile 都给了才显示本地图片（LocalImage），否则按文件链接显示。
+ * `loadImage`：本地图片（`![alt](路径)`）读成图片地址（读不到给 null 或失败）；和 openFile 都给了才显示本地图片（LocalImage），否则按文件链接显示。
  */
 export function Markdown({
   source,

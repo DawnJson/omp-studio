@@ -66,7 +66,8 @@ export async function readDefaultModel(refresh: boolean): Promise<DefaultModelIn
         ? {
             key: { provider: state.model.provider, modelId: state.model.id },
             name: state.model.name,
-            thinkingLevel: state.thinkingLevel ?? null,
+            // 自动模式下 thinkingLevel 是 omp 这轮挑的档位，configuredThinkingLevel 才是用户的选择（`auto`）；旧 omp 没有这个字段。
+            thinkingLevel: state.configuredThinkingLevel ?? state.thinkingLevel ?? null,
           }
         : null;
     startupCache().setDefaultModel(model, stamp, generation);

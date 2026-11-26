@@ -57,16 +57,22 @@ const MAX_BLOB_BYTES = 16 * 1024 * 1024;
  * - `adopt`：`o` 带 `adopt:true` 时接管已有 surface（document.ts 已实现）。
  * - `dock`：`dock` 区域贴着面板底部（渲染进程布局）。
  * - `reduce-motion`：hello 的 `reduceMotion` 和 `motion` 事件（`setAppearance`；`theme` 事件不需要特性）。
+ * - `scroll`：omp 的面板（报告弹窗正文、审批详情）收到翻页键后发 `scroll` 操作，由终端滚节点所在的容器
+ *   （document.ts 记下、TspView 的 useScrollOps 执行；不声明时 omp 什么都不发，键按了没反应）。
  * 不声明：`aside`（prefs 贴在面板旁边）、`styles`（`s` 消息：程序自带 CSS 不支持）、`flow`（flow surface）、
  * `program-palette`（`t` 调色板消息，omp 18.14 已从协议删掉；更早的 omp 不看这个特性照发，按未知动词忽略）。
  */
-const TSP_TERMINAL_FEATURES = ["blobs", "settle", "adopt", "dock", "reduce-motion"] as const;
+const TSP_TERMINAL_FEATURES = ["blobs", "settle", "adopt", "dock", "reduce-motion", "scroll"] as const;
 /**
  * hello 回复的 `kinds`：TSP_KINDS 里我们有组件的那些。omp 只给声明过的种类发新节点，没声明就退回旧的画法：
  * - `json`（omp 18.14，可折叠的 JSON 树）：不声明时 omp 把工具参数、结果里的 JSON 画成普通的 tree / 文字行（`cx.supports("json")`）。
  * 声明了的两种新节点（实测 omp 18.18.6，fixtures/tsp/button-*.jsonl、shell-bash.jsonl）：
  * - `button`（omp 18.14.2）：Submit、审批、登录等按钮发成 `button`（role 仍是 `omp.btn`），不再发 `omp.btn` 的行；interactive/Button.tsx 两种都画。
  * - `shell`（omp 18.17）：bash 卡片的命令区发 shell 可视化（ShellVizPresentation），nodes/shell.tsx 画；PTY / `!` 命令等没有 trace 的仍是 `code`。
+ * - `menu`、`buttons`（omp 19）：计划评审的拆分批准按钮和下拉，nodes/menu.tsx 画。omp 19.2.1 发它们不看声明，声明只为如实。
+ * - `doc`（omp 19）：计划评审里可评论、可编辑的 Markdown，nodes/doc.tsx 画。
+ * - `web`（omp 19）：回复里单独一行的 `<iframe src>` 发成 `web` 节点（omp 看 `supports("web")`，否则只是一行说明文字），nodes/web.tsx 画
+ *   （沙箱 iframe，安全规则见 docs/architecture/security.md「回答里的内嵌网页」）。
  * 拷新版 tsp.generated.ts 时新种类默认会被声明：先排除，写了组件再放开；出问题时把种类加回这里，omp 就退回旧形状。
  */
 const UNSUPPORTED_KINDS: ReadonlySet<string> = new Set(["json"]);

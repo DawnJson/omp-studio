@@ -78,7 +78,7 @@ test("草稿页：替换草稿、Ctrl+Z 回到原文；附件芯片保留；生�
     await expect(input).toHaveValue("make it blue");
     const [call] = await calls();
     expect(call!.stdin).toContain("<draft>\nmake it blue\n</draft>");
-    expect(call!.argv).toEqual(expect.arrayContaining(["-p", "--no-session", "--no-tools", "--system-prompt"]));
+    expect(call!.argv).toEqual(expect.arrayContaining(["-p", "--no-session", "--tools=", "--system-prompt"]));
     expect(call!.argv.join(" ")).not.toContain("make it blue");
 
     // 大段粘贴的芯片：结果里的占位符照样显示成芯片，撤回后芯片还在。

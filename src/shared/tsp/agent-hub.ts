@@ -200,6 +200,22 @@ export function countActiveAgents(doc: TspDocument): number {
   return listAgents(doc).filter((agent) => isAgentActive(agent.status)).length;
 }
 
+/**
+ * TaskState.agentStartedAt 的更新：在跑的名字第一次出现时记下 now，不在跑了就删；没变时返回同一个对象。
+ * omp 19.2.1 的后台子代理运行中 `stats.age` 一直是 0（后台 job 的进度回调没把 durationMs 抄过来），面板和对话里的用时靠它走。
+ */
+export function trackAgentStarts(
+  previous: Readonly<Record<string, number>>,
+  active: ReadonlySet<string>,
+  now: number,
+): Readonly<Record<string, number>> {
+  const kept = Object.keys(previous).filter((name) => active.has(name)).length;
+  if (kept === Object.keys(previous).length && kept === active.size) return previous;
+  const next: Record<string, number> = {};
+  for (const name of active) next[name] = previous[name] ?? now;
+  return next;
+}
+
 // ───────── Hub 选择器 ─────────
 
 export interface HubAction {

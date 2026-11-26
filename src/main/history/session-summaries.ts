@@ -7,6 +7,8 @@ export interface SessionLink {
   id: TaskId;
   sessionFile: string | null;
   archived: boolean;
+  /** 任务回溯（omp 19.2 起换新文件）时离开的会话文件：同一个任务的过去，不另列（tasks/left-session-files.ts）。 */
+  leftSessionFiles?: readonly string[];
 }
 
 /**
@@ -27,6 +29,8 @@ export function buildSessionSummaries(
   for (const link of links) {
     if (link.sessionFile !== null) linkByFile.set(pathKey(link.sessionFile), link);
   }
+  // 任务（含已归档的）回溯时离开的文件不列；任务删掉后不再有人引用，它们照常列出。
+  const left = new Set(links.flatMap((link) => (link.leftSessionFiles ?? []).map((file) => pathKey(file))));
   const ids = new Set(sessions.map((session) => session.id));
   const idByFile = new Map(sessions.map((session) => [pathKey(session.file), session.id]));
   const parentOf = (parent: string | null): string | null =>
@@ -40,7 +44,9 @@ export function buildSessionSummaries(
     if (session.title === null && session.firstPrompt === null) continue;
     const cwdKey = pathKey(session.cwd);
     if (wantedKey !== null && cwdKey !== wantedKey) continue;
-    const link = linkByFile.get(pathKey(session.file));
+    const fileKey = pathKey(session.file);
+    if (left.has(fileKey) && !linkByFile.has(fileKey)) continue;
+    const link = linkByFile.get(fileKey);
     const parentId = parentOf(session.parent);
     result.push({
       id: session.id,

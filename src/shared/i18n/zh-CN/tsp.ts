@@ -11,4 +11,10 @@ export const tsp = {
   forkHere: "从这条消息之前分叉出新任务",
   forkAfterAnswer: "从这条回答之后分叉出新任务",
   editMessage: "编辑这条消息（放进输入框）",
+  /** doc 节点（计划评审正文）：选中文字后的批注按钮、批注输入框的名称和提交按钮。 */
+  docComment: "批注",
+  docEditNote: "修改批注",
+  docDeleteNote: "删除批注",
+  /** 就地编辑时 Markdown 原文输入框的无障碍名称。 */
+  docSource: "Markdown 原文",
 } satisfies Record<string, MessageEntry>;

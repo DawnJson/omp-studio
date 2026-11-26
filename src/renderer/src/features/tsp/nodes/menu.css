@@ -1,0 +1,37 @@
+/* TSP `buttons` 组和 `menu` 触发器（nodes/menu.tsx）。按钮本身是 ui 的 .ui-btn，这里只管拼接：joined / split 共用边框、
+   只留外侧圆角；toolbar 是分段控件那样的浅底槽。 */
+.tsp-buttons {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  max-width: 100%;
+}
+.tsp-buttons:is([data-variant="joined"], [data-variant="split"]) > .ui-btn:not(:first-child) {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.tsp-buttons:is([data-variant="joined"], [data-variant="split"]) > .ui-btn:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* 实心（primary）的两半之间一条淡分隔，不然看不出是两个按钮。 */
+.tsp-buttons > .ui-btn[data-variant="primary"] + .ui-btn[data-variant="primary"] {
+  border-left-color: color-mix(in srgb, var(--text-on-primary) 30%, transparent);
+}
+.tsp-buttons:is([data-variant="joined"], [data-variant="split"]) > .ui-btn:hover,
+.tsp-buttons:is([data-variant="joined"], [data-variant="split"]) > .ui-btn:focus-visible {
+  position: relative;
+}
+.tsp-buttons[data-variant="toolbar"] {
+  gap: var(--space-0-5);
+  padding: 3px;
+  background: var(--bg-active);
+  border-radius: calc(var(--radius-control) + 2px);
+}
+
+/* 只有图标（没有 text 的 … 按钮、split 的菜单半边）：正方形。 */
+.tsp-menu-trigger[data-icon-only] {
+  width: var(--btn-h);
+  padding: 0;
+}

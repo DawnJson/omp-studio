@@ -21,6 +21,8 @@ export const labels = {
   imageUnavailable: "Image unavailable",
   imageNotArrived: "The image data has not arrived",
   mediaOpen: (path: string) => `Preview ${path}`,
+  /** 内嵌网页（web 节点）静态卡片上的打开按钮：网页用系统浏览器，本地文件在右侧预览。 */
+  webOpen: (url: string) => `Open ${url}`,
   working: "Working",
   /** 工具 / 子代理的状态名；不认识的状态返回 undefined。 */
   status: (status: string): string | undefined => STATUS[status],

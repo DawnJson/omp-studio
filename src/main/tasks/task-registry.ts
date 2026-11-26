@@ -34,6 +34,11 @@ export interface TaskRecord {
    * 没有或 null = 默认目录（`worktreePath ?? 项目目录`）。不写这个字段的记录行为不变。
    */
   cwd?: string | null;
+  /**
+   * 这个任务的 omp 回溯（或撤销回溯）时离开的会话文件（omp 19.2 起回溯换新文件，left-session-files.ts）：文件原样留在磁盘上，
+   * 会话列表不把它们另列一行。没有则不写这个字段。
+   */
+  leftSessionFiles?: readonly string[];
 }
 
 interface TasksFile {
@@ -83,16 +88,21 @@ export class TaskRegistry {
     // 现在只有 TSP 一种引擎，rpc 老任务沿用原来的 sessionFile，下次启动由 TspRunner 用 `--resume` 打开同一个会话。
     // 带 `keepAlive` 的（"保持运行"删除之前写的）也去掉：进程只在任务的标签页关掉时结束，没有回收可躲。文件不在这里改写，下次保存时落盘。
     const tasks = (parsed as TasksFile).tasks.map(
-      ({
-        engine: _engine,
-        keepAlive: _keepAlive,
-        ...task
-      }: TaskRecord & { engine?: unknown; keepAlive?: unknown }) => ({
-        ...task,
-        worktreePath: task.worktreePath ?? null,
-        worktreeBranch: task.worktreeBranch ?? null,
-        worktreeBase: task.worktreeBase ?? null,
-      }),
+      ({ engine: _engine, keepAlive: _keepAlive, ...task }: TaskRecord & { engine?: unknown; keepAlive?: unknown }) => {
+        const left: unknown = task.leftSessionFiles;
+        const leftSessionFiles = Array.isArray(left)
+          ? left.filter((file): file is string => typeof file === "string" && file !== "")
+          : [];
+        const { leftSessionFiles: _left, ...rest } = task;
+        return {
+          ...rest,
+          worktreePath: task.worktreePath ?? null,
+          worktreeBranch: task.worktreeBranch ?? null,
+          worktreeBase: task.worktreeBase ?? null,
+          // 认不出的值（不是字符串数组）丢掉，不影响别的字段。
+          ...(leftSessionFiles.length > 0 && { leftSessionFiles }),
+        };
+      },
     );
     // 没有 hidden 的项目（"从列表移除"改成隐藏之前写的；那时移除就是删掉记录）都是显示着的。
     const projects = (parsed as TasksFile).projects.map((project) => ({ ...project, hidden: project.hidden ?? false }));

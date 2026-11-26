@@ -76,8 +76,11 @@ function sleep(ms: number): Promise<void> {
 function encode(entry: Entry): Buffer[] {
   // verb `osc`：回放一条原样的 OSC（body 是 `ESC ]` 之后的内容，如 `7501;state=working:app=omp`、`7;file://host/C:/dir`、
   // `1337;SetUserVar=omp_session_file`）。结尾照真实 omp 的写法：7501 用 ST，其余用 BEL。
+  // body 里的 `${b64:变量名}` 换成那个环境变量值的 base64：测试的会话文件路径每次不同（回溯换文件，rewind-19.jsonl）。
   if (entry.verb === "osc") {
-    const text = String(entry.body);
+    const text = String(entry.body).replace(/\$\{b64:(\w+)\}/g, (_, name: string) =>
+      Buffer.from(process.env[name] ?? "").toString("base64"),
+    );
     return [Buffer.from(`${ESC}]${text}${text.startsWith("7501;") ? ST : "\x07"}`, "utf8")];
   }
   const params = Object.entries(entry.params ?? {})

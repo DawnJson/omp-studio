@@ -7,9 +7,12 @@ import { Seg, Status } from "./nodes/chrome.tsx";
 import { Badge, Icon, Image, Kbd, Kv, Table, Tree } from "./nodes/data.tsx";
 import { Card, Col, Row, Rule, Section, Spacer } from "./nodes/layout.tsx";
 import { Chart, Effort, Elapsed, Meter, Progress, Rate, Shimmer, Spinner } from "./nodes/motion.tsx";
+import { Buttons, Menu } from "./nodes/menu.tsx";
+import { Doc } from "./nodes/doc.tsx";
 import { Shell } from "./nodes/shell.tsx";
 import { Ansi, Code, Diff, MathBlock, Md, Media, Rows, Text } from "./nodes/text.tsx";
 import { Agent, Checklist, Tool } from "./nodes/work.tsx";
+import { Web } from "./nodes/web.tsx";
 
 let table: Readonly<Record<string, ComponentType<NodeProps>>> | null = null;
 
@@ -23,6 +26,7 @@ export function nodeRegistry(): Readonly<Record<string, ComponentType<NodeProps>
     spacer: Spacer,
     text: Text,
     md: Md,
+    doc: Doc,
     code: Code,
     diff: Diff,
     ansi: Ansi,
@@ -31,6 +35,7 @@ export function nodeRegistry(): Readonly<Record<string, ComponentType<NodeProps>
     rows: Rows,
     media: Media,
     image: Image,
+    web: Web,
     kv: Kv,
     table: Table,
     tree: Tree,
@@ -47,6 +52,8 @@ export function nodeRegistry(): Readonly<Record<string, ComponentType<NodeProps>
     effort: Effort,
     status: Status,
     seg: Seg,
+    menu: Menu,
+    buttons: Buttons,
     tool: Tool,
     agent: Agent,
     checklist: Checklist,

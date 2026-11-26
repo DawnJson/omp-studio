@@ -29,7 +29,7 @@ import {
 } from "./prefs-model.ts";
 import { TerminalInput } from "./TerminalInput.tsx";
 
-type Slot = "status" | "editor" | "extra";
+type Slot = "status" | "editor" | "extra" | "search";
 
 const RAIL_BELOW_PX = 760;
 
@@ -98,10 +98,16 @@ export function Prefs(props: NodeProps) {
     else groups.push({ name: pg.group, pages: [pg] });
   }
 
+  // omp 19.2.1 的搜索框：prefs 的最后一个子节点（`input`，role `omp.prefs.search`，`text` / `cursor`）；
+  // 编辑卡片打开或在插件页时 omp 不给它，只有 `p.query`。焦点在它上面也算在 prefs 里。
+  const lastChild = useTspNode(ctx.taskId, ctx.sf, node.c[node.c.length - 1] ?? "");
+  const search =
+    lastChild !== null && lastChild.k === "input" && lastChild.p["role"] === SEARCH_ROLE ? lastChild : null;
+
   const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // 键盘一直归 omp：点按钮不抢搜索框的焦点；焦点在页面外的输入框里时先发 focus。
     if ((e.target as HTMLElement).closest("input,textarea") === null) e.preventDefault();
-    if (surface !== null && surface.focus !== null && surface.focus !== node.id) {
+    if (surface !== null && surface.focus !== null && surface.focus !== node.id && surface.focus !== search?.id) {
       ctx.send({ ev: "focus", sf: ctx.sf, id: node.id });
     }
   };
@@ -122,15 +128,7 @@ export function Prefs(props: NodeProps) {
             <span className="tspi-pf-search-ic">
               <TspIcon name="search" size={14} />
             </span>
-            {p.cursor !== undefined ? (
-              <span className="q">
-                {(p.query ?? "").slice(0, p.cursor)}
-                <span className="tspi-pf-caret" />
-                {(p.query ?? "").slice(p.cursor)}
-              </span>
-            ) : (
-              <span className={query === "" ? "q ph" : "q"}>{query === "" ? phText : query}</span>
-            )}
+            <SearchQuery search={search} query={query} placeholder={phText} />
             <TerminalInput ctx={ctx} autoFocus label={phText} />
           </div>
           <div className="tspi-pf-groups">
@@ -553,7 +551,33 @@ function OrderedList({
   );
 }
 
-/** prefs 的子节点按 role 分到三处：status 预览、editor 卡片（含任何 picker）、其余。 */
+/** 搜索框里的字：有搜索框子节点时按它的 `text` / `cursor` 画光标，没有时显示 `p.query`（或占位）。键盘照旧由 TerminalInput 写进伪终端。 */
+function SearchQuery({
+  search,
+  query,
+  placeholder,
+}: {
+  search: NodeProps["node"] | null;
+  query: string;
+  placeholder: string;
+}) {
+  if (search !== null) {
+    const text = typeof search.p["text"] === "string" ? search.p["text"] : "";
+    const cursor = typeof search.p["cursor"] === "number" ? search.p["cursor"] : text.length;
+    return (
+      <span className="q">
+        {text.slice(0, cursor)}
+        <span className="tspi-pf-caret" />
+        {text.slice(cursor)}
+      </span>
+    );
+  }
+  return <span className={query === "" ? "q ph" : "q"}>{query === "" ? placeholder : query}</span>;
+}
+
+const SEARCH_ROLE = "omp.prefs.search";
+
+/** prefs 的子节点按 role 分到三处：status 预览、editor 卡片（含任何 picker）、其余；搜索框子节点只由 SearchQuery 读，不在这里画。 */
 function Slots({ node, ctx, slot }: { node: NodeProps["node"]; ctx: TspContext; slot: Slot }) {
   return (
     <>
@@ -565,6 +589,7 @@ function Slots({ node, ctx, slot }: { node: NodeProps["node"]; ctx: TspContext; 
 }
 
 function slotOf(role: unknown, kind: string): Slot {
+  if (role === SEARCH_ROLE) return "search";
   if (role === "omp.prefs.preview.status") return "status";
   if (role === "omp.prefs.editor" || kind === "picker") return "editor";
   return "extra";

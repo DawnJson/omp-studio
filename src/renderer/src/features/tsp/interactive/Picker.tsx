@@ -1,6 +1,7 @@
-// `picker`（规范 elements-lists.md#picker）：数据驱动的模态面板——搜索头、范围列、标签、事实列、虚拟滚动的行、
-// 预览、策略条、动作栏。选中项、query、过滤和排序都在 omp：这边的指针操作发 select / activate / action，
+// `picker`（规范 elements-lists.md#picker）：数据驱动的模态面板——搜索头、范围列（或图标 rail）、标签、事实列、虚拟滚动的行、
+// 预览、策略条、档位滑杆（PickerLevel.tsx）、动作栏。选中项、query、过滤和排序都在 omp：这边的指针操作发 select / activate / action，
 // 键盘（含搜索框打字、输入法）写进伪终端，omp 回 `set p {query, order, selected, …}`。
+// `search:"list"` 把搜索放进列表的表头行（没有头一行），`density:"snug"` 收紧行高，`anchor:"composer"` 从 studio 的输入框往上弹（interactive.css）。
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cleanGlyphs } from "../span-tokens.ts";
 import type {
@@ -13,8 +14,9 @@ import type {
   TspTone,
 } from "../../../../../shared/tsp/tsp.generated.ts";
 import { useT } from "../../../i18n/use-t.ts";
-import { Badge, Button, type Tone } from "../../../ui/controls.tsx";
-import { toolIconName } from "../icon-names.ts";
+import { Badge, Button, IconButton, type Tone } from "../../../ui/controls.tsx";
+import { gateKeyHint } from "../fmt.ts";
+import { resolveIconName, toolIconName } from "../icon-names.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
@@ -35,6 +37,7 @@ import {
   type PickerCatalog,
   type PickerEntry,
 } from "./picker-model.ts";
+import { PickerLevel } from "./PickerLevel.tsx";
 import { TerminalInput } from "./TerminalInput.tsx";
 import { plainText, type HitRange } from "./text-model.ts";
 
@@ -62,10 +65,10 @@ export function Picker(props: NodeProps) {
     total: contentHeight,
     rows,
   } = useMemo(
-    () => buildEntries(catalog.items, p.order, layout),
+    () => buildEntries(catalog.items, p.order, layout, p.density),
     // 目录就地改：用三个补丁数组的引用 + order 判断变化。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [p.items, p.itemsAdd, p.itemsDel, p.order, layout],
+    [p.items, p.itemsAdd, p.itemsDel, p.order, layout, p.density],
   );
 
   const send = (act: string, value?: string) =>
@@ -153,6 +156,52 @@ export function Picker(props: NodeProps) {
   const noQuery = (query ?? "").trim() === "";
   const emptyState = state === "ready" && rows === 0;
   const tabAction = actions.find((a) => a.keys?.includes("tab"));
+  const listSearch = p.search === "list";
+  const rail = p.scopeStyle === "rail" && scopes.length > 0;
+  const headActions = actions.filter((a) => a.head === true);
+  const barActions = actions.filter((a) => a.head !== true);
+  const headButtons =
+    headActions.length > 0 ? (
+      <span className="tspi-pk-hacts">
+        {headActions.map((a) => (
+          <HeadAction key={a.id} action={a} onPick={send} />
+        ))}
+      </span>
+    ) : null;
+  const showColHead = columns.some((c) => (c.head ?? "") !== "") && state === "ready" && !emptyState;
+  const colHeads = (
+    <>
+      {columns.map((c) => (
+        <span key={c.id} className={`tspi-pk-fact f-${c.format ?? "text"}`}>
+          {c.head ?? ""}
+        </span>
+      ))}
+      {hasCurrent ? <span className="tspi-pk-cur" /> : null}
+    </>
+  );
+  const searchLabel = p.placeholder ?? t("tspi.searchPlaceholder", { noun });
+  const search =
+    query !== null ? (
+      <div className="tspi-pk-search">
+        {query === "" ? (
+          <>
+            <span className="caret" />
+            <span className="ph">{cleanGlyphs(searchLabel)}</span>
+          </>
+        ) : (
+          <span className="q">
+            {query.slice(0, cursor)}
+            <span className="caret" />
+            {query.slice(cursor)}
+          </span>
+        )}
+        <TerminalInput ctx={ctx} autoFocus label={searchLabel} />
+      </div>
+    ) : (
+      <div className="tspi-pk-search tspi-pk-nosearch">
+        <TerminalInput ctx={ctx} autoFocus label={p.title ?? noun} />
+      </div>
+    );
 
   const classes = [
     "tspi-picker",
@@ -164,6 +213,9 @@ export function Picker(props: NodeProps) {
     state === "error" ? "st-error" : "",
     p.title === undefined ? "no-title" : "",
     query === null ? "no-query" : "",
+    listSearch ? "srch-list" : "",
+    p.density === "snug" ? "dn-snug" : "",
+    p.anchor === "composer" ? "anc-composer" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -181,51 +233,43 @@ export function Picker(props: NodeProps) {
           if ((e.target as HTMLElement).closest("input,textarea") === null) e.preventDefault();
         }}
       >
-        <div className="tspi-pk-head">
-          <span className="tspi-pk-ic">
-            <TspIcon name={p.icon ?? "list"} size={16} />
-          </span>
-          {p.title !== undefined ? (
-            <div className="tspi-pk-title" title={size === "md" ? plainText(p.subtitle) || undefined : undefined}>
-              <span className="t">{p.title}</span>
-              {p.subtitle !== undefined && size !== "md" ? (
-                <span className="sub">
-                  <TspSpans text={p.subtitle} />
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          {query !== null ? (
-            <div className="tspi-pk-search">
-              {query === "" ? (
-                <>
-                  <span className="caret" />
-                  <span className="ph">{cleanGlyphs(p.placeholder ?? t("tspi.searchPlaceholder", { noun }))}</span>
-                </>
-              ) : (
-                <span className="q">
-                  {query.slice(0, cursor)}
-                  <span className="caret" />
-                  {query.slice(cursor)}
-                </span>
-              )}
-              <TerminalInput ctx={ctx} autoFocus label={p.placeholder ?? t("tspi.searchPlaceholder", { noun })} />
-            </div>
-          ) : (
-            <div className="tspi-pk-search tspi-pk-nosearch">
-              <TerminalInput ctx={ctx} autoFocus label={p.title ?? noun} />
-            </div>
-          )}
-          <span className="tspi-pk-count">{countText}</span>
-          {actions.some(isEscape) ? null : (
-            <Button size="sm" variant="quiet" hint="Esc" onClick={() => send(closeAction)}>
-              {t("tspi.close")}
-            </Button>
-          )}
-        </div>
+        {/* search:"list" 没有头一行（搜索在列表的表头行里、没有计数和 Esc）；omp 只在出错时给标题，这时仍画出标题和错误。 */}
+        {!listSearch || p.title !== undefined ? (
+          <div className="tspi-pk-head">
+            <span className="tspi-pk-ic">
+              <TspIcon name={p.icon ?? "list"} size={16} />
+            </span>
+            {p.title !== undefined ? (
+              <div className="tspi-pk-title" title={size === "md" ? plainText(p.subtitle) || undefined : undefined}>
+                <span className="t">{p.title}</span>
+                {p.subtitle !== undefined && (size !== "md" || listSearch) ? (
+                  <span className="sub">
+                    <TspSpans text={p.subtitle} />
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {listSearch ? <span className="grow" /> : search}
+            {listSearch ? null : <span className="tspi-pk-count">{countText}</span>}
+            {listSearch && rail ? null : headButtons}
+            {listSearch || actions.some(isEscape) ? null : (
+              <Button size="sm" variant="quiet" hint="Esc" onClick={() => send(closeAction)}>
+                {t("tspi.close")}
+              </Button>
+            )}
+          </div>
+        ) : null}
 
         <div className="tspi-pk-body">
-          {scopes.length > 0 ? <Scopes scopes={scopes} active={p.scope} onPick={(id) => send("scope", id)} /> : null}
+          {scopes.length > 0 ? (
+            <Scopes
+              scopes={scopes}
+              active={p.scope}
+              rail={rail}
+              head={listSearch && rail ? headButtons : null}
+              onPick={(id) => send("scope", id)}
+            />
+          ) : null}
           <div className="tspi-pk-center">
             <div className="tspi-pk-main" ref={main}>
               {tabs.length > 0 ? (
@@ -245,15 +289,16 @@ export function Picker(props: NodeProps) {
                   ))}
                 </div>
               ) : null}
-              {columns.some((c) => (c.head ?? "") !== "") && state === "ready" && !emptyState ? (
+              {listSearch ? (
+                <div className="tspi-pk-colhead tspi-pk-lhead">
+                  {search}
+                  {showColHead ? colHeads : null}
+                  {rail || p.title !== undefined ? null : headButtons}
+                </div>
+              ) : showColHead ? (
                 <div className="tspi-pk-colhead">
                   <span className="grow" />
-                  {columns.map((c) => (
-                    <span key={c.id} className={`tspi-pk-fact f-${c.format ?? "text"}`}>
-                      {c.head ?? ""}
-                    </span>
-                  ))}
-                  {hasCurrent ? <span className="tspi-pk-cur" /> : null}
+                  {colHeads}
                 </div>
               ) : null}
 
@@ -400,20 +445,22 @@ export function Picker(props: NodeProps) {
           </div>
         ) : null}
 
-        {actions.length > 0 ? (
+        {p.level ? <PickerLevel level={p.level} onPick={(step) => send("level", step)} /> : null}
+
+        {barActions.length > 0 ? (
           <div className="tspi-pk-bar" role="toolbar">
-            {actions
+            {barActions
               .filter((a) => a.end !== true && a.primary !== true)
               .map((a) => (
                 <ActionButton key={a.id} action={a} onPick={send} />
               ))}
             <span className="tspi-pk-bar-fill" />
-            {actions
+            {barActions
               .filter((a) => a.end === true && a.primary !== true)
               .map((a) => (
                 <ActionButton key={a.id} action={a} onPick={send} />
               ))}
-            {actions
+            {barActions
               .filter((a) => a.primary === true)
               .map((a) => (
                 <ActionButton key={a.id} action={a} onPick={send} />
@@ -446,6 +493,29 @@ function ActionButton({ action, onPick }: { action: TspPickerAction; onPick(act:
   );
 }
 
+/** 头上的动作（`head`）：只有图标的按钮（`icon`，没有就是名字的首字母），名字和键写在悬停提示里，`on` 时着色。 */
+function HeadAction({ action, onPick }: { action: TspPickerAction; onPick(act: string): void }) {
+  const off = action.disabled !== undefined;
+  const keys = action.keys !== undefined && action.keys.length > 0 ? gateKeyHint(action.keys) : "";
+  const tip = typeof action.disabled === "string" ? action.disabled : [action.label, keys].filter(Boolean).join("  ");
+  const glyph = resolveIconName(action.icon) !== null ? <TspIcon name={action.icon} size={14} /> : null;
+  return (
+    <IconButton
+      label={action.label}
+      tip={tip}
+      pressed={action.on}
+      aria-disabled={off || undefined}
+      className="tspi-pk-hact"
+      data-act={action.id}
+      onClick={() => {
+        if (!off) onPick(action.id);
+      }}
+    >
+      {glyph ?? <span className="tspi-pk-hact-init">{[...action.label][0]?.toUpperCase()}</span>}
+    </IconButton>
+  );
+}
+
 /** picker 的徽标 / 芯片色：只有 ui 的五种色有对应的样式，其余（pending、muted 等）用中性。 */
 function isUiTone(tone: TspTone | undefined): tone is Tone {
   return tone === "neutral" || tone === "success" || tone === "accent" || tone === "warning" || tone === "error";
@@ -464,49 +534,66 @@ function GroupLabel({ entry }: { entry: Extract<PickerEntry, { kind: "group" }> 
   );
 }
 
+/**
+ * 范围列。`rail`（scopeStyle "rail"）：只画图标，名字和数量写进悬停提示，`group` 变化处只画分隔线；
+ * search:"list" 时头上的动作放在 rail 顶上（`head`）。
+ */
 function Scopes({
   scopes,
   active,
+  rail,
+  head,
   onPick,
 }: {
   scopes: readonly TspPickerScope[];
   active: string | undefined;
+  rail: boolean;
+  head: React.ReactNode;
   onPick(id: string): void;
 }) {
   const out: React.ReactNode[] = [];
   let lastGroup: string | undefined;
   scopes.forEach((scope, i) => {
     if (scope.group !== lastGroup) {
-      if (scope.group !== undefined)
+      if (scope.group !== undefined && !rail)
         out.push(
           <div key={`h:${scope.group}:${i}`} className="tspi-pk-sgh">
             {scope.group}
           </div>,
         );
-      else out.push(<div key={`s:${i}`} className="tspi-pk-ssep" />);
+      else if (i > 0 || !rail) out.push(<div key={`s:${i}`} className="tspi-pk-ssep" />);
       lastGroup = scope.group;
     }
     const disabled = scope.disabled !== undefined;
+    const label = plainText(scope.label);
+    const railTip = scope.count !== undefined ? `${label} · ${scope.count.toLocaleString()}` : label;
     out.push(
       <div
         key={scope.id}
         role="tab"
         aria-selected={scope.id === active}
+        aria-label={rail ? label : undefined}
         className={["tspi-pk-scope", scope.id === active ? "on" : "", disabled ? "dis" : ""].filter(Boolean).join(" ")}
-        title={typeof scope.disabled === "string" ? scope.disabled : undefined}
+        title={typeof scope.disabled === "string" ? scope.disabled : rail ? railTip : undefined}
+        data-v={scope.id}
         onClick={() => onPick(scope.id)}
       >
         <Lead icon={scope.icon} mark={scope.mark} dot={scope.dot} />
-        <span className="lbl">
-          <TspSpans text={scope.label} />
-        </span>
-        {scope.count !== undefined ? <span className="meta">{scope.count.toLocaleString()}</span> : null}
-        {disabled ? <span className="tspi-pk-lock">🔒</span> : null}
+        {rail ? null : (
+          <>
+            <span className="lbl">
+              <TspSpans text={scope.label} />
+            </span>
+            {scope.count !== undefined ? <span className="meta">{scope.count.toLocaleString()}</span> : null}
+            {disabled ? <span className="tspi-pk-lock">🔒</span> : null}
+          </>
+        )}
       </div>,
     );
   });
   return (
-    <div className="tspi-pk-scopes" role="tablist">
+    <div className={rail ? "tspi-pk-scopes rail" : "tspi-pk-scopes"} role="tablist">
+      {head}
       {out}
     </div>
   );
@@ -608,7 +695,11 @@ function Row({ entry, layout, columns, selected, current, hasCurrent, hits, onCl
             )}
           </span>
           {badges.length > 0 || (item.chips?.length ?? 0) > 0 ? (
-            <span className="tspi-pk-tags">
+            <span
+              className="tspi-pk-tags"
+              data-clip="row-tags"
+              title={[...badges.map((b) => b.text), ...(item.chips ?? []).map((c) => c.text)].join(", ")}
+            >
               {badges.slice(0, 3).map((b, i) => (
                 <Badge key={i} tone={isUiTone(b.tone) ? b.tone : "neutral"} title={b.title}>
                   {b.text}

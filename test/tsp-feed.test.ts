@@ -7,6 +7,7 @@ import {
   applyMessage,
   createDocument,
   restoreDocument,
+  type DocumentSnapshot,
   reuseUnchangedNodes,
   snapshotDocument,
   type TspDocMessage,
@@ -104,5 +105,69 @@ describe("窗口还原 / 丢帧后重拉快照", () => {
     expect(replaced).toBeGreaterThan(0);
     // 换回旧记录不改内容（还原出的文档不带 blob 表，见 restoreDocument）。
     expect({ ...snapshotDocument(after), blobIds: [] }).toEqual({ ...snapshotDocument(main.doc), blobIds: [] });
+  });
+
+  /** 一个 surface（根 `s` 下一个 md 节点 `a`、一个 text 节点 `b`），经结构化克隆，模拟每次重拉的独立副本。 */
+  function snapshotWith(aProps: Record<string, unknown>): TspDocument {
+    const snapshot: DocumentSnapshot = {
+      surfaces: [
+        {
+          id: "s",
+          mode: "inline",
+          title: null,
+          role: null,
+          nodes: [
+            { id: "s", k: "col", p: {}, c: ["a", "b"], parent: null },
+            { id: "a", k: "md", p: aProps, c: [], parent: "s" },
+            { id: "b", k: "text", p: { s: "# 标题\r\n正文", tone: "muted" }, c: [], parent: "s" },
+          ],
+          focus: null,
+          reveal: null,
+          scrolls: [],
+          suspended: false,
+          lastFrame: 1,
+          statusNotes: [{ text: "Working", id: "t1", anchor: null }],
+          toolsExpanded: false,
+          live: true,
+        },
+      ],
+      blobIds: [],
+      revealSeq: 0,
+    };
+    return restoreDocument(structuredClone(snapshot));
+  }
+  const props = {
+    s: "x".repeat(2048),
+    min: { w: 10, h: { pct: 50 } },
+    actions: { menu: [{ id: "copy" }, { id: "open" }] },
+  };
+  const nodeOf = (doc: TspDocument, id: string) => doc.surfaces.get("s")?.nodes.get(id);
+
+  it("内容相同的节点和状态行沿用旧对象", () => {
+    const before = snapshotWith(props);
+    const after = snapshotWith(props);
+    reuseUnchangedNodes(after, before);
+    for (const id of ["s", "a", "b"]) expect(nodeOf(after, id)).toBe(nodeOf(before, id));
+    expect(after.surfaces.get("s")?.statusNotes).toBe(before.surfaces.get("s")?.statusNotes);
+  });
+
+  it("嵌套属性变了、数组长度变了都换新；键序不同、值为 undefined 的键不算变", () => {
+    const before = snapshotWith(props);
+    const nested = snapshotWith({ ...props, min: { w: 10, h: { pct: 51 } } });
+    reuseUnchangedNodes(nested, before);
+    expect(nodeOf(nested, "a")).not.toBe(nodeOf(before, "a"));
+    expect(nodeOf(nested, "b")).toBe(nodeOf(before, "b"));
+
+    const shorter = snapshotWith({ ...props, actions: { menu: [{ id: "copy" }] } });
+    reuseUnchangedNodes(shorter, before);
+    expect(nodeOf(shorter, "a")).not.toBe(nodeOf(before, "a"));
+
+    const reordered = snapshotWith({ actions: props.actions, min: props.min, s: props.s, title: undefined });
+    reuseUnchangedNodes(reordered, before);
+    expect(nodeOf(reordered, "a")).toBe(nodeOf(before, "a"));
+
+    const added = snapshotWith({ ...props, title: "t" });
+    reuseUnchangedNodes(added, before);
+    expect(nodeOf(added, "a")).not.toBe(nodeOf(before, "a"));
   });
 });

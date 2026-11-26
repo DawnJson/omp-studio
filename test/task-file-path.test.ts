@@ -31,6 +31,9 @@ describe("路径必须落在任务目录内", () => {
     // 反斜杠只在 Windows 上是分隔符;POSIX 上它是文件名里的普通字符。
     if (process.platform === "win32") expect(resolveInside(cwd, "src\\a.ts")).toBe(path.join(cwd, "src", "a.ts"));
   });
+  it("以 .. 开头的文件名（..cache）在 cwd 之内", () => {
+    expect(resolveInside(cwd, "..cache/x")).toBe(path.join(cwd, "..cache", "x"));
+  });
   it("绝对路径、盘符、.. 越界、空串都被拒", () => {
     for (const bad of [
       "",

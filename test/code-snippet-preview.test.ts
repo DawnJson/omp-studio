@@ -28,8 +28,8 @@ describe("snippetFile", () => {
     const file = snippetFile({ id: 2, kind: "svg", code }, palette);
     expect(file.kind).toBe("image");
     expect(file.text).toBe(code);
-    const svg = decodeURIComponent(file.dataUrl!.slice(file.dataUrl!.indexOf(",") + 1));
-    expect(file.dataUrl!.startsWith("data:image/svg+xml")).toBe(true);
+    const svg = decodeURIComponent(file.imageUrl!.slice(file.imageUrl!.indexOf(",") + 1));
+    expect(file.imageUrl!.startsWith("data:image/svg+xml")).toBe(true);
     expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"');
     expect(svg).toContain('fill="#6b46d9"');
   });

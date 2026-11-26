@@ -2,18 +2,13 @@
 import { useEffect, useMemo } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
-import { Menu, type MenuAnchor } from "../../ui/Menu.tsx";
+import { Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
+import { TspIcon } from "./icons.tsx";
 import { hideTspMenu, useTspMenu } from "./menu-store.ts";
+import { labelFromId } from "./nodes/menu-model.ts";
 import { useReducedMotion } from "./use-clock.ts";
 import { closeZoom, stepZoom, useZoom } from "./zoom-store.ts";
-
-/** 动作名 → 菜单文字：copy 用翻译，其它把 `-` `.` `_` 换成空格。 */
-function actionLabel(act: string, copy: string): string {
-  if (act === "copy") return copy;
-  const text = act.replace(/[-._]+/g, " ").trim();
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 /** 右键菜单用公共的 Menu（spec §4.23）：贴边时翻到右键点另一侧、夹在窗口里、太高自己滚；Esc / 点外面关，焦点回到原处。 */
 function TspMenuHost() {
@@ -41,11 +36,22 @@ function TspMenuHost() {
       label={t("tsp.nodeMenu")}
       onClose={hideTspMenu}
       testId="tsp-menu"
-      items={menu.items.map((item) => ({
-        id: item.act,
-        label: item.label ?? actionLabel(item.act, t("common.copy")),
-        onSelect: item.run,
-      }))}
+      items={menu.items.map((item, index): MenuEntry => {
+        const id = String(index);
+        if (item.kind === "separator") return { kind: "separator", id };
+        if (item.kind === "header") return { kind: "label", id, label: item.label };
+        // 行的 detail 是第二行小字；不可用的原因也写在那里（Menu 的 disabledReason）。
+        return {
+          id,
+          label: item.label ?? (item.act === "copy" ? t("common.copy") : labelFromId(item.act)),
+          icon: item.icon === undefined ? undefined : <TspIcon name={item.icon} size={16} />,
+          note: item.detail,
+          disabledReason: typeof item.disabled === "string" ? item.disabled : undefined,
+          disabled: item.disabled === true,
+          tone: item.danger === true ? "danger" : undefined,
+          onSelect: item.run,
+        };
+      })}
     />
   );
 }

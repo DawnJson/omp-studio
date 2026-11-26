@@ -288,6 +288,7 @@ const SUBSTITUTE: Record<string, string> = {
   "log-out": "arrow-left",
   "key-round": "key",
   "folder-go": "folder-open",
+  "scratch-folder": "folder",
   "file-pdf": "file",
   slash: "slash-circle",
   "funnel-x": "funnel",

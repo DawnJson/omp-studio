@@ -1,5 +1,5 @@
-// omp-studio：此文件从 omp v18.18.5 原样拷贝（只给相对 import 补了扩展名），不要手改。
-// 来源：https://raw.githubusercontent.com/can1357/oh-my-pi/v18.18.5/packages/wire/src/shell-viz.ts
+// omp-studio：此文件从 omp v19.2.1 原样拷贝（只给相对 import 补了扩展名），不要手改。
+// 来源：https://raw.githubusercontent.com/can1357/oh-my-pi/v19.2.1/packages/wire/src/shell-viz.ts
 // 更新：npm run omp:update-wire -- <omp 版本>
 // Copyright (c) 2025 Mario Zechner; Copyright (c) 2025-2026 Can Bölük; Copyright (c) 2026 Stencil Labs, Inc.
 // MIT License，全文见 src/shared/oh-my-pi-LICENSE.txt（随安装包分发到 resources/licenses/oh-my-pi-MIT.txt）。

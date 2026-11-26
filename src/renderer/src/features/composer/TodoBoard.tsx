@@ -189,11 +189,9 @@ export function TodoBoard({
                                 ? "done"
                                 : item.status === "in_progress"
                                   ? "active"
-                                  : item.status === "blocked"
-                                    ? "blocked"
-                                    : item.status === "abandoned"
-                                      ? "abandoned"
-                                      : "pending"
+                                  : item.status === "abandoned"
+                                    ? "abandoned"
+                                    : "pending"
                             }
                             spinning={running && item.status === "in_progress"}
                             className="todo-mark"
@@ -201,9 +199,6 @@ export function TodoBoard({
                           <span className="todo-text">
                             <span className="todo-content">{item.content}</span>
                             <span className="sr-only">{t(`conversation.todo.${item.status}`)}</span>
-                            {item.status === "blocked" && item.blocker && (
-                              <span className="todo-blocker">{item.blocker}</span>
-                            )}
                             {item.notes?.map((note, noteIndex) => (
                               <span key={noteIndex} className="todo-note" data-testid="todo-note">
                                 {note}

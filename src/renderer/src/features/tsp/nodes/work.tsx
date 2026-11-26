@@ -24,7 +24,8 @@ import { CHECK_GLYPH, TSP_SLASH_CIRCLE_GLYPH, TSP_X_CIRCLE_GLYPH } from "../../.
 import { RunGlyph, useRanHere } from "../../../ui/RunGlyph.tsx";
 import { Clamp } from "../Clamp.tsx";
 import { FoldCtx, NO_FOLD, OPEN_FOLD, type FoldState } from "../fold-context.ts";
-import { clamp01, formatCost, formatCount, formatElapsed } from "../fmt.ts";
+import { formatCount } from "../../composer/usage-format.ts";
+import { clamp01, formatCost, formatElapsed } from "../fmt.ts";
 import { toolIconName } from "../icon-names.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
@@ -37,6 +38,7 @@ import { Tokens } from "../use-highlighted.tsx";
 import { plainText, semanticOf, TspSpans } from "../spans.tsx";
 import { TspNode } from "../TspChildren.tsx";
 import { peekTspNode, useTspDerived } from "../tsp-store.ts";
+import { useTaskValue } from "../../../store/tasks-store.ts";
 import { useFold } from "../use-fold.ts";
 import { useEntrance } from "../entrance.ts";
 import { useAge } from "../use-clock.ts";
@@ -441,12 +443,15 @@ function SmallTime({
   age,
   running,
   fallback,
+  startedAt,
 }: {
   age: number | undefined;
   running: boolean;
   fallback?: number | undefined;
+  /** 运行中 age 不是正数时的开始时刻（useAge 的 startedAt）。 */
+  startedAt?: number | undefined;
 }) {
-  const value = useAge(age, running && age !== undefined);
+  const value = useAge(age, running && age !== undefined, "short", startedAt);
   const shown = running ? (age === undefined ? undefined : value) : (fallback ?? age);
   if (shown === undefined) return null;
   return (
@@ -462,6 +467,9 @@ export function Agent(props: NodeProps) {
   const statusRaw = asString(p.status);
   const reported = AGENT_STATUS.find((s) => s === statusRaw) ?? "pending";
   const running = reported === "running" || reported === "pending";
+  const name = asString(p.name) ?? "";
+  // omp 运行中给的 age 不是正数（19.2.1 的后台子代理一直是 0）时从主进程记下的开始时刻起算，和子代理面板的行一致。
+  const startedAt = useTaskValue(ctx.taskId, (task) => task?.agentStartedAt[name]);
   // 进程不在了：同工具卡，还在跑的子代理画成已中止，计时停住。
   const ended = useTspEnded();
   const status = ended && running ? "aborted" : reported;
@@ -581,7 +589,12 @@ export function Agent(props: NodeProps) {
           )}
           {cost !== undefined && cost > 0 && <span className="cost">{formatCost(cost)}</span>}
           {Object.keys(stats).length > 0 && (
-            <SmallTime age={asNumber(stats.age)} running={running} fallback={asNumber(stats.took)} />
+            <SmallTime
+              age={asNumber(stats.age)}
+              running={running}
+              fallback={asNumber(stats.took)}
+              startedAt={startedAt}
+            />
           )}
         </span>
         {collapsible && (

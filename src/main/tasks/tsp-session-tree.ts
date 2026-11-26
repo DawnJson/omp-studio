@@ -58,11 +58,30 @@ export interface TspSessionTreeHost {
 
 export class TspSessionTree {
   readonly #host: TspSessionTreeHost;
-  /** 回溯之后、文件还没有新条目之前的叶子位置（`/tree` 在进程内移动叶子，不写文件）。 */
-  #leafOverride: LeafOverride | null = null;
+  /**
+   * 回溯之后、文件还没有新条目之前的叶子位置（`/tree` 在进程内移动叶子，不写文件），连同它所在的会话文件：
+   * omp 19.2 起 Edit / Retry / Undo 等会把任务搬到别的文件，换了文件这个位置就不算了（条目 id 在复制出的新文件里还在，不能只看 id）。
+   * 记下时还不知道文件（刚分叉的新任务）为 null，第一次读到文件时认定是它。
+   */
+  #leaf: { file: string | null; override: LeafOverride } | null = null;
 
   constructor(host: TspSessionTreeHost) {
     this.#host = host;
+  }
+
+  /** 当前会话文件上的叶子位置；记下之后 omp 换了会话文件就作废。 */
+  #leafOverride(): LeafOverride | null {
+    const leaf = this.#leaf;
+    if (leaf === null) return null;
+    const file = this.#host.sessionFile();
+    if (leaf.file === null && file !== null) leaf.file = file;
+    if (leaf.file === file) return leaf.override;
+    this.#leaf = null;
+    return null;
+  }
+
+  #setLeafOverride(override: LeafOverride | null): void {
+    this.#leaf = override === null ? null : { file: this.#host.sessionFile(), override };
   }
 
   async #readTreeEntries(): Promise<SessionEntry[]> {
@@ -72,7 +91,7 @@ export class TspSessionTree {
 
   /** 会话树面板的数据；还没有会话文件时 nodes 为空。 */
   async getSessionTree(): Promise<SessionTreeView> {
-    return { nodes: buildTreeFromEntries(await this.#readTreeEntries(), this.#leafOverride) };
+    return { nodes: buildTreeFromEntries(await this.#readTreeEntries(), this.#leafOverride()) };
   }
 
   /**
@@ -87,13 +106,14 @@ export class TspSessionTree {
     if (file === null || entries.length === 0) throw new Error("this task has no session file yet");
     const id =
       entryId ??
-      buildTreeFromEntries(entries, this.#leafOverride).findLast((node) => node.kind === "user" && node.onCurrentBranch)
-        ?.entryId;
+      buildTreeFromEntries(entries, this.#leafOverride()).findLast(
+        (node) => node.kind === "user" && node.onCurrentBranch,
+      )?.entryId;
     if (id === undefined) throw new Error("the session has no user message to fork from");
     const target = findUserEntry(entries, id);
     if (target === null) throw new Error("that is not a user message of this session");
     if (mode === "before-user") return { sourceFile: file, point: { mode, entryId: id, target } };
-    const answer = findAnswerEntry(entries, id, this.#leafOverride);
+    const answer = findAnswerEntry(entries, id, this.#leafOverride());
     if (answer === null) throw new Error("that message has no answer on the current branch");
     return { sourceFile: file, point: { mode, answer } };
   }
@@ -111,8 +131,9 @@ export class TspSessionTree {
       const target = known ?? findUserEntry(await this.#readTreeEntries(), entryId);
       if (target === null) throw new Error("that is not a user message of this session");
       await this.#moveLeaf(entryId, summarize);
-      this.#leafOverride =
-        target.lastEntryId === null ? null : { afterEntryId: target.lastEntryId, leafId: target.parentId };
+      this.#setLeafOverride(
+        target.lastEntryId === null ? null : { afterEntryId: target.lastEntryId, leafId: target.parentId },
+      );
       return { text: target.text, summarized: summarize };
     });
   }
@@ -125,8 +146,9 @@ export class TspSessionTree {
     if (answer.atFileLeaf) return Promise.resolve();
     return this.#host.exclusive(async () => {
       await this.#moveLeaf(answer.entryId, false);
-      this.#leafOverride =
-        answer.lastEntryId === null ? null : { afterEntryId: answer.lastEntryId, leafId: answer.entryId };
+      this.#setLeafOverride(
+        answer.lastEntryId === null ? null : { afterEntryId: answer.lastEntryId, leafId: answer.entryId },
+      );
     });
   }
 

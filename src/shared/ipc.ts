@@ -14,7 +14,6 @@ import type {
   SessionCredits,
   SlowModeScope,
   ConfiguredThinkingLevel,
-  ThinkingLevel,
   TodoPhase,
   TokenUsage,
 } from "./omp-wire/rpc-wire.generated.ts";
@@ -126,8 +125,11 @@ export interface PreviewFile {
   size: number;
   /** text / html 才有。 */
   text?: string;
-  /** image 才有（data URL，svg 也走这里，渲染进程只能当图片显示）。 */
-  dataUrl?: string;
+  /**
+   * image 才有，渲染进程只当 `<img>` 的地址用。位图是 `studio-preview://<token>/`（主进程按流给文件，不经 IPC 传内容；
+   * 地址主窗口重载前有效，条数有上限）；svg 是 data URL（源码视图从它还原原文）。
+   */
+  imageUrl?: string;
   /** 能否用系统默认应用直接打开（同 openTaskFile 的白名单）；否则只能在文件夹中显示。 */
   canOpen: boolean;
 }
@@ -447,6 +449,11 @@ export interface TaskState {
    * omp 不更新这些子代理的 `agent` 节点（一直是 done），主进程看记录文件判断（issue #23）；没有为空表。
    */
   revivedSubagents: Readonly<Record<string, number>>;
+  /**
+   * 在跑的子代理第一次被主进程看到在跑的时刻（epoch ms），名字 → 时刻；不在跑了就删。omp 19.2.1 的后台子代理运行中
+   * `agent` 节点的 `stats.age` 一直是 0，用时由它补（shared/tsp/agent-hub.ts 的 trackAgentStarts）。没有为空表。
+   */
+  agentStartedAt: Readonly<Record<string, number>>;
 }
 
 /** omp 的自动压缩（上下文圆环上的刻度和构成浮层里的说明）。百分数都是占上下文窗口的比例（0–100）。 */
@@ -1011,7 +1018,8 @@ export interface ModelInsights {
 export interface DefaultModelInfo {
   key: ModelKey;
   name: string;
-  thinkingLevel: ThinkingLevel | null;
+  /** omp 的思考选择（get_state 的 configuredThinkingLevel）：自动模式是 `auto`。 */
+  thinkingLevel: ConfiguredThinkingLevel | null;
 }
 
 /**
@@ -1333,7 +1341,7 @@ export interface StudioInvokeApi {
   openTaskFolder(taskId: TaskId): Promise<void>;
   /**
    * 读根目录（任务工作目录，或草稿的项目目录）里的文件供右侧预览：relPath 相对根目录（落在根内的绝对路径会换算），越界 reject。
-   * 文本 > 2 MB、图片 > 20 MB 返回 too_large；文件不存在返回 missing（不 reject）。
+   * 文本 > 2 MB、图片 > 20 MB 返回 too_large；文件不存在返回 missing（不 reject）。位图不读内容，给 `imageUrl`（见 PreviewFile）。
    */
   readPreviewFile(target: ProjectFilesTarget, relPath: string): Promise<PreviewFile>;
   /** 显式文件链接直接预览本机文件，不弹选择或授权；目录外只读，不改变文件树及自动图片的工作区限制。 */
@@ -1342,7 +1350,7 @@ export interface StudioInvokeApi {
   showFileContextMenu(target: ProjectFilesTarget, path: string): Promise<void>;
   /**
    * 文件预览里的网页（HTML 文件、回答里的 html 片段）交给主进程放在内存里，返回随机 token；iframe 加载
-   * `htmlPreviewUrl(token)`。那是独立的源，响应头带固定 CSP（主进程 window/preview-protocol.ts），应用页面的 CSP 管不到它的脚本。
+   * `previewUrl(token)`。那是独立的源，响应头带固定 CSP（主进程 window/preview-protocol.ts），应用页面的 CSP 管不到它的脚本。
    * 超过 `limits.htmlPreviewMaxChars` reject。用完（面板关、内容换）调 releaseHtmlPreview；主窗口重载或关闭时主进程全部清掉。
    */
   registerHtmlPreview(html: string): Promise<string>;
@@ -1709,6 +1717,8 @@ export interface StudioEventPayloads {
   browserConnected: TaskId;
   /** 应用页面里一次 Ctrl+滚轮页面自己没处理（落在文件预览的网页 iframe 这类拦不到滚轮的地方）：整页缩放仍锁在字号档位上，渲染进程按光标位置（页面 CSS 像素）决定缩放什么。 */
   zoomGesture: { direction: "in" | "out"; x: number; y: number };
+  /** 焦点在应用页面的子框架（回答里内嵌的网页）里时按了 Esc：子框架里的按键到不了应用页面，主进程看见后通知；焦点所在的内嵌网页退回不可交互的状态。 */
+  frameEscape: null;
   /** omp-studio 自身的更新状态变化。 */
   updateState: UpdateState;
 }
@@ -1781,9 +1791,9 @@ export const limits = {
  *  主进程校验设置、协议放行 app://studio/@backdrop/ 和渲染进程拼背景图地址都只认这种名字。 */
 export const backdropFilePattern = /^[0-9a-f]{64}\.(?:png|jpe?g|webp|gif|avif)$/;
 
-/** 预览网页的协议（主进程 window/preview-protocol.ts）；地址 = `studio-preview://<token>/`。 */
-export const htmlPreviewScheme = "studio-preview";
-export const htmlPreviewUrl = (token: string) => `${htmlPreviewScheme}://${token}/`;
+/** 文件预览的协议（主进程 window/preview-protocol.ts）：网页和位图；地址 = `studio-preview://<token>/`。 */
+export const previewScheme = "studio-preview";
+export const previewUrl = (token: string) => `${previewScheme}://${token}/`;
 
 /**
  * StudioInvokeApi 的全部函数名（运行时可枚举；preload 靠它生成转发）。
@@ -2034,4 +2044,5 @@ export const eventNames = {
   browserState: true,
   browserConnected: true,
   zoomGesture: true,
+  frameEscape: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

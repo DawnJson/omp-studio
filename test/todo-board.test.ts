@@ -58,7 +58,7 @@ describe("待办 HUD（omp 18.12.6 真实帧）", () => {
     ]);
   });
 
-  it("没有备注的条目没有 notes 也没有 blocker", () => {
+  it("没有备注的条目没有 notes", () => {
     const [first] = deriveTodoPhases(docBefore("/todo start write"));
     expect(first!.tasks[0]).toEqual({ content: "Write tests", status: "pending" });
   });
@@ -73,8 +73,9 @@ describe("待办 HUD（omp 18.12.6 真实帧）", () => {
   });
 });
 
-describe("备注（HUD 条目的 note，omp 18.12.6 `interactive-mode.ts`：blocked 是阻塞原因，其他是备注里最后一条）", () => {
-  // 帧形状取自上面的真实录制，note 字段按源码补上（18.12.6 的 todo 工具和 /todo 都不写 notes，录不到带备注的真实帧）。
+describe("备注（HUD 条目的 note，omp 19.2.1 `ui/dock/todo.tsx`：备注里最后一条）", () => {
+  // 帧形状取自上面的真实录制，note 字段按源码补上（todo 工具和 /todo 都不写 notes，录不到带备注的真实帧）。
+  // TSP 规范的条目状态还有 `blocked`，omp 19.2.1 已不发（待办没有这个状态了）；收到就当 pending，note 照常是备注。
   const base = [
     {
       id: "0",
@@ -88,11 +89,11 @@ describe("备注（HUD 条目的 note，omp 18.12.6 `interactive-mode.ts`：bloc
     },
   ];
 
-  it("非受阻条目的 note 进 notes；受阻的进 blocker；没有 note 的都没有", () => {
+  it("note 进 notes（blocked 当 pending）；没有 note 的没有", () => {
     const [phase] = phasesOfChecklist(base);
     expect(phase!.tasks).toEqual([
       { content: "Write tests", status: "in_progress", notes: ["waiting on fixtures"] },
-      { content: "Fix bug", status: "blocked", blocker: "needs API key" },
+      { content: "Fix bug", status: "pending", notes: ["needs API key"] },
       { content: "Ship it", status: "pending" },
       { content: "Tidy", status: "completed", notes: ["kept the old helper"] },
     ]);
@@ -112,7 +113,7 @@ describe("todoMarkdown（和 omp `/todo` 弹出的 Markdown 逐字相同）", ()
     }
   });
 
-  it("没有待办是 `# Todos`；受阻的项带 blocker 注释；五种状态的记号", () => {
+  it("没有待办是 `# Todos`；四种状态的记号", () => {
     expect(todoMarkdown([])).toBe("# Todos\n");
     expect(
       todoMarkdown([
@@ -123,13 +124,11 @@ describe("todoMarkdown（和 omp `/todo` 弹出的 Markdown 逐字相同）", ()
             { content: "b", status: "in_progress" },
             { content: "c", status: "completed" },
             { content: "d", status: "abandoned" },
-            { content: "e", status: "blocked", blocker: "no key" },
-            { content: "f", status: "blocked" },
           ],
         },
         { name: "Two", tasks: [{ content: "g", status: "pending" }] },
       ]),
-    ).toBe("# One\n- [ ] a\n- [/] b\n- [x] c\n- [-] d\n- [!] e <!-- blocker: no key -->\n- [!] f\n\n# Two\n- [ ] g\n");
+    ).toBe("# One\n- [ ] a\n- [/] b\n- [x] c\n- [-] d\n\n# Two\n- [ ] g\n");
   });
 });
 
@@ -139,7 +138,6 @@ describe("todoItemOps（⋯ 菜单）", () => {
     expect(todoItemOps("in_progress")).toEqual(["done", "drop", "rm"]);
     expect(todoItemOps("completed")).toEqual(["drop", "rm"]);
     expect(todoItemOps("abandoned")).toEqual(["start", "done", "rm"]);
-    expect(todoItemOps("blocked")).toEqual(["start", "done", "drop", "rm"]);
   });
 });
 

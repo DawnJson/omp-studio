@@ -92,8 +92,8 @@ test("readPreviewFile 按类型返回内容，越界拒绝", async () => {
 
     const image = await read("logo.svg");
     expect(image.kind).toBe("image");
-    expect(image.dataUrl?.startsWith("data:image/svg+xml;base64,")).toBe(true);
-    expect(Buffer.from(image.dataUrl!.split(",")[1]!, "base64").toString("utf8")).toBe(svg);
+    expect(image.imageUrl?.startsWith("data:image/svg+xml;base64,")).toBe(true);
+    expect(Buffer.from(image.imageUrl!.split(",")[1]!, "base64").toString("utf8")).toBe(svg);
     // svg 不在系统默认打开白名单里：只能在文件夹中显示。
     expect(image.canOpen).toBe(false);
 

@@ -17,7 +17,8 @@
 - 成功是 `omp.toast.status`，失败是 main 里新增的 `Error: ` 文字行（无 toast）：`shared/tsp/error-lines.ts`，`TspRunner.runTodoCommand` 二者择一。
 - `append` 按空白切词（`"…"` 内不切，`\` 转义）：只有一个词时是任务，多词时第一个词是阶段。所以 TaskCommand 把阶段和任务都加引号。
 - 全部做完 / 放弃后 HUD 阶段带 `collapsed:true`，条目状态 `done` / `dropped`；阶段标题在出现第二个阶段后才带罗马数字。
-- 备注：HUD 条目 `note` = `blocker ?? notes.at(-1)`（读源码）；18.12.6 的 todo 工具和 `/todo` 都不写 notes，没录到带备注的真实帧，单测用真实帧形状 + 补 `note`。
+- 备注：HUD 条目 `note` = `notes.at(-1)`（omp 19.2.1 `ui/dock/todo.tsx`，读源码）；18.12.6 的 todo 工具和 `/todo` 都不写 notes，没录到带备注的真实帧，单测用真实帧形状 + 补 `note`。
+- 没有"受阻"：omp 18.20 删了待办状态 `blocked` 和 `blocker` 字段（旧快照里的 blocked 读回成 pending，19.2.1 `tools/todo.ts`）。TSP 规范的 checklist 条目状态还列着 `blocked`，studio 收到就当 `pending`、它的 `note` 当普通备注（`shared/tsp/todos.ts`）。Markdown 记号只有 `[ ]` `[/]` `[x]` `[-]`，和 19.2.1 的 `phasesToMarkdown` 一致。
 - 重名条目只能操作第一个（命令按内容匹配）；没有待办时板不出现，也就没有"添加条目"入口。
 
 ## `/handoff` 与自动压缩

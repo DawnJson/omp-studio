@@ -60,6 +60,8 @@
     "src/renderer/src/features/composer/context-rows.ts",
     "src/renderer/src/features/tsp/props-util.ts",
     "src/renderer/src/features/tsp/nodes/checklist-model.ts",
+    "src/renderer/src/features/tsp/nodes/menu-model.ts",
+    "src/renderer/src/features/tsp/nodes/doc-model.ts",
     "src/renderer/src/features/tsp/keys.ts",
     "src/renderer/src/features/tsp/ansi.ts",
     "src/renderer/src/features/tsp/diff-parse.ts",

@@ -5,7 +5,8 @@ import path from "node:path";
 import { defaultFontSize, type TitleBarFade } from "../../shared/ipc.ts";
 import { resolveTheme, themes, type ThemePreference, type ThemeSpec } from "../../shared/themes.ts";
 import { rendererEntryUrl } from "./app-protocol.ts";
-import { guardPreviewFrames, releaseAllPreviews } from "./preview-protocol.ts";
+import { releaseAllPreviews } from "./preview-protocol.ts";
+import { guardFrames, relayFrameEscape } from "./web-frames.ts";
 import { loadWin32 } from "../platform/win32/ffi.ts";
 import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
 import { blockZoom } from "./security.ts";
@@ -442,7 +443,8 @@ export function createMainWindow(): BrowserWindow {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
-  guardPreviewFrames(window.webContents);
+  guardFrames(window.webContents);
+  relayFrameEscape(window.webContents);
 
   // 启动：页面第一次绘制（ready-to-show）时先透明着显示，系统趁 React 还在等字体、设置时把窗口的绘制面准备好；
   // 渲染进程报告第一帧画完（windowReady -> revealOnFirstFrame）再淡入。等到那时才 show() 的话，显示后还要约 300ms 才有画面，

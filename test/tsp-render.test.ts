@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseAnsi, parseAnsiStream, type AnsiParse } from "../src/renderer/src/features/tsp/ansi.ts";
 import { changedRange, parseDiff, splitRows } from "../src/renderer/src/features/tsp/diff-parse.ts";
+import { formatCount } from "../src/renderer/src/features/composer/usage-format.ts";
 import {
   extentToCss,
   formatCost,
-  formatCount,
   formatElapsed,
   formatRate,
   gateKeyHint,
@@ -69,8 +69,12 @@ describe("数字格式", () => {
     expect(formatRate(42.26, "tok/s")).toBe("42.3 tok/s");
     expect(formatRate(1234.4)).toBe("1234");
     expect(formatCount(999)).toBe("999");
-    expect(formatCount(12_345)).toBe("12K");
+    expect(formatCount(1_000)).toBe("1K");
+    expect(formatCount(12_345)).toBe("12.3K");
+    expect(formatCount(999_960)).toBe("1M");
     expect(formatCount(1_234_567)).toBe("1.2M");
+    expect(formatCount(13_400_000)).toBe("13.4M");
+    expect(formatCount(1_500_000_000)).toBe("1.5B");
     expect(formatCost(0)).toBe("$0");
     expect(formatCost(0.004)).toBe("<$0.01");
     expect(formatCost(0.42)).toBe("$0.42");

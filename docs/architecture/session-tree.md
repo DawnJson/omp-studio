@@ -26,7 +26,7 @@
 ## 设计
 
 - **树**：`getSessionTree` 只读会话文件，不拉起进程（还没有会话文件 = 第一条回复之前，nodes 为空；文件过大拒绝读）。条目 → `{entry, children}` 嵌套（没有父或父不在文件里的当根），再用 `buildSessionTree`：列用户消息（不含 `attribution:"agent"` 的 omp 注入消息）、压缩点和分支摘要（下一节），先序，分叉处缩进一级，叶子所在分支标 `onCurrentBranch`，分支上最后一条标 `current`；显式栈遍历（长会话的树很深）。studio 按文件顺序（omp 自己的 `/tree` 把当前分支排前）。中间坏行抛错，写到一半的最后一行跳过。
-- **回溯后"当前"的空档**：叶子移动不写文件，发新消息之前从文件看不出叶子在哪。`TspRunner` 在回溯成功后记 `LeafOverride{afterEntryId: 回溯时文件最后一个条目, leafId: 那条消息的父条目}`，文件一长出新条目自动失效。不是 studio 发起的回溯（用户在 omp 自己的界面里）看不到。
+- **回溯后"当前"的空档**：叶子移动不写文件，发新消息之前从文件看不出叶子在哪。`TspSessionTree` 在回溯成功后记 `LeafOverride{afterEntryId: 回溯时文件最后一个条目, leafId: 那条消息的父条目}`，连同当时的会话文件：文件一长出新条目、或 omp 换了会话文件（下面「omp 19.2 的回溯换新会话文件」，复制出的新文件里条目 id 一样）都自动失效。不是 studio 发起的回溯（用户在 omp 自己的界面里）看不到。
 - **摘要**：面板底部开关"回溯时让 omp 摘要被放弃的分支"（`session-tree-summarize`，默认关，不记忆）；勾上后选中 = `branchTask(id, entry, true)` → `select` + `action summarize`，面板保持打开、标题换成 `tree.summarizing` 直到 omp 写完，成功后关面板；`BranchTaskResult.summarized` 回报。没勾时如果 omp 开着 `branchSummary.enabled` 弹出摘要提示，studio 自动答 No summary（所以分叉出的新任务也不会被提示卡住）。
 - **回溯**（`TspRunner.rewindTo`，`#exclusive` 串行）：校验目标是这个会话的用户消息 → `start()` → 要求这一轮已结束（`working`、有对话框、有在跑的工具/子代理都拒绝：`the session is busy; wait for the current turn to finish`，界面 `error.sessionBusy`）→ 清空 omp 输入框 → `send "/tree"` → 等 tree picker，目标不在 `items` 里就 Esc 并报错 → `activate` → 等选择器关闭 → 短暂等预填/toast（等不到不算失败）→ 再清空输入框 → 记 `LeafOverride`。`branchTask`（面板选中）就是它：就地回溯，会话文件不变。
 - **分叉**（`TaskPool.forkTask`）：`prepareFork` 校验（这一轮已结束；有会话文件；条目是用户消息，null = 当前分支最后一条用户消息）→ 新增任务记录 `{sessionFile:null, forkFrom:<原会话文件>, 同项目/cwd/worktree/模型/思考强度}` → 第一次启动 `omp --fork=<forkFrom>`（已有 `sessionFile` 时 `--resume` 优先）→ 新文件一落盘，`persistSessionFile` 记 `sessionFile` 并清掉 `forkFrom` → 在新进程里 `rewindTo(条目 id, 已查好的目标)`（目标取自原文件：`--fork` 保留条目 id）。第三个参数 `mode`：面板、用户消息上的分叉、`/fork` 都是 `before-user`，回答上的分叉是 `after-answer`。回溯失败时新任务保留（它是原会话的完整副本），错误照抛，不自动删。原任务全程不动、不需要进程。
@@ -58,6 +58,20 @@
 - 新任务照常 `--fork` 起，再 `TspSessionTree.moveToAnswer`：回答到文件最后一个条目之间只有标记、没有别的消息时（`atFileLeaf`），`--fork` 后叶子已经在它这里，**什么都不发**（再 activate 当前叶子 omp 不动、要超时）；否则 `/tree` → `activate` 那条助手消息 → 等选择器关闭（同回溯的 `#moveLeaf`），再记 `LeafOverride{leafId: 回答}`。返回 `text:""`，新任务的输入框不放东西。
 - 渲染进程（`fork-actions.ts` 的 `forkAfterAnswer`）：按钮所在的助手容器后面还有几张用户消息卡片（`answerTurnFromEnd`，从末尾数）→ 会话树当前分支上倒数同序的用户消息（`focusIndexFromEnd`）→ 它的 `entryId`。
 - 测试：`test/task-tsp-tree.test.ts`「forkTask after-answer」；假 omp 回放 `fixtures/tsp/session-tree-answer.jsonl`（由 `session-tree.jsonl` 改出）；e2e `test/e2e/session-tree.e2e.ts` 两条"回答下方用量行上的分叉"。
+
+## omp 19.2 的回溯换新会话文件（实测 omp 19.2.1，2026-11-26）
+
+**实测**（真实 omp 经 `TaskPool`、临时 `PI_CODING_AGENT_DIR` / `HOME`、临时 agent 目录里指向 `.env` DeepSeek 地址的 provider；两轮 ALPHA / BETA；一次性探针，录制裁成 `fixtures/tsp/rewind-19.jsonl`）：
+- studio 自己的回溯（`/tree` → `activate`，上面「设计」）**没变**：同一个文件里移动叶子，toast `Navigated to selected point`，OSC 不变。
+- omp 自己的回溯入口：用户卡片工具行的 Edit（`edit-turn` 图标，studio 照画、点了发 `action`，实测）；回答上的 Retry、Esc Esc、`/branch`（`/rewind`，实测打开全屏 `omp.rewind` surface）、回答上的 Fork 走同一段代码 [推测：源码 `selector-controller.ts`，只实测了 Edit]。它们把会话**搬到一个新文件**：会话头 `parentSession` = 原文件**路径**，内容是根到回溯点的那一段（条目 id 原样复制）；原文件一个字节不动。OSC `omp_session_file` 马上报新文件。状态行 toast `Rewound N turn(s) in a new session`，带 `action:"undo"`、`label:"Undo"`、没有 `ttl`（Retry 是 `Retrying the turn`，不带按钮 [推测：源码]）。Edit 把那条消息放进 omp 的输入框，studio 照常挪进自己的输入框。
+- 点 Undo（`{ev:"action", sf, id:<toast 节点>, act:"undo"}`）：omp 回到原文件（OSC 再报原文件），toast 节点删掉、新加 `Rewind undone`；刚才的新文件留在磁盘上。再 Edit 一次又是另一个新文件（父会话还是原文件）。
+- 回溯到第一条消息之前时新文件里没有用户消息（空壳，会话列表不列），发下一句话之后才有。
+
+**studio 的做法**：
+- **Undo 按钮**：状态行（`shared/tsp/status-notes.ts` 记 `action` / `label`；没给 label 时按规范由动作名得出）后面画一个按钮（`MainFlow.tsx`，`tsp-status-note-action`），点了发上面的 `action` 事件并收起；omp 删掉 toast 节点或 `set` 掉 action 时按钮也没了，那一行字留着。
+- **离开的文件**：`TspRunner.#persistSessionFile` 记下新文件时，如果新旧两个文件是回溯关系（新文件的 `parentSession` 是旧文件路径 = 回溯；旧文件的 `parentSession` 是新文件路径 = Undo；`tasks/left-session-files.ts`），把旧文件记进 `TaskRecord.leftSessionFiles`，回到的那个文件从里面去掉。`/new`、`/resume`、omp 18 的租约分叉（`parentSession` 写的是会话 id）不算，18.x 的行为不变。会话列表（`history/session-summaries.ts`）不列任何任务（含已归档的）`leftSessionFiles` 里的文件，所以侧栏和命令面板里这个任务始终只有一行；文件本身不删不改，任务删掉后没人引用它们，又照常作为历史会话列出（所有者定，2026-11-26）。
+- **代价**：被回溯掉的那几轮在 studio 里看不到了：新文件只含根到回溯点，会话树面板读的是新文件。要回去只能趁 omp 进程还在时点 Undo。
+- 测试：`test/task-tsp-tree.test.ts`「omp 19.2 的回溯换新会话文件」（录制回放：跟文件、`leftSessionFiles`；换文件后旧的叶子位置不再套用）、`test/session-index.test.ts`（不列离开的文件）、`test/task-registry.test.ts`（字段落盘和校验）、`test/tsp-status-notes.test.ts`（按钮）；e2e `test/e2e/session-tree.e2e.ts`「omp 19 的回溯换新会话文件」（Edit → Undo，侧栏只有一行）。假 omp 回放 OSC 时 body 里的 `${b64:变量名}` 换成环境变量的 base64（测试的会话文件路径每次不同）。
 
 ## 用户消息上的"编辑"（2026-11-09，仓库所有者批准）
 

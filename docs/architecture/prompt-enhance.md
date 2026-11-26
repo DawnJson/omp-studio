@@ -17,14 +17,15 @@
 参数数组、不经 shell：
 
 ```
-omp -p --no-session --no-tools --no-skills --no-rules --no-context-files --no-title \
+PI_AUTO_QA=0 omp -p --no-session --tools= --no-skills --no-rules --no-context-files --no-title \
     --model <@smol | provider/model> --system-prompt "<模板>"
 ```
 
 - **草稿走 stdin**（包在 `<draft>` 标签里），命令行里只有模板：命令行里的中文和换行在 Windows 上不可靠。
 - **只发草稿和模板**：不带工具、AGENTS.md、规则、skill、会话历史、文件、图片。大段粘贴和附件只以占位符（如 `[Image #1, 800x600]`）出现。
 - **不落会话**（`--no-session`，实测 agent 目录里没有 `sessions/`）。花费在 provider 账单上；[推测] 不进 `omp stats` 和 studio 的会话费用，没核实。
-- **不带 `--no-extensions`**：studio-accounts 扩展（`client-accounts.md`）注册了一批 provider，关掉扩展这些模型就解析不到。
+- **扩展要加载**：studio-accounts 扩展（`client-accounts.md`）注册了一批 provider，扩展不加载这些模型就解析不到。所以不带 `--no-extensions`，也**不用 `--no-tools`**：omp 19.2 起 `--no-tools` 是"整个工具面就是 `--tools` 列的那些"，连扩展、MCP、自定义工具一起不加载（`main.ts` 的 `disableExtensionDiscovery`），还不能和 `--extension` 同用。
+- **不带工具**：`--tools=`（空列表）只留列出的内置工具，即一个都不留，扩展照常加载。omp 还会自己加两类：Auto-QA 开着（`dev.autoqa`，默认开）时的 `report_issue`，子进程 env 设 `PI_AUTO_QA=0`（`ENHANCE_ENV`，不写配置）关掉；扩展和 MCP 服务器注册的工具总会带上，没有参数能关（studio-accounts 只注册 provider，不注册工具；用户装的 MCP 服务器的工具会进请求，见 `pet.md`「花费」）。
 - **cwd**：任务的 cwd（项目 `.omp/config.yml` 的角色照常生效）；草稿页是项目目录，没有项目时是服务进程的中性目录（`serviceCwd()`）。
 - 超时见 `ENHANCE_TIMEOUT_MS`；取消 = `runCommand` 的 `signal`，结束整个进程树。可执行文件同任务进程（`prompt-enhance/one-shot-omp.ts`，桌面宠物起名和说话也用它，见 `pet.md`）；未打包时 `STUDIO_TEST_ENHANCE_OMP`（同 `STUDIO_TEST_COMMIT_OMP`）顶替。
 
@@ -63,15 +64,24 @@ omp -p --no-session --no-tools --no-skills --no-rules --no-context-files --no-ti
 - **取消**：再点一次；`Esc`（在 `document` 冒泡阶段听：菜单、弹层先处理并 `preventDefault`；输入框的"停止任务"在 `window` 上，排在它后面；过程区里的 `Esc` 照旧写给 omp）；换输入框 / 卸载。同一个输入框（`task:<id>` / `draft:<项目>`）再发起时先取消上一次；退出时（`window/shutdown.ts`）全部取消。
 - **没做**：命令面板项和快捷键（键位没定）；带最近对话做上下文；预览 / diff。
 
-## 实测（omp 18.18.3，临时 agent 目录 / home，模型 `STUDIO_TEST_MODEL` = DeepSeek V4 Flash）
+## 实测
+
+omp 18.18.3（临时 agent 目录 / home，模型 `STUDIO_TEST_MODEL` = DeepSeek V4 Flash）：
 
 - `modelRoles.default` 设好、`--model @smol`：每次几秒，stdout 就是结果，stderr 只有 `Working...`，退出码 0。例：`fix 一下 src/a.ts 的 bug` → `请修复 src/a.ts 里的 bug。`
 - 一个角色都没配、`--model @smol`：omp 挑了有 key 没额度的 provider，退出 1（`402`，归为 `failed`）；直接传 `provider/model` 正常。所以没配角色时要传 fallback。
 - 取消：abort 后进程很快消失，无残留。
 - agent 目录里没有 `sessions/`。
 
+omp 19.2.1（2026-11-26，临时 agent 目录 / home；agent 目录 `extensions/` 下放一个扩展，用 .env 的 DeepSeek 地址和 key 注册 provider，并在 `before_provider_request` 里记下请求的 `tools`）：
+
+- `--no-tools --model <扩展的 provider>/<模型>`：退出 1，`Model "…" not found`，扩展没加载。
+- `--tools= --model <扩展的 provider>/<模型>`：扩展加载，回复正常，退出 0；请求里的工具只有 `report_issue`。
+- 再加 `PI_AUTO_QA=0`：请求里没有 `tools` 字段；问模型"能调哪些工具"回 `NONE`。
+- 扩展自己 `registerTool` 时，`--tools=` 下请求里仍有这个工具（omp 总会带上扩展注册的工具）。
+
 ## 测试
 
-- `test/prompt-enhance.test.ts`：`canEnhance`、占位符比对、语言判断、`chooseModel`、`cleanOutput`、参数（不含 `--no-extensions`）；对假 omp（`test/fake-omp/fake-omp-print.ts`）：草稿只走 stdin、cwd、各结果分类、取消、超时。
+- `test/prompt-enhance.test.ts`：`canEnhance`、占位符比对、语言判断、`chooseModel`、`cleanOutput`、参数（`--tools=`，不含 `--no-tools`、`--no-extensions`）；对假 omp（`test/fake-omp/fake-omp-print.ts`）：草稿只走 stdin、`PI_AUTO_QA=0`、cwd、各结果分类、取消、超时。
 - `test/e2e/prompt-enhance.e2e.ts`：按钮位置、禁用条件、替换后 `Ctrl+Z`、芯片保留、改草稿取消、再点 / `Esc` 取消、没有模型的提示；任务运行中 `Esc` 先取消优化、不停止任务。
-- `test/prompt-enhance-real-omp.test.ts`（`STUDIO_REAL_OMP=1`）：中英文草稿各一条，语言没变、占位符还在、没有 `sessions/`。
+- `test/prompt-enhance-real-omp.test.ts`（`STUDIO_REAL_OMP=1`）：模型由 agent 目录里的扩展注册（同 studio-accounts），中英文草稿各一条，语言没变、占位符还在、每次请求没有工具、没有 `sessions/`。改回 `--no-tools` 时这条失败（`Model … not found`）。

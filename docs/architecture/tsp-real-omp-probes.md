@@ -1,7 +1,7 @@
 # TSP 任务:真实 omp 盲区实测
 
 > 除各节另注的,实测日期 2026-10-21;omp **18.12.5**(PATH 上的 omp.exe),omp-studio v0.3.24 的 `out/` 构建,模型 `deepseek/deepseek-v4-flash`。
-> 方法:临时 `PI_CODING_AGENT_DIR`(`omp config set modelRoles '{"default":"…"}'`、`startup.setupWizard false`)、临时 git 仓库、`STUDIO_USER_DATA` 隔离;key 从 `.env` 以环境变量传入;`PI_TUI_TSP_RECORD=<文件>` 录 omp 的双向 TSP 消息核对。
+> 方法:临时 `PI_CODING_AGENT_DIR`(`omp config set modelRoles '{"default":"…"}'`、`startup.setupWizard false`)、临时 git 仓库、`STUDIO_USER_DATA` 隔离;key 从 `.env` 以环境变量传入;`PI_TUI_TSP_RECORD=<文件>` 录 omp 的双向 TSP 消息核对(omp 19.2.1 已删掉这个变量,见 [tsp-migration.md](tsp-migration.md) §1;19.x 下 `.env` 的 key 要经临时 agent 目录里指向 `DEEPSEEK_URL` 的 provider 才认,直接用 401)。
 > 这里记 omp 的行为,studio 怎么接见各节给出的代码 / 文档。
 
 ## 1. 首次运行:omp 的 5 步引导会出现在第一个任务里

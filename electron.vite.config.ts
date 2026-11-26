@@ -6,15 +6,17 @@ const root = import.meta.dirname;
 
 // 严格 CSP：无内联脚本、无 eval、不从网络加载。只在构建时注入：开发服务器的 Fast Refresh 需要内联脚本。
 // style-src 保留 'unsafe-inline'：只开放样式，脚本仍然只认同源文件。
-// frame-src 只放行文件预览的网页（独立源 studio-preview://，CSP 由主进程的响应头给，见 src/main/window/preview-protocol.ts）。
+// frame-src：文件预览的网页（独立源 studio-preview://，CSP 由主进程的响应头给，见 src/main/window/preview-protocol.ts），
+// 以及回答里 omp 内嵌的网页（TSP `web` 节点，http/https，沙箱 iframe；只能导航到 http/https，见 preview-protocol.ts 的 guardFrames）；
+// img-src 的 studio-preview: 是文件预览的位图（主进程登记过的 token 才给，见 src/main/files/preview-image.ts）。
 const contentSecurityPolicy = [
   "default-src 'none'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: studio-preview:",
   "font-src 'self' data:",
   "connect-src 'self'",
-  "frame-src studio-preview:",
+  "frame-src studio-preview: http: https:",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",

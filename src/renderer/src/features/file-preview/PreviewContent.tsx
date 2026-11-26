@@ -1,7 +1,7 @@
 // 预览页的正文：md 渲染 / 图片（svg 也只当图片）/ html 沙箱 iframe / mermaid 片段交给代码块画图 / 其余文本高亮源码；
 // 二进制和过大文件只给提示。
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { htmlPreviewUrl, type PreviewFile } from "../../../../shared/ipc.ts";
+import { previewUrl, type PreviewFile } from "../../../../shared/ipc.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { Button } from "../../ui/controls.tsx";
 import { useT } from "../../i18n/use-t.ts";
@@ -25,7 +25,7 @@ function formatSize(bytes: number): string {
   return `${bytes} B`;
 }
 
-/** svg 的 data URL → 源码文本（主进程只给 dataUrl，源码视图在这里还原）。 */
+/** svg 的 data URL → 源码文本（主进程给 svg 文件的是 data URL，源码视图在这里还原）。 */
 function decodeDataUrl(dataUrl: string): string {
   const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
   const binary = atob(base64);
@@ -48,7 +48,7 @@ interface ContentProps {
 }
 
 /**
- * 图片：放大后按住左键拖动平移（滚动外框）。原生拖动关掉：拖的是整张 data URL 图片，又慢又会被当成拖进来的文件；
+ * 图片：放大后按住左键拖动平移（滚动外框）。原生拖动关掉：拖的是整张图片，又慢又会被当成拖进来的文件；
  * 适应窗口时整张图都在眼前，不平移。
  */
 function ImageView({
@@ -133,7 +133,7 @@ function HtmlFrame({ html, scripts, title }: { html: string; scripts: boolean; t
       data-testid="file-preview-frame"
       title={title}
       sandbox={scripts ? "allow-scripts" : ""}
-      src={token === null ? undefined : htmlPreviewUrl(token)}
+      src={token === null ? undefined : previewUrl(token)}
     />
   );
 }
@@ -167,10 +167,10 @@ export function PreviewContent({
         </div>
       );
     case "image": {
-      const dataUrl = file.dataUrl ?? "";
-      // 片段的 svg 带着原文（text）；文件只有 data URL，源码从它还原。
-      if (source) return <CodeBlock code={file.text ?? decodeDataUrl(dataUrl)} lang="xml" closed />;
-      return <ImageView src={dataUrl} alt={t("preview.imageAlt", { name })} zoom={zoom} imageRef={imageRef} />;
+      const src = file.imageUrl ?? "";
+      // 片段的 svg 带着原文（text）；svg 文件只有 data URL，源码从它还原（只有 svg 有源码视图）。
+      if (source) return <CodeBlock code={file.text ?? decodeDataUrl(src)} lang="xml" closed />;
+      return <ImageView src={src} alt={t("preview.imageAlt", { name })} zoom={zoom} imageRef={imageRef} />;
     }
     case "html":
       if (source) return <CodeBlock code={file.text ?? ""} lang="html" closed />;

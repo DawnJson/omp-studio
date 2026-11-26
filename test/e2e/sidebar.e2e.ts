@@ -59,6 +59,7 @@ function makeTask(
     fallbackModel: null,
     credentialPins: {},
     revivedSubagents: {},
+    agentStartedAt: {},
     restartable: false,
     loaderText: null,
     prNumber: null,

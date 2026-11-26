@@ -169,6 +169,7 @@ export function AgentsPanel({
             {agents.map((agent) => (
               <AgentRow
                 key={agent.name}
+                taskId={taskId}
                 agent={agent}
                 selected={agent === current}
                 onSelect={() => selectAgent(agent.name)}

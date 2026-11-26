@@ -4,7 +4,7 @@
 // 各项只读：活 surface（o / x 才变）里某些 kind 的节点自己的记录；旁路提问的弹窗和便签另读整棵子树（答案流式追加在很深的 md 里），
 // 所以再从每个变了的节点往上找祖先 overlay / 便签。删子树时每个后代都进 changed、它的父节点也换了记录；弹窗和便签的根节点由
 // NodeWatch 记着，删掉的部分照样能发现。
-import { listAgents } from "../../shared/tsp/agent-hub.ts";
+import { isAgentActive, listAgents, type HubAgent } from "../../shared/tsp/agent-hub.ts";
 import {
   BTW_NOTE_ROLES,
   findBtwNotes,
@@ -33,6 +33,8 @@ export class TspDocScans {
   #btwNotes: BtwNote[] | undefined;
   #runningWork: boolean | undefined;
   #doneAgents: ReadonlySet<string> | undefined;
+  #activeAgents: ReadonlySet<string> | undefined;
+  #agents: readonly HubAgent[] | undefined;
 
   constructor(document: TspDocument) {
     this.document = document;
@@ -57,6 +59,8 @@ export class TspDocScans {
     if (this.#workWatch.update(doc, changed, reset).size > 0) {
       this.#runningWork = undefined;
       this.#doneAgents = undefined;
+      this.#activeAgents = undefined;
+      this.#agents = undefined;
     }
     if (this.#btwWatch.update(doc, changed, reset).size > 0 || this.#insideBtw(changed)) {
       this.#btwView = undefined;
@@ -110,9 +114,18 @@ export class TspDocScans {
   /** 状态是 done 的子代理名（listAgents 去重之后；被唤醒的子代理在 omp 的节点上一直是 done，issue #23）。 */
   get doneAgents(): ReadonlySet<string> {
     return (this.#doneAgents ??= new Set(
-      listAgents(this.document)
-        .filter((agent) => agent.status === "done")
-        .map((agent) => agent.name),
+      this.#agentList.filter((agent) => agent.status === "done").map((agent) => agent.name),
     ));
+  }
+
+  /** 在跑（运行中或等待）的子代理名。 */
+  get activeAgents(): ReadonlySet<string> {
+    return (this.#activeAgents ??= new Set(
+      this.#agentList.filter((agent) => isAgentActive(agent.status)).map((agent) => agent.name),
+    ));
+  }
+
+  get #agentList(): readonly HubAgent[] {
+    return (this.#agents ??= listAgents(this.document));
   }
 }

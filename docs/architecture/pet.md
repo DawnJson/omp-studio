@@ -125,7 +125,7 @@ preload 用单独的 `pet.cjs`，只暴露 `PetApi`；页面上没有 `window.st
 - 起名和说话都带 `--mode json` 调 omp，从 assistant 消息的 `message_end` 取文字和 `usage`（`parseJsonOutput`）：token 用 `usage.totalTokens`，钱用 `usage.cost.total`（omp 自己按模型价格算；2026-11-11 实测的事件格式）。`--no-session` 的调用会不会进 `omp stats` 没核实。
 - 每次调用结束、只要 omp 报了用量就记账，失败的调用也记（可能已经花了钱）；被取消的调用拿不到用量，不记。
 - `pet.json` 的 `spend`：`total` 累计，`today` 只记 `day` 那一天（本地日期），跨天后第一次记账时清零；设置页读的时候 `day` 不是今天就显示 0。
-- 不带 MCP 工具：omp 没有关 MCP 的参数，`--no-tools` 只关内置工具；`--tools <名字>` 也挡不住，MCP 会挂成 `xd://` 设备，还可能多出 `write`。所以宠物的调用设 `OMP_MCP_TIMEOUT_MS=1`（omp 文档里的环境变量，只给这个子进程）：1ms 内没就绪的服务器这次不用，stderr 一条警告，MCP 子进程照常收掉。不写 `~/.omp`，终端版 omp 不受影响。2026-11-11 实测，装了 3 个 MCP 服务器的机器上，回一个 `ok` 从 6,895 token 降到 469；宠物说一句真话约 700 token、$0.00015，大头是输出。
+- 不带工具：参数同提示词增强（`enhanceArgs`：`--tools=`，环境变量 `PI_AUTO_QA=0`，见 [prompt-enhance.md](prompt-enhance.md)），模型这边没有内置工具，扩展照常加载（`--no-tools` 在 omp 19.2 起连扩展都不加载，账号扩展的模型就找不到了）。MCP 仍会加载，挡不住，所以宠物的调用再设 `OMP_MCP_TIMEOUT_MS=1`（omp 文档里的环境变量，只给这个子进程）：1ms 内没就绪的服务器这次不用，stderr 一条警告，MCP 子进程照常收掉。不写 `~/.omp`，终端版 omp 不受影响。2026-11-11 实测，装了 3 个 MCP 服务器的机器上，回一个 `ok` 从 6,895 token 降到 469；宠物说一句真话约 700 token、$0.00015，大头是输出。
 - `--thinking off` 不用加：tiny 角色（`:low`）下一句话没有思考块，实测差不多。
 
 ## 入口

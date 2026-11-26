@@ -17,6 +17,7 @@ import {
   type RefObject,
 } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
+import { scrollTopAfter } from "../../../../shared/tsp/scroll-op.ts";
 import { CodePreviewCtx, type PreviewKind } from "../../markdown/code-preview.ts";
 import { CodeQuoteCtx } from "../../markdown/code-quote.ts";
 import { quoteCodeIntoDraft } from "../composer/insert-into-draft.ts";
@@ -125,6 +126,47 @@ function useReveal(taskId: TaskId, sf: string, root: RefObject<HTMLElement | nul
   }, [reveal, root]);
 }
 
+/** 节点自己或最近的、真的能竖着滚的祖先（overflow-y auto / scroll 且内容比可见区域高）。 */
+function scrollerOf(element: Element): HTMLElement | null {
+  for (let at: Element | null = element; at !== null; at = at.parentElement) {
+    if (!(at instanceof HTMLElement) || at.scrollHeight <= at.clientHeight) continue;
+    const overflow = getComputedStyle(at).overflowY;
+    if (overflow === "auto" || overflow === "scroll") return at;
+  }
+  return null;
+}
+
+function lineHeightOf(element: HTMLElement): number {
+  const style = getComputedStyle(element);
+  const line = Number.parseFloat(style.lineHeight);
+  return Number.isFinite(line) && line > 0 ? line : Number.parseFloat(style.fontSize) * 1.2 || 16;
+}
+
+/**
+ * 程序转发的键盘滚动（scroll 操作，hello 声明 `scroll` 才有）：把节点所在的滚动容器移一行 / 一屏 / 到两端。
+ * 只执行挂载之后来的（seq 比见过的大），一帧里连发几步就依次执行；立即跳到位（键盘滚动，不放动画）。
+ */
+function useScrollOps(taskId: TaskId, sf: string, root: RefObject<HTMLElement | null>): void {
+  const view = useTspSurface(taskId, sf);
+  const scrolls = view?.scrolls;
+  const seen = useRef(scrolls?.at(-1)?.seq ?? 0);
+  useEffect(() => {
+    for (const op of scrolls ?? []) {
+      if (op.seq <= seen.current) continue;
+      seen.current = op.seq;
+      const target = root.current?.querySelector(`[data-id="${CSS.escape(op.id)}"]`);
+      const scroller = target ? scrollerOf(target) : null;
+      if (!scroller) continue;
+      scroller.scrollTop = scrollTopAfter(op.by, {
+        scrollTop: scroller.scrollTop,
+        scrollHeight: scroller.scrollHeight,
+        clientHeight: scroller.clientHeight,
+        line: lineHeightOf(scroller),
+      });
+    }
+  }, [scrolls, root]);
+}
+
 // ───────── surface ─────────
 
 function useSurfaceContext(taskId: TaskId, sf: string): TspContext {
@@ -188,6 +230,7 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, r
   const driving = useTspDrive(taskId)?.kind === "hub";
   const role = typeof main?.p.role === "string" ? main.p.role : undefined;
   useReveal(taskId, sf, surface);
+  useScrollOps(taskId, sf, surface);
   return (
     <TspCtx.Provider value={ctx}>
       <div

@@ -25,6 +25,5 @@ export const tool = {
   "todo.pending": "Pending",
   "todo.in_progress": "In progress",
   "todo.completed": "Completed",
-  "todo.blocked": "Blocked",
   "todo.abandoned": "Abandoned",
 } satisfies Record<string, MessageEntry>;
