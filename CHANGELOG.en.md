@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-27
+
 ### Added
 
 - Upgraded prompt enhancement: hover or right-click the ✦ button to choose between "Polish", "Structured spec", "Debug", "Concise", and "Custom", and optionally include "Recent conversation" or "Changed git files"; supports streaming preview, single-step Ctrl+Z undo, attachment preservation, the `Alt+E` shortcut, and a Command Palette entry.
