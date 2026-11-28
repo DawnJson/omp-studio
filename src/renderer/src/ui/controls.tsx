@@ -4,12 +4,14 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
   type Ref,
+  type RefObject,
   type TextareaHTMLAttributes,
 } from "react";
 import { ChevronRight, Reset } from "../icons.tsx";
@@ -206,6 +208,48 @@ function arrowStep(event: KeyboardEvent): number {
   return 0;
 }
 
+/**
+ * 跟随当前选中项的滑动指示条（Segmented 的滑块、Tabs 与文件预览标签的下划线）。
+ * 首次量出位置直接落位（不闪跳），下一帧挂 data-ready 后才开过渡；容器尺寸变化时同步重算。
+ */
+export function useSlidingIndicator(
+  containerRef: RefObject<HTMLElement | null>,
+  indicatorRef: RefObject<HTMLElement | null>,
+  activeSelector: string,
+  dep: string | number,
+): void {
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const indicator = indicatorRef.current;
+    if (container === null || indicator === null) return;
+    let raf = 0;
+    const measure = () => {
+      const active = container.querySelector<HTMLElement>(activeSelector);
+      const width = active?.offsetWidth ?? 0;
+      if (active === null || width <= 0) {
+        delete container.dataset["sliding"];
+        return;
+      }
+      indicator.style.width = `${width}px`;
+      indicator.style.transform = `translateX(${active.offsetLeft}px)`;
+      container.dataset["sliding"] = "";
+      if (container.dataset["ready"] === undefined && raf === 0) {
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          container.dataset["ready"] = "";
+        });
+      }
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(container);
+    return () => {
+      observer?.disconnect();
+      if (raf !== 0) cancelAnimationFrame(raf);
+    };
+  }, [containerRef, indicatorRef, activeSelector, dep]);
+}
+
 /** 分段：设一个值（≤4 个短选项；更多用 Select）。role=radiogroup，方向键移动并选中。 */
 export function Segmented<T extends string>({
   value,
@@ -227,6 +271,8 @@ export function Segmented<T extends string>({
   mono?: boolean | undefined;
   testId?: string | undefined;
 }) {
+  const groupRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLSpanElement>(null);
   const move = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const step = arrowStep(event);
     if (step === 0) return;
@@ -238,8 +284,10 @@ export function Segmented<T extends string>({
     event.currentTarget.parentElement?.querySelectorAll("button")[target]?.focus();
   };
   const current = options.some((option) => option.value === value) ? value : options[0]?.value;
+  useSlidingIndicator(groupRef, thumbRef, 'button[aria-checked="true"]', `${value}:${options.length}`);
   return (
     <div
+      ref={groupRef}
       role="radiogroup"
       className={mono ? "ui-seg ui-mono" : "ui-seg"}
       data-size={size === "sm" ? "sm" : undefined}
@@ -247,6 +295,7 @@ export function Segmented<T extends string>({
       aria-labelledby={labelledBy}
       data-testid={testId}
     >
+      <span ref={thumbRef} className="ui-seg-thumb" aria-hidden="true" />
       {options.map((option, index) => (
         <button
           key={option.value}
@@ -301,6 +350,9 @@ export function Tabs<T extends string>({
   idBase: string;
   testId?: string | undefined;
 }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLSpanElement>(null);
+  useSlidingIndicator(listRef, barRef, '.ui-tab[aria-selected="true"]', `${value}:${tabs.length}`);
   const move = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const step = event.key === "Home" ? -index : event.key === "End" ? tabs.length - 1 - index : arrowStep(event);
     if (step === 0) return;
@@ -312,7 +364,7 @@ export function Tabs<T extends string>({
     event.currentTarget.parentElement?.querySelectorAll("button")[target]?.focus();
   };
   return (
-    <div role="tablist" className="ui-tabs" aria-label={label} data-testid={testId}>
+    <div ref={listRef} role="tablist" className="ui-tabs" aria-label={label} data-testid={testId}>
       {tabs.map((tab, index) => (
         <button
           key={tab.id}
@@ -333,6 +385,7 @@ export function Tabs<T extends string>({
           {tab.count !== undefined && <span className="ui-count">{tab.count}</span>}
         </button>
       ))}
+      <span ref={barRef} className="ui-tabs-bar" aria-hidden="true" />
     </div>
   );
 }

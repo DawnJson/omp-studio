@@ -204,7 +204,10 @@ export function TooltipLayer() {
 
 function TooltipBubble({ tip, exitProps }: { tip: Tip; exitProps: ExitProps }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
+  const [placed, setPlaced] = useState<{ style: CSSProperties; side: "top" | "bottom" | "left" }>({
+    style: { visibility: "hidden" },
+    side: tip.side ?? "bottom",
+  });
   const { body, key } = splitShortcut(tip.text);
 
   // 先不可见地画出来量尺寸，再定位：默认在元素下方居中，下方放不下放上方（`top` 时反过来），左右夹在窗口内；
@@ -217,7 +220,10 @@ function TooltipBubble({ tip, exitProps }: { tip: Tip; exitProps: ExitProps }) {
     const beside = a.left - GAP_PX - width;
     if (tip.side === "left" && beside >= EDGE_PX) {
       const middle = a.top + a.height / 2 - height / 2;
-      setStyle({ top: Math.min(Math.max(EDGE_PX, middle), window.innerHeight - EDGE_PX - height), left: beside });
+      setPlaced({
+        style: { top: Math.min(Math.max(EDGE_PX, middle), window.innerHeight - EDGE_PX - height), left: beside },
+        side: "left",
+      });
       return;
     }
     const below = a.bottom + GAP_PX;
@@ -227,11 +233,19 @@ function TooltipBubble({ tip, exitProps }: { tip: Tip; exitProps: ExitProps }) {
     const top = putOver ? Math.max(EDGE_PX, over) : below;
     const centered = a.left + a.width / 2 - width / 2;
     const left = Math.min(Math.max(EDGE_PX, centered), window.innerWidth - EDGE_PX - width);
-    setStyle({ top, left });
+    setPlaced({ style: { top, left }, side: putOver ? "top" : "bottom" });
   }, [tip]);
 
   return (
-    <div ref={ref} className="ui-tooltip" role="tooltip" data-testid="tooltip" style={style} {...exitProps}>
+    <div
+      ref={ref}
+      className="ui-tooltip"
+      role="tooltip"
+      data-testid="tooltip"
+      data-side={placed.side}
+      style={placed.style}
+      {...exitProps}
+    >
       <span className="ui-tooltip-text">{body}</span>
       {key !== null && <kbd className="ui-kbd">{key}</kbd>}
     </div>

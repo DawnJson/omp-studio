@@ -39,15 +39,21 @@
   max-width: min(100%, calc(var(--toast-w) * 2));
   padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3-5);
   border-radius: var(--radius-pill);
-  background: var(--bg-overlay);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
   color: var(--text);
   box-shadow:
+    var(--overlay-edge),
     var(--shadow-2),
     0 0 0 1px var(--border-subtle);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   pointer-events: auto;
+  transition: transform var(--dur-fast) var(--ease-out);
   animation: toast-in max(var(--dur-base), var(--dur-fade)) var(--ease-out);
+}
+.toast:hover {
+  transform: translateY(-1px);
 }
 /* 等级色：左侧一个小圆点；警告 / 错误再加一圈细框。普通消息（已归档等）的点是灰的：强调色只给状态（2026-10-29） */
 .toast::before {

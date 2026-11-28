@@ -41,6 +41,7 @@ function fitInside(el: HTMLElement): void {
   el.style.maxWidth = `${Math.max(0, bounds.width - 2 * edge)}px`;
   // 要的是写的值（auto），不是 getComputedStyle 给定位元素解析出来的像素值。
   const downward = el.computedStyleMap().get("bottom")?.toString() === "auto";
+  el.dataset["side"] = downward ? "bottom" : "top";
   const rect = el.getBoundingClientRect();
   const room = downward ? bounds.bottom - rect.top - edge : rect.bottom - bounds.top - edge;
   el.style.setProperty("--fit-room", `${Math.max(0, Math.floor(room))}px`);

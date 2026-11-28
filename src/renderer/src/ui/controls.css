@@ -147,6 +147,7 @@
   border-right-color: transparent;
   border-radius: 50%;
   animation: ui-spin var(--dur-spin) var(--tick-spin) infinite;
+  animation-play-state: var(--play-state);
 }
 .ui-btn[data-variant="primary"][data-loading]::after {
   border-color: var(--text-on-primary);
@@ -378,6 +379,9 @@
   border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
 }
 .ui-textarea:focus {
   border-color: var(--ring);
@@ -462,6 +466,9 @@
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 /* 滑块：浅色主题关着是白的；深色主题关着用浅灰（深底上的深滑块看不见），开着用主按钮的字色 */
+.ui-switch:not([aria-checked="true"]):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--input-border) 82%, var(--text));
+}
 .ui-switch::after {
   position: absolute;
   top: 2px;
@@ -472,7 +479,9 @@
   background: light-dark(var(--bg-raised), var(--text-2));
   border-radius: 50%;
   box-shadow: var(--shadow-1);
-  transition: transform var(--dur-fast) var(--ease-out);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    width var(--dur-instant) var(--ease-out);
 }
 .ui-switch[aria-checked="true"] {
   background: var(--primary);
@@ -480,6 +489,14 @@
 .ui-switch[aria-checked="true"]::after {
   background: var(--text-on-primary);
   transform: translateX(14px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ui-switch:active:not(:disabled)::after {
+    width: 18px;
+  }
+  .ui-switch[aria-checked="true"]:active:not(:disabled)::after {
+    transform: translateX(10px);
+  }
 }
 .ui-switch:disabled {
   cursor: default;
@@ -500,11 +517,27 @@
   box-shadow: var(--shadow-xs);
   appearance: none;
 }
+.ui-check:hover:not(:disabled, :checked, :indeterminate),
+.ui-radio:hover:not(:disabled, :checked) {
+  border-color: var(--border-strong);
+}
 .ui-check {
   border-radius: var(--radius-sm);
 }
 .ui-radio {
   border-radius: 50%;
+}
+.ui-check::after {
+  width: 9px;
+  height: 5px;
+  content: "";
+  border-bottom: 2px solid var(--text-on-primary);
+  border-left: 2px solid var(--text-on-primary);
+  opacity: 0;
+  transform: translateY(-1px) rotate(-45deg) scale(0.6);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 .ui-check:checked,
 .ui-check:indeterminate {
@@ -512,18 +545,16 @@
   border-color: var(--primary);
 }
 .ui-check:checked::after {
-  width: 9px;
-  height: 5px;
-  content: "";
-  border-bottom: 2px solid var(--text-on-primary);
-  border-left: 2px solid var(--text-on-primary);
-  transform: translateY(-1px) rotate(-45deg);
+  opacity: 1;
+  transform: translateY(-1px) rotate(-45deg) scale(1);
 }
 .ui-check:indeterminate::after {
   width: 8px;
   height: 2px;
-  content: "";
+  border: 0;
   background: var(--text-on-primary);
+  opacity: 1;
+  transform: none;
 }
 .ui-radio:checked {
   background: var(--primary);
@@ -547,6 +578,7 @@
 /* ───────── Segmented（设一个值）与 Tabs（切一个视图） ───────── */
 .ui-seg {
   --seg-h: var(--control-h-md);
+  position: relative;
   display: inline-flex;
   flex: none;
   gap: var(--space-0-5);
@@ -558,8 +590,31 @@
 .ui-seg[data-size="sm"] {
   --seg-h: var(--control-h-sm);
 }
+.ui-seg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  z-index: 0;
+  display: none;
+  background: var(--control-on);
+  border-radius: calc(var(--radius-control) - 1px);
+  box-shadow:
+    0 0 0 1px var(--border-subtle),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+}
+.ui-seg[data-sliding] > .ui-seg-thumb {
+  display: block;
+}
+.ui-seg[data-ready] > .ui-seg-thumb {
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    width var(--dur-base) var(--ease-out);
+}
 .ui-seg > button {
   position: relative;
+  z-index: 1;
   padding: 0 var(--space-2-5);
   font: inherit;
   font-size: var(--fs-sm);
@@ -589,13 +644,17 @@
 .ui-seg > button:hover {
   color: var(--text);
 }
-/* 选中块：一圈细边 + 小阴影，深色主题里也看得出选中了哪个 */
+/* 选中块：未量到位置时由按钮自己画；量到后交由 .ui-seg-thumb 滑动 */
 .ui-seg > button[aria-checked="true"] {
   color: var(--text);
   background: var(--control-on);
   box-shadow:
     0 0 0 1px var(--border-subtle),
     0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.ui-seg[data-sliding] > button[aria-checked="true"] {
+  background: transparent;
+  box-shadow: none;
 }
 /* 分段右上角的小圆点：同侧栏"跑完没看过"的绿点（sidebar.css 的 .sb-dot-unread），压在内边距里，不改分段宽度 */
 .ui-seg-dot {
@@ -611,9 +670,28 @@
 }
 
 .ui-tabs {
+  position: relative;
   display: flex;
   gap: var(--space-5);
   border-bottom: 1px solid var(--border-subtle);
+}
+.ui-tabs-bar {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  display: none;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.ui-tabs[data-sliding] > .ui-tabs-bar {
+  display: block;
+}
+.ui-tabs[data-ready] > .ui-tabs-bar {
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    width var(--dur-base) var(--ease-out);
 }
 .ui-tab {
   position: relative;
@@ -649,6 +727,9 @@
   content: "";
   background: var(--text);
   border-radius: 1px;
+}
+.ui-tabs[data-sliding] > .ui-tab[aria-selected="true"]::after {
+  display: none;
 }
 
 /* ───────── Badge（状态、范围、计数） ───────── */
@@ -936,11 +1017,19 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow: var(--overlay-edge), var(--shadow-2);
+  transform-origin: bottom left;
   animation: pop-in var(--dur-base) var(--ease-out);
 }
 .ui-popover[data-align="end"] {
   right: 0;
   left: auto;
+  transform-origin: bottom right;
+}
+.ui-popover[data-side="bottom"] {
+  transform-origin: top left;
+}
+.ui-popover[data-side="bottom"][data-align="end"] {
+  transform-origin: top right;
 }
 /* 行内确认（全自动、会话开关、结束子代理）：宽 300，最小 280，不会被挤成一字一行 */
 .ui-popover[data-kind="confirm"] {
@@ -979,7 +1068,13 @@
   background: var(--bg-overlay);
   border-radius: var(--radius-dialog);
   box-shadow: var(--shadow-modal);
-  animation: pop-in var(--dur-slow) var(--ease-spring);
+  animation: dialog-in var(--dur-slow) var(--ease-spring);
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--travel-md)) scale(calc(1 - (1 - var(--scale-pop)) * 1.5));
+  }
 }
 /* 打开时焦点落在对话框本身（没有 data-autofocus 时，见 Dialog.tsx）：容器不画焦点环，Tab 进到控件才画 */
 .ui-dialog:focus {
@@ -1033,7 +1128,7 @@
   padding: var(--space-4) var(--space-6) var(--space-5);
   overflow: auto;
 }
-/* 页脚：一条浅底带（shadcn，2026-11-11 仓库所有者定），圆角跟着对话框 */
+/* 页脚：与对话框同底不分色，只留一条极浅的顶边细线（所有者定，2026-11-27） */
 .ui-dialog-foot {
   display: flex;
   flex: none;
@@ -1041,7 +1136,6 @@
   align-items: center;
   justify-content: flex-end;
   padding: var(--space-4) var(--space-6);
-  background: color-mix(in srgb, var(--bg-sunken) 70%, var(--bg-overlay));
   border-top: 1px solid var(--border-subtle);
   border-radius: 0 0 var(--radius-dialog) var(--radius-dialog);
 }
@@ -1346,6 +1440,8 @@
    很长的 title（整段命令、报错全文）最多 20 行、整张不高过窗口（上下各留 8，Tooltip.tsx 的 EDGE_PX），多出的截掉：
    原来按内容一直长，比窗口还高时上下都出窗（2026-11-09）。 */
 .ui-tooltip {
+  --tip-x: 0px;
+  --tip-y: calc(var(--travel-sm) * -1);
   position: fixed;
   z-index: var(--z-tooltip);
   display: flex;
@@ -1363,7 +1459,29 @@
   background: var(--text);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-tooltip);
-  animation: fade-in var(--dur-fast) var(--ease-out);
+  animation: tip-in var(--dur-fast) var(--ease-out);
+}
+.ui-tooltip[data-side="top"] {
+  --tip-y: var(--travel-sm);
+}
+.ui-tooltip[data-side="left"] {
+  --tip-x: var(--travel-sm);
+  --tip-y: 0px;
+}
+:root .ui-tooltip[data-closing] {
+  animation-name: tip-out;
+}
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--tip-x), var(--tip-y));
+  }
+}
+@keyframes tip-out {
+  to {
+    opacity: 0;
+    transform: translate(var(--tip-x), var(--tip-y));
+  }
 }
 .ui-tooltip-text {
   display: -webkit-box;
@@ -1404,6 +1522,9 @@
 .ui-chip[aria-expanded="true"] {
   color: var(--text);
   background: var(--bg-hover);
+}
+.ui-chip:active:not(:disabled) {
+  background: var(--bg-active);
 }
 .ui-chip[data-tone="warning"] {
   color: var(--st-waiting-text);
@@ -1486,6 +1607,51 @@
   }
   to {
     --ui-fade-bottom: 0px;
+  }
+}
+
+/* 横向滚动边缘渐隐（顶栏任务标签条、右栏文件预览标签条）：同上，沿 inline 方向驱动 */
+@property --ui-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --ui-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.ui-scroll-fade-x {
+  --fade-size-x: var(--space-5);
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--ui-fade-start),
+    #000 calc(100% - var(--ui-fade-end)),
+    transparent 100%
+  );
+  animation:
+    ui-fade-start linear both,
+    ui-fade-end linear both;
+  animation-timeline: scroll(self inline), scroll(self inline);
+  animation-range:
+    0px var(--space-8),
+    calc(100% - var(--space-8)) 100%;
+}
+@keyframes ui-fade-start {
+  from {
+    --ui-fade-start: 0px;
+  }
+  to {
+    --ui-fade-start: var(--fade-size-x);
+  }
+}
+@keyframes ui-fade-end {
+  from {
+    --ui-fade-end: var(--fade-size-x);
+  }
+  to {
+    --ui-fade-end: 0px;
   }
 }
 

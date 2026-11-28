@@ -11,6 +11,7 @@ export const shortcut = {
   send: "Send",
   newline: "New line",
   later: "While running: later",
+  enhance: "Enhance prompt",
   stop: "Stop and recall the queue",
   toggleProcess: "Expand / collapse tool cards",
   focusComposer: "Focus the message box",

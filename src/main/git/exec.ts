@@ -25,6 +25,8 @@ export interface RunOptions {
    * （有拼接开销，先看 `last` 能不能排除）。只在没设 keepTailBytes 时检查。
    */
   stdoutComplete?: (last: Buffer, all: () => Buffer) => boolean;
+  /** stdout 每到一块时通知调用方（流式提示词优化等）；只在没设 keepTailBytes 时触发。 */
+  onStdout?: (chunk: Buffer) => void;
 }
 
 export interface RunResult {
@@ -138,6 +140,7 @@ function spawnCommand(command: string, args: readonly string[], options: RunOpti
       return;
     }
     out.push(chunk);
+    options.onStdout?.(chunk);
     if (options.stdoutComplete?.(chunk, () => Buffer.concat(out)) === true) {
       killTree(child);
       finish(() => resolve({ code: 0, stdout: Buffer.concat(out), stderr: errTail.toBuffer().toString("utf8") }));

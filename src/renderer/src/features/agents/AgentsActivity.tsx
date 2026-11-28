@@ -41,40 +41,44 @@ export function AgentsActivity({
           onChange={setFilter}
         />
       </div>
-      {shown.length === 0 ? (
-        <p className="agents-muted" data-testid="agents-activity-empty">
-          {loading
-            ? t("agents.activityLoading")
-            : filter === "all"
-              ? t("agents.activityEmpty")
-              : t("agents.activityNone")}
-        </p>
-      ) : (
-        <ul className="agents-activity-list" aria-label={t("agents.activityList")}>
-          {shown.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className="agents-act-row"
-                data-testid="agents-activity-row"
-                data-kind={item.kind}
-                data-agent={item.agent}
-                data-failed={item.failed || undefined}
-                onClick={() => onOpenAgent(item.agent)}
-              >
-                <span className="agents-act-time">{item.at > 0 ? clock.format(item.at) : ""}</span>
-                <span className="agents-act-agent">{item.agent}</span>
-                <span className="agents-act-kind">{t(`agents.kind.${item.kind}`)}</span>
-                <span className="agents-act-text">
-                  {item.tool !== null && <b>{item.tool}</b>}
-                  {item.tool !== null && item.text !== "" && " · "}
-                  {item.text}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="agents-activity-scroll ui-scroll-fade">
+        {shown.length === 0 ? (
+          <p className="agents-muted" data-testid="agents-activity-empty">
+            {loading
+              ? t("agents.activityLoading")
+              : filter === "all"
+                ? t("agents.activityEmpty")
+                : t("agents.activityNone")}
+          </p>
+        ) : (
+          <ul className="agents-activity-list" aria-label={t("agents.activityList")}>
+            {shown.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className="agents-act-row"
+                  data-testid="agents-activity-row"
+                  data-kind={item.kind}
+                  data-agent={item.agent}
+                  data-failed={item.failed || undefined}
+                  onClick={() => onOpenAgent(item.agent)}
+                >
+                  <span className="agents-act-top">
+                    <span className="agents-act-agent">{item.agent}</span>
+                    <span className="agents-act-kind">{t(`agents.kind.${item.kind}`)}</span>
+                    <span className="agents-act-time">{item.at > 0 ? clock.format(item.at) : ""}</span>
+                  </span>
+                  <span className="agents-act-text">
+                    {item.tool !== null && <b>{item.tool}</b>}
+                    {item.tool !== null && item.text !== "" && " · "}
+                    {item.text}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

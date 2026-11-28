@@ -231,7 +231,7 @@ export function PreviewPage({
       </div>
       <div
         ref={body}
-        className="file-preview-body"
+        className="file-preview-body ui-scroll-fade"
         data-testid="file-preview-body"
         style={{ "--preview-zoom": textZoom } as CSSProperties}
       >

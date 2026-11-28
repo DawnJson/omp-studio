@@ -5,10 +5,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { btwTurns, isBtwRunning, latestTurn, type BtwHistoryTurn } from "../../../../shared/btw.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close, Plus } from "../../icons.tsx";
+import { ArrowUp, Close, Plus } from "../../icons.tsx";
 import { Markdown } from "../../markdown/index.ts";
 import { useBtwRecords } from "../../store/index.ts";
-import { Badge, Button, IconButton, Tabs, TextField } from "../../ui/controls.tsx";
+import { Badge, Button, IconButton, Tabs } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { CopyGlyph, useCopy } from "../../ui/CopyGlyph.tsx";
@@ -134,6 +134,18 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
             {t("btw.status.running")}
           </Badge>
         )}
+        {hasTopics && (
+          <div className="btw-topics ui-scroll-fade-x">
+            <Tabs
+              label={t("btw.topics")}
+              idBase={`btw-${taskId}`}
+              testId="btw-topics"
+              value={topic?.id ?? ""}
+              tabs={records.map((record) => ({ id: record.id, label: topicLabel(record), title: record.question }))}
+              onChange={(id) => selectBtwTopic(taskId, id)}
+            />
+          </div>
+        )}
         <span className="btw-spacer" />
         {latest !== null && latest.answer !== "" && (
           <IconButton
@@ -160,21 +172,9 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
           <Close size={14} />
         </IconButton>
       </header>
-      {hasTopics && (
-        <div className="btw-topics">
-          <Tabs
-            label={t("btw.topics")}
-            idBase={`btw-${taskId}`}
-            testId="btw-topics"
-            value={topic?.id ?? ""}
-            tabs={records.map((record) => ({ id: record.id, label: topicLabel(record), title: record.question }))}
-            onChange={(id) => selectBtwTopic(taskId, id)}
-          />
-        </div>
-      )}
       {hasBody && (
         <div
-          className="btw-body"
+          className="btw-body ui-scroll-fade"
           ref={bodyRef}
           data-testid="btw-body"
           onScroll={(event) => {
@@ -194,28 +194,37 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
           ask();
         }}
       >
-        <TextField
-          ref={inputRef}
-          size="sm"
-          width="100%"
-          className="btw-input"
-          testId="btw-input"
-          value={text}
-          placeholder={topic === null ? t("btw.placeholder") : t("btw.placeholderFollowUp")}
-          aria-label={t("btw.title")}
-          onChange={setText}
-          onKeyDown={(event) => {
-            // 输入法选词的回车不是提交；Esc 交给 section 的处理。
-            if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault();
-          }}
-        />
-        {running ? (
+        <div className="btw-pill">
+          <input
+            ref={inputRef}
+            type="text"
+            className="btw-input"
+            data-testid="btw-input"
+            value={text}
+            placeholder={topic === null ? t("btw.placeholder") : t("btw.placeholderFollowUp")}
+            aria-label={t("btw.title")}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              // 输入法选词的回车不是提交；Esc 交给 section 的处理。
+              if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault();
+            }}
+          />
+          {!running && (
+            <button
+              type="submit"
+              className="btw-send"
+              data-testid="btw-send"
+              disabled={sending || !canAsk(records, text)}
+              aria-label={t("btw.send")}
+              title={t("btw.send")}
+            >
+              <ArrowUp size={15} />
+            </button>
+          )}
+        </div>
+        {running && (
           <Button size="sm" variant="danger" testId="btw-cancel" onClick={() => void cancelBtwQuestion(taskId, t)}>
             {t("btw.cancel")}
-          </Button>
-        ) : (
-          <Button size="sm" testId="btw-send" disabled={sending || !canAsk(records, text)} onClick={ask}>
-            {t("btw.send")}
           </Button>
         )}
       </form>

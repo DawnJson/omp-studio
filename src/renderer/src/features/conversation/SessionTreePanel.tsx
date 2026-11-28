@@ -222,7 +222,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
           ) : (
             <div
               ref={listRef}
-              className="tree-list"
+              className="tree-list ui-scroll-fade"
               role="listbox"
               tabIndex={-1}
               data-autofocus=""
@@ -250,6 +250,13 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
                     onMouseMove={() => setActive(index)}
                     onClick={() => pick(node)}
                   >
+                    {node.indent > 0 && (
+                      <span className="tree-guides" aria-hidden="true">
+                        {Array.from({ length: node.indent }, (_, level) => (
+                          <span key={level} className="tree-guide" />
+                        ))}
+                      </span>
+                    )}
                     {node.kind === "compaction" && (
                       <span className="tree-text" data-testid="session-tree-compaction">
                         {t("tree.compaction")}

@@ -179,7 +179,7 @@ export function FileTree({ target, memoryKey, reload, selected, onOpenFile, onMe
   return (
     <div
       ref={scroller}
-      className="file-tree"
+      className="file-tree ui-scroll-fade"
       data-testid="file-tree"
       role="tree"
       tabIndex={0}

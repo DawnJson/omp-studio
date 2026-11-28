@@ -28,9 +28,9 @@ import {
 import { focusAgent, killAgent, reviveAgent } from "./agents-actions.ts";
 import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="agents-stat" data-testid="agents-stat">
+    <div className="agents-stat" data-testid="agents-stat" data-accent={accent || undefined}>
       <dt>{label}</dt>
       <dd title={value}>{value}</dd>
     </div>
@@ -157,70 +157,113 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
   const stats = agent.stats;
   const progress = agentProgress(agent);
   const context = agentContextPercent(agent);
+  const status = hubStatus(agent);
+  const showMeta = agent.model !== null || thinkingKey !== undefined || typeof record?.fallbackModel === "string";
+  const showActions = canFocus(status) || canKill(status) || canRevive(status);
+  const hasMetrics =
+    progress !== null ||
+    stats.cost !== null ||
+    stats.tokens !== null ||
+    stats.requests !== null ||
+    stats.tools !== null;
+  const hasContext = stats.contextLabel !== null || context !== null;
+  const contextValue = [context === null ? null : `${context}%`, stats.contextLabel]
+    .filter((part) => part !== null)
+    .join(" · ");
   return (
-    <section className="agents-detail" data-testid="agents-detail" data-name={agent.name} aria-label={agent.name}>
+    <section
+      className="agents-detail ui-data-in"
+      data-testid="agents-detail"
+      data-name={agent.name}
+      aria-label={agent.name}
+    >
       <header className="agents-detail-head">
-        <span className="agents-detail-title">
-          <span className="agents-detail-name">{agent.name}</span>
-          {agent.model !== null && (
-            <span className="agents-detail-model" title={agent.model}>
-              {shortModel(agent.model)}
+        <div className="agents-detail-id">
+          <span className="agents-detail-name" title={agent.name}>
+            {agent.name}
+          </span>
+          {showMeta && (
+            <span className="agents-detail-meta">
+              {agent.model !== null && (
+                <span className="agents-detail-model" title={agent.model}>
+                  {shortModel(agent.model)}
+                </span>
+              )}
+              {thinkingKey !== undefined && (
+                <span className="agents-detail-thinking" data-testid="agents-detail-thinking">
+                  {t(thinkingKey)}
+                </span>
+              )}
+              {typeof record?.fallbackModel === "string" && (
+                <Badge
+                  tone="warning"
+                  testId="agents-fallback-badge"
+                  title={t("composer.badge.fallbackTip", { model: record.fallbackModel })}
+                >
+                  {t("composer.badge.fallback")}
+                </Badge>
+              )}
             </span>
           )}
-          {thinkingKey !== undefined && (
-            <span className="agents-detail-thinking" data-testid="agents-detail-thinking">
-              {t(thinkingKey)}
-            </span>
-          )}
-          {typeof record?.fallbackModel === "string" && (
-            <Badge
-              tone="warning"
-              testId="agents-fallback-badge"
-              title={t("composer.badge.fallbackTip", { model: record.fallbackModel })}
-            >
-              {t("composer.badge.fallback")}
-            </Badge>
-          )}
-        </span>
-        {canFocus(hubStatus(agent)) && (
-          <Button
-            size="sm"
-            variant="primary"
-            testId="agents-focus"
-            disabled={busy}
-            onClick={() => void focusAgent(t, taskId, agent.name)}
-          >
-            {t("agents.focus")}
-          </Button>
-        )}
-        {canKill(hubStatus(agent)) && <KillControl taskId={taskId} name={agent.name} busy={busy} />}
-        {canRevive(hubStatus(agent)) && (
-          <Button
-            size="sm"
-            testId="agents-revive"
-            disabled={busy}
-            onClick={() => void reviveAgent(t, taskId, agent.name)}
-          >
-            {t("agents.revive")}
-          </Button>
+        </div>
+        {showActions && (
+          <div className="agents-detail-actions">
+            {canFocus(status) && (
+              <Button
+                size="sm"
+                variant="primary"
+                testId="agents-focus"
+                disabled={busy}
+                onClick={() => void focusAgent(t, taskId, agent.name)}
+              >
+                {t("agents.focus")}
+              </Button>
+            )}
+            {canKill(status) && <KillControl taskId={taskId} name={agent.name} busy={busy} />}
+            {canRevive(status) && (
+              <Button
+                size="sm"
+                testId="agents-revive"
+                disabled={busy}
+                onClick={() => void reviveAgent(t, taskId, agent.name)}
+              >
+                {t("agents.revive")}
+              </Button>
+            )}
+          </div>
         )}
       </header>
 
-      <dl className="agents-stats">
-        {progress !== null && <Stat label={t("agents.progress")} value={`${progress}%`} />}
-        {stats.cost !== null && <Stat label={t("agents.cost")} value={formatCost(stats.cost)} />}
-        {stats.tokens !== null && <Stat label={t("agents.tokens")} value={formatCount(stats.tokens)} />}
-        {stats.requests !== null && <Stat label={t("agents.requests")} value={String(stats.requests)} />}
-        {stats.tools !== null && <Stat label={t("agents.tools")} value={String(stats.tools)} />}
-        {(stats.contextLabel !== null || context !== null) && (
-          <Stat
-            label={t("agents.context")}
-            value={[context === null ? null : `${context}%`, stats.contextLabel]
-              .filter((part) => part !== null)
-              .join(" · ")}
-          />
-        )}
-      </dl>
+      {(hasMetrics || hasContext) && (
+        <div className="agents-stats">
+          {hasMetrics && (
+            <dl className="agents-stats-row">
+              {progress !== null && <Stat label={t("agents.progress")} value={`${progress}%`} accent />}
+              {stats.cost !== null && <Stat label={t("agents.cost")} value={formatCost(stats.cost)} />}
+              {stats.tokens !== null && <Stat label={t("agents.tokens")} value={formatCount(stats.tokens)} />}
+              {stats.requests !== null && <Stat label={t("agents.requests")} value={String(stats.requests)} />}
+              {stats.tools !== null && <Stat label={t("agents.tools")} value={String(stats.tools)} />}
+            </dl>
+          )}
+          {hasContext && (
+            <div
+              className="agents-ctx-meter"
+              data-testid="agents-stat"
+              data-high={context !== null && context >= 90 ? "true" : undefined}
+            >
+              <dl className="agents-ctx-meter-top">
+                <dt>{t("agents.context")}</dt>
+                <dd title={contextValue}>{contextValue}</dd>
+              </dl>
+              {context !== null && (
+                <span className="agents-ctx-meter-track" aria-hidden="true">
+                  <i style={{ width: `${Math.max(context > 0 ? 4 : 0, context)}%` }} />
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {agent.task !== "" && <TaskBlock text={agent.assignment ?? cleanTask(agent.task)} />}
 

@@ -5,7 +5,7 @@ import type { ProjectFilesTarget } from "../../../../shared/ipc.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
-import { IconButton } from "../../ui/controls.tsx";
+import { IconButton, useSlidingIndicator } from "../../ui/controls.tsx";
 import { FileTypeIcon } from "../../ui/FileTypeIcon.tsx";
 import type { ExitProps } from "../../ui/presence.ts";
 import { useHeld } from "../composer/use-held.ts";
@@ -142,6 +142,8 @@ function tabName(tab: PreviewTab, t: TFunction): { name: string; icon: string } 
 function PreviewTabs({ panel }: { panel: PreviewPanel }) {
   const t = useT();
   const strip = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLSpanElement>(null);
+  useSlidingIndicator(strip, barRef, ".file-preview-tab[data-active]", `${panel.active}:${panel.tabs.length}`);
 
   // 当前标签滚进视野（新开的标签在最右）。
   useLayoutEffect(() => {
@@ -179,7 +181,7 @@ function PreviewTabs({ panel }: { panel: PreviewPanel }) {
   return (
     <div
       ref={strip}
-      className="file-preview-tabs"
+      className="file-preview-tabs ui-scroll-fade-x"
       role="tablist"
       aria-label={t("preview.tabs")}
       data-testid="preview-tabs"
@@ -231,6 +233,7 @@ function PreviewTabs({ panel }: { panel: PreviewPanel }) {
           </div>
         );
       })}
+      <span ref={barRef} className="file-preview-tabs-bar" aria-hidden="true" />
     </div>
   );
 }

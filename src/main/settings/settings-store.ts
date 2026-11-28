@@ -3,6 +3,12 @@
 import { app, nativeTheme } from "electron";
 import path from "node:path";
 import { backdropFilePattern, defaultFontSize, type Locale, type StudioSettings } from "../../shared/ipc.ts";
+import {
+  DEFAULT_PROMPT_ENHANCE_SETTINGS,
+  PROMPT_ENHANCE_CUSTOM_MAX_CHARS,
+  PROMPT_ENHANCE_STYLES,
+  type PromptEnhanceSettings,
+} from "../../shared/prompt-enhance.ts";
 import { themes } from "../../shared/themes.ts";
 import { emitEvent } from "../ipc/events.ts";
 import {
@@ -13,6 +19,7 @@ import {
   parseOneOf,
   parseLocalePreference,
   parseRecord,
+  parseString,
   parseThemePreference,
 } from "../ipc/validate.ts";
 import { log } from "../log/log.ts";
@@ -38,6 +45,7 @@ const defaults: StudioSettings = {
   petEnabled: true,
   petTalk: true,
   yoloConfirmed: false,
+  promptEnhance: DEFAULT_PROMPT_ENHANCE_SETTINGS,
 };
 
 function parseBackdropFile(value: unknown): string | null {
@@ -67,6 +75,45 @@ let saveQueued = false;
 
 function settingsFile(): string {
   return path.join(app.getPath("userData"), "settings.json");
+}
+
+function sanitizePromptEnhance(raw: unknown): PromptEnhanceSettings {
+  let record: Record<string, unknown>;
+  try {
+    record = parseRecord(raw, "promptEnhance");
+  } catch {
+    return DEFAULT_PROMPT_ENHANCE_SETTINGS;
+  }
+  const field = <T>(parse: (value: unknown) => T, value: unknown, fallback: T): T => {
+    try {
+      return parse(value);
+    } catch {
+      return fallback;
+    }
+  };
+  return {
+    style: field(
+      (value) => parseOneOf(value, "promptEnhance.style", PROMPT_ENHANCE_STYLES),
+      record["style"],
+      DEFAULT_PROMPT_ENHANCE_SETTINGS.style,
+    ),
+    customInstruction: field(
+      (value) =>
+        parseString(value, "promptEnhance.customInstruction", PROMPT_ENHANCE_CUSTOM_MAX_CHARS, { allowEmpty: true }),
+      record["customInstruction"],
+      DEFAULT_PROMPT_ENHANCE_SETTINGS.customInstruction,
+    ),
+    includeHistory: field(
+      (value) => parseBoolean(value, "promptEnhance.includeHistory"),
+      record["includeHistory"],
+      DEFAULT_PROMPT_ENHANCE_SETTINGS.includeHistory,
+    ),
+    includeGit: field(
+      (value) => parseBoolean(value, "promptEnhance.includeGit"),
+      record["includeGit"],
+      DEFAULT_PROMPT_ENHANCE_SETTINGS.includeGit,
+    ),
+  };
 }
 
 /** 逐字段校验，坏的字段回落到默认值（文件可能被手改，或来自别的版本）。 */
@@ -118,6 +165,7 @@ function sanitize(raw: unknown): StudioSettings {
     ),
     petEnabled: field((value) => parseBoolean(value, "petEnabled"), record["petEnabled"], defaults.petEnabled),
     petTalk: field((value) => parseBoolean(value, "petTalk"), record["petTalk"], defaults.petTalk),
+    promptEnhance: sanitizePromptEnhance(record["promptEnhance"]),
   };
 }
 

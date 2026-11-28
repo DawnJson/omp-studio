@@ -25,6 +25,7 @@ import { openSnippetPreview } from "../file-preview/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
+import { usePresence } from "../../ui/presence.ts";
 import { useStickToBottom } from "../conversation/use-stick-to-bottom.ts";
 import { ColumnResizer, columnsHeld, onColumnsReleased } from "./ColumnResizer.tsx";
 import { ConversationLine } from "./ConversationLine.tsx";
@@ -302,6 +303,7 @@ function InlineSurface({
   const lastTurnAt = useTaskValue(taskId, (task) => task?.lastTurn?.endedAt ?? null);
   const hasUser = useTspHasUserMessage(taskId, surfaceId);
   const { showJump, scrollToBottom } = useStickToBottom(taskId, scroller, column);
+  const jumpPresence = usePresence(showJump, "pop");
   useColumns(taskId, column, surface);
   // 恢复会话时 omp 不重发的用量脚注和回顾、回复里 svg 图的源码：挂载时取一次，一轮结束或新增一轮时再取。
   const turnCount = useTspTurnCount(taskId, surfaceId);
@@ -326,8 +328,14 @@ function InlineSurface({
       line={<ConversationLine taskId={taskId} scroller={scroller} />}
       resizer={<ColumnResizer column={column} scroller={scroller} />}
       jump={
-        showJump && (
-          <button type="button" className="tsp-jump" onClick={scrollToBottom} data-testid="jump-latest">
+        jumpPresence.mounted && (
+          <button
+            type="button"
+            className="tsp-jump"
+            onClick={scrollToBottom}
+            data-testid="jump-latest"
+            {...jumpPresence.exitProps}
+          >
             {t("scroll.latest")}
           </button>
         )

@@ -176,6 +176,49 @@
 .composer-field[data-sized] {
   max-height: none;
 }
+/* 提示词优化流式预览：保留底层 textarea 挂载和焦点以不破坏原生撤销栈，视觉上只展示流式层。 */
+.composer-field-wrap[data-streaming] > .composer-backdrop {
+  visibility: hidden;
+}
+.composer-field-wrap[data-streaming] > .composer-field {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.composer-stream {
+  min-height: var(--lh-prose);
+  max-height: calc(10 * var(--lh-prose));
+  overflow-y: auto;
+  font: inherit;
+  font-size: var(--fs-prose);
+  line-height: var(--lh-prose);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  cursor: text;
+}
+.composer-stream::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.14em;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: composer-stream-caret var(--dur-caret) var(--tick-caret) infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes composer-stream-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
 .composer-chip {
   border-radius: var(--radius-sm);
   background: var(--accent-soft);

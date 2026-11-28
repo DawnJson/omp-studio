@@ -24,8 +24,8 @@ export interface Presence {
   exitProps: ExitProps;
 }
 
-/** pop = 淡出 + 轻微下沉缩小（浮层、菜单、对话框）；fade = 只淡出（遮罩、整屏层、小圆点）；panel = 原路滑回窗口右边（右栏面板）。 */
-export type ExitKind = "pop" | "fade" | "panel";
+/** pop = 淡出 + 轻微下沉缩小（浮层、菜单）；dialog = 对话框淡出 + 中距下沉微缩；fade = 只淡出（遮罩、整屏层、小圆点）；panel = 原路滑回窗口右边（右栏面板）。 */
+export type ExitKind = "pop" | "dialog" | "fade" | "panel";
 
 export function usePresence(open: boolean, kind: ExitKind = "pop"): Presence {
   const [mounted, setMounted] = useState(open);

@@ -9,6 +9,7 @@ export type StudioCommand =
   | "toggleSidebar"
   | "model"
   | "thinking"
+  | "enhance"
   | "stop"
   | "copyLast"
   | "toggleProcess"

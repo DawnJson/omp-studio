@@ -58,6 +58,10 @@ export interface ComposerInputProps {
   onCaret(caret: number): void;
   /** 芯片相关的键处理完之后才轮到它（发送、菜单、历史……）。 */
   onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void;
+  /** 提示词优化流式预览文本；非 null 时在输入区原地流式展示，不碰 textarea.value 以保留原生撤销栈。 */
+  streamingText?: string | null | undefined;
+  /** 点击流式预览区时取消优化并回到原草稿。 */
+  onCancelStream?: (() => void) | undefined;
 }
 
 const isRawPasteKey = (event: KeyboardEvent) =>
@@ -96,6 +100,7 @@ export function ComposerInput(props: ComposerInputProps) {
   const t = useT();
   const labels = useChipLabels();
   const backdropRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<HTMLDivElement>(null);
   const rawPaste = useRef(false);
   const drag = useRef<{ startY: number; startHeight: number } | null>(null);
   const userHeight = useFieldHeight();
@@ -137,6 +142,13 @@ export function ComposerInput(props: ComposerInputProps) {
     observer.observe(field);
     return () => observer.disconnect();
   }, [fieldRef]);
+
+  // 流式改写预览自动滚到底部。
+  const streaming = props.streamingText !== null && props.streamingText !== undefined;
+  useLayoutEffect(() => {
+    const el = streamRef.current;
+    if (el !== null) el.scrollTop = el.scrollHeight;
+  }, [props.streamingText]);
 
   // 程序改了文字之后的光标落点。
   useLayoutEffect(() => {
@@ -304,10 +316,24 @@ export function ComposerInput(props: ComposerInputProps) {
           fieldRef.current?.focus();
         }}
       />
-      <div className="composer-field-wrap">
+      <div className="composer-field-wrap" data-streaming={streaming || undefined}>
         <div ref={backdropRef} className="composer-backdrop" aria-hidden="true">
           {renderBackdrop(view)}
         </div>
+        {streaming && (
+          <div
+            ref={streamRef}
+            className="composer-stream"
+            data-testid="composer-enhance-stream"
+            aria-live="polite"
+            onClick={() => {
+              props.onCancelStream?.();
+              fieldRef.current?.focus();
+            }}
+          >
+            {props.streamingText}
+          </div>
+        )}
         <textarea
           ref={fieldRef}
           className="composer-field"

@@ -3409,7 +3409,7 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     const ctx = panel.getByTestId("agents-row-ctx").first();
     await expect(ctx).toHaveAttribute("data-percent", "1");
     await expect(ctx).toHaveAttribute("title", /1% ?[（(]8\.\dK \/ 1M[）)]/);
-    // 详情统计格一行三格;上下文("1% · 8.xK / 1M")单行,和费用一样高、没被截断。
+    // 详情统计栏（方案 A）：短指标一字排开在同一行，上下文独立通栏在下方且单行不被截断。
     const stats = panel.getByTestId("agents-stat");
     const statBoxes = await stats.evaluateAll((elements) =>
       elements.map((node) => {
@@ -3430,11 +3430,13 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
       }),
     );
     expect(statBoxes.length).toBeGreaterThan(3);
-    expect(statBoxes[1]!.y).toBe(statBoxes[0]!.y);
-    expect(statBoxes[2]!.y).toBe(statBoxes[0]!.y);
-    expect(statBoxes[3]!.y).toBeGreaterThan(statBoxes[0]!.y);
     const contextStat = statBoxes.find((stat) => stat.text.includes(" / "))!;
-    expect(contextStat.height).toBe(statBoxes[0]!.height);
+    const metricStats = statBoxes.filter((stat) => stat !== contextStat);
+    expect(metricStats.length).toBeGreaterThan(2);
+    for (const metric of metricStats.slice(1)) {
+      expect(Math.abs(metric.y - metricStats[0]!.y)).toBeLessThanOrEqual(1);
+    }
+    expect(contextStat.y).toBeGreaterThan(metricStats[0]!.y);
     expect(contextStat.clipped).toBe(false);
 
     // Activity 页:读两个子代理的记录文件(假 session 目录里的 Alpha.jsonl / Beta.jsonl),按时间从新到旧;过滤 All / Errors / Responses / Tools。

@@ -10,6 +10,7 @@ export const shortcut = {
   send: "发送",
   newline: "换行",
   later: "运行中：稍后",
+  enhance: "优化提示词",
   stop: "停止并取回排队消息",
   toggleProcess: "展开或收起所有工具卡片",
   focusComposer: "聚焦输入框",

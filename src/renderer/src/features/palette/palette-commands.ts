@@ -69,6 +69,12 @@ export function buildCommands({ t, locale, current, terminalKey, hasWaiting }: C
       shortcut: "Alt T",
       run: () => emitStudioCommand("thinking"),
     },
+    {
+      id: "enhance",
+      label: t("cmd.enhance"),
+      shortcut: "Alt E",
+      run: () => emitStudioCommand("enhance"),
+    },
     // 压缩：发 omp 的 `/compact`，等压缩分隔出现（TspRunner.compact）；失败（会话太小等）按 omp 的原文报错。
     current && { id: "compact", label: t("cmd.compact"), run: () => guard(window.studio.compactTask(current.id)) },
     // 重开会话：结束 omp 进程再 `--resume`，重新读 skill、MCP、插件和配置；任务忙时不列。

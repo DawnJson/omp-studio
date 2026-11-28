@@ -61,7 +61,13 @@ import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
 import type { OmpKeybinding } from "./tsp/omp-keybindings.ts";
 import type { ProviderKeyEnv } from "./provider-keys.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
-import type { PromptEnhanceResult, PromptEnhanceTarget } from "./prompt-enhance.ts";
+import type {
+  PromptEnhanceOptions,
+  PromptEnhanceResult,
+  PromptEnhanceSettings,
+  PromptEnhanceStreamEvent,
+  PromptEnhanceTarget,
+} from "./prompt-enhance.ts";
 import type { PetSpend } from "./pet/model.ts";
 
 // ───────── 标识 ─────────
@@ -248,6 +254,8 @@ export interface StudioSettings {
   petEnabled: boolean;
   /** 宠物说话（气泡，每句是一次 omp tiny 角色——没配就 smol——的调用）。默认开（仓库所有者 2026-11-11 定）。 */
   petTalk: boolean;
+  /** 提示词优化的默认风格与轻量上下文开关（docs/architecture/prompt-enhance.md）。 */
+  promptEnhance: PromptEnhanceSettings;
 }
 
 // ───────── 项目 ─────────
@@ -1667,12 +1675,19 @@ export interface StudioInvokeApi {
   /** 取消这个任务正在进行的"生成提交信息"；没有进行中的就什么也不做。 */
   cancelCommitMessage(taskId: TaskId): Promise<void>;
   /**
-   * 提示词优化：`omp -p` 一次性改写草稿文字（只发这段文字，不进会话、不带工具和上下文文件；docs/architecture/prompt-enhance.md）。
+   * 提示词优化：`omp -p` 一次性改写草稿文字（不进会话、不带工具和上下文文件，可按开关附带精简对话或 git 文件清单；docs/architecture/prompt-enhance.md）。
    * 模型是 omp 的 smol 角色；smol 和 default 都没配时用 fallback（当前任务 / 草稿页的模型）。同一个输入框再发起会取消上一次。
    */
-  enhancePrompt(target: PromptEnhanceTarget, text: string, fallback: ModelKey | null): Promise<PromptEnhanceResult>;
+  enhancePrompt(
+    target: PromptEnhanceTarget,
+    text: string,
+    fallback: ModelKey | null,
+    options?: PromptEnhanceOptions,
+  ): Promise<PromptEnhanceResult>;
   /** 取消这个输入框正在进行的提示词优化；没有就什么也不做。 */
   cancelEnhancePrompt(target: PromptEnhanceTarget): Promise<void>;
+  /** 更新提示词优化偏好（默认风格、自定义要求、上下文开关），持久化在 settings.json。 */
+  setPromptEnhanceSettings(patch: Partial<PromptEnhanceSettings>): Promise<void>;
   /** 推送当前分支（需要时设置 upstream），从不强推。 */
   pushGit(taskId: TaskId): Promise<GitPushResult>;
   /** `gh pr create`，基分支是任务的 worktreeBase（没有 worktree 时由 gh 决定）。 */
@@ -1721,6 +1736,8 @@ export interface StudioEventPayloads {
   frameEscape: null;
   /** omp-studio 自身的更新状态变化。 */
   updateState: UpdateState;
+  /** 提示词优化流式预览（主进程已清洗 ANSI、思考块和外层围栏）。 */
+  promptEnhanceStream: PromptEnhanceStreamEvent;
 }
 
 type StudioEventApi = {
@@ -2015,6 +2032,7 @@ export const invokeNames = {
   cancelCommitMessage: true,
   enhancePrompt: true,
   cancelEnhancePrompt: true,
+  setPromptEnhanceSettings: true,
   pushGit: true,
   createPullRequest: true,
   openTaskPullRequest: true,
@@ -2045,4 +2063,5 @@ export const eventNames = {
   browserConnected: true,
   zoomGesture: true,
   frameEscape: true,
+  promptEnhanceStream: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

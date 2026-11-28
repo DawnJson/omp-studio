@@ -36,49 +36,63 @@ function UsageSection({ usage }: { usage: SessionModelUsage }) {
           {t("sessionInfo.usage.none")}
         </p>
       ) : (
-        <dl className="si-grid">
-          <Row label={t("sessionInfo.usage.requests")}>
-            <span data-testid="si-requests">{sum((row) => row.requests)}</span>
-          </Row>
-          <Row label={t("sessionInfo.usage.tokens")}>
-            <span data-testid="si-tokens" className="si-num">
-              {formatCount(sum((row) => row.total))}
-            </span>
-            <span className="si-note">
+        <>
+          <dl className="si-stats-strip">
+            <div className="si-stat">
+              <dt>{t("sessionInfo.usage.cost")}</dt>
+              <dd data-testid="si-cost" className="si-num">
+                {formatMoney(sum((row) => row.cost))}
+              </dd>
+            </div>
+            <div className="si-stat">
+              <dt>{t("sessionInfo.usage.tokens")}</dt>
+              <dd data-testid="si-tokens" className="si-num">
+                {formatCount(sum((row) => row.total))}
+              </dd>
+            </div>
+            <div className="si-stat">
+              <dt>{t("sessionInfo.usage.requests")}</dt>
+              <dd data-testid="si-requests" className="si-num">
+                {sum((row) => row.requests)}
+              </dd>
+            </div>
+            {hitRate !== null && (
+              <div className="si-stat">
+                <dt>{t("sessionInfo.usage.cacheHit")}</dt>
+                <dd data-testid="si-cache-hit" className="si-num">
+                  {formatPercent(hitRate * 100)}%
+                </dd>
+              </div>
+            )}
+          </dl>
+          <div className="si-usage-notes">
+            <p className="si-note">
               {t("sessionInfo.usage.breakdown", {
                 input: formatCount(sum((row) => row.input)),
                 output: formatCount(sum((row) => row.output)),
                 cacheRead: formatCount(sum((row) => row.cacheRead)),
                 cacheWrite: formatCount(sum((row) => row.cacheWrite)),
               })}
-            </span>
-          </Row>
-          {hitRate !== null && (
-            <Row label={t("sessionInfo.usage.cacheHit")}>
-              <span data-testid="si-cache-hit" className="si-num">
-                {formatPercent(hitRate * 100)}%
-              </span>
-            </Row>
-          )}
-          <Row label={t("sessionInfo.usage.cost")}>
-            <span data-testid="si-cost" className="si-num">
-              {formatMoney(sum((row) => row.cost))}
-            </span>
+            </p>
             {usage.whole !== null && (
-              <span className="si-note" data-testid="si-whole">
+              <p className="si-note" data-testid="si-whole">
                 {t("sessionInfo.usage.whole", {
                   tokens: formatCount(usage.whole.total),
                   cost: formatMoney(usage.whole.cost),
                 })}
-              </span>
+              </p>
             )}
-          </Row>
-          <Row label={t("sessionInfo.usage.models")}>
-            {usage.models
-              .map((row) => (row.provider === "" ? row.modelId : `${row.provider}/${row.modelId}`))
-              .join(", ")}
-          </Row>
-        </dl>
+          </div>
+          <dl className="si-grid">
+            <Row label={t("sessionInfo.usage.models")}>
+              <span className="si-mono">
+                {usage.models
+                  .map((row) => (row.provider === "" ? row.modelId : `${row.provider}/${row.modelId}`))
+                  .join(", ")}
+              </span>
+            </Row>
+          </dl>
+        </>
       )}
     </section>
   );

@@ -227,6 +227,7 @@
   background: var(--bg-hover);
 }
 
+.rv-file-row:active,
 .rv-file-row[aria-current="true"] {
   color: var(--text);
   background: var(--bg-active);

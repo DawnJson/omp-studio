@@ -422,7 +422,9 @@ html[data-platform="darwin"] .topbar-left {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-scrim);
+  /* 不加 backdrop-filter 模糊（对话流式输出时整屏重模糊掉帧，同 interactive.css 的 .tspi-pk-dim）：
+     在遮罩下垫一层淡的应用底色，柔和压低背后文字对比度。 */
+  background: linear-gradient(var(--bg-scrim), var(--bg-scrim)), color-mix(in srgb, var(--bg-app) 32%, transparent);
   animation: fade-in var(--dur-fade) var(--ease-out);
 }
 

@@ -113,6 +113,15 @@
   background: var(--st-waiting-soft);
   color: var(--st-waiting-text);
   border-radius: var(--radius-md);
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+}
+.sb-waiting:hover {
+  background: color-mix(in srgb, var(--st-waiting) 18%, transparent);
+}
+.sb-waiting:active {
+  background: color-mix(in srgb, var(--st-waiting) 24%, transparent);
 }
 .sb-waiting-text {
   min-width: 0;
@@ -126,6 +135,19 @@
   height: 7px;
   background: var(--st-waiting);
   transform: rotate(45deg);
+  animation: sb-waiting-breathe var(--dur-breathe) var(--tick-breathe) infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes sb-waiting-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: rotate(45deg) scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: rotate(45deg) scale(0.84);
+  }
 }
 /* 文件夹头：组里有跑完还没看的任务（和行上的小圆点同色同形） */
 .sb-unread-dot {
@@ -448,6 +470,9 @@
 .sb-row:hover {
   background: var(--bg-hover);
 }
+.sb-row:active:not([data-selected="true"]) {
+  background: var(--bg-active);
+}
 .sb-row[data-selected="true"] {
   background: var(--bg-raised);
   box-shadow:
@@ -502,11 +527,18 @@
   position: absolute;
   right: var(--space-0-5);
   opacity: 0;
+  transform: scale(var(--scale-pop));
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .sb-row:hover .sb-row-more,
 .sb-row:focus-within .sb-row-more,
 .sb-row-more[aria-expanded="true"] {
   opacity: 1;
+  transform: none;
 }
 .sb-row[data-menu]:hover .sb-row-tail,
 .sb-row[data-menu]:focus-within .sb-row-tail {

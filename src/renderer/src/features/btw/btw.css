@@ -33,21 +33,45 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3);
+  min-height: 36px;
+  padding: 0 var(--space-2) 0 var(--space-3);
   font-size: var(--fs-xs);
   color: var(--text-2);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .btw-title {
-  font-weight: var(--fw-medium);
+  flex: none;
+  font-weight: var(--fw-strong);
+  color: var(--text);
 }
 .btw-spacer {
   flex: 1;
 }
 
-/* 话题标签的外观归 ui/Tabs；这里只管留白。 */
+/* 话题标签并入头行、下划线贴齐头底边，不再另占一层悬空底线 */
 .btw-topics {
-  flex: none;
-  padding: 0 var(--space-3);
+  display: flex;
+  flex: 0 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  padding-left: var(--space-2-5);
+  overflow-x: auto;
+  border-left: 1px solid var(--border-subtle);
+  scrollbar-width: none;
+}
+.btw-topics::-webkit-scrollbar {
+  display: none;
+}
+.btw-topics .ui-tabs {
+  align-self: stretch;
+  border-bottom: 0;
+}
+.btw-topics .ui-tab {
+  height: 100%;
+  font-size: var(--fs-xs);
+}
+.btw-topics .ui-tabs-bar {
+  bottom: 0;
 }
 
 .btw-body {
@@ -55,13 +79,9 @@
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
-  padding: var(--space-1) var(--space-3) var(--space-3);
+  padding: var(--space-3);
   overflow-y: auto;
   font-size: var(--fs-sm);
-}
-/* 标签下面的正文和标签下划线拉开一行间距，不贴着下划线（2026-10-29 审计）。 */
-.btw-topics + .btw-body {
-  padding-top: var(--space-3);
 }
 .btw-turn {
   display: flex;
@@ -89,15 +109,80 @@
   color: var(--st-error);
 }
 
-/* 面板里的输入框是次要的：28 高、跟在回答下面，和主输入框（大、有阴影）分清主次。 */
+/* 底部提问条：与主输入框、子代理插话框同系的紧凑胶囊（比主输入框轻一档，无大阴影） */
 .btw-ask {
   display: flex;
   flex: none;
   gap: var(--space-2);
   align-items: center;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2-5);
   border-top: 1px solid var(--border-subtle);
 }
-.btw-ask .btw-input {
+.btw-pill {
+  display: flex;
   flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-0-5) var(--space-1) var(--space-0-5) var(--space-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    background-color var(--dur-instant) var(--ease-out);
+}
+.btw-pill:hover,
+.btw-pill:focus-within {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+}
+.btw-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--control-h-sm);
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+.btw-input::placeholder {
+  color: var(--text-3);
+}
+.btw-send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
+  padding: 0;
+  color: var(--text-on-primary);
+  background: var(--primary);
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    opacity var(--dur-instant) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+}
+.btw-send:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.btw-send:disabled {
+  color: var(--text-disabled);
+  background: var(--bg-active);
+  cursor: default;
+}
+.btw-send:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btw-send:active:not(:disabled) {
+    transform: scale(0.94);
+  }
 }

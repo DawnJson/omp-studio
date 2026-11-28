@@ -420,7 +420,7 @@ export function Sidebar() {
       )}
       {/* 文件区展开时两块按占比分高度（SidebarFiles 的分隔线拖动时直接改这两个 flex-grow） */}
       <div className="sb-list-host" style={filesOpen ? { flexGrow: 100 - filesShare } : undefined}>
-        <div className="sb-list" ref={listRef} onKeyDown={onListKeyDown}>
+        <div className="sb-list ui-scroll-fade" ref={listRef} onKeyDown={onListKeyDown}>
           {tasksState.error !== null && (
             <p className="sb-note sb-note-error">{t("sidebar.loadFailed", { message: tasksState.error })}</p>
           )}

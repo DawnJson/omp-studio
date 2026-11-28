@@ -340,7 +340,7 @@ export function FileDiffView({
           </Button>
         </span>
       </header>
-      <div className="rv-scroll" ref={scroller} data-testid="diff-scroll" tabIndex={0}>
+      <div className="rv-scroll ui-scroll-fade" ref={scroller} data-testid="diff-scroll" tabIndex={0}>
         {body}
       </div>
       {confirm !== null && (

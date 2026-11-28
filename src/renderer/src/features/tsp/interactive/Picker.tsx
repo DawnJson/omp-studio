@@ -310,7 +310,7 @@ export function Picker(props: NodeProps) {
                     </div>
                   ) : null}
                   <div
-                    className="tspi-pk-scroll"
+                    className="tspi-pk-scroll ui-scroll-fade"
                     ref={scroller}
                     onScroll={(e) => {
                       const first = visibleRange(entries, e.currentTarget.scrollTop, 0, 0)[0];
@@ -592,7 +592,7 @@ function Scopes({
     );
   });
   return (
-    <div className={rail ? "tspi-pk-scopes rail" : "tspi-pk-scopes"} role="tablist">
+    <div className={rail ? "tspi-pk-scopes rail ui-scroll-fade" : "tspi-pk-scopes ui-scroll-fade"} role="tablist">
       {head}
       {out}
     </div>

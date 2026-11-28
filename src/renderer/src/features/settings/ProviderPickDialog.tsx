@@ -50,7 +50,7 @@ export function ProviderPickDialog({
         onChange={setQuery}
         testId="provider-search"
       />
-      <div className="pv-pick-list" data-testid="provider-pick-list">
+      <div className="pv-pick-list ui-scroll-fade" data-testid="provider-pick-list">
         {shown.length === 0 ? (
           <p className="pv-text pv-muted" data-testid="provider-no-match">
             {t("login.noMatch")}

@@ -24,6 +24,7 @@ const settings: StudioSettings = {
   yoloConfirmed: false,
   petEnabled: false,
   petTalk: false,
+  promptEnhance: { style: "polish", customInstruction: "", includeHistory: true, includeGit: false },
   backdrop: "theme",
   backdropStrength: "medium",
   customBackdrop: null,

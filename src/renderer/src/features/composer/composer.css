@@ -36,7 +36,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-composer);
   box-shadow: var(--shadow-composer);
-  transition: border-color var(--dur-instant);
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
 }
 /* 上面输入区，下面工具行，同一块底上、没有分隔线；外框的内边距（6/6/6/8）已经给了控件和边缘的留白。 */
 .composer-body {
@@ -47,6 +49,13 @@
 .composer:hover,
 .composer:focus-within {
   border-color: var(--border-strong);
+}
+/* 提示词优化进行中：外框柔和切为强调色，结束后退回中性 */
+.composer[data-enhancing] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    var(--shadow-composer);
 }
 /* 草稿发出第一句话后换成任务的输入框（新节点，见 App.tsx fromDraft）：边框直接是聚焦色，不从灰色过渡过去（否则闪一下） */
 .composer-stack[data-from-draft] .composer {
@@ -687,7 +696,14 @@ button.usage-context:hover,
   transition:
     background var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-instant) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .send:active:not(:disabled, :focus-visible) {
+    transform: scale(0.95);
+  }
 }
 .send[data-kind="send"] {
   background: var(--primary);
@@ -704,6 +720,9 @@ button.usage-context:hover,
 .send[data-kind="stop"] {
   background: var(--text);
   color: var(--bg-app);
+}
+.send[data-kind="stop"]:hover:not(:disabled) {
+  opacity: 0.84;
 }
 .send[data-kind="stop"]:disabled {
   background: var(--bg-active);
@@ -975,11 +994,16 @@ button.usage-context:hover,
   flex: none;
   margin-top: calc((var(--lh-base) - 24px) / 2);
   opacity: 0;
+  transform: scale(var(--scale-pop));
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 .todo-item:hover .todo-more,
 .todo-item:focus-within .todo-more,
 .todo-more[aria-expanded="true"] {
   opacity: 1;
+  transform: none;
 }
 /* 条目的 ⋯ 菜单在条目里展开（inline）：没有图标，不留 16px 图标列；行高同工具行，删除前不画分隔线（危险色已经区分） */
 .todo-item .ui-menu[data-inline] {
@@ -1105,12 +1129,14 @@ button.usage-context:hover,
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow: var(--overlay-edge), var(--shadow-2);
+  transform-origin: bottom center;
   animation: pop-in var(--dur-base) var(--ease-out);
 }
 /* @ 文件菜单只有文件名 + 目录：不铺满整个输入框宽（840 宽一行里文字不到 100px），靠左、最宽同中号对话框 */
 .slash.file-menu {
   right: auto;
   width: min(var(--dialog-w-md), 100%);
+  transform-origin: bottom left;
 }
 .slash-row {
   display: flex;
@@ -1262,13 +1288,20 @@ button.usage-context:hover,
   font-size: var(--fs-base);
   color: var(--text-2);
   text-align: left;
-  cursor: default;
+  cursor: pointer;
   background: transparent;
   border: 0;
   border-radius: var(--radius-md);
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .mp-scope:hover {
   background: var(--bg-hover);
+  color: var(--text);
+}
+.mp-scope:active {
+  background: var(--bg-active);
 }
 .mp-scope[aria-current="true"] {
   color: var(--text);
@@ -1332,6 +1365,7 @@ button.usage-context:hover,
 }
 /* 表：表头粘在顶部，行是 grid（模型 | 智能 | 速度 | 上下文 | 价格 | 勾）。 */
 .mp-table {
+  --fade-inset: var(--control-h-md);
   flex: 0 1 auto;
   min-height: 0;
   margin: 0 calc(-1 * var(--space-2));
@@ -1381,9 +1415,13 @@ button.usage-context:hover,
   background: transparent;
   border: 0;
   border-radius: var(--radius-md);
+  transition: background-color var(--dur-instant) var(--ease-out);
 }
 .mp-group-toggle:hover {
   background: var(--bg-hover);
+}
+.mp-group-toggle:active {
+  background: var(--bg-active);
 }
 .mp-group-toggle:focus-visible {
   outline: 3px solid var(--focus-ring);
@@ -1421,6 +1459,7 @@ button.usage-context:hover,
 .mp-row:hover {
   background: var(--bg-hover);
 }
+.mp-row:active,
 .mp-row[aria-selected="true"] {
   background: var(--bg-active);
 }
@@ -1620,7 +1659,11 @@ button.usage-context:hover,
   pointer-events: none;
 }
 .jobs-card > .ui-pop-title {
-  font-size: var(--fs-base);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
 }
 .jobs-card-tile {
   display: flex;
@@ -1630,21 +1673,41 @@ button.usage-context:hover,
 }
 .jobs-card-head {
   display: flex;
-  gap: var(--space-2);
-  align-items: baseline;
+  gap: var(--space-1-5);
+  align-items: center;
   min-width: 0;
+}
+.jobs-card-head::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 .jobs-card-name {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 类型（bash / eval / task，omp 的叫法原样写）、id、进度数字：同一档辅助字 */
-.jobs-card-type,
+/* 类型（bash / eval / task，omp 的叫法原样写）做微缩徽标；id、进度数字用等宽辅助字 */
+.jobs-card-type {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+}
 .jobs-card-id,
 .jobs-card-figure {
   flex: none;
@@ -1659,7 +1722,7 @@ button.usage-context:hover,
   min-width: 0;
 }
 .jobs-card-progress .tsp-meter-in {
-  --tsp-fill: var(--text-3);
+  --tsp-fill: var(--accent);
   flex: 1 1 auto;
 }
 /* omp 的说明行（最近一行输出或阶段）：输出原样用等宽 */
@@ -1672,4 +1735,139 @@ button.usage-context:hover,
   color: var(--text-3);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 提示词优化（EnhanceButton）：无箭头单键 + 悬停/右键浮层（风格 + 上下文开关）。 */
+.enhance-anchor {
+  display: inline-flex;
+  align-items: center;
+}
+/* 浮层和按钮之间留有 --space-2 间距：透明桥接让鼠标从 ✦ 往上移进浮层时不断开 hover。 */
+.enhance-anchor > .ui-popover::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: var(--space-2);
+}
+.enhance-btn {
+  position: relative;
+}
+/* 草稿为空时按钮禁用，但把指针透给外层 .enhance-anchor，悬停和右键照样能打开风格与上下文浮层。 */
+.enhance-btn:disabled {
+  pointer-events: none;
+}
+/* 非默认风格或开启 Git 文件时角上一个强调色小圆点（同 SessionTogglesMenu .tg-button[data-differs]）。 */
+.enhance-btn[data-differs]::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.enhance-btn[data-busy] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  animation: enhance-breathe var(--dur-breathe) var(--tick-breathe) infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes enhance-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.52;
+  }
+}
+.enhance-menu {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) 0;
+}
+.enhance-styles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  padding: 0 var(--space-1);
+}
+.enhance-style-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--row-menu);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.enhance-style-row:hover {
+  background: var(--bg-hover);
+}
+.enhance-style-row[aria-checked="true"] {
+  background: var(--bg-active);
+}
+.enhance-style-row:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+.enhance-style-check {
+  display: inline-flex;
+  flex: none;
+  color: var(--text);
+}
+.enhance-custom {
+  padding: var(--space-1-5) var(--space-2) var(--space-1);
+}
+.enhance-custom-input {
+  display: block;
+  width: 100%;
+  min-height: calc(2 * var(--lh-xs) + var(--space-3));
+  max-height: calc(5 * var(--lh-xs) + var(--space-3));
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  resize: none;
+}
+.enhance-custom-input::placeholder {
+  color: var(--text-3);
+}
+.enhance-custom-input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+.enhance-divider {
+  height: 1px;
+  margin: var(--space-1-5) var(--space-2);
+  background: var(--border-subtle);
+}
+.enhance-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2-5);
+}
+.enhance-toggle-row[data-disabled] .enhance-toggle-label {
+  color: var(--text-disabled);
+}
+.enhance-toggle-label {
+  font-size: var(--fs-sm);
+  color: var(--text);
 }

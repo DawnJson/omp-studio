@@ -263,7 +263,7 @@ export function ConversationLine({ taskId, scroller }: { taskId: TaskId; scrolle
       {open && (
         <div
           ref={outline}
-          className="tsp-outline"
+          className="tsp-outline ui-scroll-fade"
           role="group"
           aria-label={t("scroll.outline")}
           data-testid="conversation-outline"

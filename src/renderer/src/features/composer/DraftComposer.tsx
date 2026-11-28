@@ -183,6 +183,7 @@ export function DraftComposer({ project }: { project: Project | null }) {
       <div
         className="composer"
         data-composer-drop
+        data-enhancing={enhance.busy ? "" : undefined}
         onDragOver={attach.onDragOver}
         onDrop={attach.onDrop}
         onMouseDown={(event) => keepFieldFocus(event, fieldRef.current)}
@@ -226,6 +227,8 @@ export function DraftComposer({ project }: { project: Project | null }) {
           }}
           onCaret={fileMenu.trackCaret}
           onKeyDown={onKeyDown}
+          streamingText={enhance.streamText}
+          onCancelStream={enhance.cancel}
         />
         <div className="composer-tools">
           <ModelChip
@@ -252,7 +255,7 @@ export function DraftComposer({ project }: { project: Project | null }) {
           <ApprovalChip projectId={projectId} forgetTaskId={null} />
           <span className="composer-spacer" />
           <SessionCost usage={null} provider={model?.key.provider ?? null} />
-          <EnhanceButton enhance={enhance} disabled={false} />
+          <EnhanceButton enhance={enhance} disabled={false} isTask={false} />
           <SendStop
             running={false}
             stopping={false}

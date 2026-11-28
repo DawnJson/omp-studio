@@ -37,6 +37,10 @@
   padding: 0 var(--space-2);
   color: var(--text-2);
   border-radius: var(--radius-md);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .task-tab[data-dragging] {
   opacity: 0.5;
@@ -68,7 +72,10 @@
 }
 .task-tab[data-active] {
   color: var(--text);
-  background: var(--bg-active);
+  background: var(--bg-raised);
+  box-shadow:
+    0 0 0 1px var(--border-subtle),
+    var(--shadow-1);
 }
 
 .task-tab-main {
@@ -119,12 +126,12 @@
   white-space: nowrap;
 }
 
-/* 悬停按钮：绝对定位贴在标签右端（× 最右，重开在它左边），不占布局 */
+/* 悬停按钮：绝对定位贴在标签右端（× 最右，重开在它左边），不占布局；淡入 + 微缩放，隐藏时 visibility 等淡出完再切 */
 .task-tab-action {
   position: absolute;
   top: 50%;
   right: var(--space-0-5);
-  display: none;
+  display: grid;
   place-items: center;
   width: var(--control-h-xs);
   height: var(--control-h-xs);
@@ -135,6 +142,16 @@
   border-radius: var(--radius-control);
   cursor: pointer;
   translate: 0 -50%;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(var(--scale-pop));
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out),
+    visibility 0s linear var(--dur-fast);
 }
 .task-tab-restart {
   right: calc(var(--space-0-5) + var(--control-h-xs));
@@ -149,7 +166,16 @@
   cursor: default;
 }
 .task-tab:hover:not(:has(.task-tab-editing)) .task-tab-action {
-  display: grid;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out),
+    visibility 0s;
 }
 /* 按钮盖住的那段标题渐隐（mask，不用底色遮：--bg-hover 半透明，遮不住字） */
 .task-tab {

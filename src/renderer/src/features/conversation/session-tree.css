@@ -53,6 +53,20 @@
 .tree-row[data-active="true"]::before {
   opacity: 1;
 }
+/* 深层分叉的垂直缩进参考线（每级 --space-4） */
+.tree-guides {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--space-3);
+  display: flex;
+  pointer-events: none;
+}
+.tree-guide {
+  width: var(--space-4);
+  height: 100%;
+  border-left: 1px solid var(--border-subtle);
+}
 .tree-text {
   flex: 1;
   min-width: 0;
@@ -63,13 +77,18 @@
 .tree-row[data-current="true"] .tree-text {
   color: var(--accent);
 }
-/* 每行的"添加标签"和（TSP 任务的）"从这里分叉"：悬停或选中这一行时才出现（和用户消息气泡的悬停按钮同一套手势）。 */
+/* 每行的"添加标签"和（TSP 任务的）"从这里分叉"：悬停或选中这一行时平滑缩放淡入 */
 .tree-row .tree-act {
   opacity: 0;
+  transform: scale(var(--scale-pop));
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 .tree-row[data-active="true"] .tree-act,
 .tree-row:hover .tree-act {
   opacity: 1;
+  transform: none;
 }
 .tree-row .tree-act:disabled {
   opacity: 0.4;
@@ -102,6 +121,22 @@
   font-size: var(--fs-xs);
 }
 .tree-row[data-kind="compaction"] .tree-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--text-3);
   text-transform: none;
+}
+.tree-row[data-kind="compaction"] .tree-text::before,
+.tree-row[data-kind="compaction"] .tree-text::after {
+  content: "";
+  height: 1px;
+  background: var(--border-subtle);
+}
+.tree-row[data-kind="compaction"] .tree-text::before {
+  width: var(--space-4);
+  flex: none;
+}
+.tree-row[data-kind="compaction"] .tree-text::after {
+  flex: 1;
 }

@@ -236,10 +236,15 @@
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   cursor: pointer;
-  transition: background var(--dur-instant);
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
 }
 .tspi-item:hover {
   background: var(--bg-hover);
+}
+.tspi-item:active {
+  background: var(--bg-active);
 }
 .tspi-item.sel {
   background: var(--accent-soft);
@@ -366,7 +371,7 @@
 .tspi-item.num[data-role^="omp.ask."] .tspi-item-detail {
   padding-left: calc(16px + 8px + 2 * var(--space-2));
 }
-/* overlay 卡片里的 list 是弹出菜单的样子（照 Tern 的斜杠菜单）：选中是中性填充。 */
+/* overlay 卡片里的 list：选中是中性填充；仅光标 / 节点补全菜单沿用等宽小字（/jobs 等模态列表保持正文无衬线）。 */
 .tspi-ov-card .tspi-item {
   min-height: calc(var(--lh-sm) + var(--space-2));
 }
@@ -374,11 +379,8 @@
   background: var(--bg-active);
   box-shadow: none;
 }
-.tspi-ov-card .tspi-item-label {
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-}
-.tspi-ov-card .tspi-item-value {
+.tspi-overlay:is(.at-caret, .at-node) .tspi-ov-card .tspi-item-label,
+.tspi-overlay:is(.at-caret, .at-node) .tspi-ov-card .tspi-item-value {
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
 }
@@ -419,7 +421,17 @@
   pointer-events: auto;
 }
 .tspi-overlay.modal .tspi-ov-card {
-  box-shadow: var(--shadow-3);
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-modal);
+}
+.tspi-overlay.modal .tspi-ov-head {
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  letter-spacing: var(--ls-tight);
+}
+.tspi-overlay.modal .tspi-ov-body {
+  padding: var(--space-4) var(--space-6);
 }
 .tspi-ov-card {
   position: relative;
@@ -428,7 +440,7 @@
   max-width: 100%;
   max-height: 100%;
   min-height: 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--bg-overlay);
   box-shadow: var(--shadow-2);
   pointer-events: auto;
@@ -437,6 +449,10 @@
 .tspi-overlay.at-caret .tspi-ov-card,
 .tspi-overlay.at-node .tspi-ov-card {
   position: absolute;
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
+  border: 1px solid var(--border);
+  box-shadow: var(--overlay-edge), var(--shadow-2);
 }
 .tspi-ov-card.lost {
   visibility: hidden;
@@ -489,7 +505,7 @@
 @keyframes tspi-pop {
   from {
     opacity: 0;
-    transform: scale(var(--scale-pop));
+    transform: translateY(var(--travel-sm)) scale(var(--scale-pop));
   }
 }
 @keyframes tspi-fade {
@@ -522,7 +538,7 @@
   width: 100%;
   min-height: 0;
   margin: var(--space-8) auto auto;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-dialog);
   background: var(--bg-overlay);
   box-shadow: var(--shadow-modal);
   color: var(--text);
@@ -556,7 +572,7 @@
   flex: none;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-3-5) var(--space-5);
   box-shadow: inset 0 -1px 0 var(--border-subtle);
 }
 .tspi-pk-ic {
@@ -584,16 +600,22 @@
   flex: 1;
   align-items: center;
   min-width: 0;
-  padding-left: var(--space-3);
-  box-shadow: inset 1px 0 0 var(--border-subtle);
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
+  height: var(--control-h-md);
+  padding: 0 var(--space-2-5);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-xs);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   white-space: pre;
 }
-.tspi-picker.no-title .tspi-pk-search,
 .tspi-pk-search.tspi-pk-nosearch {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
   box-shadow: none;
-  padding-left: 0;
 }
 .tspi-pk-search .ph {
   color: var(--text-3);
@@ -744,7 +766,7 @@
   align-items: center;
   gap: var(--space-2-5);
   padding: 0 var(--space-2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--dur-instant);
 }
@@ -1058,7 +1080,7 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2-5) var(--space-3);
+  padding: var(--space-3) var(--space-5);
   box-shadow: inset 0 1px 0 var(--border-subtle);
 }
 .tspi-pk-bar-fill {
@@ -1117,7 +1139,10 @@
   box-shadow: inset 0 -1px 0 var(--border-subtle);
 }
 .tspi-pk-lhead .tspi-pk-search {
-  padding-left: var(--space-2);
+  height: auto;
+  padding: 0 0 0 var(--space-2);
+  border: 0;
+  background: transparent;
   box-shadow: none;
   color: var(--text);
   font-size: var(--fs-sm);
@@ -1276,6 +1301,13 @@
   box-shadow:
     0 0 0 2px var(--tspi-heat),
     var(--shadow-xs);
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.tspi-pk-level:not([data-frozen]) .tspi-pk-track:hover .tspi-pk-knob {
+  transform: scale(1.1);
+}
+.tspi-pk-level:not([data-frozen]) .tspi-pk-track:active .tspi-pk-knob {
+  transform: scale(1.18);
 }
 .tspi-pk-level[data-frozen] .tspi-pk-knob {
   box-shadow:
@@ -1702,14 +1734,15 @@
 }
 
 /* ───────────────────────── 提问 / 审批门（omp.editor.ask、omp 19 的 omp.ask.card、omp.editor.ask.approval） ───────────────────────── */
-/* 门有外框（和输入框同宽同轴：dock 已经和输入框同宽），不再像对话正文。只用一道细线、不加阴影（2026-10-29：--border 偏重） */
+/* 门有外框（和输入框同宽同轴：dock 已经和输入框同宽），圆角与轻阴影与下方输入框成套 */
 .tsp-col[data-role="omp.editor.ask"],
 .tsp-col[data-role="omp.ask.card"],
 .tsp-col[data-role="omp.editor.ask.approval"] {
   padding: var(--space-3) var(--space-4);
   background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-composer);
 }
 /* 根节点自己接键盘（Review 页没有 list），不画聚焦环。 */
 .tspi-ask-gate {

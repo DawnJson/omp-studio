@@ -55,8 +55,12 @@ test("草稿页：替换草稿、Ctrl+Z 回到原文；附件芯片保留；生�
     const input = page.getByTestId("draft-composer").getByTestId("composer-input");
     const button = page.getByTestId("draft-composer").getByTestId("enhance-button");
     await expect(input).toBeVisible();
-    // 空草稿、斜杠命令不能优化；按钮在发送键左边。
+    // 空草稿、斜杠命令不能优化；空草稿时悬停 ✦ 照样能打开风格浮层；按钮在发送键左边。
     await expect(button).toBeDisabled();
+    await page.getByTestId("draft-composer").getByTestId("enhance-anchor").hover();
+    await expect(page.getByTestId("enhance-menu")).toBeVisible({ timeout: 5_000 });
+    await input.hover();
+    await expect(page.getByTestId("enhance-menu")).toHaveCount(0, { timeout: 5_000 });
     await input.fill("/compact 保留结论");
     await expect(button).toBeDisabled();
     await input.fill("make it blue");
@@ -129,6 +133,57 @@ test("草稿页：替换草稿、Ctrl+Z 回到原文；附件芯片保留；生�
     await expect(page.getByTestId("toasts")).toContainText("没有可用的模型来优化提示词", { timeout: 15_000 });
     await expect(page.getByTestId("toasts")).toContainText("设置模型角色");
     await expect(input).toHaveValue("make it red now");
+
+    // 流式输出：先展示流式预览层，完成后替换草稿且 Ctrl+Z 一步回原文。
+    await setMode("stream");
+    await button.click();
+    await expect(page.getByTestId("composer-enhance-stream")).toBeVisible({ timeout: 10_000 });
+    await expect(input).toHaveValue("make it red now (enhanced)", { timeout: 15_000 });
+    await waitIdle(page);
+    await expect(page.getByTestId("composer-enhance-stream")).toHaveCount(0);
+    await page.keyboard.press("Control+z");
+    await expect(input).toHaveValue("make it red now");
+
+    // 悬停打开风格浮层（无箭头单键）：先把鼠标移离按钮再悬停进来，草稿页"最近对话"禁用；选"清晰规格"立刻触发并亮差异点；自定义要求按 Enter 生效。
+    await setMode("ok");
+    await input.hover();
+    await button.hover();
+    const menu = page.getByTestId("enhance-menu");
+    await expect(menu).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId("enhance-ctx-history")).toBeDisabled();
+    await page.getByTestId("enhance-style-spec").click();
+    await expect(input).toHaveValue("make it red now (enhanced)", { timeout: 15_000 });
+    await waitIdle(page);
+    await expect(button).toHaveAttribute("data-differs", "");
+    expect((await calls()).at(-1)!.argv.join("\n")).toContain("Goal, Scope, Constraints, Verification");
+
+    await page.keyboard.press("Control+z");
+    await expect(input).toHaveValue("make it red now");
+    await button.click({ button: "right" });
+    await expect(menu).toBeVisible();
+    await page.getByTestId("enhance-style-custom").click();
+    const customInput = page.getByTestId("enhance-custom-input");
+    await expect(customInput).toBeFocused();
+    await customInput.fill("输出为编号清单");
+    await customInput.press("Enter");
+    await expect(input).toHaveValue("make it red now (enhanced)", { timeout: 15_000 });
+    await waitIdle(page);
+    expect((await calls()).at(-1)!.argv.join("\n")).toContain(
+      "<style_preference>\n输出为编号清单\n</style_preference>",
+    );
+
+    // Alt+E 快捷键触发优化；窄窗口下按钮不和发送键重叠。
+    await page.keyboard.press("Control+z");
+    await expect(input).toHaveValue("make it red now");
+    await page.keyboard.press("Alt+e");
+    await expect(input).toHaveValue("make it red now (enhanced)", { timeout: 15_000 });
+    await waitIdle(page);
+    await page.setViewportSize({ width: 520, height: 640 });
+    const [narrowEnhance, narrowSend] = await Promise.all([
+      button.boundingBox(),
+      page.getByTestId("draft-composer").getByTestId("send-button").boundingBox(),
+    ]);
+    expect(narrowEnhance!.x + narrowEnhance!.width).toBeLessThanOrEqual(narrowSend!.x);
   } finally {
     await launched.close();
     await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

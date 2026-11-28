@@ -214,28 +214,38 @@
   pointer-events: none;
 }
 
-/* 跳到最新：浮在对话区底部正中的次要按钮（shadcn outline 的样子：浮层底 + 1px 边框 + 阴影）。悬停叠一层 --bg-hover，
-   底色不换成半透明的 --bg-hover（换了会透出下面的对话）。键盘焦点走全局 :focus-visible。 */
+/* 跳到最新：浮在对话区底部正中的次要按钮（磨砂浮层底 + 1px 边框 + 阴影）；居中用独立的 translate，
+   transform 留给进出场动画（pop-in / pop-out）和按压缩放，互不打架。键盘焦点走全局 :focus-visible。 */
 .tsp-jump {
   position: absolute;
   left: 50%;
   bottom: var(--space-3);
-  transform: translateX(-50%);
+  translate: -50% 0;
   z-index: var(--z-sticky);
   height: var(--control-h-md);
   padding: 0 var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--bg-overlay);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
   color: var(--text);
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--overlay-edge), var(--shadow-2);
   cursor: pointer;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+  animation: pop-in var(--dur-base) var(--ease-out);
 }
 .tsp-jump:hover {
   background-image: linear-gradient(var(--bg-hover), var(--bg-hover));
+}
+@media (hover: hover) and (pointer: fine) {
+  .tsp-jump:active:not(:focus-visible) {
+    transform: scale(0.97);
+  }
 }
 
 /* 对话线：贴对话区右缘（覆盖式滚动条左边），每条用户消息一个横刻度，从上往下排，整列在对话区上下各留 --space-6 的高度里竖直居中；
@@ -312,10 +322,11 @@
   max-height: calc(100% - 2 * var(--space-6));
   overflow-y: auto;
   padding: var(--space-1);
-  background: var(--bg-overlay);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
+  background: var(--bg-overlay-glass);
+  backdrop-filter: var(--overlay-filter);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--overlay-edge), var(--shadow-2);
   scrollbar-width: none;
 }
 .tsp-outline-row {
@@ -327,7 +338,7 @@
   align-items: center;
   padding: 0 var(--space-2);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-2);
   font: inherit;
@@ -340,8 +351,9 @@
   color: var(--text);
 }
 .tsp-outline-row[aria-current] {
+  background: var(--bg-active);
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--fw-medium);
 }
 .tsp-outline-row:focus-visible {
   outline: 3px solid var(--focus-ring);
@@ -3246,12 +3258,15 @@ button.tsp-sh-fold:focus-visible {
 .tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-card {
   width: min(880px, 100%);
   height: min(640px, 100%);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-dialog);
+  box-shadow: var(--shadow-modal);
   overflow: hidden;
 }
 .tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-head {
-  padding: var(--space-3) var(--space-6);
-  font-size: var(--fs-base);
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  letter-spacing: var(--ls-tight);
 }
 .tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-body {
   gap: 0;
@@ -3275,7 +3290,7 @@ button.tsp-sh-fold:focus-visible {
   width: fit-content;
   min-width: 200px;
   max-width: 33%;
-  padding: var(--space-2);
+  padding: var(--space-3);
   overflow: hidden auto;
   box-shadow: inset -1px 0 0 var(--border-subtle);
 }
@@ -3284,11 +3299,13 @@ button.tsp-sh-fold:focus-visible {
 }
 .tsp-col[data-role="omp.jobs.master"] .tspi-item {
   gap: var(--space-2);
-  padding-inline: var(--space-2);
+  min-height: var(--row-task);
+  padding-inline: var(--space-2-5);
   border-radius: var(--radius-md);
 }
 .tsp-col[data-role="omp.jobs.master"] .tspi-item-value {
   color: var(--text-3);
+  font-size: var(--fs-xs);
 }
 .tsp-col[data-role="omp.jobs.detail"] {
   flex: 1 1 0;
@@ -3367,7 +3384,8 @@ button.tsp-sh-fold:focus-visible {
 }
 .tsp-ansi[data-role="omp.jobs.output"] {
   padding: var(--space-3);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   background: var(--bg-tool);
   font-size: var(--fs-xs);
 }
@@ -3378,7 +3396,7 @@ button.tsp-sh-fold:focus-visible {
 .tspi-overlay[data-role="omp.overlay.jobs"] .tsp-row[data-role="omp.actions"] {
   flex: none;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-6);
+  padding: var(--space-3) var(--space-6);
   box-shadow: inset 0 1px 0 var(--border-subtle);
 }
 .tsp-text[data-role="omp.jobs.summary"] {

@@ -93,6 +93,7 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.send", keys: ["Enter"] },
   { label: "shortcut.newline", keys: ["Shift", "Enter"] },
   { label: "shortcut.later", keys: ["Ctrl", "Enter"] },
+  { label: "shortcut.enhance", keys: ["Alt", "E"] },
   { label: "shortcut.stop", keys: ["Esc"] },
   { label: "shortcut.toggleProcess", keys: ["Ctrl", "O"] },
   { label: "shortcut.nthTask", keys: ["Ctrl", "1…9"] },

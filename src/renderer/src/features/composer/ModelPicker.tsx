@@ -622,7 +622,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
         </>
       }
     >
-      <nav ref={sideRef} className="mp-side" aria-label={t("model.scopes")}>
+      <nav ref={sideRef} className="mp-side ui-scroll-fade" aria-label={t("model.scopes")}>
         {scopeButton({ kind: "roles" }, t("model.rolesGroup"), view.tabs.length, "model-scope-roles")}
         {scopeButton({ kind: "all" }, t("model.all"), models?.length ?? 0, "model-scope-all")}
         {providers.length > 0 && (

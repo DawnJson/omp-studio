@@ -165,17 +165,26 @@ export function AgentsPanel({
             }}
           />
         ) : agents.length > 0 ? (
-          <ul className="agents-list" aria-label={t("agents.listLabel")} data-testid="agents-list">
-            {agents.map((agent) => (
-              <AgentRow
-                key={agent.name}
-                taskId={taskId}
-                agent={agent}
-                selected={agent === current}
-                onSelect={() => selectAgent(agent.name)}
-              />
-            ))}
-          </ul>
+          <>
+            <div className="agents-list-zone ui-scroll-fade">
+              <ul className="agents-list" aria-label={t("agents.listLabel")} data-testid="agents-list">
+                {agents.map((agent) => (
+                  <AgentRow
+                    key={agent.name}
+                    taskId={taskId}
+                    agent={agent}
+                    selected={agent === current}
+                    onSelect={() => selectAgent(agent.name)}
+                  />
+                ))}
+              </ul>
+            </div>
+            {current !== null && (
+              <div className="agents-detail-zone ui-scroll-fade">
+                <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />
+              </div>
+            )}
+          </>
         ) : (
           // 聚焦在某个子代理上时列表是空的，原因输入框上方的聚焦提示已经在说，这里不再写一遍。
           focusedAgent === null && (
@@ -183,9 +192,6 @@ export function AgentsPanel({
               {t("agents.empty")}
             </p>
           )
-        )}
-        {tab === "agents" && current !== null && (
-          <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />
         )}
       </div>
       {tab === "agents" && current !== null && canSteer(hubStatus(current)) && (

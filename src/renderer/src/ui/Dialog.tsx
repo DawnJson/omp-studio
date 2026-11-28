@@ -76,7 +76,7 @@ export function Dialog({
   hideClose = false,
 }: DialogProps) {
   const t = useT();
-  const presence = usePresence(open);
+  const presence = usePresence(open, "dialog");
   useTitleBarDim(open);
   const titleId = useId();
   const descId = useId();
@@ -222,7 +222,7 @@ export function Dialog({
           </header>
         )}
         {tabs}
-        {children !== undefined && <div className="ui-dialog-body">{children}</div>}
+        {children !== undefined && <div className="ui-dialog-body ui-scroll-fade">{children}</div>}
         {(footer !== undefined || footStart !== undefined) && (
           <footer className="ui-dialog-foot">
             {footStart !== undefined && <span className="ui-foot-start">{footStart}</span>}

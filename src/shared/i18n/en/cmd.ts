@@ -12,6 +12,7 @@ export const cmd = {
   language: "Switch language",
   model: "Switch model",
   thinking: "Cycle thinking level",
+  enhance: "Enhance prompt",
   compact: "Compact context",
   stop: "Stop current task",
   copyLast: "Copy last answer",

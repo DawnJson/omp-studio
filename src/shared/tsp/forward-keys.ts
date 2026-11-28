@@ -198,8 +198,10 @@ export const STUDIO_RESERVED: ReadonlySet<string> = new Set([
   "ctrl+alt+c",
   "alt+m",
   "alt+t",
+  "alt+e",
   "alt+shift+m",
   "alt+shift+t",
+  "alt+shift+e",
   // 文字编辑和窗口
   "ctrl+a",
   "ctrl+c",

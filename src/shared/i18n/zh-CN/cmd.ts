@@ -11,6 +11,7 @@ export const cmd = {
   language: "切换语言",
   model: "切换模型",
   thinking: "切换思考强度",
+  enhance: "优化提示词",
   compact: "压缩 context",
   stop: "停止当前任务",
   copyLast: "复制最后一条回答",

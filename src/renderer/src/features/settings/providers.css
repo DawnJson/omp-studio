@@ -87,6 +87,9 @@
 .pv-account:hover:not(:disabled) {
   background: var(--bg-hover);
 }
+.pv-account:active:not(:disabled) {
+  background: var(--bg-active);
+}
 
 .pv-account:disabled {
   color: var(--text-disabled);

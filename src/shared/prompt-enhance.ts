@@ -4,6 +4,47 @@ import type { ProjectId, TaskId } from "./ipc.ts";
 /** 哪个输入框在优化：任务的，或新任务草稿页的（项目为 null = 默认文件夹）。主进程按它定 cwd，每个输入框同时只有一次。 */
 export type PromptEnhanceTarget = { kind: "task"; taskId: TaskId } | { kind: "draft"; projectId: ProjectId | null };
 
+/** 内置优化风格 + 用户自定义附加要求。 */
+export const PROMPT_ENHANCE_STYLES = ["polish", "spec", "debug", "concise", "custom"] as const;
+export type PromptEnhanceStyle = (typeof PROMPT_ENHANCE_STYLES)[number];
+
+/** 自定义要求的字符上限。 */
+export const PROMPT_ENHANCE_CUSTOM_MAX_CHARS = 1_000;
+
+/** 持久化在 StudioSettings 里的提示词优化偏好。 */
+export interface PromptEnhanceSettings {
+  style: PromptEnhanceStyle;
+  customInstruction: string;
+  /** 任务对话里附带最近 2 轮精简对话摘要（草稿页自动跳过）。默认开。 */
+  includeHistory: boolean;
+  /** 附带当前工作区 git 改动文件路径列表（不含 diff 正文）。默认关。 */
+  includeGit: boolean;
+}
+
+export const DEFAULT_PROMPT_ENHANCE_SETTINGS: PromptEnhanceSettings = {
+  style: "polish",
+  customInstruction: "",
+  includeHistory: true,
+  includeGit: false,
+};
+
+/** 单次优化请求的可选覆盖项（不传时主进程用当前设置）。 */
+export interface PromptEnhanceOptions {
+  /** 本次请求的编号，用来给流式事件去重、丢弃过期块。 */
+  requestId?: string | undefined;
+  style?: PromptEnhanceStyle | undefined;
+  customInstruction?: string | undefined;
+  includeHistory?: boolean | undefined;
+  includeGit?: boolean | undefined;
+}
+
+/** 主进程推送的流式预览：已经清洗过 ANSI、思考块和外层围栏。 */
+export interface PromptEnhanceStreamEvent {
+  target: PromptEnhanceTarget;
+  requestId: string;
+  text: string;
+}
+
 export type PromptEnhanceResult =
   /** 改写好的整段草稿（附件占位符都还在），界面一次替换进输入框。 */
   | { kind: "enhanced"; text: string }
@@ -42,4 +83,12 @@ export function missingMarkers(draft: string, result: string): string[] {
 export function canEnhance(text: string): boolean {
   const words = text.replace(markerPattern, "").trim();
   return words !== "" && !text.trimStart().startsWith("/");
+}
+
+/** 两个优化目标是不是同一个输入框。 */
+export function sameEnhanceTarget(a: PromptEnhanceTarget, b: PromptEnhanceTarget): boolean {
+  if (a.kind !== b.kind) return false;
+  return a.kind === "task"
+    ? a.taskId === (b as { kind: "task"; taskId: TaskId }).taskId
+    : a.projectId === (b as { kind: "draft"; projectId: ProjectId | null }).projectId;
 }

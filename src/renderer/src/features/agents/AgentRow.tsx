@@ -65,51 +65,67 @@ export function AgentRow({
             </span>
             {agent.agent !== null && agent.agent !== "task" && <span className="agents-chip">{agent.agent}</span>}
             {agent.background && <span className="agents-chip">{t("agents.background")}</span>}
-            {context !== null && (
-              <span
-                className="agents-ctx"
-                data-testid="agents-row-ctx"
-                data-percent={context}
-                data-high={context >= 90 || undefined}
-                title={
-                  agent.stats.contextLabel === null
-                    ? t("agents.contextTitle", { percent: context })
-                    : t("agents.contextTitleLabel", { percent: context, label: agent.stats.contextLabel })
-                }
-              >
-                <span className="agents-ctx-bar" aria-hidden="true">
-                  <i style={{ width: `${Math.max(context > 0 ? 4 : 0, context)}%` }} />
+            <span className="agents-row-meta">
+              {context !== null && (
+                <span
+                  className="agents-ctx"
+                  data-testid="agents-row-ctx"
+                  data-percent={context}
+                  data-high={context >= 90 || undefined}
+                  title={
+                    agent.stats.contextLabel === null
+                      ? t("agents.contextTitle", { percent: context })
+                      : t("agents.contextTitleLabel", { percent: context, label: agent.stats.contextLabel })
+                  }
+                >
+                  <span className="agents-ctx-bar" aria-hidden="true">
+                    <i style={{ width: `${Math.max(context > 0 ? 4 : 0, context)}%` }} />
+                  </span>
+                  {context}%
                 </span>
-                {context}%
-              </span>
-            )}
-            {elapsed !== null && (
-              <span className="agents-row-time" data-testid="agents-row-time" title={t("agents.time")} role="timer">
-                {formatElapsed(ticking, "seconds")}
-              </span>
-            )}
-            {progress === null ? (
-              <span className="agents-row-status" data-status={agent.status}>
-                {t(statusKey(agent.status))}
-              </span>
-            ) : (
-              <span
-                className="agents-row-status agents-progress"
-                data-status={agent.status}
-                data-testid="agents-row-progress"
-                title={t("agents.progressTitle", { percent: progress })}
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <circle className="tr" cx="8" cy="8" r="5.5" />
-                  <circle className="fl" cx="8" cy="8" r="5.5" strokeDasharray={`${(progress / 100) * RING} ${RING}`} />
-                </svg>
-                {progress}%
-              </span>
-            )}
+              )}
+              {elapsed !== null && (
+                <span className="agents-row-time" data-testid="agents-row-time" title={t("agents.time")} role="timer">
+                  {formatElapsed(ticking, "seconds")}
+                </span>
+              )}
+              {progress === null ? (
+                <span className="agents-row-status" data-status={agent.status}>
+                  {t(statusKey(agent.status))}
+                </span>
+              ) : (
+                <span
+                  className="agents-row-status agents-progress"
+                  data-status={agent.status}
+                  data-testid="agents-row-progress"
+                  title={t("agents.progressTitle", { percent: progress })}
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <circle className="tr" cx="8" cy="8" r="5.5" />
+                    <circle
+                      className="fl"
+                      cx="8"
+                      cy="8"
+                      r="5.5"
+                      strokeDasharray={`${(progress / 100) * RING} ${RING}`}
+                    />
+                  </svg>
+                  {progress}%
+                </span>
+              )}
+            </span>
           </span>
           {line !== "" && (
             <span className="agents-row-line" title={line}>
-              {line}
+              {tool ? (
+                <>
+                  <span className="agents-row-tool">{tool.name}</span>
+                  {" · "}
+                  {tool.intent || cleanTask(agent.task)}
+                </>
+              ) : (
+                line
+              )}
             </span>
           )}
         </span>

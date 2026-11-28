@@ -554,11 +554,18 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-xl);
-  transition: background-color var(--dur-fast) var(--ease-out);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
 }
 
 .st-theme-card:hover {
   background: var(--bg-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .st-theme-card:active:not(:focus-visible) {
+    transform: scale(0.98);
+  }
 }
 
 .st-theme-card:focus-visible {
@@ -578,10 +585,23 @@
   overflow: hidden;
   border-radius: var(--radius-md);
   box-shadow: 0 0 0 1px var(--border-subtle);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
-
+.st-theme-card:hover .st-theme-preview {
+  transform: translateY(-1.5px);
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.08),
+    0 0 0 1px var(--border);
+}
 .st-theme-card[aria-pressed="true"] .st-theme-preview {
   box-shadow: 0 0 0 2px var(--st-theme-ring);
+}
+.st-theme-card[aria-pressed="true"]:hover .st-theme-preview {
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.08),
+    0 0 0 2px var(--st-theme-ring);
 }
 
 .st-theme-mini {

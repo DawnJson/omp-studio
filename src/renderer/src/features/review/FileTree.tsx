@@ -40,7 +40,7 @@ export function FileTree({
 }) {
   const t = useT();
   return (
-    <nav className="rv-tree" aria-label={t("review.files")} data-testid="review-tree">
+    <nav className="rv-tree ui-scroll-fade" aria-label={t("review.files")} data-testid="review-tree">
       {groups.map((group) => (
         <section key={group.area} className="rv-group" data-area={group.area} data-testid="review-group">
           <h3 className="rv-group-title">

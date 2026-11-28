@@ -36,6 +36,7 @@
   opacity: 0;
 }
 .terminal-resizer:hover::after,
+.terminal-resizer:active::after,
 .terminal-resizer:focus-visible::after {
   opacity: 1;
 }

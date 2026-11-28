@@ -10,6 +10,19 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Upgraded prompt enhancement: hover or right-click the ✦ button to choose between "Polish", "Structured spec", "Debug", "Concise", and "Custom", and optionally include "Recent conversation" or "Changed git files"; supports streaming preview, single-step Ctrl+Z undo, attachment preservation, the `Alt+E` shortcut, and a Command Palette entry.
+
+### Changed
+
+- Prompt enhancement skips LSP and MCP startup for faster responses and strips thinking tags from the output.
+- Polished UI motion and controls across the app: smooth sliding indicators on segmented controls, tabs, and preview tabs; directional popovers and tooltips; unified enter/exit motion and frosted surfaces for dialogs, toasts, and jump-to-latest; removed shaded dialog footer bands in favor of a subtle top hairline.
+- Aligned background jobs (`/jobs`), overlays, pickers, jobs hover cards, conversation outline, approval gates, and setup cards with studio's radius, typography, and spacing rhythm.
+- Redesigned the subagents side panel layout: independent scrolling for the list and detail panes, a two-tier detail header with top-right actions, an unshaded single-row metric strip with a dedicated context meter, a pinned-filter two-line activity stream, and a compact single-row steer box.
+- Updated Session Info usage to a single-row metric strip and aligned `/trace` numbers right with recessed detail cards; merged `/btw` topic tabs into the header with a compact pill input; added indent guide lines and compaction dividers to `/tree`.
+- Unified the selected-row highlight across the task sidebar, file tree, subagent list, and review tree to a neutral surface, and added dynamic scroll-edge fades across main scrollable panels.
+
 ## [0.12.1] - 2026-11-26
 
 ### Fixed

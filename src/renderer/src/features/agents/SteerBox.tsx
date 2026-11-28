@@ -27,35 +27,31 @@ export function SteerBox({ taskId, name, busy }: { taskId: TaskId; name: string;
   };
   return (
     <div className="agents-steer" data-testid="agents-steer">
-      <div className="composer">
-        <div className="composer-body">
-          <textarea
-            className="composer-field agents-steer-field"
-            data-testid="agents-steer-input"
-            rows={1}
-            value={text}
-            maxLength={subagentLimits.steerChars}
-            placeholder={t("agents.steerPlaceholder")}
-            aria-label={t("agents.steerLabel", { name })}
-            disabled={busy}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={onKeyDown}
-          />
-        </div>
-        <div className="composer-tools agents-steer-tools">
-          <button
-            type="button"
-            className="send"
-            data-kind="send"
-            data-testid="agents-steer-send"
-            disabled={busy || message === ""}
-            aria-label={t("agents.steerSend")}
-            title={t("agents.steerSend")}
-            onClick={send}
-          >
-            <ArrowUp size={16} />
-          </button>
-        </div>
+      <div className="composer agents-steer-box">
+        <textarea
+          className="composer-field agents-steer-field"
+          data-testid="agents-steer-input"
+          rows={1}
+          value={text}
+          maxLength={subagentLimits.steerChars}
+          placeholder={t("agents.steerPlaceholder")}
+          aria-label={t("agents.steerLabel", { name })}
+          disabled={busy}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={onKeyDown}
+        />
+        <button
+          type="button"
+          className="send"
+          data-kind="send"
+          data-testid="agents-steer-send"
+          disabled={busy || message === ""}
+          aria-label={t("agents.steerSend")}
+          title={t("agents.steerSend")}
+          onClick={send}
+        >
+          <ArrowUp size={16} />
+        </button>
       </div>
     </div>
   );

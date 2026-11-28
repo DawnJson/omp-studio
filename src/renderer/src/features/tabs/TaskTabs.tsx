@@ -193,7 +193,7 @@ export function TaskTabs() {
     <div className="task-tabs" data-testid="task-tabs">
       <div
         ref={strip}
-        className="task-tabs-strip"
+        className="task-tabs-strip ui-scroll-fade-x"
         role="tablist"
         aria-label={t("tabs.label")}
         onWheel={(event) => {

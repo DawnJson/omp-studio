@@ -52,6 +52,7 @@
   opacity: 0;
 }
 .file-preview-resizer:hover::after,
+.file-preview-resizer:active::after,
 .file-preview-resizer:focus-visible::after {
   opacity: 1;
 }
@@ -98,6 +99,7 @@
 /* 标签条：占满头部除关闭按钮外的宽度；放不下时标签先等比收窄（名字省略），收到最窄还放不下才横向滚动（不画滚动条，滚轮可滚）；
    标签样子同 ui-tab：当前的 2px --text 下划线 */
 .file-preview-tabs {
+  position: relative;
   display: flex;
   flex: 1;
   align-self: stretch;
@@ -108,6 +110,24 @@
 }
 .file-preview-tabs::-webkit-scrollbar {
   display: none;
+}
+.file-preview-tabs-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: none;
+  height: 2px;
+  background: var(--text);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.file-preview-tabs[data-sliding] > .file-preview-tabs-bar {
+  display: block;
+}
+.file-preview-tabs[data-ready] > .file-preview-tabs-bar {
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    width var(--dur-base) var(--ease-out);
 }
 .file-preview-tab {
   position: relative;
@@ -132,6 +152,9 @@
   content: "";
   background: var(--text);
   border-radius: 1px;
+}
+.file-preview-tabs[data-sliding] > .file-preview-tab[data-active]::after {
+  display: none;
 }
 .file-preview-tab-main {
   display: inline-flex;
@@ -170,15 +193,27 @@
   border: 0;
   border-radius: var(--radius-control);
   opacity: 0;
+  transform: scale(var(--scale-pop));
   cursor: pointer;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .file-preview-tab:hover .file-preview-tab-close,
 .file-preview-tab[data-active] .file-preview-tab-close {
   opacity: 1;
+  transform: none;
 }
 .file-preview-tab-close:hover {
   color: var(--text);
   background: var(--bg-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .file-preview-tab-close:active:not(:focus-visible) {
+    transform: scale(0.94);
+  }
 }
 .file-preview-zoom {
   display: inline-flex;
@@ -248,12 +283,14 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   user-select: none;
+  transition: background-color var(--dur-instant) var(--ease-out);
 }
 .file-tree-row:hover {
   background: var(--bg-hover);
 }
+.file-tree-row:active,
 .file-tree-row[aria-selected="true"] {
-  background: var(--accent-soft);
+  background: var(--bg-active);
 }
 .file-tree:focus-visible .file-tree-row[data-cursor] {
   outline: 3px solid var(--focus-ring);
@@ -299,20 +336,28 @@
   border-radius: var(--radius-control);
   background: transparent;
   opacity: 0;
+  transform: scale(var(--scale-pop));
   cursor: pointer;
   transition:
     opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
     background-color var(--dur-instant) var(--ease-out);
 }
 .file-tree-row:hover .file-tree-mention,
 .file-tree:focus-visible .file-tree-row[data-cursor] .file-tree-mention {
   opacity: 1;
+  transform: none;
 }
 .file-tree-row .file-tree-mention svg {
   color: var(--text-2);
 }
 .file-tree-mention:hover {
   background: var(--bg-active);
+}
+@media (hover: hover) and (pointer: fine) {
+  .file-tree-mention:active {
+    transform: scale(0.94);
+  }
 }
 .file-tree-row .file-tree-mention:hover svg {
   color: var(--text);

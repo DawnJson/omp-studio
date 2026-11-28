@@ -245,6 +245,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     draft.text,
     (task?.model ?? firstPrompt?.model ?? (preStart ? projectDefault.model : null))?.key ?? null,
     fieldRef,
+    worktreeGone,
   );
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -388,6 +389,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       <div
         className="composer"
         data-composer-drop
+        data-enhancing={enhance.busy ? "" : undefined}
         onDragOver={attach.onDragOver}
         onDrop={attach.onDrop}
         onMouseDown={(event) => keepFieldFocus(event, fieldRef.current)}
@@ -442,6 +444,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           }}
           onCaret={fileMenu.trackCaret}
           onKeyDown={onKeyDown}
+          streamingText={enhance.streamText}
+          onCancelStream={enhance.cancel}
         />
         <div className="composer-tools">
           <ModelChip
@@ -478,7 +482,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
             provider={task.model?.key.provider ?? null}
             credentialPins={task.credentialPins}
           />
-          <EnhanceButton enhance={enhance} disabled={worktreeGone} />
+          <EnhanceButton enhance={enhance} disabled={worktreeGone} isTask />
           <SendStop
             running={running}
             stopping={stopping}

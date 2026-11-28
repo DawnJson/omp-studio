@@ -289,6 +289,15 @@
   height: var(--uq-cell);
   border-radius: 2px;
   background: var(--border-subtle);
+  transition:
+    transform var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
+}
+.usage-cell:not([data-empty]):hover {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 1px var(--text-2);
 }
 .usage-cell[data-empty] {
   background: transparent;
