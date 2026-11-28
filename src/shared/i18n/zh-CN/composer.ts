@@ -88,7 +88,7 @@ export const composer = {
   "status.needsYou": "等你确认",
   enhance: "优化提示词",
   "enhance.stop": "停止优化",
-  "enhance.menu": "优化风格与上下文",
+  "enhance.menu": "优化风格与 Context",
   "enhance.style.polish": "克制润色",
   "enhance.style.polishTip": "理顺表述，尽量少改，短草稿保持简短",
   "enhance.style.spec": "清晰规格",
